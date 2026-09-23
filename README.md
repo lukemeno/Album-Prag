@@ -77,6 +77,8 @@ Ein kostenloses Personal Team reicht aus, weil die App keine iCloud-, App-Group-
 
 ## Prüfungen
 
+Hinweis zum Abgleich: Builds mit `CODE_SIGNING_ALLOWED=NO` dürfen den Schlüsselbund nicht benutzen. Die anonyme Supabase-Sitzung geht dann bei jedem Start verloren; Schreibzugriffe scheitern mit „new row violates row-level security policy“. Den Abgleich deshalb nur mit signierten Builds prüfen (Xcode ⌘R oder `xcodebuild` ohne diese Option). Als Unit-Test-Host gleicht die App nie ab.
+
 ```sh
 xcodebuild -project Album.xcodeproj -scheme Album -destination 'platform=iOS Simulator,name=iPhone 17 Pro' CODE_SIGNING_ALLOWED=NO test
 deno test supabase/functions/_shared/album_test.ts supabase/functions/_shared/place_photo_test.ts

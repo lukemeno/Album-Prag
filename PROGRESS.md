@@ -16,5 +16,5 @@
 - App-Sprache ist Deutsch (`CFBundleDevelopmentRegion: de`), damit auch System-Knöpfe deutsch sind.
 - Gemeinsam entscheiden pro Person: Vorschläge der anderen Person bleiben in den eigenen Ideen, bis man selbst abstimmt; beide dafür = Magnet-Klick. Stimmen werden beim Abgleich vereinigt.
 - Tagesplan mit Reihenfolge, Dunkelmodus.
-- Bekannter Fehler (vor dem Redesign vorhanden): Geht die anonyme Supabase-Sitzung verloren, meldet sich die App neu an und ist kein Mitglied der Reise mehr → „new row violates row-level security policy“. Fix wartet auf Freigabe (Auth-Logik).
+- Behoben: „new row violates row-level security policy“. Ursache: unsignierte Test-Builds (`CODE_SIGNING_ALLOWED=NO`) können die Sitzung nicht im Schlüsselbund speichern und schreiben ohne Token (HTTP 401). Außerdem prüft die App jetzt vor jedem Abgleich ihre Mitgliedschaft und tritt mit der gemerkten Einladung wieder bei; beide iPhones merken sich die Einladung. Live geprüft am 23.09. mit signiertem Simulator-Build.
 - Offen: Test auf zwei echten iPhones.

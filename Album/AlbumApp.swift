@@ -10,11 +10,13 @@ import SwiftUI
         return AlbumStore()
     }()
     @Environment(\.scenePhase) private var scenePhase
+    /// Als Test-Host für Unit-Tests nie mit der echten Datenbank abgleichen.
+    private let isUnitTestHost = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     var body: some Scene {
         WindowGroup {
             AlbumRoot().environment(store).tint(AlbumStyle.red)
                 .onChange(of: scenePhase) { _, phase in
-                    if phase == .active { Task { await store.sync() } }
+                    if phase == .active && !isUnitTestHost { Task { await store.sync() } }
                 }
                 .onOpenURL { url in
                     if url.isFileURL && url.pathExtension.lowercased() == "pdf" {
@@ -26,7 +28,7 @@ import SwiftUI
                         }
                     }
                 }
-                .task { await store.sync() }
+                .task { if !isUnitTestHost { await store.sync() } }
                 .alert("Album", isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) {
                     Button("OK") { store.error = nil }
                 } message: { Text(store.error ?? "") }

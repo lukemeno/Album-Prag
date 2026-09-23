@@ -5,6 +5,7 @@ enum AlbumSyncError: LocalizedError {
     case missingConfiguration
     case invalidInvitation
     case missingTrip
+    case membershipLost
 
     var errorDescription: String? {
         switch self {
@@ -14,6 +15,8 @@ enum AlbumSyncError: LocalizedError {
             return "Dieser Einladungslink ist ungültig oder nicht mehr verfügbar."
         case .missingTrip:
             return "Die gemeinsame Reise wurde nicht gefunden."
+        case .membershipLost:
+            return "Dieses iPhone ist nicht mehr mit der Reise verbunden. Bitte den Einladungslink noch einmal öffnen."
         }
     }
 }
@@ -121,12 +124,14 @@ private struct DocumentRow: Codable {
             options: FunctionInvokeOptions(body: JoinTripRequest(inviteToken: token))
         )
         activeTripID = response.tripID
-        return CollaborationState(tripID: response.tripID, inviteToken: nil)
+        // Beide iPhones merken sich die Einladung, damit eine verlorene Anmeldung wieder beitreten kann.
+        return CollaborationState(tripID: response.tripID, inviteToken: token)
     }
 
     func sync(store: AlbumStore) async throws {
         guard let collaboration = store.data.collaboration else { throw AlbumSyncError.missingTrip }
         try await ensureSession()
+        try await ensureMembership(tripID: collaboration.tripID, inviteToken: collaboration.inviteToken)
         activeTripID = collaboration.tripID
 
         let tripRows: [TripRow] = try await client.from("trips")
@@ -188,6 +193,21 @@ private struct DocumentRow: Codable {
 
     private func ensureSession() async throws {
         if (try? await client.auth.session) == nil { _ = try await client.auth.signInAnonymously() }
+    }
+
+    /// Geht die anonyme Anmeldung verloren, meldet sich die App neu an und ist dann kein Mitglied mehr:
+    /// Lesen liefert leere Listen, Schreiben scheitert an den Zugriffsregeln. Dann mit der gemerkten Einladung neu beitreten.
+    private func ensureMembership(tripID: UUID, inviteToken: String?) async throws {
+        struct MemberRow: Decodable { let user_id: UUID }
+        let rows: [MemberRow] = try await client.from("trip_members")
+            .select("user_id").eq("trip_id", value: tripID).limit(1).execute().value
+        guard rows.isEmpty else { return }
+        guard let inviteToken, inviteToken.count >= 32 else { throw AlbumSyncError.membershipLost }
+        let response: JoinTripResponse = try await client.functions.invoke(
+            "join-trip",
+            options: FunctionInvokeOptions(body: JoinTripRequest(inviteToken: inviteToken))
+        )
+        guard response.tripID == tripID else { throw AlbumSyncError.membershipLost }
     }
 
     private func pushDirty(store: AlbumStore, tripID: UUID) async throws {
