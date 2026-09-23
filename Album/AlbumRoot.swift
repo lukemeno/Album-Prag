@@ -1,88 +1,141 @@
 import SwiftUI
 
-enum AlbumTab: String, CaseIterable { case album = "Album", inbox = "Inbox", map = "Karte"
-    var symbol: String { switch self { case .album: return "square.on.square"; case .inbox: return "envelope"; case .map: return "map" } }
-}
+enum AlbumTab: String, CaseIterable { case reise = "Reise", ideen = "Ideen", karte = "Karte" }
+
 struct AlbumRoot: View {
     @Environment(AlbumStore.self) private var store
-    @State private var tab: AlbumTab = .album
-    @State private var adding = false
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var tab: AlbumTab = .reise
+    @State private var adding: Place?
     @State private var settings = false
+    @State private var clipboardOffer = false
+    @AppStorage("album.offeredPasteboard") private var offeredChangeCount = -1
+
+    init() {
+        #if DEBUG
+        if let start = ProcessInfo.processInfo.environment["ALBUM_START_TAB"], let startTab = AlbumTab(rawValue: start) {
+            _tab = State(initialValue: startTab)
+        }
+        #endif
+        let appearance = UITabBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = UIColor(Stitch.card)
+        appearance.shadowColor = UIColor(Stitch.ink.opacity(0.12))
+        UITabBar.appearance().standardAppearance = appearance
+        UITabBar.appearance().scrollEdgeAppearance = appearance
+    }
+
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                HStack(spacing: 8) {
-                    Image("imgSculpture").resizable().scaledToFit().frame(width: 32, height: 32)
-                        .background(AlbumStyle.paper, in: RoundedRectangle(cornerRadius: 8))
-                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(AlbumStyle.gold, lineWidth: 0.75))
-                    Text(tab.rawValue).font(AlbumStyle.serif())
-                    Spacer()
-                    if tab == .inbox { Text("\(store.inbox.count) übrig").font(AlbumStyle.body(12)).foregroundStyle(AlbumStyle.muted) }
-                    Button { adding = true } label: { Image(systemName: "plus").frame(width: 40, height: 40) }.accessibilityLabel("Idee hinzufügen")
-                    Button { settings = true } label: { Image(systemName: "person.2.fill").frame(width: 40, height: 40) }.accessibilityLabel("Geteiltes Album verwalten")
-                }.padding(.horizontal, 16).padding(.vertical, 4)
-                Group {
-                    switch tab {
-                    case .album: HomeView(openInbox: { tab = .inbox }, openMap: { tab = .map })
-                    case .inbox: InboxView()
-                    case .map: TripMapView()
-                    }
-                }.frame(maxWidth: .infinity, maxHeight: .infinity)
-                HStack(spacing: 0) {
-                    ForEach(AlbumTab.allCases, id: \.self) { item in
-                        Button { tab = item } label: {
-                            VStack(spacing: 5) {
-                                Image(item == .album ? "imgIconAlbum" : item == .inbox ? "imgIconInbox" : "imgIconKarte").renderingMode(.template).resizable().scaledToFit().frame(width: 20, height: 20)
-                                Text(item.rawValue).font(AlbumStyle.ticket)
-                                Capsule().fill(tab == item ? AlbumStyle.red : .clear).frame(width: 18, height: 3)
-                            }.frame(maxWidth: .infinity).frame(height: 54)
-                        }.foregroundStyle(tab == item ? AlbumStyle.red : AlbumStyle.muted)
-                            .accessibilityAddTraits(tab == item ? .isSelected : [])
-                    }
-                }.padding(.top, 8).background(AlbumStyle.deep)
-                    .overlay(alignment: .top) { Rectangle().fill(AlbumStyle.gold).frame(height: 0.5) }
-            }.background(AlbumStyle.paper).foregroundStyle(AlbumStyle.ink)
-                .toolbar(.hidden, for: .navigationBar)
-                .sheet(isPresented: $adding) { PlaceEditor(place: Place(title: "")) }
-                .sheet(isPresented: $settings) { AlbumSettings() }
-                .sensoryFeedback(.selection, trigger: tab)
+        TabView(selection: $tab) {
+            ReiseView(openIdeas: { tab = .ideen }, onAdd: add, onShare: { settings = true })
+                .tabItem { Label("Reise", systemImage: "suitcase") }.tag(AlbumTab.reise)
+            InboxView(onAdd: add, onShare: { settings = true })
+                .tabItem { Label("Ideen", systemImage: "lightbulb") }.tag(AlbumTab.ideen)
+                .badge(store.inbox.count)
+            TripMapView(onAdd: add, onShare: { settings = true })
+                .tabItem { Label("Karte", systemImage: "map") }.tag(AlbumTab.karte)
+        }
+        .tint(Stitch.red)
+        .overlay(alignment: .top) {
+            if clipboardOffer {
+                ClipboardNote(onPaste: { url in
+                    clipboardOffer = false
+                    adding = Place(title: "", sourceURL: url.absoluteString)
+                }, onDismiss: { withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) { clipboardOffer = false } })
+                .padding(.top, 64) // unter der Kopfzeile, damit „+“ und „Teilen“ erreichbar bleiben
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .sheet(item: $adding) { PlaceEditor(place: $0) }
+        .sheet(isPresented: $settings) { AlbumSettings() }
+        .sensoryFeedback(.selection, trigger: tab)
+        .onChange(of: scenePhase) { _, phase in if phase == .active { checkPasteboard() } }
+        .onAppear(perform: checkPasteboard)
+    }
+
+    private func add() { adding = Place(title: "") }
+
+    /// Prüft nur, ob ein Link in der Zwischenablage liegt. Gelesen wird erst, wenn ihr „Einfügen“ tippt.
+    private func checkPasteboard() {
+        let board = UIPasteboard.general
+        guard board.changeCount != offeredChangeCount, board.hasURLs || board.hasStrings else { return }
+        let changeCount = board.changeCount
+        board.detectPatterns(for: [.probableWebURL]) { result in
+            guard case .success(let patterns) = result, patterns.contains(.probableWebURL) else { return }
+            Task { @MainActor in
+                offeredChangeCount = changeCount
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) { clipboardOffer = true }
+            }
         }
     }
 }
 
-struct HomeView: View {
-    @Environment(AlbumStore.self) private var store
-    var openInbox: () -> Void
-    var openMap: () -> Void
-    @State private var documents = false
+/// Ein Zettel, der aus der Tasche lugt: Link in der Zwischenablage erkannt.
+/// Einfügen übernimmt ihn als neue Idee, nach oben wischen legt ihn weg, nach 6 Sekunden geht er von selbst.
+struct ClipboardNote: View {
+    var onPaste: (URL) -> Void
+    var onDismiss: () -> Void
+    @State private var drag: CGFloat = 0
+    @State private var appeared = false
+
     var body: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                Button(action: openMap) {
-                    PhotoCard(asset: .bundled(name: "imgPhotoCharlesBridge"), title: "Prag", subtitle: "4.–9. Okt 2026 · Wir zwei", detail: "\(store.franked.count) frankiert · \(store.inbox.count) offen", display: true).frame(height: 420)
-                }.buttonStyle(.plain).accessibilityLabel("Prag, 4. bis 9. Oktober 2026. Reise öffnen")
-                Button { documents = true } label: { BoardingPassView(trip: store.data.trip) }.buttonStyle(.plain)
-                Button(action: openInbox) {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("INBOX").font(AlbumStyle.ticket).tracking(0.6).foregroundStyle(AlbumStyle.red)
-                            Text("\(store.inbox.count) Ideen zum Frankieren").font(AlbumStyle.body()).foregroundStyle(AlbumStyle.ink)
-                        }
-                        Spacer()
-                        HStack(spacing: -8) {
-                            ForEach(Array(store.inbox.prefix(3))) { p in
-                                AlbumPhoto(asset: p.image, root: store.root).frame(width: 36, height: 36).clipShape(RoundedRectangle(cornerRadius: 4)).overlay(RoundedRectangle(cornerRadius: 4).stroke(AlbumStyle.white, lineWidth: 2))
-                            }
-                        }
-                    }.padding(.vertical, 6)
-                }.buttonStyle(.plain)
-                HStack {
-                    Image(systemName: "bed.double")
-                    Text(store.data.trip.hotel).font(AlbumStyle.serif())
-                    Spacer()
-                }.foregroundStyle(AlbumStyle.muted).padding(.vertical, 6)
-            }.padding(16).padding(.top, -8)
-        }.sheet(isPresented: $documents) { TripDocumentsView() }
+        HStack(spacing: 12) {
+            StitchedSymbol(name: "link", rows: 10, cell: 2.4, color: Stitch.red)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Link kopiert").font(.subheadline.weight(.bold)).foregroundStyle(Stitch.ink)
+                Text("Als Idee sichern?").font(.footnote).foregroundStyle(Stitch.inkSoft)
+            }
+            Spacer(minLength: 8)
+            PasteButton(payloadType: URL.self) { urls in
+                guard let url = urls.first else { return }
+                Task { @MainActor in onPaste(url) }
+            }
+            .buttonBorderShape(.capsule)
+            .labelStyle(.titleOnly)
+            .tint(Stitch.red)
+        }
+        .padding(.leading, 16).padding(.trailing, 12).padding(.vertical, 12)
+        .background {
+            UnevenRoundedRectangle(topLeadingRadius: 14, bottomLeadingRadius: 4, bottomTrailingRadius: 4, topTrailingRadius: 14, style: .continuous)
+                .fill(Stitch.card)
+                .overlay(alignment: .bottom) { TornEdge().fill(Stitch.card).frame(height: 6).rotationEffect(.degrees(180)).offset(y: 5) }
+                .shadow(color: .black.opacity(0.2), radius: 12, y: 5)
+        }
+        .overlay(alignment: .topLeading) { TackStitch(color: Stitch.cobalt, size: 13).offset(x: 10, y: -4) }
+        .rotationEffect(.degrees(appeared ? 1.5 : 6), anchor: .topLeading)
+        .padding(.horizontal, 16)
+        .offset(y: min(0, drag))
+        .gesture(DragGesture()
+            .onChanged { drag = $0.translation.height }
+            .onEnded { value in
+                if value.translation.height < -40 || value.predictedEndTranslation.height < -110 { onDismiss() }
+                else { withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) { drag = 0 } }
+            })
+        .sensoryFeedback(.impact(flexibility: .soft), trigger: appeared)
+        .task {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) { appeared = true }
+            try? await Task.sleep(for: .seconds(6))
+            onDismiss()
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Link in der Zwischenablage")
+    }
+}
+
+/// Abgerissene Papierkante.
+struct TornEdge: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: 0, y: rect.maxY))
+        var x: CGFloat = 0
+        var random = SeededRandom(seed: 11)
+        while x < rect.width {
+            path.addLine(to: CGPoint(x: x, y: random.next(in: 0...Double(rect.height))))
+            x += CGFloat(random.next(in: 5...11))
+        }
+        path.addLine(to: CGPoint(x: rect.width, y: rect.maxY))
+        path.closeSubpath()
+        return path
     }
 }
 
@@ -92,7 +145,7 @@ struct BoardingPassView: View {
     var body: some View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(hasFlight ? "ANREISE · 4. OKT" : "REISE · 4.–9. OKT").font(AlbumStyle.ticket).foregroundStyle(AlbumStyle.muted)
+                Text(hasFlight ? "Anreise · 4. Okt" : "Reise · 4.–9. Okt").font(AlbumStyle.ticket).foregroundStyle(AlbumStyle.muted)
                 if hasFlight {
                     HStack { Text(trip.outbound); Spacer(); Text("→").font(AlbumStyle.serif()).foregroundStyle(AlbumStyle.gold); Spacer(); Text(trip.arrival) }.font(AlbumStyle.display(42)).minimumScaleFactor(0.6).lineLimit(1)
                     Text(trip.route).font(AlbumStyle.serif())

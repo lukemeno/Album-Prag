@@ -3,6 +3,8 @@ import SwiftUI
 struct InboxView: View {
     @Environment(AlbumStore.self) private var store
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var onAdd: () -> Void = {}
+    var onShare: () -> Void = {}
     @State private var offset: CGFloat = 0
     @State private var editing: Place?
     @State private var shouldFrank = false
@@ -11,71 +13,86 @@ struct InboxView: View {
     @State private var thresholdFeedback = 0
     @State private var thresholdArmed = false
     @State private var committing = false
+    /// 0…1: das Kreuz, das sich bei „Dafür“ auf das Foto stickt.
+    @State private var crossProgress: CGFloat = 0
+    @State private var stitchTick = 0
 
     private let decisionThreshold: CGFloat = 96
     private var progress: CGFloat { min(abs(offset) / decisionThreshold, 1) }
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 14) {
+            TabHeader(title: "Ideen", subtitle: store.inbox.isEmpty ? "Alles entschieden" : "\(store.inbox.count) offen",
+                      onAdd: onAdd, onShare: onShare)
             if let place = store.inbox.first {
                 GeometryReader { geo in
                     ZStack {
-                        InboxDecisionStage(direction: offset == 0 ? nil : offset > 0 ? .frank : .shelve, progress: progress)
-
-                        if let next = store.inbox.dropFirst().first {
-                            InboxTicketCard(place: next, root: store.root, subtitle: "Als Nächstes")
-                                .padding(.horizontal, 10)
-                                .scaleEffect(reduceMotion ? 1 : 0.965 + 0.035 * progress)
-                                .offset(y: reduceMotion ? 12 : 12 - 8 * progress)
+                        ForEach(Array(store.inbox.dropFirst().prefix(2).enumerated()), id: \.element.id) { index, next in
+                            IdeaPolaroid(place: next, root: store.root, tackColor: Stitch.cobalt)
+                                .rotationEffect(.degrees(index == 0 ? -4 : 5))
+                                .offset(x: index == 0 ? -14 : 16, y: 10)
+                                .scaleEffect(reduceMotion ? 0.94 : 0.94 + 0.04 * progress)
+                                .allowsHitTesting(false)
+                                .accessibilityHidden(true)
                         }
 
-                        InboxTicketCard(place: place, root: store.root, subtitle: "Ziehen, um zu entscheiden")
+                        IdeaPolaroid(place: place, root: store.root, tackColor: Stitch.red, crossProgress: crossProgress)
                             .overlay(alignment: .topTrailing) {
                                 Button { shouldFrank = false; editing = place } label: {
-                                    Image(systemName: "pencil")
-                                        .padding(14)
-                                        .background(AlbumStyle.paper, in: Circle())
+                                    Image(systemName: "pencil").font(.body.weight(.semibold))
                                 }
-                                .padding(16)
+                                .buttonStyle(HeaderIconButton())
+                                .padding(22)
                                 .accessibilityLabel("Idee bearbeiten")
                             }
+                            .overlay { DecisionHint(direction: offset == 0 ? nil : offset > 0 ? .frank : .shelve, progress: progress) }
                             .offset(x: offset, y: reduceMotion ? 0 : -4 * progress)
-                            .scaleEffect(reduceMotion ? 1 : 1 - 0.018 * progress)
-                            .rotationEffect(.degrees(reduceMotion ? 0 : Double(offset / 42).clamped(to: -5...5)))
-                            .shadow(color: .black.opacity(0.10 + 0.12 * progress), radius: 10 + 8 * progress, y: 5 + 5 * progress)
+                            .rotationEffect(.degrees(reduceMotion ? 0 : Double(offset / 42).clamped(to: -6...6) + place.id.stableTilt))
+                            .shadow(color: .black.opacity(0.12 + 0.1 * progress), radius: 10 + 8 * progress, y: 6 + 5 * progress)
                             .gesture(dragGesture(for: place))
+                            .accessibilityElement(children: .contain)
                             .accessibilityIdentifier("Inbox-Ticket")
-                            .accessibilityAction(named: "Frankieren") { act(place, frank: true) }
-                            .accessibilityAction(named: "Zurücklegen") { act(place, frank: false) }
+                            .accessibilityAction(named: "Dafür") { act(place, frank: true) }
+                            .accessibilityAction(named: "Später") { act(place, frank: false) }
                     }
-                    .frame(height: max(220, geo.size.height - 14))
+                    .frame(width: geo.size.width, height: geo.size.height)
                 }
 
-                HStack(spacing: 8) {
-                    Button("ZURÜCKLEGEN") { act(place, frank: false) }.buttonStyle(AlbumButton())
-                    Button("FRANKIEREN") { act(place, frank: true) }.buttonStyle(AlbumButton(primary: true))
+                Text(authorLine(place))
+                    .font(.footnote.weight(.medium)).foregroundStyle(Stitch.inkSoft)
+
+                HStack(spacing: 12) {
+                    Button("Später") { act(place, frank: false) }.buttonStyle(StitchButton())
+                    Button("Dafür") { act(place, frank: true) }.buttonStyle(StitchButton(primary: true))
                 }
             } else {
                 Spacer()
-                Image("imgSculpture").resizable().scaledToFit().frame(width: 140, height: 140)
-                Text("Inbox ist leer").font(AlbumStyle.display(28))
-                Text("Neue Ideen erscheinen hier.\nFrankierte Orte findet ihr auf der Karte.")
-                    .font(AlbumStyle.body()).multilineTextAlignment(.center).foregroundStyle(AlbumStyle.muted)
+                StitchedSymbol(name: "heart.fill", rows: 16, cell: 5, color: Stitch.red)
+                Text("Alles entschieden").font(.title2.weight(.bold)).foregroundStyle(Stitch.ink).padding(.top, 8)
+                Text("Neue Links landen hier.\nBeschlossene Orte findet ihr auf der Karte.")
+                    .font(.body).multilineTextAlignment(.center).foregroundStyle(Stitch.inkSoft)
                 if !store.deferred.isEmpty {
-                    Button("\(store.deferred.count) zurückgelegte Ideen ansehen") { store.restoreDeferred() }.buttonStyle(AlbumButton())
+                    Button("\(store.deferred.count) für später ansehen") { store.restoreDeferred() }
+                        .buttonStyle(StitchButton()).padding(.top, 8).padding(.horizontal, 40)
                 }
                 Spacer()
             }
             if let lastAction {
                 Button("Letzte Entscheidung rückgängig") { store.upsert(lastAction); self.lastAction = nil }
-                    .font(AlbumStyle.body(12)).padding(.bottom, 4)
+                    .font(.footnote.weight(.semibold)).foregroundStyle(Stitch.red).frame(minHeight: 32)
             }
         }
         .allowsHitTesting(!committing)
-        .padding(.horizontal, 16).padding(.top, 4).padding(.bottom, 8)
+        .padding(.horizontal, 16).padding(.bottom, 12)
+        .background(LinenBackground())
         .sheet(item: $editing) { PlaceEditor(place: $0, frankOnSave: shouldFrank) }
         .sensoryFeedback(.impact(weight: .medium), trigger: feedback)
         .sensoryFeedback(.selection, trigger: thresholdFeedback)
+        .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.8), trigger: stitchTick)
+    }
+
+    private func authorLine(_ place: Place) -> String {
+        place.author.localizedCaseInsensitiveCompare("Wir") == .orderedSame ? "Von euch gesammelt" : "Von \(place.author)"
     }
 
     private func dragGesture(for place: Place) -> some Gesture {
@@ -84,9 +101,7 @@ struct InboxView: View {
                 guard abs(value.translation.width) > abs(value.translation.height) else { return }
                 offset = rubberBanded(value.translation.width)
                 let armed = abs(offset) >= decisionThreshold
-                if armed && !thresholdArmed {
-                    thresholdFeedback += 1
-                }
+                if armed && !thresholdArmed { thresholdFeedback += 1 }
                 thresholdArmed = armed
             }
             .onEnded { value in
@@ -113,110 +128,108 @@ struct InboxView: View {
         lastAction = place
         var changed = place
         if frank { changed.franked = true; changed.deferred = false } else { changed.deferred = true }
-        feedback += 1
-        if reduceMotion { store.upsert(changed); offset = 0; return }
+        if reduceMotion { feedback += 1; store.upsert(changed); offset = 0; return }
         committing = true
-        withAnimation(.easeIn(duration: 0.24)) { offset = frank ? 520 : -520 } completion: {
+        if frank {
+            // Das Kreuz stickt sich in zwei Stichen auf das Foto, jeder Stich mit eigener Haptik.
+            withAnimation(.easeOut(duration: 0.22)) { offset = 0; crossProgress = 0.5 } completion: {
+                stitchTick += 1
+                withAnimation(.easeOut(duration: 0.22)) { crossProgress = 1 } completion: {
+                    stitchTick += 1
+                    fly(changed, to: 560)
+                }
+            }
+        } else {
+            feedback += 1
+            fly(changed, to: -560)
+        }
+    }
+
+    private func fly(_ changed: Place, to target: CGFloat) {
+        withAnimation(.easeIn(duration: 0.26)) { offset = target } completion: {
             store.upsert(changed)
             offset = 0
+            crossProgress = 0
             committing = false
         }
     }
 }
 
-private enum InboxDecision {
-    case shelve, frank
-}
+private enum InboxDecision { case shelve, frank }
 
-private struct InboxDecisionStage: View {
+/// Während des Ziehens: „Dafür“ oder „Später“ erscheint auf dem Foto.
+private struct DecisionHint: View {
     let direction: InboxDecision?
     let progress: CGFloat
-
     var body: some View {
-        HStack {
-            decision(.frank, title: "FRANKIEREN", icon: "checkmark.seal.fill")
-            Spacer()
-            decision(.shelve, title: "ZURÜCKLEGEN", icon: "arrow.uturn.backward.circle.fill")
+        if let direction {
+            Text(direction == .frank ? "Dafür" : "Später")
+                .font(.title2.weight(.heavy))
+                .foregroundStyle(direction == .frank ? Stitch.card : Stitch.red)
+                .padding(.horizontal, 18).padding(.vertical, 8)
+                .background(direction == .frank ? Stitch.red : Stitch.card, in: Capsule())
+                .overlay(Capsule().strokeBorder(Stitch.red, lineWidth: 2))
+                .rotationEffect(.degrees(direction == .frank ? -8 : 8))
+                .opacity(Double(progress))
+                .scaleEffect(0.85 + 0.15 * progress)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: direction == .frank ? .topLeading : .topTrailing)
+                .padding(34)
+                .allowsHitTesting(false)
         }
-        .padding(.horizontal, 22)
-    }
-
-    private func decision(_ value: InboxDecision, title: String, icon: String) -> some View {
-        VStack(spacing: 8) {
-            Image(systemName: icon).font(.system(size: 27))
-            Text(title).font(AlbumStyle.ticket)
-        }
-        .foregroundStyle(AlbumStyle.red)
-        .opacity(direction == value ? 0.25 + 0.75 * progress : 0)
-        .scaleEffect(0.9 + 0.1 * progress)
     }
 }
 
-private struct InboxTicketCard: View {
+/// Eine Idee als Polaroid, an zwei Ecken angeheftet.
+struct IdeaPolaroid: View {
     let place: Place
     let root: URL
-    let subtitle: String
+    var tackColor = Stitch.red
+    var crossProgress: CGFloat = 0
 
     var body: some View {
         GeometryReader { geo in
-            VStack(spacing: 0) {
-                PhotoCard(asset: place.image, root: root, title: place.title, subtitle: subtitle)
-                    .frame(height: max(150, geo.size.height - 68))
-                    .clipShape(UnevenRoundedRectangle(topLeadingRadius: 20, topTrailingRadius: 20))
-                ticketStub
+            VStack(alignment: .leading, spacing: 0) {
+                AlbumPhoto(asset: place.image, root: root)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: max(160, geo.size.height - 118))
+                    .overlay(alignment: .bottomTrailing) {
+                        Canvas { context, size in
+                            Stitch.drawCross(&context, in: CGRect(origin: .zero, size: size), color: Stitch.red, progress: crossProgress)
+                        }
+                        .frame(width: 64, height: 64)
+                        .padding(14)
+                        .opacity(crossProgress > 0 ? 1 : 0)
+                        .accessibilityHidden(true)
+                    }
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(place.title.isEmpty ? "Neue Idee" : place.title)
+                        .font(.title2.weight(.bold)).foregroundStyle(Stitch.ink).lineLimit(2)
+                        .minimumScaleFactor(0.8)
+                    HStack(spacing: 6) {
+                        Image(systemName: sourceIcon).font(.footnote.weight(.semibold))
+                        Text(place.sourceURL.isEmpty ? place.category : "\(place.sourceLabel) · \(place.category)")
+                            .font(.subheadline)
+                    }
+                    .foregroundStyle(Stitch.inkSoft)
+                }
+                .padding(.top, 14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                Spacer(minLength: 0)
             }
-            .background(AlbumStyle.paper)
-            .clipShape(RoundedRectangle(cornerRadius: 20))
-            .overlay(RoundedRectangle(cornerRadius: 20).stroke(AlbumStyle.gold.opacity(0.42), lineWidth: 0.75))
+            .padding(14)
+            .background(Stitch.card)
+            .overlay(alignment: .topLeading) { TackStitch(color: tackColor, size: 16).offset(x: 6, y: 6) }
+            .overlay(alignment: .topTrailing) { TackStitch(color: tackColor, size: 16).offset(x: -6, y: 6) }
         }
     }
 
-    private var ticketStub: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 5) {
-                Text(place.category.uppercased()).font(AlbumStyle.ticket).foregroundStyle(AlbumStyle.red)
-                Text(originLabel).font(AlbumStyle.ticket).foregroundStyle(AlbumStyle.muted)
-            }
-            Spacer()
-            TicketBarcode(seed: place.id)
+    private var sourceIcon: String {
+        switch place.sourceLabel {
+        case "TikTok": "music.note"
+        case "Instagram": "camera"
+        case "Gesammelt": "square.and.pencil"
+        default: "link"
         }
-        .padding(.horizontal, 18)
-        .frame(height: 68)
-        .background(alignment: .top) {
-            PerforationLine().stroke(AlbumStyle.gold.opacity(0.7), style: .init(lineWidth: 1, dash: [4, 5]))
-        }
-    }
-
-    private var originLabel: String {
-        if !place.sourceURL.isEmpty { return place.sourceLabel.uppercased() }
-        return place.author.localizedCaseInsensitiveCompare("Wir") == .orderedSame
-            ? "VON UNS"
-            : "VON \(place.author.uppercased())"
-    }
-}
-
-private struct PerforationLine: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.move(to: CGPoint(x: 0, y: 0.5))
-        path.addLine(to: CGPoint(x: rect.maxX, y: 0.5))
-        return path
-    }
-}
-
-private struct TicketBarcode: View {
-    let seed: String
-    private var bars: [CGFloat] {
-        Array(seed.utf8.prefix(18)).enumerated().map { index, byte in CGFloat(1 + (Int(byte) + index) % 3) }
-    }
-
-    var body: some View {
-        HStack(spacing: 1.5) {
-            ForEach(Array(bars.enumerated()), id: \.offset) { _, width in
-                Rectangle().fill(AlbumStyle.ink.opacity(0.78)).frame(width: width, height: 30)
-            }
-        }
-        .accessibilityHidden(true)
     }
 }
 

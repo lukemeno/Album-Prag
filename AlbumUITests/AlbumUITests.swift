@@ -1,7 +1,9 @@
 import XCTest
+import UIKit
 
 final class AlbumUITests: XCTestCase {
     func testCreateIdeaAndPersistence() {
+        UIPasteboard.general.items = [] // keine Reste früherer Läufe
         let app = XCUIApplication()
         app.launchEnvironment["ALBUM_TEST_STORE"] = "ui-" + UUID().uuidString
         app.launch()
@@ -12,20 +14,20 @@ final class AlbumUITests: XCTestCase {
         title.tap(); title.typeText("Unser Testcafe")
         app.buttons["Speichern"].tap()
         app.terminate(); app.launch()
-        app.buttons["Inbox"].tap()
-        XCTAssertTrue(app.buttons["ZURÜCKLEGEN"].waitForExistence(timeout: 5))
+        app.buttons["Ideen"].tap()
+        XCTAssertTrue(app.buttons["Später"].waitForExistence(timeout: 5))
         let ticket = app.otherElements["Inbox-Ticket"]
         XCTAssertTrue(ticket.waitForExistence(timeout: 5))
         ticket.swipeLeft()
         XCTAssertTrue(app.buttons["Letzte Entscheidung rückgängig"].waitForExistence(timeout: 5))
-        for _ in 0..<2 { app.buttons["ZURÜCKLEGEN"].tap() }
+        for _ in 0..<2 { app.buttons["Später"].tap() }
         XCTAssertTrue(app.buttons["Idee bearbeiten"].waitForExistence(timeout: 5))
-        app.terminate(); app.launch(); app.buttons["Inbox"].tap()
+        app.terminate(); app.launch(); app.buttons["Ideen"].tap()
         XCTAssertTrue(app.buttons["Idee bearbeiten"].waitForExistence(timeout: 5))
-        app.buttons["ZURÜCKLEGEN"].tap()
+        app.buttons["Später"].tap()
         XCTAssertTrue(app.buttons["Letzte Entscheidung rückgängig"].exists)
         app.buttons["Letzte Entscheidung rückgängig"].tap()
         app.buttons["Karte"].tap()
-        XCTAssertTrue(app.staticTexts["Prag auf der Karte"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["Prag auf der Karte"].waitForExistence(timeout: 5))
     }
 }

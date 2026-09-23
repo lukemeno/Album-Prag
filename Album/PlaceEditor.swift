@@ -17,6 +17,8 @@ struct PlaceEditor: View {
     @State private var searchTask: Task<Void, Never>?
     @State private var photoItem: PhotosPickerItem?
     @State private var pendingPhotoID: String?
+    @State private var posting = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let categories = ["Idee", "Sehenswert", "Essen & Trinken", "Aussicht", "Unterkunft", "Shopping"]
     var valid: Bool {
         !place.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && (place.sourceURL.isEmpty || LinkValidation.url(place.sourceURL) != nil) && (!frankOnSave || place.coordinate != nil)
@@ -62,7 +64,7 @@ struct PlaceEditor: View {
                             Button("Bild entfernen", role: .destructive) { place.image = nil }
                         }
                     }
-                } header: { Text("Auf der Karte bestätigen") } footer: { Text("Wähle den passenden Suchtreffer. Seine Koordinaten werden einmal gespeichert. Zum Frankieren ist ein bestätigter Ort nötig.") }
+                } header: { Text("Auf der Karte bestätigen") } footer: { Text("Wähle den passenden Suchtreffer. Seine Koordinaten werden einmal gespeichert. Damit ein Ort auf die Karte kommt, muss er bestätigt sein.") }
                 if place.franked {
                     Section("Planung") {
                         Toggle("Schon besucht", isOn: $place.visited)
@@ -72,19 +74,26 @@ struct PlaceEditor: View {
                         }
                     }
                 }
-            }.scrollContentBackground(.hidden).background(AlbumStyle.paper)
-                .navigationTitle(frankOnSave ? "Frankieren" : "Reiseidee").navigationBarTitleDisplayMode(.inline)
+            }.scrollContentBackground(.hidden).background(LinenBackground())
+                .navigationTitle(frankOnSave ? "Ort bestätigen" : "Idee").navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { cancel() } }
                     ToolbarItem(placement: .confirmationAction) { Button("Speichern") {
+                        let isNew = !store.places.contains { $0.id == place.id }
                         if frankOnSave { place.franked = true; place.deferred = false }
                         removeUnusedPendingPhoto()
                         store.upsert(place)
                         pendingPhotoID = nil
-                        dismiss()
-                    }.disabled(!valid) }
+                        // Neue Ideen werden sichtbar eingeworfen; gespeichert ist schon vorher.
+                        if isNew && !reduceMotion { withAnimation(.easeOut(duration: 0.2)) { posting = true } } else { dismiss() }
+                    }.disabled(!valid || posting) }
                 }
                 .onAppear { query = place.title == "Neue Reiseidee" ? "" : place.title }
+                .task {
+                    // Aus der Zwischenablage übernommen: Vorschau gleich laden.
+                    if place.title.isEmpty, LinkValidation.url(place.sourceURL) != nil { await enrich() }
+                }
+                .overlay { if posting { LetterSlotDrop(place: place, root: store.root) { dismiss() }.transition(.opacity) } }
                 .onDisappear { searchTask?.cancel() }
                 .onChange(of: photoItem) { _, item in
                     guard let item else { return }

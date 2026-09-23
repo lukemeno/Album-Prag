@@ -19,13 +19,17 @@
 		60451787C4910C452533C46D /* PlaceEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = EADF5566061B2E2A123B8884 /* PlaceEditor.swift */; };
 		67B21440F621B0585A2BA6C5 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 124B6D626947355447F3229A /* Supabase */; };
 		6CC7A2913C2117C4B6772399 /* IBMPlexSans-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = B5087B9A07A8429684CC0D9C /* IBMPlexSans-OFL.txt */; };
+		6CE226A25567DD39D8B1B669 /* ReiseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D65E5CE134035E1E79693B07 /* ReiseView.swift */; };
 		71CCB29D97812AF1824E5BCC /* InstrumentSerif.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C4C6D8A6AB41421423966DE5 /* InstrumentSerif.ttf */; };
 		861C66CA273B9FCF131CC452 /* AlbumSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = F288A095809BE84F03E8D0A2 /* AlbumSettings.swift */; };
+		8A3A0243BFBCE279E3311BE4 /* Stitch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 305FA30E10D7BF85DFC620CA /* Stitch.swift */; };
 		988DEC3E61CA9C625448E6F4 /* TripMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 909038016280D53202280AA9 /* TripMapView.swift */; };
 		9DD2E99A6DA024B10EB20B63 /* PlaceImageStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 342E82A238D83AEF9ACE760D /* PlaceImageStorage.swift */; };
+		A2AB06E29C77A1E4F3D1F9AB /* LetterSlot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4839CDE88E799887C93A63C1 /* LetterSlot.swift */; };
 		A69878017DC315B837CEA926 /* SupabaseSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BE1B394D9C24D7A3114F267 /* SupabaseSync.swift */; };
 		AA2AE6569EF33C3C52FC7E0A /* InboxView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EAD06B7A23FF1CAAC9724F8 /* InboxView.swift */; };
 		AC6404650055536371E3B44A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 698FD5EFCD8113A93B0565ED /* Assets.xcassets */; };
+		AED1D6ADEDB8D1D54D2E8B82 /* ReiseExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77AD0E6783FBAB9D06D1ED1F /* ReiseExtras.swift */; };
 		CBCA254E06A4AEECE13DC690 /* Fraunces-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = 5463C055190AAC2449152828 /* Fraunces-OFL.txt */; };
 		D0C566058D79B60933A7D110 /* AlbumStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AEC4D2DA5E025826995EB60 /* AlbumStore.swift */; };
 		D0FDC746138CA4E1834588DA /* IBMPlexMono-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = B94DDFBE5E857BDD53D02A27 /* IBMPlexMono-OFL.txt */; };
@@ -57,15 +61,18 @@
 		1C0B3187913E40C0E7F6AF2F /* TripDocumentsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripDocumentsView.swift; sourceTree = "<group>"; };
 		1FF7715850FEE1E6DE0A245A /* PlaceImageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceImageService.swift; sourceTree = "<group>"; };
 		22E362E480309CBF88A1A449 /* AlbumTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumTests.swift; sourceTree = "<group>"; };
+		305FA30E10D7BF85DFC620CA /* Stitch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Stitch.swift; sourceTree = "<group>"; };
 		328C91DA0E5D75DF6C20603C /* AlbumRoot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumRoot.swift; sourceTree = "<group>"; };
 		342E82A238D83AEF9ACE760D /* PlaceImageStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceImageStorage.swift; sourceTree = "<group>"; };
 		3BE1B394D9C24D7A3114F267 /* SupabaseSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseSync.swift; sourceTree = "<group>"; };
+		4839CDE88E799887C93A63C1 /* LetterSlot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LetterSlot.swift; sourceTree = "<group>"; };
 		531AAC118D595F7C5919B514 /* IBMPlexMono.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = IBMPlexMono.ttf; sourceTree = "<group>"; };
 		53AE6C0D4CEA917FC706DD41 /* IBMPlexSans.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = IBMPlexSans.ttf; sourceTree = "<group>"; };
 		5463C055190AAC2449152828 /* Fraunces-OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Fraunces-OFL.txt"; sourceTree = "<group>"; };
 		570F4FCF87803AE047C0D2A1 /* Design.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Design.swift; sourceTree = "<group>"; };
 		5AEC4D2DA5E025826995EB60 /* AlbumStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumStore.swift; sourceTree = "<group>"; };
 		698FD5EFCD8113A93B0565ED /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		77AD0E6783FBAB9D06D1ED1F /* ReiseExtras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReiseExtras.swift; sourceTree = "<group>"; };
 		7EAD06B7A23FF1CAAC9724F8 /* InboxView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxView.swift; sourceTree = "<group>"; };
 		90556A3399AE23586611E4ED /* InstrumentSerif-OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "InstrumentSerif-OFL.txt"; sourceTree = "<group>"; };
 		909038016280D53202280AA9 /* TripMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripMapView.swift; sourceTree = "<group>"; };
@@ -76,6 +83,7 @@
 		C01719B12F0C4B781136BCDE /* AlbumApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumApp.swift; sourceTree = "<group>"; };
 		C4C6D8A6AB41421423966DE5 /* InstrumentSerif.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = InstrumentSerif.ttf; sourceTree = "<group>"; };
 		D48710D3053AD6A54DD19DDC /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		D65E5CE134035E1E79693B07 /* ReiseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReiseView.swift; sourceTree = "<group>"; };
 		E4CB9566B5C99924A3FCEF35 /* AlbumUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = AlbumUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E726CEE21D6684745507C0D6 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		EADF5566061B2E2A123B8884 /* PlaceEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceEditor.swift; sourceTree = "<group>"; };
@@ -122,6 +130,17 @@
 			path = AlbumTests;
 			sourceTree = "<group>";
 		};
+		AC51AD933C9A85FF5345F40D /* Stitch */ = {
+			isa = PBXGroup;
+			children = (
+				4839CDE88E799887C93A63C1 /* LetterSlot.swift */,
+				77AD0E6783FBAB9D06D1ED1F /* ReiseExtras.swift */,
+				D65E5CE134035E1E79693B07 /* ReiseView.swift */,
+				305FA30E10D7BF85DFC620CA /* Stitch.swift */,
+			);
+			path = Stitch;
+			sourceTree = "<group>";
+		};
 		B7406854DBFC1957E30C58DC /* Album */ = {
 			isa = PBXGroup;
 			children = (
@@ -142,6 +161,7 @@
 				1C0B3187913E40C0E7F6AF2F /* TripDocumentsView.swift */,
 				909038016280D53202280AA9 /* TripMapView.swift */,
 				FA7DC762B2E604033DBC1D4D /* Resources */,
+				AC51AD933C9A85FF5345F40D /* Stitch */,
 			);
 			path = Album;
 			sourceTree = "<group>";
@@ -317,10 +337,14 @@
 				D0C566058D79B60933A7D110 /* AlbumStore.swift in Sources */,
 				337A11077066B4212FCB497C /* Design.swift in Sources */,
 				AA2AE6569EF33C3C52FC7E0A /* InboxView.swift in Sources */,
+				A2AB06E29C77A1E4F3D1F9AB /* LetterSlot.swift in Sources */,
 				F10BF00CF1019633DB7F7F1A /* Models.swift in Sources */,
 				60451787C4910C452533C46D /* PlaceEditor.swift in Sources */,
 				07D3335CE6C80C81552F4376 /* PlaceImageService.swift in Sources */,
 				9DD2E99A6DA024B10EB20B63 /* PlaceImageStorage.swift in Sources */,
+				AED1D6ADEDB8D1D54D2E8B82 /* ReiseExtras.swift in Sources */,
+				6CE226A25567DD39D8B1B669 /* ReiseView.swift in Sources */,
+				8A3A0243BFBCE279E3311BE4 /* Stitch.swift in Sources */,
 				A69878017DC315B837CEA926 /* SupabaseSync.swift in Sources */,
 				44B7AB72701D03DF20EFB2A1 /* TripDocumentsView.swift in Sources */,
 				988DEC3E61CA9C625448E6F4 /* TripMapView.swift in Sources */,

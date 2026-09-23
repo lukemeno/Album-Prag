@@ -3,29 +3,28 @@ import LinkPresentation
 import UniformTypeIdentifiers
 import UIKit
 
+/// Ältere Bildschirme lesen diese Werte; sie zeigen jetzt auf die Welt „Kreuzstich“.
 enum AlbumStyle {
-    static let paper = Color(red: 244/255, green: 239/255, blue: 228/255)
-    static let deep = Color(red: 232/255, green: 223/255, blue: 208/255)
-    static let ink = Color(red: 28/255, green: 25/255, blue: 21/255)
-    static let muted = Color(red: 107/255, green: 100/255, blue: 92/255)
-    static let red = Color(red: 182/255, green: 69/255, blue: 50/255)
-    static let gold = Color(red: 196/255, green: 165/255, blue: 116/255)
-    static let white = Color(red: 251/255, green: 248/255, blue: 242/255)
-    static func display(_ size: CGFloat = 32) -> Font { .custom("Fraunces-Regular", size: size, relativeTo: .largeTitle).weight(.semibold) }
-    static func serif(_ size: CGFloat = 22) -> Font { .custom("InstrumentSerif-Regular", size: size, relativeTo: .title2) }
-    static func body(_ size: CGFloat = 15) -> Font { .custom("IBMPlexSans-Regular", size: size, relativeTo: .body) }
-    static let ticket = Font.custom("IBMPlexMono-Regular", size: 12, relativeTo: .caption)
+    static let paper = Stitch.linen
+    static let deep = Color(red: 228/255, green: 216/255, blue: 192/255)
+    static let ink = Stitch.ink
+    static let muted = Stitch.inkSoft
+    static let red = Stitch.red
+    static let gold = Color(red: 190/255, green: 174/255, blue: 146/255)
+    static let white = Stitch.card
+    static func display(_ size: CGFloat = 32) -> Font { .system(size: scaled(size, .largeTitle), weight: .bold) }
+    static func serif(_ size: CGFloat = 22) -> Font { .system(size: scaled(size, .title2), weight: .semibold) }
+    static func body(_ size: CGFloat = 15) -> Font { .system(size: scaled(size, .body)) }
+    static let ticket = Font.footnote.weight(.semibold)
+    private static func scaled(_ size: CGFloat, _ style: UIFont.TextStyle) -> CGFloat {
+        UIFontMetrics(forTextStyle: style).scaledValue(for: size)
+    }
 }
 
 struct AlbumButton: ButtonStyle {
     var primary = false
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label.font(AlbumStyle.ticket).tracking(0.6)
-            .frame(maxWidth: .infinity).padding(.vertical, 17)
-            .foregroundStyle(primary ? AlbumStyle.white : AlbumStyle.ink)
-            .background(primary ? AlbumStyle.red : AlbumStyle.deep, in: RoundedRectangle(cornerRadius: 20))
-            .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(AlbumStyle.gold.opacity(primary ? 0 : 1), lineWidth: 0.75))
-            .opacity(configuration.isPressed ? 0.75 : 1)
+        StitchButton(primary: primary).makeBody(configuration: configuration)
     }
 }
 

@@ -13,11 +13,11 @@ struct TripDocumentsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     Text("Reiseunterlagen").font(AlbumStyle.display())
-                    Text("PRAG · 4.–9. OKTOBER 2026").font(AlbumStyle.ticket).foregroundStyle(AlbumStyle.red)
+                    Text("Prag · 4.–9. Oktober 2026").font(AlbumStyle.ticket).foregroundStyle(AlbumStyle.red)
                     BoardingPassView(trip: store.data.trip)
                     Label(store.data.trip.hotel, systemImage: "bed.double").font(AlbumStyle.serif(25))
                     if !store.data.trip.notes.isEmpty { Text(store.data.trip.notes).font(AlbumStyle.body()) }
-                    Button("REISEDATEN BEARBEITEN") { editing = true }.buttonStyle(AlbumButton())
+                    Button("Reisedaten bearbeiten") { editing = true }.buttonStyle(AlbumButton())
                     Divider()
                     Text("Dokumente").font(AlbumStyle.serif(28))
                     ForEach(store.data.documents) { doc in
@@ -25,10 +25,10 @@ struct TripDocumentsView: View {
                             HStack { Image(systemName: "doc.richtext"); Text(doc.name).font(AlbumStyle.body()); Spacer(); Image(systemName: "chevron.right") }.padding(16).background(AlbumStyle.white, in: RoundedRectangle(cornerRadius: 14))
                         }
                     }
-                    Button("PDF HINZUFÜGEN") { importing = true }.buttonStyle(AlbumButton(primary: true))
+                    Button("PDF hinzufügen") { importing = true }.buttonStyle(AlbumButton(primary: true))
                     Text("Das Original bleibt gespeichert. Enthaltenen Text könnt ihr prüfen und Reisedaten daraus übernehmen. Gescannte PDFs bleiben als Dokument lesbar.").font(AlbumStyle.body(13)).foregroundStyle(AlbumStyle.muted)
                 }.padding(16)
-            }.background(AlbumStyle.paper).navigationTitle("Reiseunterlagen").navigationBarTitleDisplayMode(.inline)
+            }.background(LinenBackground()).navigationTitle("Reiseunterlagen").navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } } }
                 .fileImporter(isPresented: $importing, allowedContentTypes: [.pdf]) { result in
                     do { try store.importPDF(result.get()) } catch { store.error = error.localizedDescription }
@@ -79,7 +79,7 @@ struct TripEditor: View {
                     TextField("Flugnummer", text: $trip.flightNumber)
                     TextField("Rückreise, Check-in & Notizen", text: $trip.notes, axis: .vertical).lineLimit(4...10)
                 }
-            }.navigationTitle("Reisedaten").navigationBarTitleDisplayMode(.inline)
+            }.scrollContentBackground(.hidden).background(LinenBackground()).navigationTitle("Reisedaten").navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }
                     ToolbarItem(placement: .confirmationAction) { Button("Speichern") { store.updateTrip(trip); dismiss() } }

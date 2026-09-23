@@ -3,6 +3,25 @@ import PDFKit
 @testable import Album
 
 final class AlbumTests: XCTestCase {
+    func testTripCountdownAndTodayPlan() {
+        let date = { (day: Int, hour: Int) in TripDates.calendar.date(from: DateComponents(year: 2026, month: 10, day: day, hour: hour))! }
+        let september = TripDates.calendar.date(from: DateComponents(year: 2026, month: 9, day: 23, hour: 23, minute: 59))!
+        XCTAssertEqual(TripDates.daysUntilStart(from: september), 11)
+        XCTAssertEqual(TripDates.daysUntilStart(from: date(3, 22)), 1)
+        XCTAssertEqual(TripDates.daysUntilStart(from: date(4, 6)), 0)
+        XCTAssertNil(TripDates.tripDay(on: date(3, 23)))
+        XCTAssertEqual(TripDates.tripDay(on: date(4, 0)), 4)
+        XCTAssertEqual(TripDates.tripDay(on: date(9, 23)), 9)
+        XCTAssertNil(TripDates.tripDay(on: date(10, 0)))
+    }
+
+    func testStitchedTextKeepsDescender() {
+        let grid = StitchGrid.text("Prag", rows: 30, color: .red)
+        XCTAssertGreaterThan(grid.cells.count, 100)
+        // Die Unterlänge des „g“ reicht tiefer als die Grundlinie der übrigen Buchstaben.
+        let lowestInLeftHalf = grid.cells.filter { $0.x < grid.columns / 2 }.map(\.y).max() ?? 0
+        XCTAssertGreaterThan(grid.rows - 1, lowestInLeftHalf)
+    }
     func testOnlyWebLinksAccepted() {
         XCTAssertNil(LinkValidation.url("javascript:alert(1)"))
         XCTAssertNil(LinkValidation.url("file:///private/test"))

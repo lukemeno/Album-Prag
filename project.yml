@@ -25,6 +25,8 @@ targets:
       path: Album/Info.plist
       properties:
         CFBundleDisplayName: Album
+        CFBundleDevelopmentRegion: de
+        CFBundleLocalizations: [de]
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UIUserInterfaceStyle: Light

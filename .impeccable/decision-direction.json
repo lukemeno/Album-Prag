@@ -1,0 +1,130 @@
+{
+  "title": "Welche Welt bekommt Album?",
+  "question": "Der Wurf hat „Kreuzstich zu zweit“ gezogen. Behalten, eine Alternative nehmen oder neu würfeln.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Kreuzstich zu zweit",
+      "kicker": "DER WURF",
+      "lineage": "Böhmisch-mährische Volksstickerei, Kreuzstich auf Leinen",
+      "thesis": "Ein Kreuzstich besteht aus zwei Stichen: Ein Stich ist eine Idee von einem von euch, das volle Kreuz heißt, ihr wollt es beide.",
+      "palette": ["#EFE6D2", "#C8322B", "#1F3F8C", "#E7B530", "#1C1A17"],
+      "materials": ["Leinen mit sichtbarem Stickgitter", "Garn mit Glanz und Faserung", "Stickrahmen"],
+      "viewport": "Die Prag-Reise als Stickrahmen: ein Motiv der Karlsbrücke aus Kreuzen, die schon gestickten Kreuze in euren zwei Garnfarben, die noch offenen Ideen als vorgedrucktes Muster.",
+      "risk": "Kippt ins Omahafte, wenn das Muster zu kleinteilig und die Farben zu brav werden. Die Karte, Fotos und PDFs müssen trotzdem klar lesbar bleiben.",
+      "raised": [
+        { "from": "challenger-labanotation", "raise": "Zwei Spalten, links du, rechts sie, mit der Mitte als Achse. Jede Idee zeigt sofort, von wem sie kommt und wer schon zugestimmt hat." },
+        { "from": "challenger-civic", "raise": "Das Leinen bleibt fast leer, alle Farbe steckt im Garn. Farbe bedeutet damit immer eine Entscheidung und ist nie Deko." },
+        { "from": "challenger-seven-segment", "raise": "Noch nicht gestickte Kreuze sind als blasses, vorgedrucktes Muster da. Offene Ideen sieht man, bevor sie entschieden sind." },
+        { "from": "challenger-ocean", "raise": "Eine einzige senkrechte Zeitachse vom Planen über Prag bis zum Danach. Die ganze Reise ist ein Stickbild, das von oben nach unten wächst." },
+        { "from": "challenger-cracktro", "raise": "Keine Kartenstapel: Orte, Fotos und Tickets liegen direkt auf dem Leinen und sind mit Garn angeheftet statt in Boxen gesteckt." }
+      ]
+    },
+    {
+      "id": "model-pick",
+      "label": "Scrapbook-Tisch",
+      "kicker": "IMPECCABLE’S PICK",
+      "lineage": "Scrapbooking, Polaroids, Spitzendeckchen, Fundstücke",
+      "thesis": "Die Reise ist ein Tisch voller ausgeschnittener echter Dinge: eure Fotos, Tickets, ein Espresso Martini. Jede Idee ist ein Objekt, das ihr auf den Tisch legt.",
+      "palette": ["#4E5230", "#F4EDE1", "#8E1F2F", "#E9D9B8", "#FFFFFF"],
+      "materials": ["freigestellte Objekte mit echten Schatten", "Polaroid-Rahmen", "Perlen, Spitze, Glitzersterne"],
+      "viewport": "Ein olivgrüner Tisch, darauf schräg gelegt die Prag-Collage: Polaroids, Bordkarte, Hotelschlüssel. Obenauf ein versiegelter Umschlag „Prag 4.–9. Okt“.",
+      "risk": "Das ist die Richtung, bei der die meisten Reise-Journal-Apps landen, und sie kommt direkt aus deiner Hochzeits-Referenz. Ohne echte, freigestellte Objekte wirkt sie schnell wie Clipart."
+    },
+    {
+      "id": "challenger-sneaker",
+      "label": "Kartonstapel",
+      "verdict": "competitive",
+      "lineage": "Archivwand aus Schuhkartons",
+      "thesis": "Jede Reise ist ein Karton im Stapel. Herausziehen, Deckel auf, Seidenpapier zurückschlagen, und drinnen liegen eure Orte.",
+      "palette": ["#C8622A", "#111111", "#F7F4EE", "#E4D7C2"],
+      "materials": ["Karton mit Aufdruck", "Seidenpapier", "Etikett mit Schablonenschrift"],
+      "viewport": "Die Stirnseite eines Kartons „PRAG 04–09 OKT“, halb aus dem Stapel gezogen, der Deckel einen Spalt offen.",
+      "case": "Passt gut zu „Prag zuerst, später mehr“, weil der Stapel aus mehreren Reisen sofort verständlich ist. Nach cozy und sweet fühlt es sich für euch zwei aber weniger an.",
+      "risk": "Wirkt kühl und nach Sammlerstück statt zärtlich.",
+      "hero": "https://impeccable.style/worlds/cards/textiles-weave-drape-fashion-sneaker-box-stacks-hero.webp"
+    },
+    {
+      "id": "challenger-labanotation",
+      "label": "Tanznotation",
+      "verdict": "declined",
+      "lineage": "Labanotation",
+      "thesis": "Reise als Partitur mit zwei gespiegelten Spalten.",
+      "palette": ["#FFFFFF", "#111111", "#BDBDBD"],
+      "materials": ["Notenpapier", "schraffierte Blöcke"],
+      "viewport": "Senkrechte Mittelachse, links und rechts eure Ideen.",
+      "case": "Fühlt sich nicht nach euch an und ist für eine Reise-App zu abstrakt.",
+      "kept": "Die Symmetrie links du, rechts sie.",
+      "risk": "Unlesbar ohne Legende.",
+      "hero": "https://impeccable.style/worlds/cards/notation-diagram-systems-labanotation-hero.webp"
+    },
+    {
+      "id": "challenger-civic",
+      "label": "Behörden-Prospekt",
+      "verdict": "declined",
+      "lineage": "Late-Modern Corporate",
+      "thesis": "Knochenweiß und ein einziges farbiges Band.",
+      "palette": ["#F7F7FA", "#1B1547", "#6B5CE7", "#7FD8D0"],
+      "materials": ["gerendertes Seidenband"],
+      "viewport": "Leere Fläche, ein Farbband.",
+      "case": "Kühl und unpersönlich, das Gegenteil von cozy.",
+      "kept": "Die Disziplin, Farbe nur an einer Stelle zu verwenden.",
+      "risk": "Wirkt wie eine Bank-App.",
+      "hero": "https://impeccable.style/worlds/cards/civic-bureau-prospectus-late-modern-hero.webp"
+    },
+    {
+      "id": "challenger-seven-segment",
+      "label": "Siebensegment-Anzeige",
+      "verdict": "declined",
+      "lineage": "Wecker, Anzeigetafeln",
+      "thesis": "Alles aus leuchtenden Segmenten, auch die unbeleuchteten sind gestaltet.",
+      "palette": ["#0D0D0D", "#FF3B2F", "#3A1210"],
+      "materials": ["LED-Segmente"],
+      "viewport": "Countdown bis Prag als Weckerziffern.",
+      "case": "Technisch und nächtlich, nicht süß.",
+      "kept": "Noch Offenes als sichtbares, blasses Muster.",
+      "risk": "Wirkt wie ein Gadget.",
+      "hero": "https://impeccable.style/worlds/cards/signals-instruments-seven-segment-alarm-clock-hero.webp"
+    },
+    {
+      "id": "challenger-ocean",
+      "label": "Tauchgang",
+      "verdict": "declined",
+      "lineage": "Tiefenprofil eines Tauchgangs",
+      "thesis": "Die Reise als Abstieg entlang einer Tiefenachse.",
+      "palette": ["#0A1A3A", "#35D0E0", "#F2F2F2"],
+      "materials": ["Meeresschnee", "Tauchcomputer-Ziffern"],
+      "viewport": "Senkrechte Tiefenachse mit Stationen.",
+      "case": "Das Bild passt nicht zu einer Städtereise.",
+      "kept": "Eine einzige senkrechte Zeitachse für alle Phasen.",
+      "risk": "Dunkel und kalt.",
+      "hero": "https://impeccable.style/worlds/cards/rivers-tides-ocean-depths-mesophotic-deep-dive-hero.webp"
+    },
+    {
+      "id": "challenger-cracktro",
+      "label": "Cracktro-Bildschirm",
+      "verdict": "declined",
+      "lineage": "Demoszene-Intros",
+      "thesis": "Pixelschrift auf Schwarz, Rang als Tiefe.",
+      "palette": ["#000000", "#F2EBDD", "#FFB000"],
+      "materials": ["Bitmap-Schrift", "Sternenstaub"],
+      "viewport": "Eine Zeile Text auf Schwarz, dahinter treibender Staub.",
+      "case": "Nerdig und kalt, fühlt sich nicht nach euch zwei an.",
+      "kept": "Keine Boxen: Inhalte liegen direkt auf dem Stoff statt in Karten.",
+      "risk": "Unlesbar unterwegs.",
+      "hero": "https://impeccable.style/worlds/cards/operate-c-cracktro-scroller-queue-hero.webp"
+    }
+  ],
+  "reroll": { "registers": ["safer", "bolder"] },
+  "buildPath": { "value": "code", "toggle": false },
+  "canon": true,
+  "canonCard": {
+    "label": "Die übliche Reise-App",
+    "thesis": "So wie Wanderlog oder Polarsteps, nur sehr sauber gemacht.",
+    "palette": ["#FFFFFF", "#111827", "#2F6FEB"],
+    "materials": ["weiße Karten", "großes Titelfoto", "Tagesliste"],
+    "viewport": "Großes Prag-Foto oben, darunter Tage als Liste, Karte als eigener Tab.",
+    "risk": "Absichtlich nicht von anderen Reise-Apps zu unterscheiden."
+  },
+  "steer": true
+}
