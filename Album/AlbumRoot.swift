@@ -89,8 +89,13 @@ struct NamePrompt: View {
                 .font(.body).foregroundStyle(Stitch.inkSoft)
             TextField("Vorname", text: $name)
                 .font(.title3).textContentType(.givenName).submitLabel(.done)
-                .padding(14).background(Stitch.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .focused($focused).onSubmit(save)
+                .padding(14)
+                .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
+                .background(Stitch.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                // Die ganze Box ist antippbar, nicht nur die Textzeile darin.
+                .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .onTapGesture { focused = true }
             Button("Los geht’s", action: save).buttonStyle(StitchButton(primary: true))
                 .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
             Spacer()
@@ -98,7 +103,11 @@ struct NamePrompt: View {
         .padding(24).padding(.top, 20)
         .background(LinenBackground())
         .interactiveDismissDisabled()
-        .onAppear { focused = true }
+        .task {
+            // Erst fokussieren, wenn das Blatt fertig hereingefahren ist; vorher ignoriert iOS den Fokus.
+            try? await Task.sleep(for: .milliseconds(600))
+            focused = true
+        }
         .presentationDetents([.medium, .large])
     }
     private func save() {

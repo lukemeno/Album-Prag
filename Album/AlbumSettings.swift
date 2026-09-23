@@ -7,6 +7,7 @@ struct AlbumSettings: View {
     @State private var preparing = false
     @State private var localError: String?
     @State private var linkCopied = false
+    @FocusState private var nameFocused: Bool
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -18,7 +19,12 @@ struct AlbumSettings: View {
                         Text("Dein Name").font(AlbumStyle.ticket).foregroundStyle(AlbumStyle.muted)
                         TextField("Vorname", text: Binding(get: { store.myName }, set: { store.myName = $0 }))
                             .font(.title3).textContentType(.givenName)
-                            .padding(14).background(Stitch.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .focused($nameFocused)
+                            .padding(14)
+                            .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
+                            .background(Stitch.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .onTapGesture { nameFocused = true }
                     }
                     Text(store.syncStatus).font(AlbumStyle.body(13)).foregroundStyle(AlbumStyle.muted)
                     if let inviteURL = store.inviteURL {
