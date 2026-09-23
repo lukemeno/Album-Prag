@@ -7,7 +7,7 @@ settings:
   base:
     SWIFT_VERSION: '5.0'
     TARGETED_DEVICE_FAMILY: '1'
-    DEVELOPMENT_TEAM: ''
+    DEVELOPMENT_TEAM: X7K385PZ68
     CODE_SIGN_STYLE: Automatic
     SUPABASE_URL: "https://akzrlkbylglwrlbaacjo.supabase.co"
     SUPABASE_ANON_KEY: "sb_publishable_yQgk23feVRz0OYzaIlff2g_zD999Wjh"
