@@ -16,7 +16,7 @@ import SwiftUI
         WindowGroup {
             AlbumRoot().environment(store).tint(AlbumStyle.red)
                 .onChange(of: scenePhase) { _, phase in
-                    if phase == .active && !isUnitTestHost { Task { await store.sync() } }
+                    if phase == .active && !isUnitTestHost { Task { await store.sync(); await store.refreshPlaceImages() } }
                 }
                 .onOpenURL { url in
                     if url.isFileURL && url.pathExtension.lowercased() == "pdf" {
@@ -35,7 +35,7 @@ import SwiftUI
                         }
                     }
                 }
-                .task { if !isUnitTestHost { await store.sync() } }
+                .task { if !isUnitTestHost { await store.sync(); await store.refreshPlaceImages() } }
                 .alert("Album", isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) {
                     Button("OK") { store.error = nil }
                 } message: { Text(store.error ?? "") }

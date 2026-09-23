@@ -44,7 +44,7 @@ Der Publishable- beziehungsweise Anon-Key darf in einer Client-App enthalten sei
 
 ## Ortsbilder
 
-Nach der Auswahl eines Kartenortes sucht Album zuerst bei Wikidata nach dem konkreten Ort und lädt das zugehörige Bild samt Urheber und Lizenz aus Wikimedia Commons. Name und Koordinaten werden geprüft, damit ähnlich benannte Orte nicht verwechselt werden. Linkvorschauen und eigene Fotos haben Vorrang. Eigene Fotos werden ohne EXIF-Daten, mit maximal 2.048 Pixeln Kantenlänge und höchstens 5 MB im privaten Bucket `trip-images` gespeichert.
+Nach der Auswahl eines Kartenortes sucht Album zuerst bei Wikidata nach dem konkreten Ort und lädt das zugehörige Bild samt Urheber und Lizenz aus Wikimedia Commons. Name und Koordinaten werden geprüft, damit ähnlich benannte Orte nicht verwechselt werden. Eigene Fotos haben immer Vorrang. Hat Wikimedia kein Bild, nimmt Album eine Straßenansicht aus Apple Look Around genau an der Koordinate. Die Vorschau eines Links (etwa ein TikTok-Standbild) gilt nur, solange der Ort noch nicht auf der Karte bestätigt ist. Die Suche läuft beim Start für alle Orte ohne echtes Foto. Eigene Fotos werden ohne EXIF-Daten, mit maximal 2.048 Pixeln Kantenlänge und höchstens 5 MB im privaten Bucket `trip-images` gespeichert.
 
 Für Wikimedia kann optional ein eigener, gut erkennbarer User-Agent gesetzt werden:
 

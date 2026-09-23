@@ -1,5 +1,7 @@
 import Foundation
 import Supabase
+import MapKit
+import UIKit
 
 struct PlaceImage: Decodable, Equatable {
     let imageURL: URL
@@ -71,7 +73,29 @@ enum PlaceImageService {
         switch place.image {
         case nil, .bundled: return true
         case .external(let image): return image.resolvedFor.map { !$0.matches(place) } ?? false
-        case .linkPreview, .uploaded: return false
+        // Ein TikTok-Standbild zeigt meist Menschen, nicht den Ort: Sobald der Ort bestätigt ist, gewinnt ein echtes Ortsfoto.
+        case .linkPreview: return place.coordinate != nil
+        case .uploaded: return false
         }
+    }
+}
+
+/// Echtes Bild vom Ort: erst Wikimedia (über die Edge Function), sonst Apple Look Around an genau dieser Koordinate.
+enum PlaceImageResolver {
+    static func resolve(for place: Place, root: URL) async -> PlaceImageAsset? {
+        guard let coordinate = place.coordinate else { return nil }
+        if let image = try? await PlaceImageService.image(for: place) { return image.asset(for: place) }
+        guard let data = await lookAroundSnapshot(at: coordinate),
+              let uploaded = try? PlaceImageStorage.save(data, root: root) else { return nil }
+        return .uploaded(uploaded)
+    }
+
+    /// Straßenansicht von Apple Karten; läuft auf dem Gerät, ohne Schlüssel. Nil, wo es keine Aufnahmen gibt.
+    static func lookAroundSnapshot(at coordinate: CLLocationCoordinate2D) async -> Data? {
+        guard let scene = try? await MKLookAroundSceneRequest(coordinate: coordinate).scene else { return nil }
+        let options = MKLookAroundSnapshotter.Options()
+        options.size = CGSize(width: 1200, height: 900)
+        guard let snapshot = try? await MKLookAroundSnapshotter(scene: scene, options: options).snapshot else { return nil }
+        return snapshot.image.jpegData(compressionQuality: 0.85)
     }
 }

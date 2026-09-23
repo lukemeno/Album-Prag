@@ -133,11 +133,17 @@ struct PlaceEditor: View {
         guard !imageSearching, PlaceImageService.shouldSearch(for: place, force: force) else { return }
         imageSearching = true; defer { imageSearching = false }
         do {
-            guard let result = try await PlaceImageService.image(for: place) else {
+            if let result = try await PlaceImageService.image(for: place) {
+                place.image = result.asset(for: place)
+            } else if let coordinate = place.coordinate, let data = await PlaceImageResolver.lookAroundSnapshot(at: coordinate) {
+                // Kein Wikimedia-Foto: Straßenansicht genau an diesem Ort.
+                let uploaded = try PlaceImageStorage.save(data, root: store.root)
+                pendingPhotoID = uploaded.id
+                place.image = .uploaded(uploaded)
+            } else {
                 searchError = "Kein passendes Bild gefunden."
                 return
             }
-            place.image = result.asset(for: place)
             searchError = nil
         } catch {
             searchError = "Bildsuche fehlgeschlagen. Bitte erneut versuchen."

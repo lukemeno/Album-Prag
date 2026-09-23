@@ -125,13 +125,17 @@ final class AlbumTests: XCTestCase {
         let place = Place(title: "Test", sourceURL: "https://tiktok.com.evil.example/video")
         XCTAssertNotEqual(place.sourceLabel, "TikTok")
     }
-    func testSourcePreviewWinsAutomaticImageSearch() {
-        let place = Place(title: "Letná", image: .linkPreview(
+    func testRealPlacePhotoBeatsLinkPreviewOnceConfirmed() {
+        var place = Place(title: "Letná", image: .linkPreview(
             pageURL: "https://example.com/letna",
             thumbnailURL: "https://example.com/letna.jpg",
             credit: "example.com"
         ))
-        XCTAssertFalse(PlaceImageService.shouldSearch(for: place, force: false))
+        XCTAssertFalse(PlaceImageService.shouldSearch(for: place, force: false), "Ohne bestätigten Ort bleibt die Vorschau")
+        place.lat = 50.0966; place.lng = 14.4165
+        XCTAssertTrue(PlaceImageService.shouldSearch(for: place, force: false), "Bestätigter Ort bekommt ein echtes Foto")
+        let own = Place(title: "Letná", image: .uploaded(.init(id: "x", storagePath: nil, pixelWidth: 1, pixelHeight: 1)), lat: 50.0966, lng: 14.4165)
+        XCTAssertFalse(PlaceImageService.shouldSearch(for: own, force: false), "Eigene Fotos werden nie ersetzt")
         XCTAssertTrue(PlaceImageService.shouldSearch(for: place, force: true))
         XCTAssertTrue(PlaceImageService.shouldSearch(for: Place(title: "Letná"), force: false))
     }

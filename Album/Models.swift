@@ -175,8 +175,8 @@ struct Place: Codable, Identifiable, Equatable {
     }
 
     static let examples: [Place] = [
-        Place(id: "example-letna", title: "Letná", note: "Aussichtspunkt auswählen und auf der Karte bestätigen.", category: "Aussicht", image: .bundled(name: "imgPhotoLetna"), updatedAt: .distantPast),
-        Place(id: "example-oldtown", title: "Altstadt", note: "Route durch die Altstadt planen.", category: "Sehenswert", image: .bundled(name: "imgPhotoOldTown"), updatedAt: .distantPast),
+        Place(id: "example-letna", title: "Letná", note: "Park mit Blick über die Moldau.", category: "Aussicht", image: .bundled(name: "imgPhotoLetna"), lat: 50.0966, lng: 14.4165, updatedAt: .distantPast),
+        Place(id: "example-oldtown", title: "Altstädter Ring", note: "Route durch die Altstadt planen.", category: "Sehenswert", image: .bundled(name: "imgPhotoOldTown"), lat: 50.0875, lng: 14.4213, updatedAt: .distantPast),
         Place(id: "example-cafe", title: "Café auswählen", note: "Café oder Restaurant als Idee ergänzen.", category: "Essen & Trinken", image: .bundled(name: "imgThumbCafe"), updatedAt: .distantPast)
     ]
 }

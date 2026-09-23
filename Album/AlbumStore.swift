@@ -65,6 +65,12 @@ import CoreLocation
         #if DEBUG
         if let name = ProcessInfo.processInfo.environment["ALBUM_MY_NAME"] { myName = name }
         #endif
+        // Beispielorte bekommen ihre echte Lage, damit sie echte Fotos erhalten.
+        for (id, lat, lng) in [("example-letna", 50.0966, 14.4165), ("example-oldtown", 50.0875, 14.4213)] {
+            if let index = data.places.firstIndex(where: { $0.id == id && $0.coordinate == nil }) {
+                data.places[index].lat = lat; data.places[index].lng = lng
+            }
+        }
     }
 
     var isShared: Bool { data.collaboration != nil }
@@ -133,6 +139,22 @@ import CoreLocation
         data.trip = trip; data.trip.updatedAt = Date(); data.dirty.insert("trip"); persist(); scheduleSync()
     }
 
+    /// Orte, für die in diesem App-Lauf schon ein Bild gesucht wurde (Titel und Koordinate), damit nichts in Schleife läuft.
+    private var imageLookupsTried: Set<String> = []
+
+    /// Sucht für alle Orte mit Koordinaten, aber ohne echtes Ortsfoto, ein Bild vom tatsächlichen Ort.
+    func refreshPlaceImages() async {
+        for place in places where place.coordinate != nil && PlaceImageService.shouldSearch(for: place, force: false) {
+            let key = "\(place.id)|\(place.title)|\(place.lat ?? 0)|\(place.lng ?? 0)"
+            guard imageLookupsTried.insert(key).inserted else { continue }
+            guard let asset = await PlaceImageResolver.resolve(for: place, root: root),
+                  var current = places.first(where: { $0.id == place.id }),
+                  PlaceImageService.shouldSearch(for: current, force: false) else { continue }
+            current.image = asset
+            upsert(current)
+        }
+    }
+
     /// Beim Öffnen eines PDFs von außen gelesen; die Startansicht bietet es zum Übernehmen an.
     var pendingExtraction: ExtractedTrip?
 
@@ -155,6 +177,7 @@ import CoreLocation
             place.lat = location.coordinate.latitude; place.lng = location.coordinate.longitude
         }
         upsert(place)
+        await refreshPlaceImages()
     }
 
     func importPDF(_ url: URL, id: String = UUID().uuidString) throws {
