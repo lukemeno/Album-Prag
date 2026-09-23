@@ -11,9 +11,42 @@ import PDFKit
     private var loadFailed = false
     private var pendingSync: Task<Void, Never>?
     var places: [Place] { data.places.filter { !$0.deleted } }
-    var inbox: [Place] { places.filter { !$0.franked && !$0.deferred } }
-    var deferred: [Place] { places.filter { !$0.franked && $0.deferred } }
+    /// Was auf diesem iPhone noch zu entscheiden ist, auch Vorschläge, für die nur die andere Person schon ist.
+    var inbox: [Place] { places.filter(isOpenForMe) }
+    var deferred: [Place] { places.filter { ($0.deferred && !$0.franked) || ($0.franked && $0.passedBy.contains(me)) } }
     var franked: [Place] { places.filter(\.franked) }
+
+    /// Name dieser Person; bestimmt, wessen Stimme „Dafür“ oder „Später“ ist.
+    var myName: String { didSet { UserDefaults.standard.set(myName, forKey: "album.myName") } }
+    var me: String {
+        let name = myName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? "Ich" : name
+    }
+
+    func isOpenForMe(_ place: Place) -> Bool {
+        if place.franked {
+            return !place.approvals.isEmpty && !place.approvals.contains(me) && !place.passedBy.contains(me)
+        }
+        return !place.deferred
+    }
+
+    /// Beide (oder alle) sind dafür.
+    func isShared(_ place: Place) -> Bool { Set(place.approvals).count >= 2 }
+
+    /// Die Stimme dieser Person. Gibt den geänderten Ort zurück, gespeichert wird mit `upsert`.
+    func decided(_ place: Place, approve: Bool) -> Place {
+        var changed = place
+        if approve {
+            if !changed.approvals.contains(me) { changed.approvals.append(me) }
+            changed.passedBy.removeAll { $0 == me }
+            changed.franked = true; changed.deferred = false
+        } else if changed.franked {
+            if !changed.passedBy.contains(me) { changed.passedBy.append(me) }
+        } else {
+            changed.deferred = true
+        }
+        return changed
+    }
 
     init(root: URL? = nil) {
         self.root = root ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Album", isDirectory: true)
@@ -21,11 +54,16 @@ import PDFKit
             try FileManager.default.createDirectory(at: self.root, withIntermediateDirectories: true)
             let file = self.root.appendingPathComponent("album.json")
             data = FileManager.default.fileExists(atPath: file.path) ? try JSONDecoder().decode(AlbumData.self, from: Data(contentsOf: file)) : AlbumData()
+            myName = UserDefaults.standard.string(forKey: "album.myName") ?? ""
         } catch {
+            myName = UserDefaults.standard.string(forKey: "album.myName") ?? ""
             data = AlbumData()
             loadFailed = true
             self.error = "Gespeicherte Daten konnten nicht geladen werden: \(error.localizedDescription). Bitte die App nicht löschen."
         }
+        #if DEBUG
+        if let name = ProcessInfo.processInfo.environment["ALBUM_MY_NAME"] { myName = name }
+        #endif
     }
 
     var isShared: Bool { data.collaboration != nil }
@@ -66,7 +104,30 @@ import PDFKit
     }
 
     func deferPlace(_ place: Place) { var p = place; p.deferred = true; upsert(p) }
-    func restoreDeferred() { for var p in deferred { p.deferred = false; upsert(p) } }
+    func restoreDeferred() {
+        for var p in deferred { p.deferred = false; p.passedBy.removeAll { $0 == me }; upsert(p) }
+    }
+
+    /// Setzt einen Ort ans Ende eines Tages (oder nimmt ihn aus der Tagesplanung).
+    func assign(_ place: Place, to day: Int?) {
+        var p = place
+        p.day = day
+        p.dayOrder = day.map { d in (franked.filter { $0.day == d && $0.id != place.id }.compactMap(\.dayOrder).max() ?? -1) + 1 }
+        upsert(p)
+    }
+
+    /// Neue Reihenfolge eines Tages nach dem Verschieben in der Liste.
+    func reorder(day: Int, ids: [String]) {
+        for (index, id) in ids.enumerated() {
+            guard var p = places.first(where: { $0.id == id }), p.dayOrder != index else { continue }
+            p.dayOrder = index; upsert(p)
+        }
+    }
+
+    /// Orte eines Tages in geplanter Reihenfolge.
+    func plan(for day: Int) -> [Place] {
+        franked.filter { $0.day == day }.sorted { ($0.dayOrder ?? .max, $0.title) < ($1.dayOrder ?? .max, $1.title) }
+    }
     func updateTrip(_ trip: TripInfo) {
         data.trip = trip; data.trip.updatedAt = Date(); data.dirty.insert("trip"); persist(); scheduleSync()
     }

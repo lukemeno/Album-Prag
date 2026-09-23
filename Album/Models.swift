@@ -98,6 +98,12 @@ struct Place: Codable, Identifiable, Equatable {
     var deleted = false
     var visited = false
     var day: Int?
+    /// Reihenfolge innerhalb eines Tages (kleiner = früher).
+    var dayOrder: Int?
+    /// Namen derer, die „Dafür“ gesagt haben.
+    var approvals: [String] = []
+    /// Namen derer, die einen Vorschlag der anderen auf „Später“ gelegt haben.
+    var passedBy: [String] = []
     var updatedAt = Date()
     var coordinate: CLLocationCoordinate2D? {
         guard let lat, let lng, lat.isFinite, lng.isFinite,
@@ -111,14 +117,15 @@ struct Place: Codable, Identifiable, Equatable {
         return host.replacingOccurrences(of: "www.", with: "")
     }
 
-    init(id: String = UUID().uuidString, title: String, note: String = "", sourceURL: String = "", category: String = "Idee", author: String = "Wir", image: PlaceImageAsset? = nil, address: String = "", lat: Double? = nil, lng: Double? = nil, franked: Bool = false, deferred: Bool = false, deleted: Bool = false, visited: Bool = false, day: Int? = nil, updatedAt: Date = Date()) {
+    init(id: String = UUID().uuidString, title: String, note: String = "", sourceURL: String = "", category: String = "Idee", author: String = "Wir", image: PlaceImageAsset? = nil, address: String = "", lat: Double? = nil, lng: Double? = nil, franked: Bool = false, deferred: Bool = false, deleted: Bool = false, visited: Bool = false, day: Int? = nil, dayOrder: Int? = nil, approvals: [String] = [], passedBy: [String] = [], updatedAt: Date = Date()) {
         self.id = id; self.title = title; self.note = note; self.sourceURL = sourceURL; self.category = category; self.author = author
         self.image = image; self.address = address; self.lat = lat; self.lng = lng; self.franked = franked; self.deferred = deferred
-        self.deleted = deleted; self.visited = visited; self.day = day; self.updatedAt = updatedAt
+        self.deleted = deleted; self.visited = visited; self.day = day; self.dayOrder = dayOrder
+        self.approvals = approvals; self.passedBy = passedBy; self.updatedAt = updatedAt
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, title, note, sourceURL, category, author, image, address, lat, lng, franked, deferred, deleted, visited, day, updatedAt
+        case id, title, note, sourceURL, category, author, image, address, lat, lng, franked, deferred, deleted, visited, day, dayOrder, approvals, passedBy, updatedAt
         case imageName, remoteImage, imageSourceURL, imageCredit
     }
 
@@ -138,6 +145,9 @@ struct Place: Codable, Identifiable, Equatable {
         deleted = try values.decodeIfPresent(Bool.self, forKey: .deleted) ?? false
         visited = try values.decodeIfPresent(Bool.self, forKey: .visited) ?? false
         day = try values.decodeIfPresent(Int.self, forKey: .day)
+        dayOrder = try values.decodeIfPresent(Int.self, forKey: .dayOrder)
+        approvals = try values.decodeIfPresent([String].self, forKey: .approvals) ?? []
+        passedBy = try values.decodeIfPresent([String].self, forKey: .passedBy) ?? []
         updatedAt = try values.decodeIfPresent(Date.self, forKey: .updatedAt) ?? Date()
         if let current = try values.decodeIfPresent(PlaceImageAsset.self, forKey: .image) {
             image = current
@@ -160,6 +170,7 @@ struct Place: Codable, Identifiable, Equatable {
         try values.encodeIfPresent(image, forKey: .image); try values.encode(address, forKey: .address); try values.encodeIfPresent(lat, forKey: .lat)
         try values.encodeIfPresent(lng, forKey: .lng); try values.encode(franked, forKey: .franked); try values.encode(deferred, forKey: .deferred)
         try values.encode(deleted, forKey: .deleted); try values.encode(visited, forKey: .visited); try values.encodeIfPresent(day, forKey: .day)
+        try values.encodeIfPresent(dayOrder, forKey: .dayOrder); try values.encode(approvals, forKey: .approvals); try values.encode(passedBy, forKey: .passedBy)
         try values.encode(updatedAt, forKey: .updatedAt)
     }
 
@@ -204,7 +215,17 @@ struct AlbumData: Codable {
 enum AlbumMerge {
     static func place(local: Place?, remote: Place) -> Place {
         guard let local else { return remote }
-        return remote.updatedAt > local.updatedAt ? remote : local
+        var merged = remote.updatedAt > local.updatedAt ? remote : local
+        // Stimmen gehen nie verloren: Wer offline abgestimmt hat, bleibt gezählt.
+        merged.approvals = union(local.approvals, remote.approvals)
+        merged.passedBy = union(local.passedBy, remote.passedBy)
+        if !merged.approvals.isEmpty && !merged.deleted { merged.franked = true }
+        return merged
+    }
+
+    private static func union(_ a: [String], _ b: [String]) -> [String] {
+        var seen = Set<String>()
+        return (a + b).filter { seen.insert($0).inserted }
     }
 
     static func trip(local: TripInfo, remote: TripInfo) -> TripInfo {

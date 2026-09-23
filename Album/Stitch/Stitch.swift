@@ -3,33 +3,49 @@ import UIKit
 
 /// Welt „Kreuzstich“: Leinen, Garn und Stiche. Farbe steckt nur im Garn.
 enum Stitch {
-    static let linen = Color(red: 239/255, green: 230/255, blue: 210/255)
-    static let card = Color(red: 251/255, green: 248/255, blue: 240/255)
-    static let red = Color(red: 200/255, green: 50/255, blue: 43/255)
-    static let cobalt = Color(red: 31/255, green: 63/255, blue: 140/255)
-    static let mustard = Color(red: 214/255, green: 160/255, blue: 34/255)
-    static let ink = Color(red: 28/255, green: 26/255, blue: 23/255)
-    static let inkSoft = Color(red: 88/255, green: 80/255, blue: 68/255)
+    // Hell: ungefärbtes Leinen. Dunkel: indigogefärbtes Leinen, die Garne etwas heller.
+    static let linen = dynamic(light: (239, 230, 210), dark: (29, 33, 48))
+    static let card = dynamic(light: (251, 248, 240), dark: (41, 46, 64))
+    static let red = dynamic(light: (200, 50, 43), dark: (236, 98, 84))
+    static let cobalt = dynamic(light: (31, 63, 140), dark: (128, 162, 238))
+    static let mustard = dynamic(light: (214, 160, 34), dark: (238, 192, 84))
+    static let ink = dynamic(light: (28, 26, 23), dark: (242, 236, 222))
+    static let inkSoft = dynamic(light: (88, 80, 68), dark: (186, 178, 162))
+    /// Schrift auf rotem Garn: in beiden Modi hell.
+    static let onAccent = Color(red: 251/255, green: 248/255, blue: 240/255)
+
+    static func dynamic(light: (Int, Int, Int), dark: (Int, Int, Int)) -> Color {
+        Color(UIColor { traits in
+            let c = traits.userInterfaceStyle == .dark ? dark : light
+            return UIColor(red: CGFloat(c.0) / 255, green: CGFloat(c.1) / 255, blue: CGFloat(c.2) / 255, alpha: 1)
+        })
+    }
+
+    static func linenTile(dark: Bool) -> UIImage { dark ? darkTile : lightTile }
+    private static let lightTile = makeTile(dark: false)
+    private static let darkTile = makeTile(dark: true)
 
     /// Aida-Gewebe als Kachel: Garnbündel mit kleinen Löchern an den Kreuzungspunkten.
-    static let linenTile: UIImage = {
+    private static func makeTile(dark: Bool) -> UIImage {
         let cell: CGFloat = 6, count = 16
         let size = CGSize(width: cell * CGFloat(count), height: cell * CGFloat(count))
         var random = SeededRandom(seed: 7)
+        let base = dark ? UIColor(red: 29/255, green: 33/255, blue: 48/255, alpha: 1) : UIColor(red: 239/255, green: 230/255, blue: 210/255, alpha: 1)
+        let lift = dark ? 0.07 : 0.30
         return UIGraphicsImageRenderer(size: size).image { context in
             let cg = context.cgContext
-            UIColor(Stitch.linen).setFill(); cg.fill(CGRect(origin: .zero, size: size))
+            base.setFill(); cg.fill(CGRect(origin: .zero, size: size))
             for row in 0..<count {
                 for column in 0..<count {
                     let rect = CGRect(x: CGFloat(column) * cell, y: CGFloat(row) * cell, width: cell, height: cell).insetBy(dx: 0.55, dy: 0.55)
-                    let lift = CGFloat(random.next(in: -0.035...0.045))
-                    UIColor(white: 1, alpha: 0.30 + lift).setFill()
+                    let jitter = CGFloat(random.next(in: -0.035...0.045))
+                    UIColor(white: 1, alpha: lift + jitter * (dark ? 0.4 : 1)).setFill()
                     UIBezierPath(roundedRect: rect, cornerRadius: 1.4).fill()
-                    UIColor(white: 1, alpha: 0.22).setFill()
+                    UIColor(white: 1, alpha: dark ? 0.05 : 0.22).setFill()
                     cg.fill(CGRect(x: rect.minX + 0.6, y: rect.minY + 0.5, width: rect.width - 1.8, height: 0.8))
                 }
             }
-            UIColor(red: 150/255, green: 132/255, blue: 104/255, alpha: 0.42).setFill()
+            (dark ? UIColor(white: 0, alpha: 0.45) : UIColor(red: 150/255, green: 132/255, blue: 104/255, alpha: 0.42)).setFill()
             for row in 0...count {
                 for column in 0...count {
                     cg.fillEllipse(in: CGRect(x: CGFloat(column) * cell - 0.75, y: CGFloat(row) * cell - 0.75, width: 1.5, height: 1.5))
@@ -40,11 +56,11 @@ enum Stitch {
                 let path = UIBezierPath()
                 path.move(to: start)
                 path.addLine(to: CGPoint(x: start.x + random.next(in: -9...9), y: start.y + random.next(in: -2...2)))
-                UIColor(red: 120/255, green: 100/255, blue: 70/255, alpha: 0.10).setStroke()
+                (dark ? UIColor(white: 1, alpha: 0.05) : UIColor(red: 120/255, green: 100/255, blue: 70/255, alpha: 0.10)).setStroke()
                 path.lineWidth = 0.4; path.stroke()
             }
         }
-    }()
+    }
 
     /// Ein Kreuzstich: erst „/“, dann „\“. `progress` 0…1 zeichnet beide Hälften nacheinander.
     static func drawCross(_ context: inout GraphicsContext, in rect: CGRect, color: Color, progress: CGFloat = 1) {
@@ -81,8 +97,9 @@ enum Stitch {
 }
 
 struct LinenBackground: View {
+    @Environment(\.colorScheme) private var scheme
     var body: some View {
-        Image(uiImage: Stitch.linenTile).resizable(resizingMode: .tile).ignoresSafeArea()
+        Image(uiImage: Stitch.linenTile(dark: scheme == .dark)).resizable(resizingMode: .tile).ignoresSafeArea()
     }
 }
 
@@ -245,7 +262,7 @@ struct StitchButton: ButtonStyle {
         configuration.label
             .font(.headline)
             .frame(maxWidth: .infinity, minHeight: 54)
-            .foregroundStyle(primary ? Stitch.card : Stitch.red)
+            .foregroundStyle(primary ? Stitch.onAccent : Stitch.red)
             .background(primary ? Stitch.red : Stitch.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Stitch.red, lineWidth: primary ? 0 : 1.5))
             .shadow(color: .black.opacity(primary ? 0.18 : 0.06), radius: primary ? 6 : 3, y: primary ? 3 : 1)

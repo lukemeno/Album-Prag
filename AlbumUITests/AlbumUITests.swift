@@ -6,6 +6,7 @@ final class AlbumUITests: XCTestCase {
         UIPasteboard.general.items = [] // keine Reste früherer Läufe
         let app = XCUIApplication()
         app.launchEnvironment["ALBUM_TEST_STORE"] = "ui-" + UUID().uuidString
+        app.launchEnvironment["ALBUM_MY_NAME"] = "Luke"
         app.launch()
         XCTAssertTrue(app.buttons["Idee hinzufügen"].waitForExistence(timeout: 15))
         app.buttons["Idee hinzufügen"].tap()

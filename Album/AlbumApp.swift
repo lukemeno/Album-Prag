@@ -12,7 +12,7 @@ import SwiftUI
     @Environment(\.scenePhase) private var scenePhase
     var body: some Scene {
         WindowGroup {
-            AlbumRoot().environment(store).tint(AlbumStyle.red).preferredColorScheme(.light)
+            AlbumRoot().environment(store).tint(AlbumStyle.red)
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .active { Task { await store.sync() } }
                 }

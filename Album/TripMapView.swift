@@ -11,17 +11,16 @@ struct TripMapView: View {
     @State private var detail: Place?
     @State private var filter = MapFilter.all
     @State private var documents = false
+    @State private var planner = false
     /// Orte, die schon einmal auf der Karte gelandet sind. Nur neue fallen als Stecknadel.
     @AppStorage("album.landedPins") private var landedRaw = ""
 
     var visible: [Place] { store.franked.filter { $0.coordinate != nil && filter.matches($0.category) } }
 
-    /// Orte eines Tages, verbunden in Reihenfolge der Liste.
+    /// Orte eines Tages, verbunden in geplanter Reihenfolge.
     private var dayThreads: [(day: Int, coordinates: [CLLocationCoordinate2D])] {
-        Dictionary(grouping: visible.filter { $0.day != nil }, by: { $0.day! })
-            .map { ($0.key, $0.value.compactMap(\.coordinate)) }
+        (4...9).map { day in (day, store.plan(for: day).filter { filter.matches($0.category) }.compactMap(\.coordinate)) }
             .filter { $0.1.count > 1 }
-            .sorted { $0.0 < $1.0 }
     }
 
     var body: some View {
@@ -31,6 +30,8 @@ struct TripMapView: View {
                     StitchedText(text: "Prag", rows: 20, cell: 2.3)
                         .accessibilityLabel("Prag auf der Karte")
                     Spacer()
+                    Button { planner = true } label: { Image(systemName: "calendar") }
+                        .buttonStyle(HeaderIconButton()).accessibilityLabel("Tagesplan")
                     Button { documents = true } label: { Image(systemName: "ticket") }
                         .buttonStyle(HeaderIconButton()).accessibilityLabel("Reisedaten und Dokumente")
                     Button(action: onShare) { Image(systemName: "person.2") }
@@ -44,12 +45,12 @@ struct TripMapView: View {
                             Button { withAnimation(.snappy) { filter = item } } label: {
                                 HStack(spacing: 7) {
                                     if let symbol = item.symbol {
-                                        StitchedSymbol(name: symbol, rows: 9, cell: 2, color: filter == item ? Stitch.card : item.thread)
+                                        StitchedSymbol(name: symbol, rows: 9, cell: 2, color: filter == item ? Stitch.onAccent : item.thread)
                                     }
                                     Text(item.title).font(.subheadline.weight(.semibold))
                                 }
                                 .padding(.horizontal, 14).frame(minHeight: 40)
-                                .foregroundStyle(filter == item ? Stitch.card : Stitch.ink)
+                                .foregroundStyle(filter == item ? Stitch.onAccent : Stitch.ink)
                                 .background(filter == item ? Stitch.red : Stitch.card, in: Capsule())
                                 .overlay(Capsule().strokeBorder(Stitch.ink.opacity(filter == item ? 0 : 0.12), style: StrokeStyle(lineWidth: 1, dash: [3, 2])))
                             }
@@ -107,6 +108,7 @@ struct TripMapView: View {
         }
         .sheet(item: $detail) { PlaceDetail(placeID: $0.id) }
         .sheet(isPresented: $documents) { TripDocumentsView() }
+        .sheet(isPresented: $planner) { DayPlanner() }
     }
 
     private var landed: Set<String> { Set(landedRaw.split(separator: ",").map(String.init)) }
@@ -160,7 +162,7 @@ struct StitchPin: View {
         let size: CGFloat = selected ? 58 : 46
         VStack(spacing: 0) {
             ZStack {
-                Image(uiImage: Stitch.linenTile).resizable(resizingMode: .tile)
+                LinenBackground()
                     .frame(width: size, height: size).clipShape(Circle())
                 Circle().strokeBorder(place.stitchThread, style: StrokeStyle(lineWidth: selected ? 3 : 1.6, dash: selected ? [] : [4, 3]))
                     .padding(3)
@@ -198,6 +200,76 @@ struct StitchPin: View {
     }
 }
 
+/// Tag eines Ortes wählen; der Ort kommt ans Ende des Tages.
+struct DayMenu: View {
+    @Environment(AlbumStore.self) private var store
+    let place: Place
+    var body: some View {
+        Menu {
+            Button("Noch offen") { store.assign(place, to: nil) }
+            ForEach(4...9, id: \.self) { day in
+                Button("\(day). Oktober") { store.assign(place, to: day) }
+            }
+        } label: {
+            Label(place.day.map { "Am \($0). Oktober" } ?? "Tag festlegen", systemImage: "calendar")
+                .font(.subheadline.weight(.semibold)).foregroundStyle(Stitch.red)
+                .frame(maxWidth: .infinity, minHeight: 36)
+        }
+        .accessibilityLabel(place.day.map { "Tag: \($0). Oktober, ändern" } ?? "Tag festlegen")
+    }
+}
+
+/// Tagesplan: Orte pro Tag, per Ziehen sortierbar. Der Faden auf der Karte folgt dieser Reihenfolge.
+struct DayPlanner: View {
+    @Environment(AlbumStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(4...9, id: \.self) { day in
+                    let places = store.plan(for: day)
+                    Section("\(day). Oktober") {
+                        if places.isEmpty {
+                            Text("Noch nichts geplant").foregroundStyle(Stitch.inkSoft)
+                        }
+                        ForEach(places) { place in
+                            HStack(spacing: 12) {
+                                AlbumPhoto(asset: place.image, root: store.root).frame(width: 40, height: 40)
+                                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                Text(place.title).font(.body.weight(.semibold)).foregroundStyle(Stitch.ink)
+                            }
+                        }
+                        .onMove { source, destination in
+                            var ids = places.map(\.id)
+                            ids.move(fromOffsets: source, toOffset: destination)
+                            store.reorder(day: day, ids: ids)
+                        }
+                    }
+                    .listRowBackground(Stitch.card)
+                }
+                let unplanned = store.franked.filter { $0.day == nil }
+                if !unplanned.isEmpty {
+                    Section("Noch ohne Tag") {
+                        ForEach(unplanned) { place in
+                            HStack {
+                                Text(place.title).foregroundStyle(Stitch.ink)
+                                Spacer()
+                                DayMenu(place: place).fixedSize()
+                            }
+                        }
+                    }
+                    .listRowBackground(Stitch.card)
+                }
+            }
+            .environment(\.editMode, .constant(.active))
+            .scrollContentBackground(.hidden)
+            .background(LinenBackground())
+            .navigationTitle("Tagesplan").navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } } }
+        }
+    }
+}
+
 /// Karte für den gewählten Ort über der Karte: Foto, Name, Route und Details.
 struct PlaceSheetCard: View {
     let place: Place
@@ -232,6 +304,7 @@ struct PlaceSheetCard: View {
                 }
                 Button("Details", action: onDetails).buttonStyle(StitchButton())
             }
+            DayMenu(place: place)
         }
         .padding(16)
         .background {
@@ -284,7 +357,10 @@ struct PlaceDetail: View {
                             }.buttonStyle(AlbumButton(primary: true))
                         }
                         Button(place.visited ? "Doch noch nicht besucht" : "Als besucht markieren") { var p = place; p.visited.toggle(); store.upsert(p) }.buttonStyle(AlbumButton())
-                        Button("Zurück zu den Ideen") { var p = place; p.franked = false; p.deferred = false; store.upsert(p); dismiss() }.font(AlbumStyle.body())
+                        Button("Zurück zu den Ideen") {
+                            var p = place; p.franked = false; p.deferred = false; p.approvals = []; p.passedBy = []; p.day = nil; p.dayOrder = nil
+                            store.upsert(p); dismiss()
+                        }.font(AlbumStyle.body())
                         Button("Idee löschen", role: .destructive) { confirmDelete = true }.font(AlbumStyle.body()).padding(.top, 10)
                     }.padding(16)
                 }.background(LinenBackground()).navigationTitle("Ort").navigationBarTitleDisplayMode(.inline)

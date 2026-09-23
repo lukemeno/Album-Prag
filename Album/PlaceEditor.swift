@@ -80,7 +80,7 @@ struct PlaceEditor: View {
                     ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { cancel() } }
                     ToolbarItem(placement: .confirmationAction) { Button("Speichern") {
                         let isNew = !store.places.contains { $0.id == place.id }
-                        if frankOnSave { place.franked = true; place.deferred = false }
+                        if frankOnSave { place = store.decided(place, approve: true) }
                         removeUnusedPendingPhoto()
                         store.upsert(place)
                         pendingPhotoID = nil

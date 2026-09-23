@@ -14,6 +14,12 @@ struct AlbumSettings: View {
                     StitchedSymbol(name: "person.2.fill", rows: 20, cell: 4, color: Stitch.cobalt).frame(maxWidth: .infinity).padding(.vertical, 8)
                     Text("Geteiltes Album").font(AlbumStyle.display())
                     Text("Teilt Ideen, Orte und Reiseunterlagen zwischen euren iPhones. Der Einladungslink gilt nur für diese Reise.").font(AlbumStyle.body())
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Dein Name").font(AlbumStyle.ticket).foregroundStyle(AlbumStyle.muted)
+                        TextField("Vorname", text: Binding(get: { store.myName }, set: { store.myName = $0 }))
+                            .font(.title3).textContentType(.givenName)
+                            .padding(14).background(Stitch.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
                     Text(store.syncStatus).font(AlbumStyle.body(13)).foregroundStyle(AlbumStyle.muted)
                     if let inviteURL = store.inviteURL {
                         ShareLink(item: inviteURL, subject: Text("Prag 2026")) {

@@ -101,6 +101,57 @@ final class AlbumTests: XCTestCase {
         XCTAssertEqual(uploaded.pixelWidth, 2048)
         XCTAssertEqual(uploaded.pixelHeight, 1024)
     }
+    @MainActor func testVotesArePerPersonAndBothAgree() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = AlbumStore(root: directory)
+        store.myName = "Luke"
+        var place = try XCTUnwrap(store.inbox.first); place.lat = 50.087; place.lng = 14.423
+        store.upsert(store.decided(place, approve: true))
+        XCTAssertTrue(store.franked.contains { $0.id == place.id })
+        XCTAssertFalse(store.inbox.contains { $0.id == place.id }, "Eigene Stimme ist abgegeben")
+
+        store.myName = "Mia" // dasselbe Album auf dem zweiten iPhone
+        let open = try XCTUnwrap(store.inbox.first { $0.id == place.id }, "Lukes Vorschlag wartet auf Mias Stimme")
+        XCTAssertFalse(store.isShared(open))
+        let both = store.decided(open, approve: true)
+        XCTAssertTrue(store.isShared(both))
+        store.upsert(both)
+        XCTAssertFalse(store.inbox.contains { $0.id == place.id })
+
+        // „Später“ auf einen Vorschlag der anderen Person nimmt ihn nicht von der Karte.
+        store.myName = "Luke"
+        var other = try XCTUnwrap(store.inbox.first { $0.id != place.id }); other.lat = 50.08; other.lng = 14.42
+        store.myName = "Mia"; store.upsert(store.decided(other, approve: true))
+        store.myName = "Luke"
+        let passed = store.decided(try XCTUnwrap(store.places.first { $0.id == other.id }), approve: false)
+        store.upsert(passed)
+        XCTAssertTrue(store.franked.contains { $0.id == other.id })
+        XCTAssertFalse(store.inbox.contains { $0.id == other.id })
+        XCTAssertTrue(store.deferred.contains { $0.id == other.id })
+    }
+
+    func testMergeKeepsVotesFromBothPhones() {
+        var local = Place(id: "p", title: "Letná", approvals: ["Luke"], updatedAt: Date(timeIntervalSince1970: 10))
+        local.franked = true
+        let remote = Place(id: "p", title: "Letná", franked: true, approvals: ["Mia"], updatedAt: Date(timeIntervalSince1970: 20))
+        let merged = AlbumMerge.place(local: local, remote: remote)
+        XCTAssertEqual(Set(merged.approvals), ["Luke", "Mia"])
+        XCTAssertTrue(merged.franked)
+    }
+
+    @MainActor func testDayPlanOrder() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = AlbumStore(root: directory)
+        for var place in store.places { place.franked = true; store.upsert(place) }
+        let ids = store.franked.map(\.id)
+        for id in ids { store.assign(try XCTUnwrap(store.places.first { $0.id == id }), to: 5) }
+        XCTAssertEqual(store.plan(for: 5).map(\.id), ids)
+        store.reorder(day: 5, ids: ids.reversed())
+        XCTAssertEqual(AlbumStore(root: directory).plan(for: 5).map(\.id), ids.reversed(), "Reihenfolge bleibt gespeichert")
+    }
+
     @MainActor func testPersistenceAndInboxDecisions() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }

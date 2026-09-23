@@ -9,6 +9,7 @@ struct AlbumRoot: View {
     @State private var adding: Place?
     @State private var settings = false
     @State private var clipboardOffer = false
+    @State private var askName = false
     @AppStorage("album.offeredPasteboard") private var offeredChangeCount = -1
 
     init() {
@@ -40,7 +41,7 @@ struct AlbumRoot: View {
             if clipboardOffer {
                 ClipboardNote(onPaste: { url in
                     clipboardOffer = false
-                    adding = Place(title: "", sourceURL: url.absoluteString)
+                    adding = Place(title: "", sourceURL: url.absoluteString, author: store.me)
                 }, onDismiss: { withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) { clipboardOffer = false } })
                 .padding(.top, 64) // unter der Kopfzeile, damit „+“ und „Teilen“ erreichbar bleiben
                 .transition(.move(edge: .top).combined(with: .opacity))
@@ -48,12 +49,16 @@ struct AlbumRoot: View {
         }
         .sheet(item: $adding) { PlaceEditor(place: $0) }
         .sheet(isPresented: $settings) { AlbumSettings() }
+        .sheet(isPresented: $askName) { NamePrompt() }
         .sensoryFeedback(.selection, trigger: tab)
         .onChange(of: scenePhase) { _, phase in if phase == .active { checkPasteboard() } }
-        .onAppear(perform: checkPasteboard)
+        .onAppear {
+            if store.myName.isEmpty { askName = true } else { checkPasteboard() }
+        }
+        .onChange(of: askName) { _, open in if !open { checkPasteboard() } }
     }
 
-    private func add() { adding = Place(title: "") }
+    private func add() { adding = Place(title: "", author: store.me) }
 
     /// Prüft nur, ob ein Link in der Zwischenablage liegt. Gelesen wird erst, wenn ihr „Einfügen“ tippt.
     private func checkPasteboard() {
@@ -67,6 +72,40 @@ struct AlbumRoot: View {
                 withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) { clipboardOffer = true }
             }
         }
+    }
+}
+
+/// Einmal beim ersten Start: Wie heißt du? Der Name steht an euren Ideen und Stimmen.
+struct NamePrompt: View {
+    @Environment(AlbumStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
+    @FocusState private var focused: Bool
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            StitchedSymbol(name: "hand.wave.fill", rows: 18, cell: 3.6, color: Stitch.red)
+            Text("Wie heißt du?").font(.largeTitle.weight(.bold)).foregroundStyle(Stitch.ink)
+            Text("Dein Name steht an den Ideen, die du sammelst, und zeigt, wofür du schon bist.")
+                .font(.body).foregroundStyle(Stitch.inkSoft)
+            TextField("Vorname", text: $name)
+                .font(.title3).textContentType(.givenName).submitLabel(.done)
+                .padding(14).background(Stitch.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .focused($focused).onSubmit(save)
+            Button("Los geht’s", action: save).buttonStyle(StitchButton(primary: true))
+                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+            Spacer()
+        }
+        .padding(24).padding(.top, 20)
+        .background(LinenBackground())
+        .interactiveDismissDisabled()
+        .onAppear { focused = true }
+        .presentationDetents([.medium, .large])
+    }
+    private func save() {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        store.myName = trimmed
+        dismiss()
     }
 }
 

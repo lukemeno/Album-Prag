@@ -16,6 +16,9 @@ struct InboxView: View {
     /// 0…1: das Kreuz, das sich bei „Dafür“ auf das Foto stickt.
     @State private var crossProgress: CGFloat = 0
     @State private var stitchTick = 0
+    /// Magnet-Klick: zwei Herzhälften schnappen zusammen, wenn beide dafür sind.
+    @State private var magnet: CGFloat = 0
+    @State private var magnetTick = 0
 
     private let decisionThreshold: CGFloat = 96
     private var progress: CGFloat { min(abs(offset) / decisionThreshold, 1) }
@@ -46,6 +49,7 @@ struct InboxView: View {
                                 .accessibilityLabel("Idee bearbeiten")
                             }
                             .overlay { DecisionHint(direction: offset == 0 ? nil : offset > 0 ? .frank : .shelve, progress: progress) }
+                            .overlay { if magnet > 0 { MagnetHearts(progress: magnet) } }
                             .offset(x: offset, y: reduceMotion ? 0 : -4 * progress)
                             .rotationEffect(.degrees(reduceMotion ? 0 : Double(offset / 42).clamped(to: -6...6) + place.id.stableTilt))
                             .shadow(color: .black.opacity(0.12 + 0.1 * progress), radius: 10 + 8 * progress, y: 6 + 5 * progress)
@@ -89,10 +93,14 @@ struct InboxView: View {
         .sensoryFeedback(.impact(weight: .medium), trigger: feedback)
         .sensoryFeedback(.selection, trigger: thresholdFeedback)
         .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.8), trigger: stitchTick)
+        .sensoryFeedback(.success, trigger: magnetTick)
     }
 
     private func authorLine(_ place: Place) -> String {
-        place.author.localizedCaseInsensitiveCompare("Wir") == .orderedSame ? "Von euch gesammelt" : "Von \(place.author)"
+        let from = place.author.localizedCaseInsensitiveCompare("Wir") == .orderedSame ? "Von euch gesammelt" : "Von \(place.author)"
+        let others = place.approvals.filter { $0 != store.me }
+        guard !others.isEmpty else { return from }
+        return from + " · " + ListFormatter.localizedString(byJoining: others) + (others.count == 1 ? " ist dafür" : " sind dafür")
     }
 
     private func dragGesture(for place: Place) -> some Gesture {
@@ -126,9 +134,9 @@ struct InboxView: View {
         if frank && place.coordinate == nil { shouldFrank = true; editing = place; return }
         guard !committing else { return }
         lastAction = place
-        var changed = place
-        if frank { changed.franked = true; changed.deferred = false } else { changed.deferred = true }
-        if reduceMotion { feedback += 1; store.upsert(changed); offset = 0; return }
+        let changed = store.decided(place, approve: frank)
+        let bothAgree = frank && store.isShared(changed)
+        if reduceMotion { feedback += 1; if bothAgree { magnetTick += 1 }; store.upsert(changed); offset = 0; return }
         committing = true
         if frank {
             // Das Kreuz stickt sich in zwei Stichen auf das Foto, jeder Stich mit eigener Haptik.
@@ -136,7 +144,15 @@ struct InboxView: View {
                 stitchTick += 1
                 withAnimation(.easeOut(duration: 0.22)) { crossProgress = 1 } completion: {
                     stitchTick += 1
-                    fly(changed, to: 560)
+                    guard bothAgree else { fly(changed, to: 560); return }
+                    // Ihr seid beide dafür: Die Herzhälften schnappen zusammen, dann fliegt die Karte.
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.55)) { magnet = 1 } completion: {
+                        magnetTick += 1
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(450))
+                            fly(changed, to: 560)
+                        }
+                    }
                 }
             }
         } else {
@@ -150,12 +166,35 @@ struct InboxView: View {
             store.upsert(changed)
             offset = 0
             crossProgress = 0
+            magnet = 0
             committing = false
         }
     }
 }
 
 private enum InboxDecision { case shelve, frank }
+
+/// Zwei gestickte Herzhälften, die von links und rechts zusammenschnappen.
+private struct MagnetHearts: View {
+    let progress: CGFloat
+    var body: some View {
+        ZStack {
+            half(leading: true).offset(x: -90 * (1 - progress))
+            half(leading: false).offset(x: 90 * (1 - progress))
+        }
+        .scaleEffect(0.9 + 0.1 * progress)
+        .padding(.bottom, 60)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+    private func half(leading: Bool) -> some View {
+        StitchedSymbol(name: "heart.fill", rows: 22, cell: 4.4, color: leading ? Stitch.red : Stitch.cobalt)
+            .mask(alignment: leading ? .leading : .trailing) {
+                Rectangle().frame(width: 22 * 4.4 / 2 * 1.1)
+            }
+            .shadow(color: .black.opacity(0.25), radius: 6, y: 3)
+    }
+}
 
 /// Während des Ziehens: „Dafür“ oder „Später“ erscheint auf dem Foto.
 private struct DecisionHint: View {
@@ -165,7 +204,7 @@ private struct DecisionHint: View {
         if let direction {
             Text(direction == .frank ? "Dafür" : "Später")
                 .font(.title2.weight(.heavy))
-                .foregroundStyle(direction == .frank ? Stitch.card : Stitch.red)
+                .foregroundStyle(direction == .frank ? Stitch.onAccent : Stitch.red)
                 .padding(.horizontal, 18).padding(.vertical, 8)
                 .background(direction == .frank ? Stitch.red : Stitch.card, in: Capsule())
                 .overlay(Capsule().strokeBorder(Stitch.red, lineWidth: 2))

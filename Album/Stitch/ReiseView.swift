@@ -35,7 +35,7 @@ struct ReiseView: View {
                     .padding(.top, 10)
 
                 if let day = TripDates.tripDay() {
-                    TodayPlan(day: day, places: store.franked.filter { $0.day == day }, root: store.root) { selected = $0 }
+                    TodayPlan(day: day, places: store.plan(for: day), root: store.root) { selected = $0 }
                         .padding(.top, 24)
                 }
 

@@ -14,4 +14,7 @@
 - Neue Welt: Leinen, Garn, Kreuzstiche (alles von SwiftUI gezeichnet, keine Bilddateien). Produktgrundlage in `PRODUCT.md`, Interaktionen in `Design/INTERAKTIONEN.md`.
 - Tabs heißen jetzt Reise, Ideen, Karte (native iOS-Tab-Leiste). „Frankieren/Zurücklegen“ heißt jetzt „Dafür/Später“.
 - App-Sprache ist Deutsch (`CFBundleDevelopmentRegion: de`), damit auch System-Knöpfe deutsch sind.
-- Offen: Magnet-Klick (Supabase-Migration nötig), Pins zum Umsortieren ziehen, Dunkelmodus (App ist weiterhin nur hell), Test auf zwei echten iPhones.
+- Gemeinsam entscheiden pro Person: Vorschläge der anderen Person bleiben in den eigenen Ideen, bis man selbst abstimmt; beide dafür = Magnet-Klick. Stimmen werden beim Abgleich vereinigt.
+- Tagesplan mit Reihenfolge, Dunkelmodus.
+- Bekannter Fehler (vor dem Redesign vorhanden): Geht die anonyme Supabase-Sitzung verloren, meldet sich die App neu an und ist kein Mitglied der Reise mehr → „new row violates row-level security policy“. Fix wartet auf Freigabe (Auth-Logik).
+- Offen: Test auf zwei echten iPhones.

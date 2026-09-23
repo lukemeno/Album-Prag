@@ -45,11 +45,13 @@ Bleibt: Wischen zum Entscheiden (schon gebaut und getestet in `InboxView.swift`)
 | 2 | Zettel aus der Zwischenablage | gebaut, im Simulator geprüft | `AlbumRoot.swift` (`ClipboardNote`, `PasteButton` ohne Einfüge-Dialog) |
 | 1 | Briefkasten-Schlitz | gebaut, im Simulator geprüft; reine SwiftUI statt Rive | `Stitch/LetterSlot.swift` |
 | – | Kreuz stickt sich bei „Dafür“ | gebaut, geprüft (ersetzt vorerst den Magnet-Klick) | `InboxView.swift` |
-| 5 | Magnet-Klick | **offen**: braucht Stimmen pro Person im Datenmodell und eine Supabase-Migration | – |
+| 5 | Magnet-Klick | gebaut: Stimmen pro Person (`approvals`), zwei Herzhälften schnappen zusammen; keine Migration nötig, Orte liegen als JSON in `places.payload` | `InboxView.swift` (`MagnetHearts`), `AlbumStore.decided` |
 | 7 | Stecknadel | gebaut, geprüft | `TripMapView.swift` (`StitchPin`) |
-| 8 | Roter Faden | gebaut (Vorstich pro Tag); Pins zum Umsortieren ziehen: **offen** | `TripMapView.swift` |
+| 8 | Roter Faden | gebaut: Vorstich pro Tag in geplanter Reihenfolge; Tag per Menü, Reihenfolge im „Tagesplan“ per Ziehen | `TripMapView.swift` (`DayMenu`, `DayPlanner`) |
 | 11 | Abreißkalender | gebaut, geprüft | `Stitch/ReiseExtras.swift` (`TearCalendar`) |
 | 9 | Tram-Klingel | gebaut, geprüft (Haptik, kein Ton) | `Stitch/ReiseExtras.swift` (`TramBell`) |
 | – | „Heute“ für unterwegs | gebaut, geprüft mit `ALBUM_TODAY=2026-10-05` | `Stitch/ReiseExtras.swift` (`TodayPlan`) |
 
 Debug-Hilfen (nur in Debug-Builds): `ALBUM_START_TAB=Reise|Ideen|Karte`, `ALBUM_TODAY=yyyy-MM-dd`, `ALBUM_TEST_STORE=<ordner>`.
+
+Dunkelmodus: indigogefärbtes Leinen, hellere Garne (`Stitch.dynamic`). Name pro Gerät (`album.myName`), einmal beim ersten Start abgefragt.

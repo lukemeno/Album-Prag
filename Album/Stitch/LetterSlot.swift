@@ -18,12 +18,12 @@ struct LetterSlotDrop: View {
 
                 VStack(spacing: 8) {
                     ZStack(alignment: .top) {
-                        Capsule().fill(Stitch.ink).frame(width: 220, height: 20)
+                        Capsule().fill(Color.black.opacity(0.85)).frame(width: 220, height: 20)
                             .overlay(Capsule().strokeBorder(Stitch.red, style: StrokeStyle(lineWidth: 2, dash: [5, 4])).padding(-6))
                         // Klappe
                         RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Stitch.red)
                             .frame(width: 236, height: 30)
-                            .overlay(Text("Ideen").font(.footnote.weight(.bold)).foregroundStyle(Stitch.card))
+                            .overlay(Text("Ideen").font(.footnote.weight(.bold)).foregroundStyle(Stitch.onAccent))
                             .rotation3DEffect(.degrees(phase == .rising || phase == .inside ? -70 : 0), axis: (x: 1, y: 0, z: 0), anchor: .top, perspective: 0.6)
                             .offset(y: -10)
                     }

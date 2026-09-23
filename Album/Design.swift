@@ -6,11 +6,11 @@ import UIKit
 /// Ältere Bildschirme lesen diese Werte; sie zeigen jetzt auf die Welt „Kreuzstich“.
 enum AlbumStyle {
     static let paper = Stitch.linen
-    static let deep = Color(red: 228/255, green: 216/255, blue: 192/255)
+    static let deep = Stitch.dynamic(light: (228, 216, 192), dark: (52, 58, 78))
     static let ink = Stitch.ink
     static let muted = Stitch.inkSoft
     static let red = Stitch.red
-    static let gold = Color(red: 190/255, green: 174/255, blue: 146/255)
+    static let gold = Stitch.dynamic(light: (190, 174, 146), dark: (96, 102, 124))
     static let white = Stitch.card
     static func display(_ size: CGFloat = 32) -> Font { .system(size: scaled(size, .largeTitle), weight: .bold) }
     static func serif(_ size: CGFloat = 22) -> Font { .system(size: scaled(size, .title2), weight: .semibold) }
@@ -81,7 +81,7 @@ struct PhotoCard: View {
                 Text(title).font(display ? AlbumStyle.display() : AlbumStyle.serif(27))
                 Text(subtitle).font(AlbumStyle.body())
                 if !detail.isEmpty { Text(detail).font(AlbumStyle.body(12)) }
-            }.foregroundStyle(AlbumStyle.white).padding(18)
+            }.foregroundStyle(Stitch.onAccent).padding(18)
         }.clipShape(RoundedRectangle(cornerRadius: 20))
     }
 }

@@ -148,7 +148,7 @@ struct TodayPlan: View {
             }
             ForEach(Array(places.enumerated()), id: \.element.id) { index, place in
                 HStack(spacing: 14) {
-                    Text("\(index + 1)").font(.headline.monospacedDigit()).foregroundStyle(Stitch.card)
+                    Text("\(index + 1)").font(.headline.monospacedDigit()).foregroundStyle(Stitch.onAccent)
                         .frame(width: 30, height: 30).background(Stitch.red, in: Circle())
                     Button { onSelect(place) } label: {
                         HStack(spacing: 12) {
