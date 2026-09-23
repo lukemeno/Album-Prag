@@ -1,5 +1,6 @@
 import SwiftUI
 import PDFKit
+import CoreLocation
 
 @MainActor @Observable final class AlbumStore {
     var data: AlbumData
@@ -130,6 +131,30 @@ import PDFKit
     }
     func updateTrip(_ trip: TripInfo) {
         data.trip = trip; data.trip.updatedAt = Date(); data.dirty.insert("trip"); persist(); scheduleSync()
+    }
+
+    /// Beim Öffnen eines PDFs von außen gelesen; die Startansicht bietet es zum Übernehmen an.
+    var pendingExtraction: ExtractedTrip?
+
+    /// Liest Flüge, Hotel und Buchungsdaten aus einem gespeicherten PDF.
+    func extraction(from document: TravelDocument) -> ExtractedTrip {
+        TripDocumentParser.parse(document.extractedText)
+    }
+
+    /// Übernimmt Gelesenes in die Reisedaten und legt das Hotel als Unterkunft auf die Karte.
+    func applyExtraction(_ extracted: ExtractedTrip) async {
+        updateTrip(extracted.applied(to: data.trip))
+        guard let name = extracted.hotel.name, let address = extracted.hotel.address else { return }
+        let id = "hotel-" + (extracted.bookingNumber ?? name).lowercased().filter { $0.isLetter || $0.isNumber }
+        var place = places.first { $0.id == id } ?? Place(id: id, title: name, note: "", category: "Unterkunft", author: "Wir")
+        place.title = name; place.address = address; place.franked = true; place.deferred = false
+        if extracted.hotel.checkIn != nil || extracted.hotel.checkOut != nil {
+            place.note = ["Check-in \(extracted.hotel.checkIn ?? "–")", "Check-out \(extracted.hotel.checkOut ?? "–")"].joined(separator: " · ")
+        }
+        if place.coordinate == nil, let location = try? await CLGeocoder().geocodeAddressString(address).first?.location {
+            place.lat = location.coordinate.latitude; place.lng = location.coordinate.longitude
+        }
+        upsert(place)
     }
 
     func importPDF(_ url: URL, id: String = UUID().uuidString) throws {

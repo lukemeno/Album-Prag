@@ -134,6 +134,7 @@ struct TodayPlan: View {
     let day: Int
     let places: [Place]
     let root: URL
+    var flights: [FlightLeg] = []
     var onSelect: (Place) -> Void
 
     var body: some View {
@@ -142,7 +143,8 @@ struct TodayPlan: View {
                 Text("Heute").font(.title.weight(.bold)).foregroundStyle(Stitch.ink)
                 Text("\(day). Oktober").font(.title3.weight(.semibold)).foregroundStyle(Stitch.inkSoft)
             }
-            if places.isEmpty {
+            ForEach(flights) { FlightCard(flight: $0) }
+            if places.isEmpty && flights.isEmpty {
                 Text("Für heute ist noch nichts geplant. In der Karte könnt ihr Orten einen Tag geben.")
                     .font(.body).foregroundStyle(Stitch.inkSoft)
             }

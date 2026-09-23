@@ -20,7 +20,14 @@ import SwiftUI
                 }
                 .onOpenURL { url in
                     if url.isFileURL && url.pathExtension.lowercased() == "pdf" {
-                        do { try store.importPDF(url) } catch { store.error = error.localizedDescription }
+                        do {
+                            let id = UUID().uuidString
+                            try store.importPDF(url, id: id)
+                            if let doc = store.data.documents.first(where: { $0.id == id }) {
+                                let extracted = store.extraction(from: doc)
+                                if !extracted.isEmpty { store.pendingExtraction = extracted }
+                            }
+                        } catch { store.error = error.localizedDescription }
                     } else if InvitationLink.token(from: url) != nil {
                         Task {
                             do { try await store.joinSharedTrip(url: url) }

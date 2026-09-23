@@ -189,6 +189,37 @@ struct TripInfo: Codable {
     var flightNumber = ""
     var notes = ""
     var updatedAt = Date.distantPast
+    // Aus Reiseunterlagen gelesen. Optional, damit ältere Daten weiter geladen werden.
+    var flights: [FlightLeg]?
+    var hotelDetails: HotelDetails?
+    var bookingNumber: String?
+    var travelers: [String]?
+}
+
+struct FlightLeg: Codable, Equatable, Identifiable {
+    enum Direction: String, Codable { case outbound, inbound }
+    var direction: Direction
+    var number: String
+    var airline: String?
+    var from: String
+    var to: String
+    /// Datum als „04.10.2026“.
+    var date: String
+    var departure: String
+    var arrival: String
+    /// Spätestens am Flughafen sein.
+    var arriveBy: String?
+    var bookingCode: String?
+    var id: String { direction.rawValue + number }
+    var route: String { "\(from) → \(to)" }
+}
+
+struct HotelDetails: Codable, Equatable {
+    var name: String?
+    var address: String?
+    var checkIn: String?
+    var checkOut: String?
+    var included: [String] = []
 }
 
 struct TravelDocument: Codable, Identifiable {

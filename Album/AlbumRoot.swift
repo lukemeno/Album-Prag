@@ -50,6 +50,7 @@ struct AlbumRoot: View {
         .sheet(item: $adding) { PlaceEditor(place: $0) }
         .sheet(isPresented: $settings) { AlbumSettings() }
         .sheet(isPresented: $askName) { NamePrompt() }
+        .sheet(item: Binding(get: { store.pendingExtraction }, set: { store.pendingExtraction = $0 })) { ExtractedTripSheet(extracted: $0) }
         .sensoryFeedback(.selection, trigger: tab)
         .onChange(of: scenePhase) { _, phase in if phase == .active { checkPasteboard() } }
         .onAppear {

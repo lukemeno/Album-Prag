@@ -8,21 +8,43 @@ struct TripDocumentsView: View {
     @State private var importing = false
     @State private var selected: TravelDocument?
     @State private var editing = false
+    @State private var extraction: ExtractedTrip?
+    private var trip: TripInfo { store.data.trip }
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     Text("Reiseunterlagen").font(AlbumStyle.display())
                     Text("Prag · 4.–9. Oktober 2026").font(AlbumStyle.ticket).foregroundStyle(AlbumStyle.red)
-                    BoardingPassView(trip: store.data.trip)
-                    Label(store.data.trip.hotel, systemImage: "bed.double").font(AlbumStyle.serif(25))
-                    if !store.data.trip.notes.isEmpty { Text(store.data.trip.notes).font(AlbumStyle.body()) }
+                    if let flights = trip.flights, !flights.isEmpty {
+                        ForEach(flights) { FlightCard(flight: $0) }
+                    } else {
+                        BoardingPassView(trip: trip)
+                    }
+                    if let details = trip.hotelDetails {
+                        HotelCard(name: details.name ?? trip.hotel, details: details)
+                    } else {
+                        Label(trip.hotel, systemImage: "bed.double").font(AlbumStyle.serif(25))
+                    }
+                    if let travelers = trip.travelers, !travelers.isEmpty {
+                        Label(travelers.joined(separator: " & "), systemImage: "person.2.fill").font(.subheadline.weight(.semibold))
+                    }
+                    if let number = trip.bookingNumber {
+                        Label("Buchungsnummer \(number)", systemImage: "number").font(.subheadline.weight(.semibold)).textSelection(.enabled)
+                    }
+                    if !trip.notes.isEmpty { Text(trip.notes).font(AlbumStyle.body()).foregroundStyle(AlbumStyle.muted) }
                     Button("Reisedaten bearbeiten") { editing = true }.buttonStyle(AlbumButton())
                     Divider()
                     Text("Dokumente").font(AlbumStyle.serif(28))
                     ForEach(store.data.documents) { doc in
-                        Button { selected = doc } label: {
-                            HStack { Image(systemName: "doc.richtext"); Text(doc.name).font(AlbumStyle.body()); Spacer(); Image(systemName: "chevron.right") }.padding(16).background(AlbumStyle.white, in: RoundedRectangle(cornerRadius: 14))
+                        HStack(spacing: 10) {
+                            Button { selected = doc } label: {
+                                HStack { Image(systemName: "doc.richtext"); Text(doc.name).font(AlbumStyle.body()).multilineTextAlignment(.leading); Spacer(); Image(systemName: "chevron.right") }
+                                    .padding(16).background(AlbumStyle.white, in: RoundedRectangle(cornerRadius: 14))
+                            }
+                            Button { extraction = store.extraction(from: doc) } label: { Image(systemName: "text.viewfinder") }
+                                .buttonStyle(HeaderIconButton())
+                                .accessibilityLabel("Daten aus \(doc.name) lesen")
                         }
                     }
                     Button("PDF hinzufügen") { importing = true }.buttonStyle(AlbumButton(primary: true))
@@ -31,8 +53,13 @@ struct TripDocumentsView: View {
             }.background(LinenBackground()).navigationTitle("Reiseunterlagen").navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } } }
                 .fileImporter(isPresented: $importing, allowedContentTypes: [.pdf]) { result in
-                    do { try store.importPDF(result.get()) } catch { store.error = error.localizedDescription }
+                    do {
+                        let id = UUID().uuidString
+                        try store.importPDF(result.get(), id: id)
+                        if let doc = store.data.documents.first(where: { $0.id == id }) { extraction = store.extraction(from: doc) }
+                    } catch { store.error = error.localizedDescription }
                 }
+                .sheet(item: $extraction) { ExtractedTripSheet(extracted: $0) }
                 .sheet(item: $selected) { DocumentDetail(document: $0) }
                 .sheet(isPresented: $editing) { TripEditor(trip: store.data.trip) }
         }

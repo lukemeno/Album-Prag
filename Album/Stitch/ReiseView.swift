@@ -35,7 +35,8 @@ struct ReiseView: View {
                     .padding(.top, 10)
 
                 if let day = TripDates.tripDay() {
-                    TodayPlan(day: day, places: store.plan(for: day), root: store.root) { selected = $0 }
+                    TodayPlan(day: day, places: store.plan(for: day), root: store.root,
+                              flights: (store.data.trip.flights ?? []).filter { $0.date.hasPrefix(String(format: "%02d.10.", day)) }) { selected = $0 }
                         .padding(.top, 24)
                 }
 

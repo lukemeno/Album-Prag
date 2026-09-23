@@ -22,6 +22,90 @@ final class AlbumTests: XCTestCase {
         let lowestInLeftHalf = grid.cells.filter { $0.x < grid.columns / 2 }.map(\.y).max() ?? 0
         XCTAssertGreaterThan(grid.rows - 1, lowestInLeftHalf)
     }
+    /// Anonymisiertes Muster im Aufbau einer Voyage-Privé-Reisebestätigung, inklusive zerstückeltem PDF-Text.
+    private static let bookingSample = """
+    I H R E  R E I S E D O K U M E N T E
+    Prag - Tschechien
+    Hotel Beispielhaus 4*
+    Von Sonntag 04 Oktober 2026 bis Freitag 09 Oktober 2026
+    BUCHUNGSNUMMER VOYAGE PRIVÉ
+    123456789VPDEHin Flüge
+    ONLINE CHECK -IN ERFORDERLICH
+    Sie können zwischen 72 Stunden und 3 Stunden vor Abﬂug online einchecken.
+    3 Geben Sie im Feld « Buchungscode » Ihre Buchungsref erenz ein: ABC12X
+    Erwachsener 1 Herr MUSTER-MANN Max Geboren am 01/02/ 1990
+    Erwachsener 2 Frau BEISPIEL Erika Geboren am 03/04/199 1
+    Details
+    KÖLN
+    Cologne/Bonn
+    PRAG
+    Prague-Václav Havel
+    BUCHUNGSNUMMER FLUGGESELLSCHAFT FLUGNR. KLASSE TERMINAL
+    ABC12X EUROWINGS
+     EW4241 Economy Class
+    EINFINDUNGSZEIT ABFLUG ANKUNFT GEPÄCK
+    04/10/2026 12:45 04/10/2026 - 14:45 04/10/2026 - 15:5 5 2 Handgepäck
+    BUCHUNGSNUMMER VOYAGE PRIVÉ
+    123456789VPDERück Flüge
+    Details
+    PRAG
+    Prague-Václav Havel
+    KÖLN
+    Cologne/Bonn
+    BUCHUNGSNUMMER FLUGGESELLSCHAFT FLUGNR. KLASSE TERMINAL
+    ABC12X EUROWINGS
+     EW773 Economy Class
+    EINFINDUNGSZEIT ABFLUG ANKUNFT GEPÄCK
+    09/10/2026 10:20 09/10/2026 - 12:20 09/10/2026 - 13:3 5 2 Handgepäck
+    Hotel
+    123456789VPDE
+    BEISPIELHAUS
+    04/10/2026 - 09/10/2026
+    Musterstraße 12, Prague, Czech Republic 110 00
+    Beinhaltet :
+    Superior Zimmer
+    Frühstück
+    Beinhaltet nicht :
+    - Persönliche Ausgaben
+    Check-in: 14:00
+    Check-out: 12:00
+    Die T ourismusabgabe in Höhe von 2,20 € pro Person pro Nacht ist vor Ort zu zahlen.
+    """
+
+    func testBookingPDFTextIsRead() {
+        let trip = TripDocumentParser.parse(Self.bookingSample)
+        XCTAssertEqual(trip.flights.map(\.number), ["EW4241", "EW773"])
+        let out = trip.flights[0], back = trip.flights[1]
+        XCTAssertEqual(out.direction, .outbound); XCTAssertEqual(back.direction, .inbound)
+        XCTAssertEqual(out.route, "Köln → Prag"); XCTAssertEqual(back.route, "Prag → Köln")
+        XCTAssertEqual([out.date, out.departure, out.arrival, out.arriveBy], ["04.10.2026", "14:45", "15:55", "12:45"])
+        XCTAssertEqual([back.date, back.departure, back.arrival, back.arriveBy], ["09.10.2026", "12:20", "13:35", "10:20"])
+        XCTAssertEqual(out.bookingCode, "ABC12X"); XCTAssertEqual(out.airline, "Eurowings")
+        XCTAssertEqual(trip.hotel.name, "Hotel Beispielhaus")
+        XCTAssertEqual(trip.hotel.address, "Musterstraße 12, Prague, Czech Republic 110 00")
+        XCTAssertEqual(trip.hotel.checkIn, "14:00"); XCTAssertEqual(trip.hotel.checkOut, "12:00")
+        XCTAssertEqual(trip.hotel.included, ["Superior Zimmer", "Frühstück"])
+        XCTAssertEqual(trip.bookingNumber, "123456789VPDE")
+        XCTAssertEqual(trip.travelers, ["Max Muster-Mann", "Erika Beispiel"])
+        XCTAssertTrue(trip.notes.contains { $0.contains("Tourismusabgabe") })
+        XCTAssertTrue(trip.notes.contains { $0.contains("zwischen 72 und 3 Stunden") })
+        // Geburtsdaten werden nirgends übernommen.
+        let applied = trip.applied(to: TripInfo())
+        XCTAssertFalse(String(describing: applied).contains("1990"))
+        XCTAssertEqual(applied.flightNumber, "EW4241"); XCTAssertEqual(applied.route, "Köln → Prag")
+        XCTAssertEqual(applied.hotel, "Hotel Beispielhaus")
+    }
+
+    func testRealBookingPDFIfAvailable() throws {
+        // Nur lokal: TEST_RUNNER_ALBUM_SAMPLE_PDF=/pfad/zum.pdf xcodebuild test …
+        guard let path = ProcessInfo.processInfo.environment["ALBUM_SAMPLE_PDF"],
+              let text = PDFDocument(url: URL(fileURLWithPath: path))?.string else { throw XCTSkip("Kein echtes PDF angegeben") }
+        let trip = TripDocumentParser.parse(text)
+        XCTAssertEqual(trip.flights.count, 2)
+        XCTAssertTrue(trip.flights.allSatisfy { !$0.departure.isEmpty && !$0.arrival.isEmpty && $0.bookingCode != nil })
+        XCTAssertNotNil(trip.hotel.address); XCTAssertNotNil(trip.hotel.checkIn); XCTAssertNotNil(trip.bookingNumber)
+    }
+
     func testOnlyWebLinksAccepted() {
         XCTAssertNil(LinkValidation.url("javascript:alert(1)"))
         XCTAssertNil(LinkValidation.url("file:///private/test"))
