@@ -1,5 +1,6 @@
 import SwiftUI
 import MapKit
+import RiveRuntime
 
 /// Reisezeitraum und „heute“. In Debug-Builds lässt sich heute per `ALBUM_TODAY=2026-10-05` festlegen.
 enum TripDates {
@@ -181,23 +182,27 @@ struct TodayPlan: View {
     }
 }
 
-/// Tram-Klingel: schwingt beim Abgleichen und macht „Ding“.
+/// Tram-Klingel: in Blender modelliert, in Rive mit Knochen animiert (Design/rive/tram-bell).
+/// Schwingt beim Abgleichen und beim Antippen und macht „Ding“.
 struct TramBell: View {
     let rings: Int
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @StateObject private var rive = RiveViewModel(fileName: "tram-bell", stateMachineName: "Klingel")
+    @State private var taps = 0
+
     var body: some View {
-        StitchedSymbol(name: "bell.fill", rows: 12, cell: 2.4, color: Stitch.mustard)
-            .keyframeAnimator(initialValue: 0.0, trigger: rings) { content, angle in
-                content.rotationEffect(.degrees(angle), anchor: .top)
-            } keyframes: { _ in
-                KeyframeTrack {
-                    SpringKeyframe(24, duration: 0.12)
-                    SpringKeyframe(-18, duration: 0.14)
-                    SpringKeyframe(10, duration: 0.14)
-                    SpringKeyframe(-5, duration: 0.12)
-                    SpringKeyframe(0, duration: 0.2)
-                }
-            }
-            .sensoryFeedback(.impact(weight: .light, intensity: 1), trigger: rings)
+        rive.view()
+            .frame(width: 60, height: 60)
+            .contentShape(Rectangle())
+            .onTapGesture { taps += 1 }
+            .onChange(of: rings) { _, _ in ring() }
+            .onChange(of: taps) { _, _ in ring() }
+            .sensoryFeedback(.impact(weight: .light, intensity: 1), trigger: rings + taps)
             .accessibilityHidden(true)
+    }
+
+    private func ring() {
+        guard !reduceMotion else { return }
+        rive.triggerInput("ring")
     }
 }

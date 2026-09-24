@@ -14,6 +14,7 @@
 		337A11077066B4212FCB497C /* Design.swift in Sources */ = {isa = PBXBuildFile; fileRef = 570F4FCF87803AE047C0D2A1 /* Design.swift */; };
 		44B7AB72701D03DF20EFB2A1 /* TripDocumentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C0B3187913E40C0E7F6AF2F /* TripDocumentsView.swift */; };
 		472068944BC73AA524D004F3 /* AlbumTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E362E480309CBF88A1A449 /* AlbumTests.swift */; };
+		57B94B56EAC2FAADF9EF02AF /* RiveRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = 77A3C6799FE2DBC8EEBC200A /* RiveRuntime */; };
 		5CB82A7E3EE9680B377CC0CE /* AlbumUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7B977925593DCCEC83C49E6 /* AlbumUITests.swift */; };
 		5E8AA213992CF85ECAB69AAE /* IBMPlexSans.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 53AE6C0D4CEA917FC706DD41 /* IBMPlexSans.ttf */; };
 		5FF288AF18CAB5FED0B579E7 /* AlbumApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C01719B12F0C4B781136BCDE /* AlbumApp.swift */; };
@@ -36,6 +37,7 @@
 		D0C566058D79B60933A7D110 /* AlbumStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AEC4D2DA5E025826995EB60 /* AlbumStore.swift */; };
 		D0FDC746138CA4E1834588DA /* IBMPlexMono-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = B94DDFBE5E857BDD53D02A27 /* IBMPlexMono-OFL.txt */; };
 		D86FF2380B64141D4CEA8D7D /* InstrumentSerif-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = 90556A3399AE23586611E4ED /* InstrumentSerif-OFL.txt */; };
+		DE8CBE823321AED9D78F0D9B /* tram-bell.riv in Resources */ = {isa = PBXBuildFile; fileRef = D2E1F3DD70F74660FD65787B /* tram-bell.riv */; };
 		DFC037489CCDBE20E9BB2D39 /* Fraunces.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F32482DDE0694185576CB152 /* Fraunces.ttf */; };
 		F10BF00CF1019633DB7F7F1A /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = D48710D3053AD6A54DD19DDC /* Models.swift */; };
 		F897B7CB54B3AE251A159BE2 /* IBMPlexMono.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 531AAC118D595F7C5919B514 /* IBMPlexMono.ttf */; };
@@ -86,6 +88,7 @@
 		BD151282F78468CBAA24448C /* Album.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Album.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C01719B12F0C4B781136BCDE /* AlbumApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumApp.swift; sourceTree = "<group>"; };
 		C4C6D8A6AB41421423966DE5 /* InstrumentSerif.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = InstrumentSerif.ttf; sourceTree = "<group>"; };
+		D2E1F3DD70F74660FD65787B /* tram-bell.riv */ = {isa = PBXFileReference; path = "tram-bell.riv"; sourceTree = "<group>"; };
 		D48710D3053AD6A54DD19DDC /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		D65E5CE134035E1E79693B07 /* ReiseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReiseView.swift; sourceTree = "<group>"; };
 		E4CB9566B5C99924A3FCEF35 /* AlbumUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = AlbumUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -102,6 +105,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				67B21440F621B0585A2BA6C5 /* Supabase in Frameworks */,
+				57B94B56EAC2FAADF9EF02AF /* RiveRuntime in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -193,6 +197,7 @@
 				53AE6C0D4CEA917FC706DD41 /* IBMPlexSans.ttf */,
 				90556A3399AE23586611E4ED /* InstrumentSerif-OFL.txt */,
 				C4C6D8A6AB41421423966DE5 /* InstrumentSerif.ttf */,
+				D2E1F3DD70F74660FD65787B /* tram-bell.riv */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -251,6 +256,7 @@
 			name = Album;
 			packageProductDependencies = (
 				124B6D626947355447F3229A /* Supabase */,
+				77A3C6799FE2DBC8EEBC200A /* RiveRuntime */,
 			);
 			productName = Album;
 			productReference = BD151282F78468CBAA24448C /* Album.app */;
@@ -290,6 +296,7 @@
 			mainGroup = 492B3F2A8FCA9B4A17C35323;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				91AF6B02DDF90872982025BA /* XCRemoteSwiftPackageReference "rive-ios" */,
 				1153C1CC80149426334E43C5 /* XCRemoteSwiftPackageReference "supabase-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -319,6 +326,7 @@
 				D86FF2380B64141D4CEA8D7D /* InstrumentSerif-OFL.txt in Resources */,
 				71CCB29D97812AF1824E5BCC /* InstrumentSerif.ttf in Resources */,
 				0B98FD5375014B3A66BFBE8E /* PrivacyInfo.xcprivacy in Resources */,
+				DE8CBE823321AED9D78F0D9B /* tram-bell.riv in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -664,6 +672,14 @@
 				version = 2.55.2;
 			};
 		};
+		91AF6B02DDF90872982025BA /* XCRemoteSwiftPackageReference "rive-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/rive-app/rive-ios.git";
+			requirement = {
+				kind = exactVersion;
+				version = 6.27.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -671,6 +687,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 1153C1CC80149426334E43C5 /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Supabase;
+		};
+		77A3C6799FE2DBC8EEBC200A /* RiveRuntime */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 91AF6B02DDF90872982025BA /* XCRemoteSwiftPackageReference "rive-ios" */;
+			productName = RiveRuntime;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -1,0 +1,89 @@
+<Rive version="1" kind="fragment">
+    <ImageAsset file="renders/bracket.png" name="Halterung" id="0:60"/>
+    <ImageAsset file="renders/clapper.png" name="Klöppel" id="0:61"/>
+    <ImageAsset file="renders/bell.png" name="Glocke" id="0:62"/>
+
+    <Artboard defaultStateMachineId="0:7" styleId="0:5" width="600" height="600" name="Tram-Klingel" id="0:2">
+        <LayoutComponentStyle name="Artboard Style" id="0:5"/>
+
+        <!-- Zeichenreihenfolge: das erste Element liegt oben. -->
+        <RootBone x="292.9" y="290.0" rotation="1.5707963" length="107.7" name="Schale" id="0:30">
+            <Bone length="107.7" rotation="0" name="Rand" id="0:31"/>
+        </RootBone>
+        <Image x="0" y="0" originX="0" originY="0" assetId="0:62" name="Glocke" id="0:23">
+            <Mesh triangleIndexBytes="AAEQABAPAQIRAREQAgMSAhIRAwQFAwUSDxATDxMOEBEUEBQTERIVERUUEgUGEgYVDhMWDhYNExQXExcWFBUYFBgXFQYHFQcYDRYLDQsMFhcKFgoLFxgJFwkKGAcIGAgJ" name="Mesh" id="0:24">
+<ContourMeshVertex x="0.0" y="0.0" u="0.0000" v="0.0000" name="V0"><Weight values="255" indices="1"/></ContourMeshVertex>
+<ContourMeshVertex x="132.9" y="0.0" u="0.2215" v="0.0000" name="V1"><Weight values="255" indices="1"/></ContourMeshVertex>
+<ContourMeshVertex x="292.9" y="0.0" u="0.4882" v="0.0000" name="V2"><Weight values="255" indices="1"/></ContourMeshVertex>
+<ContourMeshVertex x="452.9" y="0.0" u="0.7548" v="0.0000" name="V3"><Weight values="255" indices="1"/></ContourMeshVertex>
+<ContourMeshVertex x="600.0" y="0.0" u="1.0000" v="0.0000" name="V4"><Weight values="255" indices="1"/></ContourMeshVertex>
+<ContourMeshVertex x="600.0" y="290.0" u="1.0000" v="0.4833" name="V5"><Weight values="255" indices="1"/></ContourMeshVertex>
+<ContourMeshVertex x="600.0" y="397.7" u="1.0000" v="0.6628" name="V6"><Weight values="32640" indices="513"/></ContourMeshVertex>
+<ContourMeshVertex x="600.0" y="535.4" u="1.0000" v="0.8923" name="V7"><Weight values="255" indices="2"/></ContourMeshVertex>
+<ContourMeshVertex x="600.0" y="600.0" u="1.0000" v="1.0000" name="V8"><Weight values="255" indices="2"/></ContourMeshVertex>
+<ContourMeshVertex x="452.9" y="600.0" u="0.7548" v="1.0000" name="V9"><Weight values="255" indices="2"/></ContourMeshVertex>
+<ContourMeshVertex x="292.9" y="600.0" u="0.4882" v="1.0000" name="V10"><Weight values="255" indices="2"/></ContourMeshVertex>
+<ContourMeshVertex x="132.9" y="600.0" u="0.2215" v="1.0000" name="V11"><Weight values="255" indices="2"/></ContourMeshVertex>
+<ContourMeshVertex x="0.0" y="600.0" u="0.0000" v="1.0000" name="V12"><Weight values="255" indices="2"/></ContourMeshVertex>
+<ContourMeshVertex x="0.0" y="535.4" u="0.0000" v="0.8923" name="V13"><Weight values="255" indices="2"/></ContourMeshVertex>
+<ContourMeshVertex x="0.0" y="397.7" u="0.0000" v="0.6628" name="V14"><Weight values="32640" indices="513"/></ContourMeshVertex>
+<ContourMeshVertex x="0.0" y="290.0" u="0.0000" v="0.4833" name="V15"><Weight values="255" indices="1"/></ContourMeshVertex>
+<MeshVertex x="132.9" y="290.0" u="0.2215" v="0.4833" name="V16"><Weight values="255" indices="1"/></MeshVertex>
+<MeshVertex x="292.9" y="290.0" u="0.4882" v="0.4833" name="V17"><Weight values="255" indices="1"/></MeshVertex>
+<MeshVertex x="452.9" y="290.0" u="0.7548" v="0.4833" name="V18"><Weight values="255" indices="1"/></MeshVertex>
+<MeshVertex x="132.9" y="397.7" u="0.2215" v="0.6628" name="V19"><Weight values="32640" indices="513"/></MeshVertex>
+<MeshVertex x="292.9" y="397.7" u="0.4882" v="0.6628" name="V20"><Weight values="32640" indices="513"/></MeshVertex>
+<MeshVertex x="452.9" y="397.7" u="0.7548" v="0.6628" name="V21"><Weight values="32640" indices="513"/></MeshVertex>
+<MeshVertex x="132.9" y="535.4" u="0.2215" v="0.8923" name="V22"><Weight values="255" indices="2"/></MeshVertex>
+<MeshVertex x="292.9" y="535.4" u="0.4882" v="0.8923" name="V23"><Weight values="255" indices="2"/></MeshVertex>
+<MeshVertex x="452.9" y="535.4" u="0.7548" v="0.8923" name="V24"><Weight values="255" indices="2"/></MeshVertex>
+                <Skin tx="0" ty="0" name="Skin">
+                    <Tendon boneId="0:30" xx="0" xy="1" yx="-1" yy="0" tx="292.9" ty="290.0" name="Schale"/>
+                    <Tendon boneId="0:31" xx="0" xy="1" yx="-1" yy="0" tx="292.9" ty="397.7" name="Rand"/>
+                </Skin>
+            </Mesh>
+        </Image>
+
+        <RootBone x="292.9" y="321.9" rotation="1.5707963" length="227.4" name="Klöppel" id="0:40"/>
+        <Image x="0" y="0" originX="0" originY="0" assetId="0:61" name="Klöppel" id="0:21">
+            <Mesh triangleIndexBytes="AAECAAID" name="Mesh" id="0:22">
+<ContourMeshVertex x="0.0" y="0.0" u="0.0000" v="0.0000" name="V0"><Weight values="255" indices="1"/></ContourMeshVertex>
+<ContourMeshVertex x="600.0" y="0.0" u="1.0000" v="0.0000" name="V1"><Weight values="255" indices="1"/></ContourMeshVertex>
+<ContourMeshVertex x="600.0" y="600.0" u="1.0000" v="1.0000" name="V2"><Weight values="255" indices="1"/></ContourMeshVertex>
+<ContourMeshVertex x="0.0" y="600.0" u="0.0000" v="1.0000" name="V3"><Weight values="255" indices="1"/></ContourMeshVertex>
+                <Skin tx="0" ty="0" name="Skin">
+                    <Tendon boneId="0:40" xx="0" xy="1" yx="-1" yy="0" tx="292.9" ty="321.9" name="Klöppel"/>
+                </Skin>
+            </Mesh>
+        </Image>
+
+        <Image x="0" y="0" originX="0" originY="0" assetId="0:60" name="Halterung" id="0:20"/>
+
+        <StateMachine name="Klingel" id="0:7">
+            <StateMachineTrigger name="ring" id="0:50"/>
+            <StateMachineLayer name="Klingel" id="0:8">
+                <AnyState x="200" y="-120"/>
+                <ExitState x="400" y="-120"/>
+                <EntryState><StateTransition stateToId="0:12"/></EntryState>
+                <AnimationState x="200" y="0" animationId="0:10" id="0:12">
+                    <StateTransition stateToId="0:13">
+                        <TransitionTriggerCondition inputId="0:50"/>
+                    </StateTransition>
+                </AnimationState>
+                <AnimationState x="400" y="0" animationId="0:11" id="0:13">
+                    <StateTransition stateToId="0:13">
+                        <TransitionTriggerCondition inputId="0:50"/>
+                    </StateTransition>
+                    <StateTransition stateToId="0:12" enableExitTime="true" exitTimeIsPercetange="true" exitTime="100"/>
+                </AnimationState>
+            </StateMachineLayer>
+        </StateMachine>
+
+        <LinearAnimation duration="1" name="Ruhe" id="0:10"/>
+        <LinearAnimation duration="66" name="Klingeln" id="0:11">
+<KeyedObject objectId="0:30"><KeyedProperty propertyKey="15"><KeyFrameDouble value="1.57080" frame="0" interpolationType="cubic"><CubicEaseInterpolator x1="0.37" y1="0" x2="0.63" y2="1"/></KeyFrameDouble><KeyFrameDouble value="1.89080" frame="7" interpolationType="cubic"><CubicEaseInterpolator x1="0.37" y1="0" x2="0.63" y2="1"/></KeyFrameDouble><KeyFrameDouble value="1.33080" frame="17" interpolationType="cubic"><CubicEaseInterpolator x1="0.37" y1="0" x2="0.63" y2="1"/></KeyFrameDouble><KeyFrameDouble value="1.72080" frame="27" interpolationType="cubic"><CubicEaseInterpolator x1="0.37" y1="0" x2="0.63" y2="1"/></KeyFrameDouble><KeyFrameDouble value="1.49080" frame="37" interpolationType="cubic"><CubicEaseInterpolator x1="0.37" y1="0" x2="0.63" y2="1"/></KeyFrameDouble><KeyFrameDouble value="1.60580" frame="47" interpolationType="cubic"><CubicEaseInterpolator x1="0.37" y1="0" x2="0.63" y2="1"/></KeyFrameDouble><KeyFrameDouble value="1.57080" frame="60"></KeyFrameDouble></KeyedProperty></KeyedObject>
+<KeyedObject objectId="0:31"><KeyedProperty propertyKey="15"><KeyFrameDouble value="0.00000" frame="0" interpolationType="cubic"><CubicEaseInterpolator x1="0.37" y1="0" x2="0.63" y2="1"/></KeyFrameDouble><KeyFrameDouble value="-0.06000" frame="7" interpolationType="cubic"><CubicEaseInterpolator x1="0.37" y1="0" x2="0.63" y2="1"/></KeyFrameDouble><KeyFrameDouble value="0.05000" frame="17" interpolationType="cubic"><CubicEaseInterpolator x1="0.37" y1="0" x2="0.63" y2="1"/></KeyFrameDouble><KeyFrameDouble value="-0.03000" frame="27" interpolationType="cubic"><CubicEaseInterpolator x1="0.37" y1="0" x2="0.63" y2="1"/></KeyFrameDouble><KeyFrameDouble value="0.01500" frame="37" interpolationType="cubic"><CubicEaseInterpolator x1="0.37" y1="0" x2="0.63" y2="1"/></KeyFrameDouble><KeyFrameDouble value="0.00000" frame="60"></KeyFrameDouble></KeyedProperty></KeyedObject>
+<KeyedObject objectId="0:40"><KeyedProperty propertyKey="15"><KeyFrameDouble value="1.57080" frame="0" interpolationType="cubic"><CubicEaseInterpolator x1="0.37" y1="0" x2="0.63" y2="1"/></KeyFrameDouble><KeyFrameDouble value="1.47080" frame="4" interpolationType="cubic"><CubicEaseInterpolator x1="0.37" y1="0" x2="0.63" y2="1"/></KeyFrameDouble><KeyFrameDouble value="2.12080" frame="12" interpolationType="cubic"><CubicEaseInterpolator x1="0.37" y1="0" x2="0.63" y2="1"/></KeyFrameDouble><KeyFrameDouble value="1.15080" frame="22" interpolationType="cubic"><CubicEaseInterpolator x1="0.37" y1="0" x2="0.63" y2="1"/></KeyFrameDouble><KeyFrameDouble value="1.83080" frame="32" interpolationType="cubic"><CubicEaseInterpolator x1="0.37" y1="0" x2="0.63" y2="1"/></KeyFrameDouble><KeyFrameDouble value="1.44080" frame="42" interpolationType="cubic"><CubicEaseInterpolator x1="0.37" y1="0" x2="0.63" y2="1"/></KeyFrameDouble><KeyFrameDouble value="1.62080" frame="52" interpolationType="cubic"><CubicEaseInterpolator x1="0.37" y1="0" x2="0.63" y2="1"/></KeyFrameDouble><KeyFrameDouble value="1.57080" frame="66"></KeyFrameDouble></KeyedProperty></KeyedObject>
+        </LinearAnimation>
+    </Artboard>
+</Rive>

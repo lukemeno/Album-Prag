@@ -43,6 +43,7 @@ targets:
             LSItemContentTypes: [com.adobe.pdf]
     dependencies:
       - package: Supabase
+      - package: RiveRuntime
   AlbumTests:
     type: bundle.unit-test
     platform: iOS
@@ -69,6 +70,9 @@ schemes:
     test:
       targets: [AlbumTests, AlbumUITests]
 packages:
+  RiveRuntime:
+    url: https://github.com/rive-app/rive-ios.git
+    exactVersion: 6.27.0
   Supabase:
     url: https://github.com/supabase/supabase-swift.git
     exactVersion: 2.55.2
