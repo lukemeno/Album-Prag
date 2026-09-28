@@ -30,6 +30,8 @@ struct ExternalPlaceImage: Codable, Equatable {
     var licenseURL: String?
     var providerPlaceID: String?
     var resolvedFor: ResolvedPlaceIdentity?
+    /// Version der Foto-Auswahl, mit der das Bild gefunden wurde. Ältere Bilder werden einmal neu gesucht.
+    var ranking: Int?
 }
 
 struct UploadedPlaceImage: Codable, Equatable {

@@ -111,3 +111,22 @@ extension DayPlanTests {
         }
     }
 }
+
+extension DayPlanTests {
+    func testMealsAreNotBackToBack() {
+        let order = DayPlanGenerator.separateMeals([
+            place("ring", 50.0875, 14.4213), place("louvre", 50.0819, 14.4185, category: "Essen & Trinken"),
+            place("slavia", 50.0814, 14.4136, category: "Essen & Trinken"), place("bridge", 50.0865, 14.4114),
+        ])
+        XCTAssertEqual(order.map(\.id), ["ring", "louvre", "bridge", "slavia"])
+    }
+
+    func testOldWikimediaPhotosAreSearchedOnce() {
+        var place = place("letna", 50.0966, 14.4165, category: "Aussicht")
+        let identity = ResolvedPlaceIdentity(title: place.title, latitude: 50.0966, longitude: 14.4165)
+        place.image = .external(ExternalPlaceImage(imageURL: "https://x/a.jpg", sourceURL: "https://x", credit: "x", provider: .wikimedia, resolvedFor: identity))
+        XCTAssertTrue(PlaceImageService.shouldSearch(for: place, force: false))
+        place.image = .external(ExternalPlaceImage(imageURL: "https://x/a.jpg", sourceURL: "https://x", credit: "x", provider: .wikimedia, resolvedFor: identity, ranking: PlaceImageService.ranking))
+        XCTAssertFalse(PlaceImageService.shouldSearch(for: place, force: false))
+    }
+}

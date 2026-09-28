@@ -156,7 +156,7 @@ enum DayPlanGenerator {
             order.append(next)
             position = next.coordinate!
         }
-        guard order.count > 2 else { return order }
+        guard order.count > 2 else { return separateMeals(order) }
         var improved = true
         while improved {
             improved = false
@@ -167,6 +167,17 @@ enum DayPlanGenerator {
                     if length(candidate, from: start) + 1 < length(order, from: start) { order = candidate; improved = true }
                 }
             }
+        }
+        return separateMeals(order)
+    }
+
+    /// Zwei Cafés oder Restaurants direkt hintereinander: den nächsten anderen Ort dazwischenziehen.
+    static func separateMeals(_ places: [Place]) -> [Place] {
+        var order = places
+        let isMeal = { (place: Place) in place.category == "Essen & Trinken" }
+        for index in order.indices.dropFirst() where isMeal(order[index]) && isMeal(order[index - 1]) {
+            guard let other = order[index...].firstIndex(where: { !isMeal($0) }) else { break }
+            order.insert(order.remove(at: other), at: index)
         }
         return order
     }

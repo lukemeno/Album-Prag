@@ -163,7 +163,8 @@ final class AlbumTests: XCTestCase {
             sourceURL: "https://example.com/source",
             credit: "Archiv",
             provider: .wikimedia,
-            resolvedFor: resolved
+            resolvedFor: resolved,
+            ranking: PlaceImageService.ranking
         ))
         let samePlace = Place(title: "Letná", image: asset, lat: 50.0957, lng: 14.4165)
         let movedPlace = Place(title: "Letná", image: asset, lat: 50.0755, lng: 14.4378)

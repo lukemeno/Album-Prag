@@ -33,7 +33,7 @@
 - Jetzt: Kandidaten aus Hauptbild, Commons-Kategorie des Orts und Fotos im Umkreis von 400 m; Bewertung in `_shared/place_photo.ts` (Verwendung in Wikipedia, Auszeichnungen, Stichworte je Kategorie, Ortsname in allen Sprachen, Serien nur einmal, „View from …“ bei Sehenswürdigkeiten abgewertet, Demos/Karten/Logos raus). Antwort enthält zusätzlich `candidates` (bis 8) für eine spätere Auswahl in der App.
 - Wikimedia drosselt Anfrageschwälle (HTTP 429): Anfragen gebündelt und nacheinander, bei 429 einmal warten, sonst Fehler statt still „kein Bild“.
 - Live geprüft am 28.09.: Letná → „Vltava in Prague at sunset“, Karlsbrücke → Brücke von oben. Deployt (place-photo).
-- Bestehende Orte behalten ihr altes Foto, bis im Editor „Bild neu suchen“ getippt wird.
+- Bestehende Wikimedia-Fotos werden einmal automatisch neu ausgewählt (`ranking` am Bild); eine Straßenansicht ersetzt nie ein altes Wikimedia-Foto.
 
 ## 28.09.2026 – Automatischer Tagesplan
 - Tagesplan → „Automatisch planen“ zeigt einen Vorschlag (Tag + Reihenfolge + ungefähre Tageszeit), erst „Übernehmen“ ändert etwas. Schon geplante Orte bleiben (abschaltbar).
@@ -41,3 +41,4 @@
 - Öffnungszeiten aus OpenStreetMap (Overpass, ohne Schlüssel), eigener Parser für die übliche Form (`OpeningHours.swift`); Exotisches gilt als unbekannt. Gescheiterte Abfragen werden beim nächsten Planen wiederholt. Gespeichert am Ort (`openingHours`, im JSON, keine Migration).
 - UI-Test `testAutomaticDayPlanPreview` läuft nur mit vorbereiteten Orten (`TEST_RUNNER_ALBUM_PLAN_STORE`) und Netz.
 - Später möglich: Agent obendrauf für Wünsche in Worten; Apple Foundation Models für Tagesnamen.
+- Zwei Mal Essen & Trinken nie direkt hintereinander (`separateMeals`).

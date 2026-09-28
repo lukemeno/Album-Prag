@@ -178,6 +178,14 @@ import CoreLocation
         for place in places where place.coordinate != nil && PlaceImageService.shouldSearch(for: place, force: false) {
             let key = "\(place.id)|\(place.title)|\(place.lat ?? 0)|\(place.lng ?? 0)"
             guard imageLookupsTried.insert(key).inserted else { continue }
+            if case .external(var old) = place.image, old.provider == .wikimedia, old.resolvedFor?.matches(place) ?? false {
+                // Nur neu auswählen: Ein altes Wikimedia-Foto wird nie durch eine Straßenansicht ersetzt.
+                let found = try? await PlaceImageService.image(for: place)
+                guard var current = places.first(where: { $0.id == place.id }), current.image == place.image else { continue }
+                if let found { current.image = found.asset(for: current) } else { old.ranking = PlaceImageService.ranking; current.image = .external(old) }
+                upsert(current)
+                continue
+            }
             guard let asset = await PlaceImageResolver.resolve(for: place, root: root),
                   var current = places.first(where: { $0.id == place.id }),
                   PlaceImageService.shouldSearch(for: current, force: false) else { continue }

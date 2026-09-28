@@ -32,12 +32,16 @@ struct PlaceImage: Decodable, Equatable {
             licenseName: licenseName,
             licenseURL: licenseURL?.absoluteString,
             providerPlaceID: providerPlaceID,
-            resolvedFor: coordinate.map { ResolvedPlaceIdentity(title: place.title, latitude: $0.latitude, longitude: $0.longitude) }
+            resolvedFor: coordinate.map { ResolvedPlaceIdentity(title: place.title, latitude: $0.latitude, longitude: $0.longitude) },
+            ranking: PlaceImageService.ranking
         ))
     }
 }
 
 enum PlaceImageService {
+    /// 2: typischstes Foto aus Hauptbild, Commons-Kategorie und Umgebung (statt nur Wikidata-Hauptbild).
+    static let ranking = 2
+
     private struct Request: Encodable {
         let title: String
         let latitude: Double
@@ -72,7 +76,9 @@ enum PlaceImageService {
         if force { return true }
         switch place.image {
         case nil, .bundled: return true
-        case .external(let image): return image.resolvedFor.map { !$0.matches(place) } ?? false
+        case .external(let image):
+            if image.provider == .wikimedia && (image.ranking ?? 1) < ranking { return true }
+            return image.resolvedFor.map { !$0.matches(place) } ?? false
         // Ein TikTok-Standbild zeigt meist Menschen, nicht den Ort: Sobald der Ort bestätigt ist, gewinnt ein echtes Ortsfoto.
         case .linkPreview: return place.coordinate != nil
         case .uploaded: return false
