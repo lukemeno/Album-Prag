@@ -14,7 +14,7 @@ import SwiftUI
     private let isUnitTestHost = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     var body: some Scene {
         WindowGroup {
-            AlbumRoot().environment(store).tint(AlbumStyle.red)
+            AlbumRoot().environment(store).tint(Stitch.redFill)
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .active && !isUnitTestHost { Task { await store.sync(); await store.refreshPlaceImages() } }
                 }

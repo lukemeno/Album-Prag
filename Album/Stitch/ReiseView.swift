@@ -1,16 +1,15 @@
 import SwiftUI
 
 /// Startseite der Reise: gesticktes „Prag“, das Brückenmotiv als Fortschritt und angeheftete Orte.
+/// Während der Reise tritt der Planungsfortschritt zurück und „Heute“ steht oben.
 struct ReiseView: View {
     @Environment(AlbumStore.self) private var store
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var openIdeas: () -> Void
-    var onAdd: () -> Void
-    var onShare: () -> Void
+    var openDocuments: () -> Void
     @State private var shownStitches: Double = 0
     @State private var finished = 0
     @State private var selected: Place?
-    @State private var documents = false
     @State private var bellRings = 0
 
     private let motif = StitchGrid(pattern: CharlesBridgeMotif.rows)
@@ -20,63 +19,41 @@ struct ReiseView: View {
         guard total > 0 else { return 0 }
         return Double(motif.cells.count) * Double(decided) / Double(total)
     }
+    private var tripDay: Int? { TripDates.tripDay() }
 
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
-                ZStack(alignment: .leading) {
-                    TabHeader(onAdd: onAdd, onShare: onShare)
-                    TramBell(rings: bellRings).padding(.top, 6)
+                VStack(spacing: Stitch.Space.xs) {
+                    TramBell(rings: bellRings)
+                    StitchedText(text: "Prag", rows: 30, cell: 3.1)
+                    Text("4.–9. Oktober").font(.subheadline.weight(.medium)).foregroundStyle(Stitch.inkSoft)
                 }
-                StitchedText(text: "Prag", rows: 30, cell: 3.1)
-                    .padding(.top, 4)
-                Text("4.–9. Oktober · \(store.data.trip.hotel)")
-                    .font(.subheadline.weight(.medium)).foregroundStyle(Stitch.inkSoft)
-                    .padding(.top, 10)
 
-                if let day = TripDates.tripDay() {
+                if let day = tripDay {
                     TodayPlan(day: day, places: store.plan(for: day), root: store.root,
                               flights: (store.data.trip.flights ?? []).filter { $0.date.hasPrefix(String(format: "%02d.10.", day)) }) { selected = $0 }
-                        .padding(.top, 24)
-                }
-
-                GeometryReader { geo in
-                    StitchPatternView(motif, cell: geo.size.width / CGFloat(motif.columns), stitched: shownStitches)
-                        .frame(maxWidth: .infinity)
-                }
-                .aspectRatio(CGFloat(motif.columns) / CGFloat(motif.rows), contentMode: .fit)
-                .padding(.top, 28)
-                .accessibilityElement()
-                .accessibilityLabel("Stickbild der Karlsbrücke, \(decided) von \(total) Ideen beschlossen")
-
-                HStack(alignment: .center, spacing: 18) {
-                    if TripDates.daysUntilStart() >= 0 && TripDates.tripDay() == nil {
-                        TearCalendar().padding(.top, 4)
+                        .padding(.top, Stitch.Space.xl)
+                } else {
+                    GeometryReader { geo in
+                        StitchPatternView(motif, cell: geo.size.width / CGFloat(motif.columns), stitched: shownStitches)
+                            .frame(maxWidth: .infinity)
                     }
-                    Button(action: openIdeas) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack(spacing: 8) {
-                                TackStitch(size: 11)
-                                Text(progressLine).font(.subheadline.weight(.semibold))
-                                    .fixedSize(horizontal: false, vertical: true)
-                                Image(systemName: "chevron.right").font(.caption.weight(.bold))
-                            }
-                            Text("Jede beschlossene Idee stickt ein Stück der Brücke.")
-                                .font(.footnote).foregroundStyle(Stitch.inkSoft)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        .foregroundStyle(Stitch.ink)
-                        .padding(14)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Stitch.card.opacity(0.9), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.top, 22)
+                    .aspectRatio(CGFloat(motif.columns) / CGFloat(motif.rows), contentMode: .fit)
+                    .padding(.top, Stitch.Space.xl)
+                    .accessibilityElement()
+                    .accessibilityLabel("Stickbild der Karlsbrücke, \(decided) von \(total) Ideen beschlossen")
 
-                pinned.padding(.top, 30)
+                    HStack(alignment: .center, spacing: Stitch.Space.m) {
+                        if TripDates.daysUntilStart() >= 0 { TearCalendar() }
+                        progressCard
+                    }
+                    .padding(.top, Stitch.Space.l)
+                }
+
+                pinned.padding(.top, Stitch.Space.xl)
             }
-            .padding(.horizontal, 16).padding(.bottom, 32)
+            .padding(.horizontal, Stitch.Space.page).padding(.bottom, Stitch.Space.xl)
         }
         .scrollIndicators(.hidden)
         .refreshable {
@@ -84,17 +61,37 @@ struct ReiseView: View {
             bellRings += 1
         }
         .background(LinenBackground())
+        .navigationBarTitleDisplayMode(.inline)
         .onAppear(perform: stitchToTarget)
         .onChange(of: targetStitches) { _, _ in stitchToTarget() }
         .sensoryFeedback(.impact(weight: .light), trigger: finished)
         .sheet(item: $selected) { PlaceDetail(placeID: $0.id) }
-        .sheet(isPresented: $documents) { TripDocumentsView() }
+    }
+
+    private var progressCard: some View {
+        Button(action: openIdeas) {
+            HStack(spacing: Stitch.Space.xs) {
+                VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
+                    Text(progressLine).font(.headline).foregroundStyle(Stitch.ink)
+                    if decided == 0 && total > 0 {
+                        Text("Jede Idee, für die du dich entscheidest, stickt ein Stück der Brücke.")
+                            .font(.footnote).foregroundStyle(Stitch.inkSoft)
+                    }
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right").font(.footnote.weight(.bold)).foregroundStyle(Stitch.inkSoft)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .stitchCard()
+        }
+        .buttonStyle(.plain)
     }
 
     private var progressLine: String {
         if total == 0 { return "Noch keine Ideen" }
-        if store.inbox.isEmpty { return "\(decided) Orte fest · alles entschieden" }
-        return "\(decided) Orte fest · \(store.inbox.count) offen"
+        if decided == 0 { return store.inbox.count == 1 ? "1 Idee offen" : "\(store.inbox.count) Ideen offen" }
+        if store.inbox.isEmpty { return "\(decided) beschlossen · alles entschieden" }
+        return "\(decided) beschlossen · \(store.inbox.count) offen"
     }
 
     private func stitchToTarget() {
@@ -107,61 +104,36 @@ struct ReiseView: View {
     }
 
     private var pinned: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Stitch.Space.xs) {
             Text("Angeheftet").font(.title3.weight(.bold)).foregroundStyle(Stitch.ink)
             ScrollView(.horizontal) {
-                HStack(alignment: .top, spacing: 18) {
-                    Button { documents = true } label: { PinnedTicket(trip: store.data.trip) }.buttonStyle(.plain)
+                HStack(alignment: .top, spacing: Stitch.Space.m) {
+                    Button(action: openDocuments) { PinnedTicket(trip: store.data.trip) }.buttonStyle(.plain)
                     ForEach(store.franked) { place in
                         Button { selected = place } label: { PinnedPolaroid(place: place, root: store.root) }
                             .buttonStyle(.plain)
                     }
                 }
-                .padding(.vertical, 14).padding(.horizontal, 4)
+                .padding(.vertical, Stitch.Space.m).padding(.horizontal, Stitch.Space.xxs)
             }
             .scrollIndicators(.hidden)
             .scrollClipDisabled()
             if store.franked.isEmpty {
-                Text("Orte, die ihr in den Ideen beschließt, werden hier angeheftet.")
+                Text("Orte, für die du dich entscheidest, werden hier angeheftet.")
                     .font(.footnote).foregroundStyle(Stitch.inkSoft)
             }
         }
     }
 }
 
-/// Kopfzeile mit den beiden globalen Aktionen.
-struct TabHeader: View {
-    var title: String? = nil
-    var subtitle: String? = nil
-    var onAdd: () -> Void
-    var onShare: () -> Void
-    var body: some View {
-        HStack(alignment: .firstTextBaseline) {
-            if let title {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.largeTitle.weight(.bold)).foregroundStyle(Stitch.ink)
-                    if let subtitle { Text(subtitle).font(.subheadline.weight(.medium)).foregroundStyle(Stitch.inkSoft) }
-                }
-            }
-            Spacer()
-            Button(action: onShare) { Image(systemName: "person.2") }
-                .accessibilityLabel("Geteiltes Album verwalten")
-                .buttonStyle(HeaderIconButton())
-            Button(action: onAdd) { Image(systemName: "plus") }
-                .accessibilityLabel("Idee hinzufügen")
-                .buttonStyle(HeaderIconButton())
-        }
-        .padding(.top, 6)
-    }
-}
-
+/// Runder Knopf nur mit Symbol, 44 × 44.
 struct HeaderIconButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.body.weight(.semibold)).foregroundStyle(Stitch.ink)
             .frame(width: 44, height: 44)
-            .background(Stitch.card.opacity(configuration.isPressed ? 1 : 0.8), in: Circle())
-            .shadow(color: .black.opacity(0.08), radius: 3, y: 1)
+            .background(Stitch.card.opacity(configuration.isPressed ? 1 : 0.85), in: Circle())
+            .stitchElevation(.flat)
     }
 }
 
@@ -169,61 +141,53 @@ struct HeaderIconButton: ButtonStyle {
 struct PinnedPolaroid: View {
     let place: Place
     let root: URL
+    @ScaledMetric(relativeTo: .footnote) private var side: CGFloat = 120
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            AlbumPhoto(asset: place.image, root: root).frame(width: 118, height: 118)
+        VStack(alignment: .leading, spacing: Stitch.Space.xs) {
+            AlbumPhoto(asset: place.image, root: root).frame(width: side, height: side)
             Text(place.title).font(.footnote.weight(.semibold)).foregroundStyle(Stitch.ink).lineLimit(1)
-                .frame(width: 118, alignment: .leading)
+                .frame(width: side, alignment: .leading)
         }
-        .padding(8).padding(.bottom, 4)
+        .padding(Stitch.Space.xs).padding(.bottom, Stitch.Space.xxs)
         .background(Stitch.card)
-        .shadow(color: .black.opacity(0.16), radius: 5, x: 1, y: 3)
-        .overlay(alignment: .top) { TackStitch(color: Stitch.cobalt, size: 11).offset(y: -4) }
+        .stitchElevation(.pinned)
+        .overlay(alignment: .top) { TackStitch(color: Stitch.cobalt).offset(y: -Stitch.Space.xxs) }
         .rotationEffect(.degrees(place.id.stableTilt * 3))
         .accessibilityElement(children: .combine)
     }
 }
 
-/// Die Anreise als angehefteter Ticket-Abschnitt.
+/// Die Anreise als angehefteter Ticket-Abschnitt; öffnet die Reiseunterlagen.
 struct PinnedTicket: View {
     let trip: TripInfo
-    private var hasFlight: Bool { !trip.outbound.isEmpty || !trip.arrival.isEmpty || !trip.flightNumber.isEmpty }
+    @ScaledMetric(relativeTo: .footnote) private var width: CGFloat = 152
+    private var flight: FlightLeg? { trip.flights?.first { $0.direction == .outbound } }
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Stitch.Space.xs) {
             Image(systemName: "airplane").font(.title3.weight(.semibold)).foregroundStyle(Stitch.ink)
-            if hasFlight {
-                if !trip.flightNumber.isEmpty { Text(trip.flightNumber).font(.headline).foregroundStyle(Stitch.ink) }
+            PerforationLine()
+            if let flight {
+                Text(flight.number).font(.headline).foregroundStyle(Stitch.ink)
+                Text("\(flight.from) → \(flight.to)").font(.subheadline).foregroundStyle(Stitch.ink)
+                Text("\(flight.date.prefix(6)) · \(flight.departure)").font(.footnote.monospacedDigit()).foregroundStyle(Stitch.inkSoft)
+            } else if !trip.flightNumber.isEmpty {
+                Text(trip.flightNumber).font(.headline).foregroundStyle(Stitch.ink)
                 if !trip.route.isEmpty { Text(trip.route).font(.subheadline).foregroundStyle(Stitch.ink) }
-                Text([trip.outbound, trip.arrival].filter { !$0.isEmpty }.joined(separator: " → "))
-                    .font(.footnote.monospacedDigit()).foregroundStyle(Stitch.inkSoft)
             } else {
                 Text("Anreise").font(.headline).foregroundStyle(Stitch.ink)
                 Text("Tickets & Reisedaten hinzufügen").font(.footnote).foregroundStyle(Stitch.inkSoft)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            Spacer(minLength: 0)
-            HStack(spacing: 1.5) {
-                ForEach(0..<22, id: \.self) { i in
-                    Rectangle().fill(Stitch.ink.opacity(0.75)).frame(width: i % 3 == 0 ? 2 : 1, height: 16)
-                }
-            }
         }
-        .padding(12)
-        .frame(width: 150, height: 160, alignment: .topLeading)
+        .padding(Stitch.Space.s)
+        .frame(width: width, alignment: .topLeading)
+        .frame(minHeight: width, alignment: .topLeading)
         .background(Stitch.card)
-        .overlay(alignment: .top) {
-            Rectangle().fill(.clear).frame(height: 1)
-                .overlay(Line().stroke(Stitch.ink.opacity(0.25), style: StrokeStyle(lineWidth: 1, dash: [3, 3])))
-                .offset(y: 26)
-        }
-        .shadow(color: .black.opacity(0.14), radius: 5, x: 1, y: 3)
-        .overlay(alignment: .top) { TackStitch(color: Stitch.cobalt, size: 11).offset(y: -4) }
+        .stitchElevation(.pinned)
+        .overlay(alignment: .top) { TackStitch(color: Stitch.cobalt).offset(y: -Stitch.Space.xxs) }
         .rotationEffect(.degrees(2))
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(hasFlight ? "Anreise \(trip.flightNumber) \(trip.route)" : "Reisedaten hinzufügen")
-    }
-    private struct Line: Shape {
-        func path(in rect: CGRect) -> Path { Path { $0.move(to: .zero); $0.addLine(to: CGPoint(x: rect.width, y: 0)) } }
+        .accessibilityLabel(flight.map { "Anreise \($0.number), \($0.from) nach \($0.to)" } ?? "Reiseunterlagen öffnen")
     }
 }
 

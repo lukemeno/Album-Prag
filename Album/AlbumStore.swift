@@ -16,6 +16,8 @@ import CoreLocation
     var inbox: [Place] { places.filter(isOpenForMe) }
     var deferred: [Place] { places.filter { ($0.deferred && !$0.franked) || ($0.franked && $0.passedBy.contains(me)) } }
     var franked: [Place] { places.filter(\.franked) }
+    /// Offene Ideen, die jemand anderes gesammelt hat – für das Zeichen am Tab.
+    var newFromOthers: Int { inbox.filter { $0.author != me && $0.author.localizedCaseInsensitiveCompare("Wir") != .orderedSame }.count }
 
     /// Name dieser Person; bestimmt, wessen Stimme „Dafür“ oder „Später“ ist.
     var myName: String { didSet { UserDefaults.standard.set(myName, forKey: "album.myName") } }

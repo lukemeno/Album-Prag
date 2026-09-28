@@ -6,12 +6,17 @@ enum Stitch {
     // Hell: ungefärbtes Leinen. Dunkel: indigogefärbtes Leinen, die Garne etwas heller.
     static let linen = dynamic(light: (239, 230, 210), dark: (29, 33, 48))
     static let card = dynamic(light: (251, 248, 240), dark: (41, 46, 64))
-    static let red = dynamic(light: (200, 50, 43), dark: (236, 98, 84))
+    /// Rot als Schrift und Garn. Auf Leinen und Karte mindestens 4,5:1 in beiden Modi.
+    static let red = dynamic(light: (184, 42, 36), dark: (245, 122, 108))
+    /// Rot als Fläche (Knöpfe, ausgewählte Chips) mit heller Schrift darauf, mindestens 5,8:1.
+    static let redFill = dynamic(light: (184, 42, 36), dark: (178, 48, 40))
     static let cobalt = dynamic(light: (31, 63, 140), dark: (128, 162, 238))
     static let mustard = dynamic(light: (214, 160, 34), dark: (238, 192, 84))
     static let ink = dynamic(light: (28, 26, 23), dark: (242, 236, 222))
     static let inkSoft = dynamic(light: (88, 80, 68), dark: (186, 178, 162))
-    /// Schrift auf rotem Garn: in beiden Modi hell.
+    /// Dunkles Garn für Öffnungen im Stickbild, unabhängig vom Modus.
+    static let opening = Color(red: 28/255, green: 26/255, blue: 23/255)
+    /// Schrift auf `redFill`: in beiden Modi hell.
     static let onAccent = Color(red: 251/255, green: 248/255, blue: 240/255)
 
     static func dynamic(light: (Int, Int, Int), dark: (Int, Int, Int)) -> Color {
@@ -20,6 +25,35 @@ enum Stitch {
             return UIColor(red: CGFloat(c.0) / 255, green: CGFloat(c.1) / 255, blue: CGFloat(c.2) / 255, alpha: 1)
         })
     }
+
+    /// Abstände im 8-Punkt-Raster. `page` ist der Seitenrand überall.
+    enum Space {
+        static let xxs: CGFloat = 4
+        static let xs: CGFloat = 8
+        static let s: CGFloat = 12
+        static let m: CGFloat = 16
+        static let l: CGFloat = 24
+        static let xl: CGFloat = 32
+        static let page: CGFloat = 16
+    }
+
+    /// Eckenradien, immer mit kontinuierlicher Kurve.
+    enum Radius {
+        static let thumb: CGFloat = 8
+        static let card: CGFloat = 16
+        static let floating: CGFloat = 24
+    }
+
+    /// Drei Höhenstufen: flach (keine), angeheftet (Papier auf Stoff), schwebend (über der Karte).
+    enum Elevation {
+        case flat, pinned, floating
+        var opacity: Double { switch self { case .flat: 0; case .pinned: 0.14; case .floating: 0.18 } }
+        var radius: CGFloat { switch self { case .flat: 0; case .pinned: 5; case .floating: 14 } }
+        var y: CGFloat { switch self { case .flat: 0; case .pinned: 3; case .floating: 6 } }
+    }
+
+    /// Einheitliche Größe für Heftstiche.
+    static let tackSize: CGFloat = 12
 
     static func linenTile(dark: Bool) -> UIImage { dark ? darkTile : lightTile }
     private static let lightTile = makeTile(dark: false)
@@ -31,7 +65,7 @@ enum Stitch {
         let size = CGSize(width: cell * CGFloat(count), height: cell * CGFloat(count))
         var random = SeededRandom(seed: 7)
         let base = dark ? UIColor(red: 29/255, green: 33/255, blue: 48/255, alpha: 1) : UIColor(red: 239/255, green: 230/255, blue: 210/255, alpha: 1)
-        let lift = dark ? 0.07 : 0.30
+        let lift = dark ? 0.035 : 0.30
         return UIGraphicsImageRenderer(size: size).image { context in
             let cg = context.cgContext
             base.setFill(); cg.fill(CGRect(origin: .zero, size: size))
@@ -41,11 +75,11 @@ enum Stitch {
                     let jitter = CGFloat(random.next(in: -0.035...0.045))
                     UIColor(white: 1, alpha: lift + jitter * (dark ? 0.4 : 1)).setFill()
                     UIBezierPath(roundedRect: rect, cornerRadius: 1.4).fill()
-                    UIColor(white: 1, alpha: dark ? 0.05 : 0.22).setFill()
+                    UIColor(white: 1, alpha: dark ? 0.025 : 0.22).setFill()
                     cg.fill(CGRect(x: rect.minX + 0.6, y: rect.minY + 0.5, width: rect.width - 1.8, height: 0.8))
                 }
             }
-            (dark ? UIColor(white: 0, alpha: 0.45) : UIColor(red: 150/255, green: 132/255, blue: 104/255, alpha: 0.42)).setFill()
+            (dark ? UIColor(white: 0, alpha: 0.22) : UIColor(red: 150/255, green: 132/255, blue: 104/255, alpha: 0.42)).setFill()
             for row in 0...count {
                 for column in 0...count {
                     cg.fillEllipse(in: CGRect(x: CGFloat(column) * cell - 0.75, y: CGFloat(row) * cell - 0.75, width: 1.5, height: 1.5))
@@ -103,6 +137,31 @@ struct LinenBackground: View {
     }
 }
 
+extension View {
+    /// Einheitliche Karte: Innenabstand 16, Radius 16, Kartenfläche, wahlweise mit Schatten.
+    func stitchCard(_ elevation: Stitch.Elevation = .flat, padding: CGFloat = Stitch.Space.m) -> some View {
+        self.padding(padding)
+            .background(Stitch.card, in: RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
+            .stitchElevation(elevation)
+    }
+
+    func stitchElevation(_ elevation: Stitch.Elevation) -> some View {
+        shadow(color: .black.opacity(elevation.opacity), radius: elevation.radius, y: elevation.y)
+    }
+}
+
+/// Gestrichelte Trennlinie (Perforation), überall gleich.
+struct PerforationLine: View {
+    var body: some View {
+        Rectangle().fill(.clear).frame(height: 1)
+            .overlay(HLine().stroke(Stitch.ink.opacity(0.25), style: StrokeStyle(lineWidth: 1, dash: [4, 4])))
+            .accessibilityHidden(true)
+    }
+    private struct HLine: Shape {
+        func path(in rect: CGRect) -> Path { Path { $0.move(to: CGPoint(x: 0, y: rect.midY)); $0.addLine(to: CGPoint(x: rect.width, y: rect.midY)) } }
+    }
+}
+
 /// Ein Stickmuster: Kästchen mit Garnfarbe, in Stickreihenfolge.
 struct StitchGrid {
     struct Cell { let x: Int; let y: Int; let color: Color }
@@ -120,7 +179,7 @@ struct StitchGrid {
                 case "r": Stitch.red
                 case "b": Stitch.cobalt
                 case "y": Stitch.mustard
-                case "k": Stitch.ink
+                case "k": Stitch.opening // Öffnungen (Fenster, Tor) bleiben in beiden Modi dunkel
                 default: nil
                 }
                 if let color { cells.append(Cell(x: x, y: y, color: color)) }
@@ -246,7 +305,7 @@ struct StitchedSymbol: View {
 /// Zwei kleine Kreuze als „Heftstich“, der Fotos und Zettel am Stoff hält.
 struct TackStitch: View {
     var color = Stitch.red
-    var size: CGFloat = 12
+    var size: CGFloat = Stitch.tackSize
     var body: some View {
         Canvas { context, canvasSize in
             Stitch.drawCross(&context, in: CGRect(origin: .zero, size: canvasSize), color: color)
@@ -261,11 +320,11 @@ struct StitchButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline)
-            .frame(maxWidth: .infinity, minHeight: 54)
+            .frame(maxWidth: .infinity, minHeight: 56)
             .foregroundStyle(primary ? Stitch.onAccent : Stitch.red)
-            .background(primary ? Stitch.red : Stitch.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Stitch.red, lineWidth: primary ? 0 : 1.5))
-            .shadow(color: .black.opacity(primary ? 0.18 : 0.06), radius: primary ? 6 : 3, y: primary ? 3 : 1)
+            .background(primary ? Stitch.redFill : Stitch.card, in: RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous).strokeBorder(Stitch.red, lineWidth: primary ? 0 : 1.5))
+            .stitchElevation(primary ? .pinned : .flat)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
     }

@@ -4,14 +4,10 @@ import MapKit
 struct TripMapView: View {
     @Environment(AlbumStore.self) private var store
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    var onAdd: () -> Void = {}
-    var onShare: () -> Void = {}
     @State private var camera: MapCameraPosition = .region(.init(center: .init(latitude: 50.087, longitude: 14.423), span: .init(latitudeDelta: 0.035, longitudeDelta: 0.035)))
     @State private var selected: Place?
     @State private var detail: Place?
     @State private var filter = MapFilter.all
-    @State private var documents = false
-    @State private var planner = false
     /// Orte, die schon einmal auf der Karte gelandet sind. Nur neue fallen als Stecknadel.
     @AppStorage("album.landedPins") private var landedRaw = ""
 
@@ -25,46 +21,30 @@ struct TripMapView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            VStack(spacing: 12) {
-                HStack(alignment: .center) {
-                    StitchedText(text: "Prag", rows: 20, cell: 2.3)
-                        .accessibilityLabel("Prag auf der Karte")
-                    Spacer()
-                    Button { planner = true } label: { Image(systemName: "calendar") }
-                        .buttonStyle(HeaderIconButton()).accessibilityLabel("Tagesplan")
-                    Button { documents = true } label: { Image(systemName: "ticket") }
-                        .buttonStyle(HeaderIconButton()).accessibilityLabel("Reisedaten und Dokumente")
-                    Button(action: onShare) { Image(systemName: "person.2") }
-                        .buttonStyle(HeaderIconButton()).accessibilityLabel("Geteiltes Album verwalten")
-                    Button(action: onAdd) { Image(systemName: "plus") }
-                        .buttonStyle(HeaderIconButton()).accessibilityLabel("Idee hinzufügen")
-                }
-                ScrollView(.horizontal) {
-                    HStack(spacing: 8) {
+            ScrollView(.horizontal) {
+                    HStack(spacing: Stitch.Space.xs) {
                         ForEach(MapFilter.allCases) { item in
                             Button { withAnimation(.snappy) { filter = item } } label: {
-                                HStack(spacing: 7) {
+                                HStack(spacing: Stitch.Space.xs) {
                                     if let symbol = item.symbol {
                                         StitchedSymbol(name: symbol, rows: 9, cell: 2, color: filter == item ? Stitch.onAccent : item.thread)
                                     }
                                     Text(item.title).font(.subheadline.weight(.semibold))
                                 }
-                                .padding(.horizontal, 14).frame(minHeight: 40)
+                                .padding(.horizontal, Stitch.Space.m).frame(minHeight: 44)
                                 .foregroundStyle(filter == item ? Stitch.onAccent : Stitch.ink)
-                                .background(filter == item ? Stitch.red : Stitch.card, in: Capsule())
+                                .background(filter == item ? Stitch.redFill : Stitch.card, in: Capsule())
                                 .overlay(Capsule().strokeBorder(Stitch.ink.opacity(filter == item ? 0 : 0.12), style: StrokeStyle(lineWidth: 1, dash: [3, 2])))
                             }
                             .buttonStyle(.plain)
                             .accessibilityAddTraits(filter == item ? .isSelected : [])
                         }
                     }
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, Stitch.Space.page)
                 }
                 .scrollIndicators(.hidden)
-                .padding(.horizontal, -16)
-            }
-            .padding(.horizontal, 16).padding(.bottom, 12)
-            .background(LinenBackground())
+                .padding(.vertical, Stitch.Space.xs)
+                .background(LinenBackground())
 
             Map(position: $camera) {
                 ForEach(dayThreads, id: \.day) { thread in
@@ -75,11 +55,13 @@ struct TripMapView: View {
                 ForEach(visible) { place in
                     if let coordinate = place.coordinate {
                         Annotation(place.title, coordinate: coordinate, anchor: .bottom) {
-                            StitchPin(place: place, selected: selected?.id == place.id,
-                                      drops: !landed.contains(place.id) && !reduceMotion) {
-                                markLanded(place.id)
+                            Button { withAnimation(.snappy) { selected = place } } label: {
+                                StitchPin(place: place, selected: selected?.id == place.id,
+                                          drops: !landed.contains(place.id) && !reduceMotion) {
+                                    markLanded(place.id)
+                                }
                             }
-                            .onTapGesture { withAnimation(.snappy) { selected = place } }
+                            .buttonStyle(.plain)
                         }
                         .annotationTitles(.hidden)
                     }
@@ -92,23 +74,23 @@ struct TripMapView: View {
             .overlay(alignment: .bottom) {
                 if let selected, let place = store.places.first(where: { $0.id == selected.id }) {
                     PlaceSheetCard(place: place, root: store.root, onDetails: { detail = place }, onClose: { withAnimation(.snappy) { self.selected = nil } })
-                        .padding(12)
+                        .padding(Stitch.Space.s)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 } else if visible.isEmpty {
-                    VStack(spacing: 6) {
+                    VStack(spacing: Stitch.Space.xxs) {
                         Text("Noch keine Orte auf der Karte").font(.headline).foregroundStyle(Stitch.ink)
-                        Text("Ideen, für die ihr euch entscheidet,\nlanden hier als Stecknadel.")
+                        Text("Ideen, für die du dich entscheidest,\nlanden hier als Stecknadel.")
                             .font(.subheadline).multilineTextAlignment(.center).foregroundStyle(Stitch.inkSoft)
                     }
-                    .padding(18).frame(maxWidth: .infinity)
-                    .background(Stitch.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-                    .padding(16)
+                    .frame(maxWidth: .infinity)
+                    .stitchCard(.floating)
+                    .padding(Stitch.Space.page)
                 }
             }
         }
+        .navigationTitle("Karte")
+        .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $detail) { PlaceDetail(placeID: $0.id) }
-        .sheet(isPresented: $documents) { TripDocumentsView() }
-        .sheet(isPresented: $planner) { DayPlanner() }
     }
 
     private var landed: Set<String> { Set(landedRaw.split(separator: ",").map(String.init)) }
@@ -137,7 +119,7 @@ extension Place {
     /// Gesticktes Symbol und Garnfarbe je Kategorie.
     var stitchSymbol: String {
         switch category {
-        case "Essen & Trinken": "cup.and.saucer.fill"
+        case "Essen & Trinken": "fork.knife"
         case "Sehenswert": "building.columns.fill"
         case "Aussicht": "sunrise.fill"
         case "Unterkunft": "bed.double.fill"
@@ -196,7 +178,7 @@ struct StitchPin: View {
                 }
             }
         }
-        .accessibilityElement().accessibilityLabel(place.title).accessibilityAddTraits(.isButton)
+        .accessibilityElement().accessibilityLabel(place.title)
     }
 }
 
@@ -213,7 +195,7 @@ struct DayMenu: View {
         } label: {
             Label(place.day.map { "Am \($0). Oktober" } ?? "Tag festlegen", systemImage: "calendar")
                 .font(.subheadline.weight(.semibold)).foregroundStyle(Stitch.red)
-                .frame(maxWidth: .infinity, minHeight: 36)
+                .frame(maxWidth: .infinity, minHeight: 44)
         }
         .accessibilityLabel(place.day.map { "Tag: \($0). Oktober, ändern" } ?? "Tag festlegen")
     }
@@ -228,14 +210,14 @@ struct DayPlanner: View {
             List {
                 ForEach(4...9, id: \.self) { day in
                     let places = store.plan(for: day)
-                    Section("\(day). Oktober") {
+                    Section(TripDates.dayTitle(day)) {
                         if places.isEmpty {
                             Text("Noch nichts geplant").foregroundStyle(Stitch.inkSoft)
                         }
                         ForEach(places) { place in
-                            HStack(spacing: 12) {
-                                AlbumPhoto(asset: place.image, root: store.root).frame(width: 40, height: 40)
-                                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            HStack(spacing: Stitch.Space.s) {
+                                AlbumPhoto(asset: place.image, root: store.root).frame(width: 44, height: 44)
+                                    .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
                                 Text(place.title).font(.body.weight(.semibold)).foregroundStyle(Stitch.ink)
                             }
                         }
@@ -261,11 +243,13 @@ struct DayPlanner: View {
                     .listRowBackground(Stitch.card)
                 }
             }
-            .environment(\.editMode, .constant(.active))
             .scrollContentBackground(.hidden)
             .background(LinenBackground())
             .navigationTitle("Tagesplan").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } } }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { EditButton() }
+                ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } }
+            }
         }
     }
 }
@@ -277,12 +261,13 @@ struct PlaceSheetCard: View {
     var onDetails: () -> Void
     var onClose: () -> Void
     var body: some View {
-        VStack(spacing: 14) {
-            HStack(alignment: .top, spacing: 14) {
+        VStack(spacing: Stitch.Space.s) {
+            HStack(alignment: .top, spacing: Stitch.Space.s) {
                 AlbumPhoto(asset: place.image, root: root)
-                    .frame(width: 92, height: 92)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                VStack(alignment: .leading, spacing: 4) {
+                    .frame(width: 88, height: 88)
+                    .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
                     Text(place.title).font(.title3.weight(.bold)).foregroundStyle(Stitch.ink).lineLimit(2)
                     Text(subtitle).font(.subheadline).foregroundStyle(Stitch.inkSoft).lineLimit(2)
                     if !place.note.isEmpty {
@@ -293,7 +278,7 @@ struct PlaceSheetCard: View {
                 Button(action: onClose) { Image(systemName: "xmark").font(.footnote.weight(.bold)) }
                     .buttonStyle(HeaderIconButton()).accessibilityLabel("Schließen")
             }
-            HStack(spacing: 10) {
+            HStack(spacing: Stitch.Space.s) {
                 if let coordinate = place.coordinate {
                     Button {
                         let item = MKMapItem(placemark: MKPlacemark(coordinate: coordinate))
@@ -306,12 +291,12 @@ struct PlaceSheetCard: View {
             }
             DayMenu(place: place)
         }
-        .padding(16)
+        .padding(Stitch.Space.m)
         .background {
-            RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Stitch.card)
-                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: Stitch.Radius.floating, style: .continuous).fill(Stitch.card)
+                .overlay(RoundedRectangle(cornerRadius: Stitch.Radius.floating - 6, style: .continuous)
                     .strokeBorder(Stitch.red.opacity(0.5), style: StrokeStyle(lineWidth: 1.2, dash: [5, 4])).padding(6))
-                .shadow(color: .black.opacity(0.18), radius: 14, y: 6)
+                .stitchElevation(.floating)
         }
     }
     private var subtitle: String {
@@ -333,46 +318,83 @@ struct PlaceDetail: View {
         NavigationStack {
             if let place {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: Stitch.Space.l) {
                         PhotoCard(asset: place.image, root: store.root, title: place.title, subtitle: place.category).frame(height: 320)
-                        Text(place.address).font(AlbumStyle.body()).foregroundStyle(AlbumStyle.muted)
-                        if !place.note.isEmpty { Text(place.note).font(AlbumStyle.body()) }
-                        if let source = place.image?.sourceURL, let url = URL(string: source) {
-                            Link("Bild: \(place.image?.credit ?? "Quelle") ↗", destination: url).font(AlbumStyle.body(12)).foregroundStyle(AlbumStyle.muted)
-                        }
-                        if case .external(let image) = place.image, let license = image.licenseName {
-                            if let rawURL = image.licenseURL, let url = URL(string: rawURL) {
-                                Link("Lizenz: \(license) ↗", destination: url).font(AlbumStyle.body(12)).foregroundStyle(AlbumStyle.muted)
-                            } else {
-                                Text("Lizenz: \(license)").font(AlbumStyle.body(12)).foregroundStyle(AlbumStyle.muted)
+
+                        VStack(alignment: .leading, spacing: Stitch.Space.xs) {
+                            if !place.address.isEmpty {
+                                Text(place.address).font(.subheadline).foregroundStyle(Stitch.inkSoft)
+                            }
+                            if !place.note.isEmpty {
+                                Text(place.note).font(.body).foregroundStyle(Stitch.ink)
+                            }
+                            if let from = authorLine(place) {
+                                Text(from).font(.footnote.weight(.semibold)).foregroundStyle(Stitch.red)
                             }
                         }
-                        Text(place.author.localizedCaseInsensitiveCompare("Wir") == .orderedSame ? "Von euch gesammelt" : "Von \(place.author) gesammelt").font(AlbumStyle.ticket).foregroundStyle(AlbumStyle.red)
-                        if let url = LinkValidation.url(place.sourceURL) { Link("Original bei \(place.sourceLabel) öffnen ↗", destination: url).font(AlbumStyle.body()) }
-                        if let coordinate = place.coordinate {
-                            Button("Route in Apple Karten") {
-                                let item = MKMapItem(placemark: MKPlacemark(coordinate: coordinate))
-                                item.name = place.title
-                                item.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeWalking])
-                            }.buttonStyle(AlbumButton(primary: true))
+
+                        VStack(spacing: Stitch.Space.s) {
+                            if let coordinate = place.coordinate {
+                                Button {
+                                    let item = MKMapItem(placemark: MKPlacemark(coordinate: coordinate))
+                                    item.name = place.title
+                                    item.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeWalking])
+                                } label: { Label("Route", systemImage: "figure.walk") }
+                                .buttonStyle(StitchButton(primary: true))
+                            }
+                            Button(place.visited ? "Doch noch nicht besucht" : "Als besucht markieren") {
+                                var p = place; p.visited.toggle(); store.upsert(p)
+                            }
+                            .buttonStyle(StitchButton())
+                            if let url = LinkValidation.url(place.sourceURL) {
+                                Link(destination: url) { Label("Bei \(place.sourceLabel) ansehen", systemImage: "arrow.up.right") }
+                                    .buttonStyle(StitchButton())
+                            }
                         }
-                        Button(place.visited ? "Doch noch nicht besucht" : "Als besucht markieren") { var p = place; p.visited.toggle(); store.upsert(p) }.buttonStyle(AlbumButton())
-                        Button("Zurück zu den Ideen") {
-                            var p = place; p.franked = false; p.deferred = false; p.approvals = []; p.passedBy = []; p.day = nil; p.dayOrder = nil
-                            store.upsert(p); dismiss()
-                        }.font(AlbumStyle.body())
-                        Button("Idee löschen", role: .destructive) { confirmDelete = true }.font(AlbumStyle.body()).padding(.top, 10)
-                    }.padding(16)
-                }.background(LinenBackground()).navigationTitle("Ort").navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) { Button("Fertig") { dismiss() } }
-                        ToolbarItem(placement: .primaryAction) { Button("Bearbeiten") { editing = true } }
+
+                        VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
+                            if let source = place.image?.sourceURL, let url = URL(string: source) {
+                                Link("Foto: \(place.image?.credit ?? "Quelle")", destination: url)
+                            }
+                            if case .external(let image) = place.image, let license = image.licenseName {
+                                if let rawURL = image.licenseURL, let url = URL(string: rawURL) {
+                                    Link("Lizenz: \(license)", destination: url)
+                                } else {
+                                    Text("Lizenz: \(license)")
+                                }
+                            }
+                        }
+                        .font(.caption).foregroundStyle(Stitch.inkSoft).tint(Stitch.inkSoft)
+
+                        VStack(alignment: .leading, spacing: 0) {
+                            Button("Zurück zu den Ideen") {
+                                var p = place; p.franked = false; p.deferred = false; p.approvals = []; p.passedBy = []; p.day = nil; p.dayOrder = nil
+                                store.upsert(p); dismiss()
+                            }
+                            .frame(minHeight: 44)
+                            Button("Ort löschen", role: .destructive) { confirmDelete = true }
+                                .frame(minHeight: 44)
+                        }
+                        .font(.body)
                     }
-                    .sheet(isPresented: $editing) { PlaceEditor(place: place) }
-                    .confirmationDialog("Diesen Ort löschen?", isPresented: $confirmDelete, titleVisibility: .visible) {
-                        Button("Löschen", role: .destructive) { var p = place; p.deleted = true; store.upsert(p); dismiss() }
-                    }
+                    .padding(Stitch.Space.page)
+                }
+                .background(LinenBackground())
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) { Button("Fertig") { dismiss() } }
+                    ToolbarItem(placement: .primaryAction) { Button("Bearbeiten") { editing = true } }
+                }
+                .sheet(isPresented: $editing) { PlaceEditor(place: place) }
+                .confirmationDialog("Diesen Ort löschen?", isPresented: $confirmDelete, titleVisibility: .visible) {
+                    Button("Löschen", role: .destructive) { var p = place; p.deleted = true; store.upsert(p); dismiss() }
+                }
             }
         }
+    }
+
+    private func authorLine(_ place: Place) -> String? {
+        guard place.author != store.me, place.author.localizedCaseInsensitiveCompare("Wir") != .orderedSame else { return nil }
+        return "Von \(place.author) gesammelt"
     }
 }

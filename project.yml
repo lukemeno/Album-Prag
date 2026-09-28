@@ -36,7 +36,6 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLName: de.privatealbum.prague.invitation
             CFBundleURLSchemes: [album]
-        UIAppFonts: [Fraunces.ttf, InstrumentSerif.ttf, IBMPlexSans.ttf, IBMPlexMono.ttf]
         CFBundleDocumentTypes:
           - CFBundleTypeName: PDF
             LSHandlerRank: Alternate

@@ -18,3 +18,12 @@
 - Tagesplan mit Reihenfolge, Dunkelmodus.
 - Behoben: „new row violates row-level security policy“. Ursache: unsignierte Test-Builds (`CODE_SIGNING_ALLOWED=NO`) können die Sitzung nicht im Schlüsselbund speichern und schreiben ohne Token (HTTP 401). Außerdem prüft die App jetzt vor jedem Abgleich ihre Mitgliedschaft und tritt mit der gemerkten Einladung wieder bei; beide iPhones merken sich die Einladung. Live geprüft am 23.09. mit signiertem Simulator-Build.
 - Offen: Test auf zwei echten iPhones.
+
+## 24.09.2026 – Design-Politur (Critique → Polish)
+- Einheitliche Bausteine in `Stitch.swift`: Abstände 4/8/12/16/24/32, Radien 8/16/24, drei Schattenstufen, `stitchCard()`, `PerforationLine`. Alle Bildschirme nutzen sie; `AlbumStyle`, `AlbumButton`, `StampPin`, `TabHeader` und `BoardingPassView` sind entfernt.
+- Navigation: echte Navigationsleisten mit Titel (Ideen, Karte), „Idee hinzufügen“ immer oben rechts, Unterlagen/Tagesplan/Teilen im „Mehr“-Menü. Tab-Leiste bleibt die native Glas-Leiste; Ideen-Tab zeigt, wie viele neue Ideen die andere Person gesammelt hat.
+- Schrift nur noch über System-Textstile (skaliert mit Dynamic Type). Die vier Schriftdateien werden nicht mehr registriert.
+- Kontrast: gefüllte Flächen nutzen im Dunkelmodus `redFill`, Text `red` (hell genug).
+- Alle Tippziele mindestens 44 pt (Filter, Tag-Menü, Rückgängig, Stecknadeln als echte Buttons).
+- Text: durchgehend „du“, Erklärsätze nur dort, wo noch nichts passiert ist; Autor nur, wenn es nicht du selbst bist; Linkvorschau lädt von selbst.
+- Tagesplan mit Wochentagen und „Bearbeiten“-Knopf statt Dauer-Sortiermodus.

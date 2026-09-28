@@ -54,13 +54,6 @@
 	<string>$(SUPABASE_ANON_KEY)</string>
 	<key>SupabaseURL</key>
 	<string>$(SUPABASE_URL)</string>
-	<key>UIAppFonts</key>
-	<array>
-		<string>Fraunces.ttf</string>
-		<string>InstrumentSerif.ttf</string>
-		<string>IBMPlexSans.ttf</string>
-		<string>IBMPlexMono.ttf</string>
-	</array>
 	<key>UIFileSharingEnabled</key>
 	<false/>
 	<key>UILaunchScreen</key>

@@ -29,6 +29,6 @@ final class AlbumUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Letzte Entscheidung rückgängig"].exists)
         app.buttons["Letzte Entscheidung rückgängig"].tap()
         app.buttons["Karte"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["Prag auf der Karte"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Karte"].waitForExistence(timeout: 5))
     }
 }

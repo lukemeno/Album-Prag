@@ -10,58 +10,111 @@ struct TripDocumentsView: View {
     @State private var editing = false
     @State private var extraction: ExtractedTrip?
     private var trip: TripInfo { store.data.trip }
+    private var hasFlights: Bool { !(trip.flights ?? []).isEmpty }
+
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    Text("Reiseunterlagen").font(AlbumStyle.display())
-                    Text("Prag · 4.–9. Oktober 2026").font(AlbumStyle.ticket).foregroundStyle(AlbumStyle.red)
-                    if let flights = trip.flights, !flights.isEmpty {
-                        ForEach(flights) { FlightCard(flight: $0) }
-                    } else {
-                        BoardingPassView(trip: trip)
-                    }
-                    if let details = trip.hotelDetails {
-                        HotelCard(name: details.name ?? trip.hotel, details: details)
-                    } else {
-                        Label(trip.hotel, systemImage: "bed.double").font(AlbumStyle.serif(25))
-                    }
-                    if let travelers = trip.travelers, !travelers.isEmpty {
-                        Label(travelers.joined(separator: " & "), systemImage: "person.2.fill").font(.subheadline.weight(.semibold))
-                    }
-                    if let number = trip.bookingNumber {
-                        Label("Buchungsnummer \(number)", systemImage: "number").font(.subheadline.weight(.semibold)).textSelection(.enabled)
-                    }
-                    if !trip.notes.isEmpty { Text(trip.notes).font(AlbumStyle.body()).foregroundStyle(AlbumStyle.muted) }
-                    Button("Reisedaten bearbeiten") { editing = true }.buttonStyle(AlbumButton())
-                    Divider()
-                    Text("Dokumente").font(AlbumStyle.serif(28))
-                    ForEach(store.data.documents) { doc in
-                        HStack(spacing: 10) {
-                            Button { selected = doc } label: {
-                                HStack { Image(systemName: "doc.richtext"); Text(doc.name).font(AlbumStyle.body()).multilineTextAlignment(.leading); Spacer(); Image(systemName: "chevron.right") }
-                                    .padding(16).background(AlbumStyle.white, in: RoundedRectangle(cornerRadius: 14))
+                VStack(alignment: .leading, spacing: Stitch.Space.xl) {
+                    section("Anreise") {
+                        if let flights = trip.flights, !flights.isEmpty {
+                            ForEach(flights) { FlightCard(flight: $0) }
+                        } else {
+                            Button { importing = true } label: {
+                                HStack(spacing: Stitch.Space.s) {
+                                    Image(systemName: "airplane").font(.title3).foregroundStyle(Stitch.red)
+                                    VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
+                                        Text("Noch keine Flüge").font(.headline).foregroundStyle(Stitch.ink)
+                                        Text("Füg deine Buchungsbestätigung als PDF hinzu, dann steht alles hier.")
+                                            .font(.footnote).foregroundStyle(Stitch.inkSoft)
+                                    }
+                                    Spacer(minLength: 0)
+                                    Image(systemName: "plus").font(.body.weight(.semibold)).foregroundStyle(Stitch.red)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .stitchCard()
                             }
-                            Button { extraction = store.extraction(from: doc) } label: { Image(systemName: "text.viewfinder") }
-                                .buttonStyle(HeaderIconButton())
-                                .accessibilityLabel("Daten aus \(doc.name) lesen")
+                            .buttonStyle(.plain)
                         }
                     }
-                    Button("PDF hinzufügen") { importing = true }.buttonStyle(AlbumButton(primary: true))
-                    Text("Das Original bleibt gespeichert. Enthaltenen Text könnt ihr prüfen und Reisedaten daraus übernehmen. Gescannte PDFs bleiben als Dokument lesbar.").font(AlbumStyle.body(13)).foregroundStyle(AlbumStyle.muted)
-                }.padding(16)
-            }.background(LinenBackground()).navigationTitle("Reiseunterlagen").navigationBarTitleDisplayMode(.inline)
-                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } } }
-                .fileImporter(isPresented: $importing, allowedContentTypes: [.pdf]) { result in
-                    do {
-                        let id = UUID().uuidString
-                        try store.importPDF(result.get(), id: id)
-                        if let doc = store.data.documents.first(where: { $0.id == id }) { extraction = store.extraction(from: doc) }
-                    } catch { store.error = error.localizedDescription }
+
+                    section("Unterkunft") {
+                        if let details = trip.hotelDetails {
+                            HotelCard(name: details.name ?? trip.hotel, details: details)
+                        } else {
+                            Label(trip.hotel, systemImage: "bed.double.fill").font(.headline).foregroundStyle(Stitch.ink)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .stitchCard()
+                        }
+                        if trip.travelers?.isEmpty == false || trip.bookingNumber != nil || !trip.notes.isEmpty {
+                            VStack(alignment: .leading, spacing: Stitch.Space.xs) {
+                                if let travelers = trip.travelers, !travelers.isEmpty {
+                                    Label(travelers.joined(separator: " & "), systemImage: "person.2.fill")
+                                }
+                                if let number = trip.bookingNumber {
+                                    Label("Buchung \(number)", systemImage: "number").textSelection(.enabled)
+                                }
+                                if !trip.notes.isEmpty {
+                                    Label(trip.notes, systemImage: "note.text")
+                                }
+                            }
+                            .font(.subheadline).foregroundStyle(Stitch.ink)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .stitchCard()
+                        }
+                    }
+
+                    section("Dokumente") {
+                        ForEach(store.data.documents) { doc in
+                            HStack(spacing: Stitch.Space.xs) {
+                                Button { selected = doc } label: {
+                                    HStack(spacing: Stitch.Space.s) {
+                                        Image(systemName: "doc.richtext").foregroundStyle(Stitch.red)
+                                        Text(doc.name).font(.body).foregroundStyle(Stitch.ink).multilineTextAlignment(.leading)
+                                        Spacer(minLength: 0)
+                                        Image(systemName: "chevron.right").font(.footnote.weight(.bold)).foregroundStyle(Stitch.inkSoft)
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .stitchCard()
+                                }
+                                .buttonStyle(.plain)
+                                Button { extraction = store.extraction(from: doc) } label: { Image(systemName: "text.viewfinder") }
+                                    .buttonStyle(HeaderIconButton())
+                                    .accessibilityLabel("Reisedaten aus \(doc.name) lesen")
+                            }
+                        }
+                        Button("PDF hinzufügen", systemImage: "plus") { importing = true }
+                            .buttonStyle(StitchButton(primary: !hasFlights))
+                        Text("Das Original bleibt gespeichert. Flüge und Hotel übernimmt Album aus dem Text.")
+                            .font(.footnote).foregroundStyle(Stitch.inkSoft)
+                    }
                 }
-                .sheet(item: $extraction) { ExtractedTripSheet(extracted: $0) }
-                .sheet(item: $selected) { DocumentDetail(document: $0) }
-                .sheet(isPresented: $editing) { TripEditor(trip: store.data.trip) }
+                .padding(Stitch.Space.page)
+            }
+            .background(LinenBackground())
+            .navigationTitle("Reiseunterlagen").navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Bearbeiten") { editing = true } }
+                ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } }
+            }
+            .fileImporter(isPresented: $importing, allowedContentTypes: [.pdf]) { result in
+                do {
+                    let id = UUID().uuidString
+                    try store.importPDF(result.get(), id: id)
+                    if let doc = store.data.documents.first(where: { $0.id == id }) { extraction = store.extraction(from: doc) }
+                } catch { store.error = error.localizedDescription }
+            }
+            .sheet(item: $extraction) { ExtractedTripSheet(extracted: $0) }
+            .sheet(item: $selected) { DocumentDetail(document: $0) }
+            .sheet(isPresented: $editing) { TripEditor(trip: store.data.trip) }
+        }
+    }
+
+    /// Abschnitt mit Überschrift: 8 pt zwischen Überschrift und Inhalt, 12 pt zwischen Karten.
+    private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: Stitch.Space.s) {
+            Text(title).font(.title3.weight(.bold)).foregroundStyle(Stitch.ink)
+            content()
         }
     }
 }
@@ -98,14 +151,15 @@ struct TripEditor: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Prag · 4.–9. Oktober 2026") {
+                Section {
                     TextField("Unterkunft", text: $trip.hotel)
                     TextField("Abflug, z. B. 14:45", text: $trip.outbound)
                     TextField("Ankunft, z. B. 15:55", text: $trip.arrival)
                     TextField("Route, z. B. CGN → PRG", text: $trip.route)
                     TextField("Flugnummer", text: $trip.flightNumber)
-                    TextField("Rückreise, Check-in & Notizen", text: $trip.notes, axis: .vertical).lineLimit(4...10)
+                    TextField("Notizen", text: $trip.notes, axis: .vertical).lineLimit(4...10)
                 }
+                .listRowBackground(Stitch.card)
             }.scrollContentBackground(.hidden).background(LinenBackground()).navigationTitle("Reisedaten").navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }

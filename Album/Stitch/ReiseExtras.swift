@@ -27,6 +27,12 @@ enum TripDates {
         return calendar.component(.day, from: day)
     }
 
+    /// „Sonntag, 4. Oktober“ – Überschrift eines Reisetags.
+    static func dayTitle(_ day: Int) -> String {
+        let date = calendar.date(from: DateComponents(year: 2026, month: 10, day: day))!
+        return date.formatted(.dateTime.weekday(.wide).day().month(.wide).locale(Locale(identifier: "de_DE")))
+    }
+
     static let key: DateFormatter = {
         let formatter = DateFormatter()
         formatter.calendar = calendar

@@ -3,8 +3,6 @@ import SwiftUI
 struct InboxView: View {
     @Environment(AlbumStore.self) private var store
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    var onAdd: () -> Void = {}
-    var onShare: () -> Void = {}
     @State private var offset: CGFloat = 0
     @State private var editing: Place?
     @State private var shouldFrank = false
@@ -24,9 +22,7 @@ struct InboxView: View {
     private var progress: CGFloat { min(abs(offset) / decisionThreshold, 1) }
 
     var body: some View {
-        VStack(spacing: 14) {
-            TabHeader(title: "Ideen", subtitle: store.inbox.isEmpty ? "Alles entschieden" : "\(store.inbox.count) offen",
-                      onAdd: onAdd, onShare: onShare)
+        VStack(spacing: Stitch.Space.m) {
             if let place = store.inbox.first {
                 GeometryReader { geo in
                     ZStack {
@@ -45,7 +41,7 @@ struct InboxView: View {
                                     Image(systemName: "pencil").font(.body.weight(.semibold))
                                 }
                                 .buttonStyle(HeaderIconButton())
-                                .padding(22)
+                                .padding(Stitch.Space.l)
                                 .accessibilityLabel("Idee bearbeiten")
                             }
                             .overlay { DecisionHint(direction: offset == 0 ? nil : offset > 0 ? .frank : .shelve, progress: progress) }
@@ -62,33 +58,36 @@ struct InboxView: View {
                     .frame(width: geo.size.width, height: geo.size.height)
                 }
 
-                Text(authorLine(place))
-                    .font(.footnote.weight(.medium)).foregroundStyle(Stitch.inkSoft)
+                if let line = authorLine(place) {
+                    Text(line).font(.footnote.weight(.medium)).foregroundStyle(Stitch.inkSoft)
+                }
 
-                HStack(spacing: 12) {
+                HStack(spacing: Stitch.Space.s) {
                     Button("Später") { act(place, frank: false) }.buttonStyle(StitchButton())
                     Button("Dafür") { act(place, frank: true) }.buttonStyle(StitchButton(primary: true))
                 }
             } else {
                 Spacer()
                 StitchedSymbol(name: "heart.fill", rows: 16, cell: 5, color: Stitch.red)
-                Text("Alles entschieden").font(.title2.weight(.bold)).foregroundStyle(Stitch.ink).padding(.top, 8)
-                Text("Neue Links landen hier.\nBeschlossene Orte findet ihr auf der Karte.")
+                Text("Alles entschieden").font(.title2.weight(.bold)).foregroundStyle(Stitch.ink).padding(.top, Stitch.Space.xs)
+                Text("Neue Links landen hier.\nBeschlossene Orte findest du auf der Karte.")
                     .font(.body).multilineTextAlignment(.center).foregroundStyle(Stitch.inkSoft)
                 if !store.deferred.isEmpty {
                     Button("\(store.deferred.count) für später ansehen") { store.restoreDeferred() }
-                        .buttonStyle(StitchButton()).padding(.top, 8).padding(.horizontal, 40)
+                        .buttonStyle(StitchButton()).padding(.top, Stitch.Space.xs).padding(.horizontal, Stitch.Space.xl)
                 }
                 Spacer()
             }
             if let lastAction {
-                Button("Letzte Entscheidung rückgängig") { store.upsert(lastAction); self.lastAction = nil }
-                    .font(.footnote.weight(.semibold)).foregroundStyle(Stitch.red).frame(minHeight: 32)
+                Button("Rückgängig", systemImage: "arrow.uturn.backward") { store.upsert(lastAction); self.lastAction = nil }
+                    .font(.subheadline.weight(.semibold)).foregroundStyle(Stitch.red).frame(minHeight: 44)
+                    .accessibilityLabel("Letzte Entscheidung rückgängig")
             }
         }
         .allowsHitTesting(!committing)
-        .padding(.horizontal, 16).padding(.bottom, 12)
+        .padding(.horizontal, Stitch.Space.page).padding(.bottom, Stitch.Space.s)
         .background(LinenBackground())
+        .navigationTitle("Ideen")
         .sheet(item: $editing) { PlaceEditor(place: $0, frankOnSave: shouldFrank) }
         .sensoryFeedback(.impact(weight: .medium), trigger: feedback)
         .sensoryFeedback(.selection, trigger: thresholdFeedback)
@@ -96,11 +95,14 @@ struct InboxView: View {
         .sensoryFeedback(.success, trigger: magnetTick)
     }
 
-    private func authorLine(_ place: Place) -> String {
-        let from = place.author.localizedCaseInsensitiveCompare("Wir") == .orderedSame ? "Von euch gesammelt" : "Von \(place.author)"
+    /// Nur was du nicht schon weißt: wer außer dir die Idee gesammelt hat und wer schon dafür ist.
+    private func authorLine(_ place: Place) -> String? {
+        let fromPartner = place.author != store.me && place.author.localizedCaseInsensitiveCompare("Wir") != .orderedSame
         let others = place.approvals.filter { $0 != store.me }
-        guard !others.isEmpty else { return from }
-        return from + " · " + ListFormatter.localizedString(byJoining: others) + (others.count == 1 ? " ist dafür" : " sind dafür")
+        var parts: [String] = []
+        if fromPartner { parts.append("Von \(place.author)") }
+        if !others.isEmpty { parts.append(ListFormatter.localizedString(byJoining: others) + (others.count == 1 ? " ist dafür" : " sind dafür")) }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
     private func dragGesture(for place: Place) -> some Gesture {
@@ -206,8 +208,8 @@ private struct DecisionHint: View {
                 .font(.title2.weight(.heavy))
                 .foregroundStyle(direction == .frank ? Stitch.onAccent : Stitch.red)
                 .padding(.horizontal, 18).padding(.vertical, 8)
-                .background(direction == .frank ? Stitch.red : Stitch.card, in: Capsule())
-                .overlay(Capsule().strokeBorder(Stitch.red, lineWidth: 2))
+                .background(direction == .frank ? Stitch.redFill : Stitch.card, in: Capsule())
+                .overlay(Capsule().strokeBorder(Stitch.redFill, lineWidth: 2))
                 .rotationEffect(.degrees(direction == .frank ? -8 : 8))
                 .opacity(Double(progress))
                 .scaleEffect(0.85 + 0.15 * progress)
@@ -240,7 +242,7 @@ struct IdeaPolaroid: View {
                         .opacity(crossProgress > 0 ? 1 : 0)
                         .accessibilityHidden(true)
                     }
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
                     Text(place.title.isEmpty ? "Neue Idee" : place.title)
                         .font(.title2.weight(.bold)).foregroundStyle(Stitch.ink).lineLimit(2)
                         .minimumScaleFactor(0.8)
@@ -251,14 +253,14 @@ struct IdeaPolaroid: View {
                     }
                     .foregroundStyle(Stitch.inkSoft)
                 }
-                .padding(.top, 14)
+                .padding(.top, Stitch.Space.s)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 Spacer(minLength: 0)
             }
-            .padding(14)
+            .padding(Stitch.Space.s)
             .background(Stitch.card)
-            .overlay(alignment: .topLeading) { TackStitch(color: tackColor, size: 16).offset(x: 6, y: 6) }
-            .overlay(alignment: .topTrailing) { TackStitch(color: tackColor, size: 16).offset(x: -6, y: 6) }
+            .overlay(alignment: .topLeading) { TackStitch(color: tackColor).offset(x: Stitch.Space.xs, y: Stitch.Space.xs) }
+            .overlay(alignment: .topTrailing) { TackStitch(color: tackColor).offset(x: -Stitch.Space.xs, y: Stitch.Space.xs) }
         }
     }
 

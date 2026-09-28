@@ -29,18 +29,22 @@ struct PlaceEditor: View {
                 Section("Idee") {
                     TextField("Name der Idee", text: $place.title)
                     TextField("Link von TikTok, Instagram …", text: $place.sourceURL).keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
-                    if !place.sourceURL.isEmpty && LinkValidation.url(place.sourceURL) == nil { Text("Bitte einen vollständigen http(s)-Link eingeben.").foregroundStyle(AlbumStyle.red) }
-                    Button(enriching ? "Vorschau wird geladen …" : "Linkvorschau laden") { Task { await enrich() } }.disabled(enriching || LinkValidation.url(place.sourceURL) == nil)
+                    if !place.sourceURL.isEmpty && LinkValidation.url(place.sourceURL) == nil {
+                        Text("Der Link muss mit https:// beginnen.").font(.footnote).foregroundStyle(Stitch.red)
+                    }
+                    if enriching {
+                        Label { Text("Vorschau wird geladen …") } icon: { ProgressView() }.foregroundStyle(Stitch.inkSoft)
+                    }
                     Picker("Kategorie", selection: $place.category) { ForEach(categories, id: \.self) { Text($0) } }
-                    TextField("Gesammelt von", text: $place.author)
-                    TextField("Warum wollen wir hierhin?", text: $place.note, axis: .vertical).lineLimit(3...6)
+                    TextField("Warum da hin?", text: $place.note, axis: .vertical).lineLimit(3...6)
                 }
+                .listRowBackground(Stitch.card)
                 Section {
                     HStack {
                         TextField("Ort oder Adresse in Prag", text: $query).submitLabel(.search).onSubmit { search() }
                         Button(action: search) { if searching { ProgressView() } else { Image(systemName: "magnifyingglass") } }.disabled(query.trimmingCharacters(in: .whitespaces).isEmpty || searching).accessibilityLabel("Ort suchen")
                     }
-                    if let searchError { Text(searchError).font(AlbumStyle.body(13)).foregroundStyle(AlbumStyle.red) }
+                    if let searchError { Text(searchError).font(.footnote).foregroundStyle(Stitch.red) }
                     ForEach(Array(results.enumerated()), id: \.offset) { _, item in
                         Button {
                             place.title = item.name ?? place.title
@@ -54,7 +58,7 @@ struct PlaceEditor: View {
                         }
                     }
                     if place.coordinate != nil {
-                        Label(place.address.isEmpty ? "Ort bestätigt" : place.address, systemImage: "checkmark.circle.fill").foregroundStyle(AlbumStyle.red)
+                        Label(place.address.isEmpty ? "Ort gefunden" : place.address, systemImage: "checkmark.circle.fill").foregroundStyle(Stitch.red)
                         Button(imageSearching ? "Bild wird gesucht …" : "Bild neu suchen") { Task { await findImage(force: true) } }
                             .disabled(imageSearching)
                         PhotosPicker(selection: $photoItem, matching: .images) {
@@ -64,18 +68,20 @@ struct PlaceEditor: View {
                             Button("Bild entfernen", role: .destructive) { place.image = nil }
                         }
                     }
-                } header: { Text("Auf der Karte bestätigen") } footer: { Text("Wähle den passenden Suchtreffer. Seine Koordinaten werden einmal gespeichert. Damit ein Ort auf die Karte kommt, muss er bestätigt sein.") }
+                } header: { Text("Ort") } footer: { Text("Such den Ort, damit er auf der Karte erscheint.") }
+                .listRowBackground(Stitch.card)
                 if place.franked {
                     Section("Planung") {
                         Toggle("Schon besucht", isOn: $place.visited)
                         Picker("Tag", selection: $place.day) {
                             Text("Noch offen").tag(nil as Int?)
-                            ForEach(4...9, id: \.self) { Text("\($0). Oktober").tag(Optional($0)) }
+                            ForEach(4...9, id: \.self) { Text(TripDates.dayTitle($0)).tag(Optional($0)) }
                         }
                     }
+                    .listRowBackground(Stitch.card)
                 }
             }.scrollContentBackground(.hidden).background(LinenBackground())
-                .navigationTitle(frankOnSave ? "Ort bestätigen" : "Idee").navigationBarTitleDisplayMode(.inline)
+                .navigationTitle(frankOnSave ? "Wo ist das?" : "Idee").navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { cancel() } }
                     ToolbarItem(placement: .confirmationAction) { Button("Speichern") {
@@ -89,9 +95,12 @@ struct PlaceEditor: View {
                     }.disabled(!valid || posting) }
                 }
                 .onAppear { query = place.title == "Neue Reiseidee" ? "" : place.title }
-                .task {
-                    // Aus der Zwischenablage übernommen: Vorschau gleich laden.
-                    if place.title.isEmpty, LinkValidation.url(place.sourceURL) != nil { await enrich() }
+                .task(id: place.sourceURL) {
+                    // Gültiger Link: Vorschau von selbst laden, kurz nach dem Tippen.
+                    guard place.image == nil || place.title.isEmpty, LinkValidation.url(place.sourceURL) != nil else { return }
+                    try? await Task.sleep(for: .milliseconds(500))
+                    guard !Task.isCancelled else { return }
+                    await enrich()
                 }
                 .overlay { if posting { LetterSlotDrop(place: place, root: store.root) { dismiss() }.transition(.opacity) } }
                 .onDisappear { searchTask?.cancel() }
