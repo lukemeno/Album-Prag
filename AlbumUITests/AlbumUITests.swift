@@ -31,4 +31,36 @@ final class AlbumUITests: XCTestCase {
         app.buttons["Karte"].tap()
         XCTAssertTrue(app.navigationBars["Karte"].waitForExistence(timeout: 5))
     }
+
+    /// Braucht vorbereitete Orte im Simulator (`TEST_RUNNER_ALBUM_PLAN_STORE`) und Netz für die Öffnungszeiten.
+    /// Mit `TEST_RUNNER_ALBUM_SHOT_DIR` werden Screenshots der Vorschau dort abgelegt.
+    func testAutomaticDayPlanPreview() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard let store = environment["ALBUM_PLAN_STORE"] else { throw XCTSkip("Keine vorbereiteten Orte") }
+        let app = XCUIApplication()
+        app.launchEnvironment["ALBUM_TEST_STORE"] = store
+        app.launchEnvironment["ALBUM_MY_NAME"] = "Luke"
+        app.launch()
+        XCTAssertTrue(app.buttons["Mehr"].waitForExistence(timeout: 15))
+        app.buttons["Mehr"].tap()
+        // Das Menü klappt animiert auf; erst tippen, wenn der Eintrag da ist.
+        let planner = app.buttons["Tagesplan"]
+        XCTAssertTrue(planner.waitForExistence(timeout: 5))
+        planner.tap()
+        let auto = app.buttons["Automatisch planen"]
+        XCTAssertTrue(auto.waitForExistence(timeout: 10))
+        auto.tap()
+        let apply = app.buttons["Übernehmen"]
+        XCTAssertTrue(apply.waitForExistence(timeout: 5))
+        let ready = expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: apply)
+        wait(for: [ready], timeout: 90)
+        let shots = environment["ALBUM_SHOT_DIR"].map { URL(fileURLWithPath: $0) }
+        func shot(_ name: String) { if let shots { try? XCUIScreen.main.screenshot().pngRepresentation.write(to: shots.appendingPathComponent(name + ".png")) } }
+        shot("plan-1")
+        app.swipeUp(); shot("plan-2")
+        app.swipeUp(); shot("plan-3")
+        apply.tap()
+        XCTAssertTrue(app.navigationBars["Tagesplan"].waitForExistence(timeout: 5))
+        shot("plan-applied")
+    }
 }

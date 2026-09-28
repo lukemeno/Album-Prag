@@ -205,9 +205,18 @@ struct DayMenu: View {
 struct DayPlanner: View {
     @Environment(AlbumStore.self) private var store
     @Environment(\.dismiss) private var dismiss
+    @State private var proposing = false
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    Button { proposing = true } label: {
+                        Label("Automatisch planen", systemImage: "wand.and.stars").font(.body.weight(.semibold))
+                    }
+                    .foregroundStyle(Stitch.red)
+                    .disabled(store.franked.allSatisfy { $0.coordinate == nil || $0.category == "Unterkunft" })
+                }
+                .listRowBackground(Stitch.card)
                 ForEach(4...9, id: \.self) { day in
                     let places = store.plan(for: day)
                     Section(TripDates.dayTitle(day)) {
@@ -246,6 +255,7 @@ struct DayPlanner: View {
             .scrollContentBackground(.hidden)
             .background(LinenBackground())
             .navigationTitle("Tagesplan").navigationBarTitleDisplayMode(.inline)
+            .sheet(isPresented: $proposing) { DayPlanPreview() }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { EditButton() }
                 ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } }

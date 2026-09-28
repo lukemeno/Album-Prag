@@ -104,6 +104,8 @@ struct Place: Codable, Identifiable, Equatable {
     var approvals: [String] = []
     /// Namen derer, die einen Vorschlag der anderen auf „Später“ gelegt haben.
     var passedBy: [String] = []
+    /// Öffnungszeiten aus OpenStreetMap; "" heißt: nachgesehen, nichts gefunden. Nil: noch nicht nachgesehen.
+    var openingHours: String?
     var updatedAt = Date()
     var coordinate: CLLocationCoordinate2D? {
         guard let lat, let lng, lat.isFinite, lng.isFinite,
@@ -125,7 +127,7 @@ struct Place: Codable, Identifiable, Equatable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, title, note, sourceURL, category, author, image, address, lat, lng, franked, deferred, deleted, visited, day, dayOrder, approvals, passedBy, updatedAt
+        case id, title, note, sourceURL, category, author, image, address, lat, lng, franked, deferred, deleted, visited, day, dayOrder, approvals, passedBy, openingHours, updatedAt
         case imageName, remoteImage, imageSourceURL, imageCredit
     }
 
@@ -148,6 +150,7 @@ struct Place: Codable, Identifiable, Equatable {
         dayOrder = try values.decodeIfPresent(Int.self, forKey: .dayOrder)
         approvals = try values.decodeIfPresent([String].self, forKey: .approvals) ?? []
         passedBy = try values.decodeIfPresent([String].self, forKey: .passedBy) ?? []
+        openingHours = try values.decodeIfPresent(String.self, forKey: .openingHours)
         updatedAt = try values.decodeIfPresent(Date.self, forKey: .updatedAt) ?? Date()
         if let current = try values.decodeIfPresent(PlaceImageAsset.self, forKey: .image) {
             image = current
@@ -171,7 +174,7 @@ struct Place: Codable, Identifiable, Equatable {
         try values.encodeIfPresent(lng, forKey: .lng); try values.encode(franked, forKey: .franked); try values.encode(deferred, forKey: .deferred)
         try values.encode(deleted, forKey: .deleted); try values.encode(visited, forKey: .visited); try values.encodeIfPresent(day, forKey: .day)
         try values.encodeIfPresent(dayOrder, forKey: .dayOrder); try values.encode(approvals, forKey: .approvals); try values.encode(passedBy, forKey: .passedBy)
-        try values.encode(updatedAt, forKey: .updatedAt)
+        try values.encodeIfPresent(openingHours, forKey: .openingHours); try values.encode(updatedAt, forKey: .updatedAt)
     }
 
     static let examples: [Place] = [

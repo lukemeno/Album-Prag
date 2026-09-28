@@ -134,6 +134,35 @@ import CoreLocation
     }
 
     /// Orte eines Tages in geplanter Reihenfolge.
+    /// Hotel als Start jeder Tagesrunde; ohne Hotel die Altstadt.
+    var hotelCoordinate: CLLocationCoordinate2D {
+        franked.first { $0.category == "Unterkunft" && $0.coordinate != nil }?.coordinate
+            ?? CLLocationCoordinate2D(latitude: 50.0875, longitude: 14.4213)
+    }
+
+    /// Holt fehlende Öffnungszeiten (einmal pro Ort) und rechnet einen Tagesplan-Vorschlag.
+    func proposeDayPlan(keepAssigned: Bool) async -> DayPlanProposal {
+        for place in franked where place.openingHours == nil && place.coordinate != nil && place.category != "Unterkunft" {
+            // Gescheiterte Abfragen bleiben offen und werden beim nächsten Planen wiederholt.
+            guard let hours = await OpeningHoursService.fetch(for: place) else { continue }
+            var checked = place
+            checked.openingHours = hours
+            upsert(checked)
+        }
+        return DayPlanGenerator.plan(places: franked, hotel: hotelCoordinate, flights: data.trip.flights ?? [], keepAssigned: keepAssigned)
+    }
+
+    /// Übernimmt den Vorschlag: Tag und Reihenfolge je Ort.
+    func apply(_ proposal: DayPlanProposal) {
+        for (day, stops) in proposal.days {
+            for (index, stop) in stops.enumerated() {
+                guard var place = places.first(where: { $0.id == stop.id }), place.day != day || place.dayOrder != index else { continue }
+                place.day = day; place.dayOrder = index
+                upsert(place)
+            }
+        }
+    }
+
     func plan(for day: Int) -> [Place] {
         franked.filter { $0.day == day }.sorted { ($0.dayOrder ?? .max, $0.title) < ($1.dayOrder ?? .max, $1.title) }
     }
