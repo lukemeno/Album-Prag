@@ -27,3 +27,10 @@
 - Alle Tippziele mindestens 44 pt (Filter, Tag-Menü, Rückgängig, Stecknadeln als echte Buttons).
 - Text: durchgehend „du“, Erklärsätze nur dort, wo noch nichts passiert ist; Autor nur, wenn es nicht du selbst bist; Linkvorschau lädt von selbst.
 - Tagesplan mit Wochentagen und „Bearbeiten“-Knopf statt Dauer-Sortiermodus.
+
+## 28.09.2026 – Typischere Ortsfotos (Edge Function `place-photo`)
+- Ursache falscher Fotos: Es wurde nur das Wikidata-Hauptbild genommen (Letná → Obstgarten statt Moldaublick).
+- Jetzt: Kandidaten aus Hauptbild, Commons-Kategorie des Orts und Fotos im Umkreis von 400 m; Bewertung in `_shared/place_photo.ts` (Verwendung in Wikipedia, Auszeichnungen, Stichworte je Kategorie, Ortsname in allen Sprachen, Serien nur einmal, „View from …“ bei Sehenswürdigkeiten abgewertet, Demos/Karten/Logos raus). Antwort enthält zusätzlich `candidates` (bis 8) für eine spätere Auswahl in der App.
+- Wikimedia drosselt Anfrageschwälle (HTTP 429): Anfragen gebündelt und nacheinander, bei 429 einmal warten, sonst Fehler statt still „kein Bild“.
+- Live geprüft am 28.09.: Letná → „Vltava in Prague at sunset“, Karlsbrücke → Brücke von oben. Deployt (place-photo).
+- Bestehende Orte behalten ihr altes Foto, bis im Editor „Bild neu suchen“ getippt wird.

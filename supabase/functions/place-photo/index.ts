@@ -1,7 +1,6 @@
 import { clients, jsonHeaders, respond } from "../_shared/album.ts";
-import { choosePlace, firstArray, stripHTML, validCoordinate, type PlaceCandidate, type WikimediaFile } from "../_shared/place_photo.ts";
-
-const wikimediaHeaders = { "User-Agent": Deno.env.get("WIKIMEDIA_USER_AGENT") || "Album-Prague/1.0 (private travel app)" };
+import { choosePlace, firstArray, validCoordinate, type PlaceCandidate } from "../_shared/place_photo.ts";
+import { resolveWikimedia } from "../_shared/wikimedia_photos.ts";
 
 Deno.serve(async request => {
   if (request.method !== "POST") return new Response(null, { status: 405 });
@@ -15,8 +14,8 @@ Deno.serve(async request => {
     const longitude = Number(body.longitude);
     if (!title || !validCoordinate(latitude, longitude)) return json({ error: "Ort oder Koordinaten fehlen" }, 400);
 
-    const wikimedia = await resolveWikimedia(title, latitude, longitude);
-    if (wikimedia) return json({ image: wikimedia });
+    const photos = await resolveWikimedia(title, category, latitude, longitude);
+    if (photos.length) return json({ image: photos[0], candidates: photos });
 
     const enabled = Deno.env.get("TRIPADVISOR_TERRA_ENABLED")?.toLowerCase() === "true";
     const key = Deno.env.get("TRIPADVISOR_TERRA_API_KEY");
@@ -27,73 +26,6 @@ Deno.serve(async request => {
     return json({ image: null });
   } catch (error) { return respond(error); }
 });
-
-async function resolveWikimedia(title: string, latitude: number, longitude: number) {
-  const searches = await Promise.all(["cs", "de", "en"].map(language => wikidataSearch(title, language)));
-  const ids = [...new Set(searches.flat().map(item => item.id).filter(Boolean))].slice(0, 12);
-  const entities = await Promise.all(ids.map(wikidataEntity));
-  const candidates = entities.flatMap(entityCandidate);
-  const place = choosePlace(candidates, title, latitude, longitude);
-  if (!place?.image) return null;
-  const file = await wikimediaFile(place.image);
-  if (!file) return null;
-  return {
-    image_url: file.imageURL,
-    source_url: file.sourceURL,
-    credit: file.credit,
-    provider: "wikimedia",
-    provider_place_id: place.id,
-    license_name: file.licenseName,
-    license_url: file.licenseURL,
-  };
-}
-
-async function wikidataSearch(title: string, language: string) {
-  const url = new URL("https://www.wikidata.org/w/api.php");
-  Object.entries({ action: "wbsearchentities", search: title, language, uselang: language, type: "item", limit: "6", format: "json" })
-    .forEach(([key, value]) => url.searchParams.set(key, value));
-  const response = await fetch(url, { headers: wikimediaHeaders });
-  if (!response.ok) return [];
-  return firstArray(await response.json()) as Array<{ id: string }>;
-}
-
-async function wikidataEntity(id: string) {
-  const response = await fetch(`https://www.wikidata.org/wiki/Special:EntityData/${encodeURIComponent(id)}.json`, { headers: wikimediaHeaders });
-  if (!response.ok) return null;
-  const payload = await response.json();
-  return payload?.entities?.[id] ? { id, value: payload.entities[id] } : null;
-}
-
-function entityCandidate(entity: { id: string; value: any } | null): PlaceCandidate[] {
-  if (!entity) return [];
-  const coordinate = entity.value?.claims?.P625?.[0]?.mainsnak?.datavalue?.value;
-  const image = entity.value?.claims?.P18?.[0]?.mainsnak?.datavalue?.value;
-  if (!coordinate || typeof image !== "string") return [];
-  const labels = Object.values(entity.value?.labels || {}).map((label: any) => label?.value).filter((value): value is string => typeof value === "string");
-  return [...new Set(labels)].map(name => ({ id: entity.id, name, latitude: Number(coordinate.latitude), longitude: Number(coordinate.longitude), image }));
-}
-
-async function wikimediaFile(filename: string): Promise<WikimediaFile | null> {
-  const url = new URL("https://commons.wikimedia.org/w/api.php");
-  Object.entries({ action: "query", format: "json", prop: "imageinfo", iiprop: "url|extmetadata", iiurlwidth: "1600", titles: `File:${filename}` })
-    .forEach(([key, value]) => url.searchParams.set(key, value));
-  const response = await fetch(url, { headers: wikimediaHeaders });
-  if (!response.ok) return null;
-  const payload = await response.json();
-  const page = Object.values(payload?.query?.pages || {})[0] as any;
-  const info = page?.imageinfo?.[0];
-  if (!info?.thumburl && !info?.url) return null;
-  const metadata = info.extmetadata || {};
-  const artist = stripHTML(metadata.Artist?.value);
-  const credit = stripHTML(metadata.Credit?.value);
-  return {
-    imageURL: info.thumburl || info.url,
-    sourceURL: info.descriptionurl || `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(filename.replace(/ /g, "_"))}`,
-    credit: artist || credit || "Wikimedia Commons",
-    licenseName: stripHTML(metadata.LicenseShortName?.value),
-    licenseURL: metadata.LicenseUrl?.value,
-  };
-}
 
 async function resolveTripadvisor(title: string, address: string, category: string, latitude: number, longitude: number, key: string) {
   const search = new URL("https://terra.tripadvisor.com/api/locations/search");

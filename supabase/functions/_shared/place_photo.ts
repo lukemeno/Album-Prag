@@ -5,6 +5,8 @@ export type PlaceCandidate = {
   longitude: number;
   image?: string;
   sourceURL?: string;
+  /// Commons-Kategorie des Orts (Wikidata P373), dort liegen meist die bekannten Motive.
+  commonsCategory?: string;
   raw?: unknown;
 };
 
@@ -76,4 +78,86 @@ export function firstArray(payload: unknown): unknown[] {
     }
   }
   return [];
+}
+
+/// Ein Foto-Kandidat von Wikimedia Commons, bevor er bewertet wird.
+export type PhotoCandidate = {
+  title: string;
+  source: "main" | "category" | "nearby";
+  uses: number;
+  assessments: string;
+  width: number;
+  height: number;
+  meters?: number;
+};
+
+// Worte im Dateinamen, die zur Kategorie passen: Bei einer Aussicht will man den Blick, beim Café den Raum.
+const categoryHints: Record<string, string[]> = {
+  "Aussicht": ["view", "panorama", "vyhled", "pohled", "blick", "aussicht", "skyline", "sunset", "sunrise", "vltava", "moldau", "nad prahou", "over prague"],
+  "Essen & Trinken": ["interior", "interier", "cafe", "kavarna", "restaurant", "restaurace", "food", "bar", "pub", "hospoda"],
+  // Bei Sehenswürdigkeiten zeigt „view“ meist den Blick *von* dort, nicht den Ort selbst.
+  "Sehenswert": ["facade", "fasada", "exterior"],
+  "Unterkunft": ["hotel", "facade", "fasada", "exterior"],
+};
+
+// Motive, die fast nie das sind, wofür man einen Ort besucht.
+const offTopic = ["demonstr", "protest", "pochod", "exhibition", "vystava", "obnova", "oprava", "construction", "brouk", "beetle",
+  "kick", "match", "zapas", "map", "mapa", "plan ", "logo", "coat of arms", "znak", "sign", "tabul", "plaque", "deska", "dort", "cake"];
+
+/// Wortanfänge (4 Zeichen), damit Beugungen passen: „Karlův most“ trifft „Karlově mostě“.
+const stems = (value: string) => normalize(value).split(" ").filter(token => token.length >= 4).map(token => token.slice(0, 4));
+
+/// Punkte für ein Foto: typisch (oft in Wikipedia verwendet, ausgezeichnet), passend zur Kategorie, nicht nebensächlich.
+/// `placeNames` sind alle Namen des Orts (Titel in der App plus Wikidata-Namen in allen Sprachen). Null heißt: nicht verwenden.
+export function scorePhoto(photo: PhotoCandidate, placeNames: string | string[], category: string): number | null {
+  if (!/\.(jpe?g|webp)$/i.test(photo.title)) return null;
+  const name = normalize(photo.title.replace(/^File:/i, "").replace(/\.[a-z]+$/i, ""));
+  if (offTopic.some(word => name.includes(word))) return null;
+  const words = name.split(" ").filter(Boolean);
+  const wordStems = new Set(words.map(word => word.slice(0, 4)));
+  const names = (Array.isArray(placeNames) ? placeNames : [placeNames]).map(stems).filter(list => list.length);
+  // Ein Name trifft, wenn alle seine Wörter im Dateinamen vorkommen.
+  const matchesPlace = names.some(list => list.every(stem => wordStems.has(stem)));
+  // Stichworte zählen nur außerhalb des Ortsnamens: Bei „Café Louvre“ sagt „cafe“ im Dateinamen nichts über das Motiv.
+  const placeStems = new Set(names.flat());
+  const rest = words.filter(word => !placeStems.has(word.slice(0, 4))).join(" ");
+  const hint = (categoryHints[category] ?? []).some(word => rest.includes(word));
+  // Fotos aus der Umgebung brauchen einen Bezug: den Ortsnamen, bei Aussichtspunkten reicht auch ein Blick-Stichwort.
+  if (photo.source === "nearby" && !matchesPlace && !(hint && category === "Aussicht")) return null;
+
+  // Das Hauptbild steckt in jeder Infobox; seine Verwendung zählt deshalb nur begrenzt.
+  // „View from Charles Bridge of …“ zeigt etwas anderes, von der Brücke aus fotografiert.
+  const fromIndex = words.findIndex(word => ["from", "von", "vom", "z", "ze"].includes(word));
+  const viewFromPlace = fromIndex >= 0 && words.slice(fromIndex + 1).some(word => placeStems.has(word.slice(0, 4)));
+
+  let score = Math.min(photo.uses, photo.source === "main" ? 5 : 10) * 3;
+  if (viewFromPlace && category !== "Aussicht") score -= 25;
+  const assessed = photo.assessments.toLowerCase();
+  if (assessed.includes("featured") || assessed.includes("poty")) score += 30;
+  else if (assessed.includes("quality") || assessed.includes("valued")) score += 15;
+  if (hint) score += 20;
+  if (matchesPlace) score += 8;
+  if (photo.source === "main") score += 8;
+  if (photo.width >= photo.height) score += 5; else score -= 5;
+  if (photo.width < 1000) score -= 15;
+  if (photo.meters != null) score -= photo.meters / 50;
+  return score;
+}
+
+/// Die besten Fotos, bestes zuerst. Aus einer Serie („… 01“, „… 02“, gleicher Name mit Zeitstempel) bleibt nur das beste.
+export function rankPhotos(photos: PhotoCandidate[], placeNames: string | string[], category: string, limit = 8) {
+  const series = new Set<string>();
+  return photos
+    .map(photo => ({ photo, score: scorePhoto(photo, placeNames, category) }))
+    .filter((value): value is { photo: PhotoCandidate; score: number } => value.score !== null)
+    .sort((left, right) => right.score - left.score)
+    .filter(({ photo }) => {
+      const key = seriesKey(photo.title);
+      return !series.has(key) && !!series.add(key);
+    })
+    .slice(0, limit);
+}
+
+export function seriesKey(title: string) {
+  return normalize(title.replace(/^File:/i, "").replace(/\.[a-z]+$/i, "")).replace(/\d+/g, "").replace(/\s+/g, " ").trim();
 }
