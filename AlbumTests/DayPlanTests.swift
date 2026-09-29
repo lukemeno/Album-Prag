@@ -130,3 +130,33 @@ extension DayPlanTests {
         XCTAssertFalse(PlaceImageService.shouldSearch(for: place, force: false))
     }
 }
+
+extension DayPlanTests {
+    func testWikimediaThumbnailsLoadSmallerFiles() {
+        let asset = PlaceImageAsset.external(ExternalPlaceImage(
+            imageURL: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Letna.jpg/1600px-Letna.jpg",
+            sourceURL: "https://commons.wikimedia.org/wiki/File:Letna.jpg", credit: "x", provider: .wikimedia))
+        // Nur feste Breiten sind erlaubt: 480 wird zu 500.
+        XCTAssertEqual(asset.remoteURL(width: 480), "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Letna.jpg/500px-Letna.jpg")
+    }
+
+    func testGallerySurvivesSyncAndIsRequestedOnce() throws {
+        let identity = ResolvedPlaceIdentity(title: "Letná", latitude: 50.0966, longitude: 14.4165)
+        let photo = ExternalPlaceImage(imageURL: "https://x/1.jpg", sourceURL: "https://x", credit: "A", provider: .wikimedia, resolvedFor: identity, ranking: PlaceImageService.ranking)
+        var letna = place("letna", 50.0966, 14.4165, category: "Aussicht")
+        letna.image = .external(photo)
+        XCTAssertTrue(PlaceImageService.needsGallery(letna))
+        letna.gallery = [photo]
+        XCTAssertFalse(PlaceImageService.needsGallery(letna))
+        let decoded = try JSONDecoder().decode(Place.self, from: JSONEncoder().encode(letna))
+        XCTAssertEqual(decoded.gallery?.first?.credit, "A")
+    }
+
+    func testTimelineGivesTheListTheSameSlotsAsThePlan() {
+        let day = [place("a", 50.0880, 14.4030), place("b", 50.0875, 14.4045)]
+        let window = DayPlanGenerator.Window(start: 10 * 60, end: 22 * 60)
+        let stops = DayPlanGenerator.timeline(day, day: 6, window: window, hotel: hotel)
+        XCTAssertEqual(stops.map(\.id), ["a", "b"])
+        XCTAssertEqual(stops.first?.slot, "vormittags")
+    }
+}

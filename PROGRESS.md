@@ -42,3 +42,11 @@
 - UI-Test `testAutomaticDayPlanPreview` läuft nur mit vorbereiteten Orten (`TEST_RUNNER_ALBUM_PLAN_STORE`) und Netz.
 - Später möglich: Agent obendrauf für Wünsche in Worten; Apple Foundation Models für Tagesnamen.
 - Zwei Mal Essen & Trinken nie direkt hintereinander (`separateMeals`).
+
+## 29.09.2026 – Karte mit Orts-Übersicht (impeccable shape → Bau)
+- Blatt von unten auf der Karte (`PlacesDrawer.swift`) mit drei Höhen, gesticktem Griff (Tippen oder Ziehen), Filtern, „Automatisch planen“ und „Bearbeiten“. Bewusst Teil der Ansicht statt Systemblatt, damit die Tab-Leiste erreichbar bleibt.
+- Liste nach Tagen (Unterkunft zuerst, „Noch ohne Tag“ zuletzt, während der Reise „Heute“ mit Sprung dorthin). Jeder Ort als Stoffkarte: Art, Tageszeit, „bis 18:00“, Foto-Streifen (bis zu 3 Fotos), Route · Tag ändern · Details.
+- Ersetzt das Tagesplan-Blatt und die schwebende Ortskarte; „Tagesplan“ im Mehr-Menü öffnet die Karte mit ausgeklappter Liste.
+- Karte und Liste verbunden: Ort antippen → Karte fliegt hin, Rahmen im Heftstich; Nadel antippen → Liste springt zum Ort.
+- Fotos: `Place.gallery` (bis zu zwei weitere Wikimedia-Fotos samt Urheber, im JSON, keine Migration); Vorschaubilder in festen Wikimedia-Breiten (andere liefern HTTP 400); größerer URL-Zwischenspeicher für schwaches Netz.
+- Behoben dabei: Fotos, die über ihren Rahmen hinausragen, fingen Tipps auf Knöpfe darüber ab (`AlbumPhoto` hat jetzt eine begrenzte Tippfläche).

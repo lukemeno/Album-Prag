@@ -38,7 +38,8 @@ struct AlbumRoot: View {
     @State private var adding: Place?
     @State private var settings = false
     @State private var documents = false
-    @State private var planner = false
+    /// „Tagesplan“ öffnet die Karte mit ganz ausgeklappter Liste; jede Wahl zählt hoch.
+    @State private var plannerRequest = 0
     @State private var clipboardOffer = false
     @State private var askName = false
     @AppStorage("album.offeredPasteboard") private var offeredChangeCount = -1
@@ -52,7 +53,7 @@ struct AlbumRoot: View {
     }
 
     private var actions: AlbumActions {
-        AlbumActions(add: add, documents: { documents = true }, planner: { planner = true }, share: { settings = true })
+        AlbumActions(add: add, documents: { documents = true }, planner: { tab = .karte; plannerRequest += 1 }, share: { settings = true })
     }
 
     var body: some View {
@@ -62,7 +63,7 @@ struct AlbumRoot: View {
             NavigationStack { InboxView().albumToolbar(actions) }
                 .tabItem { Label("Ideen", systemImage: "lightbulb") }.tag(AlbumTab.ideen)
                 .badge(store.newFromOthers)
-            NavigationStack { TripMapView().albumToolbar(actions) }
+            NavigationStack { TripMapView(expandRequest: plannerRequest).albumToolbar(actions) }
                 .tabItem { Label("Karte", systemImage: "map") }.tag(AlbumTab.karte)
         }
         .tint(Stitch.red)
@@ -79,7 +80,6 @@ struct AlbumRoot: View {
         .sheet(item: $adding) { PlaceEditor(place: $0) }
         .sheet(isPresented: $settings) { AlbumSettings() }
         .sheet(isPresented: $documents) { TripDocumentsView() }
-        .sheet(isPresented: $planner) { DayPlanner() }
         .sheet(isPresented: $askName) { NamePrompt() }
         .sheet(item: Binding(get: { store.pendingExtraction }, set: { store.pendingExtraction = $0 })) { ExtractedTripSheet(extracted: $0) }
         .onChange(of: scenePhase) { _, phase in if phase == .active { checkPasteboard() } }

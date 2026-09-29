@@ -54,7 +54,10 @@ struct OpeningHours: Equatable {
         return ranges.map { "\(Self.clock($0.lowerBound))–\(Self.clock($0.upperBound))" }.joined(separator: ", ")
     }
 
-    static func clock(_ minute: Int) -> String { String(format: "%02d:%02d", (minute / 60) % 24, minute % 60) }
+    /// „18:00“; genau Mitternacht als Schluss heißt „24:00“, nicht „00:00“.
+    static func clock(_ minute: Int) -> String {
+        minute == 1440 ? "24:00" : String(format: "%02d:%02d", (minute / 60) % 24, minute % 60)
+    }
 
     private static let names = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
 

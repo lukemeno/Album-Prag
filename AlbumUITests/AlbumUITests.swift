@@ -60,7 +60,38 @@ final class AlbumUITests: XCTestCase {
         app.swipeUp(); shot("plan-2")
         app.swipeUp(); shot("plan-3")
         apply.tap()
-        XCTAssertTrue(app.navigationBars["Tagesplan"].waitForExistence(timeout: 5))
+        // Der Tagesplan lebt jetzt in der Liste auf der Karte.
+        XCTAssertTrue(app.navigationBars["Karte"].waitForExistence(timeout: 5))
         shot("plan-applied")
+    }
+
+    /// Karte mit Liste in allen Höhen. Braucht vorbereitete Orte (`TEST_RUNNER_ALBUM_PLAN_STORE`).
+    func testMapListHeightsAndSelection() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard let store = environment["ALBUM_PLAN_STORE"] else { throw XCTSkip("Keine vorbereiteten Orte") }
+        let app = XCUIApplication()
+        app.launchEnvironment["ALBUM_TEST_STORE"] = store
+        app.launchEnvironment["ALBUM_MY_NAME"] = "Luke"
+        app.launchEnvironment["ALBUM_START_TAB"] = "Karte"
+        app.launch()
+        let shots = environment["ALBUM_SHOT_DIR"].map { URL(fileURLWithPath: $0) }
+        let suffix = environment["ALBUM_SHOT_SUFFIX"] ?? ""
+        func shot(_ name: String) { if let shots { try? XCUIScreen.main.screenshot().pngRepresentation.write(to: shots.appendingPathComponent(name + suffix + ".png")) } }
+
+        let grabber = app.buttons["Liste ausklappen"]
+        XCTAssertTrue(grabber.waitForExistence(timeout: 15))
+        sleep(8) // Fotos laden
+        shot("map-half")
+        grabber.tap()
+        XCTAssertTrue(app.buttons["Liste einklappen"].waitForExistence(timeout: 5))
+        sleep(2)
+        shot("map-full")
+        // Ort in der Liste antippen: Die Karte fliegt hin, die Liste gibt die Karte frei.
+        let row = app.buttons["place-row-lokal"]
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        row.tap(); sleep(3); shot("map-selected")
+        app.buttons["Liste ausklappen"].swipeDown(velocity: .fast)
+        sleep(2)
+        shot("map-collapsed")
     }
 }

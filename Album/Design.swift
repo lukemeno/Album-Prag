@@ -6,13 +6,15 @@ import UIKit
 struct AlbumPhoto: View {
     var asset: PlaceImageAsset?
     var root: URL? = nil
+    /// Für Vorschaubilder: kleinere Datei laden (nur Wikimedia bietet Breiten an).
+    var thumbnailWidth: Int? = nil
     @State private var preview: UIImage?
     var body: some View {
         GeometryReader { geo in
             Group {
                 if case .uploaded(let uploaded) = asset, let root, let image = UIImage(contentsOfFile: PlaceImageStorage.localURL(for: uploaded, root: root).path) {
                     Image(uiImage: image).resizable().scaledToFill()
-                } else if let remote = asset?.remoteURL, let url = URL(string: remote) {
+                } else if let remote = thumbnailWidth.flatMap({ asset?.remoteURL(width: $0) }) ?? asset?.remoteURL, let url = URL(string: remote) {
                     AsyncImage(url: url) { phase in
                         if let image = phase.image { image.resizable().scaledToFill() }
                         else { fallback }
@@ -20,7 +22,10 @@ struct AlbumPhoto: View {
                 } else if let preview {
                     Image(uiImage: preview).resizable().scaledToFill()
                 } else { fallback }
-            }.frame(width: geo.size.width, height: geo.size.height).clipped()
+            }
+            .frame(width: geo.size.width, height: geo.size.height).clipped()
+            // `clipped()` beschneidet nur das Bild, nicht die Tippfläche: Ein hohes Foto würde sonst Knöpfe darüber verdecken.
+            .contentShape(Rectangle())
         }.task(id: asset?.sourceURL) {
             guard case .linkPreview(let pageURL, nil, _) = asset, let url = URL(string: pageURL) else { preview = nil; return }
             preview = await LinkPreviewImageLoader.load(url)

@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		07D3335CE6C80C81552F4376 /* PlaceImageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FF7715850FEE1E6DE0A245A /* PlaceImageService.swift */; };
 		0B98FD5375014B3A66BFBE8E /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = E726CEE21D6684745507C0D6 /* PrivacyInfo.xcprivacy */; };
+		1973DFF7FAD7ED74A0FB2BF9 /* PlacesDrawer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29B155850EE9EE7A6618C1C4 /* PlacesDrawer.swift */; };
 		2D52439BB4B470948D57A8BF /* TripDataViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E474EB9D9CCF8084253023D /* TripDataViews.swift */; };
 		2D6DB86157ACB391484154E7 /* AlbumRoot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 328C91DA0E5D75DF6C20603C /* AlbumRoot.swift */; };
 		337A11077066B4212FCB497C /* Design.swift in Sources */ = {isa = PBXBuildFile; fileRef = 570F4FCF87803AE047C0D2A1 /* Design.swift */; };
@@ -72,6 +73,7 @@
 		1E474EB9D9CCF8084253023D /* TripDataViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripDataViews.swift; sourceTree = "<group>"; };
 		1FF7715850FEE1E6DE0A245A /* PlaceImageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceImageService.swift; sourceTree = "<group>"; };
 		22E362E480309CBF88A1A449 /* AlbumTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumTests.swift; sourceTree = "<group>"; };
+		29B155850EE9EE7A6618C1C4 /* PlacesDrawer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlacesDrawer.swift; sourceTree = "<group>"; };
 		305FA30E10D7BF85DFC620CA /* Stitch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Stitch.swift; sourceTree = "<group>"; };
 		328C91DA0E5D75DF6C20603C /* AlbumRoot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumRoot.swift; sourceTree = "<group>"; };
 		342E82A238D83AEF9ACE760D /* PlaceImageStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceImageStorage.swift; sourceTree = "<group>"; };
@@ -177,6 +179,7 @@
 				EADF5566061B2E2A123B8884 /* PlaceEditor.swift */,
 				1FF7715850FEE1E6DE0A245A /* PlaceImageService.swift */,
 				342E82A238D83AEF9ACE760D /* PlaceImageStorage.swift */,
+				29B155850EE9EE7A6618C1C4 /* PlacesDrawer.swift */,
 				E726CEE21D6684745507C0D6 /* PrivacyInfo.xcprivacy */,
 				3BE1B394D9C24D7A3114F267 /* SupabaseSync.swift */,
 				4EE8715D31A985E46FC63F02 /* TripDocumentParser.swift */,
@@ -371,6 +374,7 @@
 				60451787C4910C452533C46D /* PlaceEditor.swift in Sources */,
 				07D3335CE6C80C81552F4376 /* PlaceImageService.swift in Sources */,
 				9DD2E99A6DA024B10EB20B63 /* PlaceImageStorage.swift in Sources */,
+				1973DFF7FAD7ED74A0FB2BF9 /* PlacesDrawer.swift in Sources */,
 				AED1D6ADEDB8D1D54D2E8B82 /* ReiseExtras.swift in Sources */,
 				6CE226A25567DD39D8B1B669 /* ReiseView.swift in Sources */,
 				8A3A0243BFBCE279E3311BE4 /* Stitch.swift in Sources */,

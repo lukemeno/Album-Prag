@@ -52,11 +52,18 @@ enum PlaceImageService {
 
     private struct Response: Decodable {
         let image: PlaceImage?
+        /// Bis zu acht Fotos, das beste zuerst (seit Foto-Auswahl 2).
+        let candidates: [PlaceImage]?
     }
 
     static func image(for place: Place, bundle: Bundle = .main) async throws -> PlaceImage? {
+        try await images(for: place, bundle: bundle).first
+    }
+
+    /// Das Hauptfoto und weitere Fotos für den Foto-Streifen, bestes zuerst.
+    static func images(for place: Place, bundle: Bundle = .main) async throws -> [PlaceImage] {
         guard let coordinate = place.coordinate,
-              !place.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+              !place.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return [] }
         let client = try SupabaseConfiguration.client(bundle: bundle)
         if (try? await client.auth.session) == nil { _ = try await client.auth.signInAnonymously() }
         let response: Response = try await client.functions.invoke(
@@ -69,7 +76,21 @@ enum PlaceImageService {
                 address: place.address
             ))
         )
-        return response.image
+        return response.candidates ?? response.image.map { [$0] } ?? []
+    }
+
+    /// Weitere Fotos neben dem Hauptfoto: höchstens zwei, ohne Doppelte.
+    static func gallery(from images: [PlaceImage], for place: Place) -> [ExternalPlaceImage] {
+        images.dropFirst().prefix(2).compactMap {
+            if case .external(let image) = $0.asset(for: place) { return image }
+            return nil
+        }
+    }
+
+    /// Ein Wikimedia-Ort ohne Foto-Streifen bekommt ihn einmal nachgeliefert.
+    static func needsGallery(_ place: Place) -> Bool {
+        guard place.gallery == nil, case .external(let image) = place.image else { return false }
+        return image.provider == .wikimedia
     }
 
     static func shouldSearch(for place: Place, force: Bool) -> Bool {
@@ -86,16 +107,8 @@ enum PlaceImageService {
     }
 }
 
-/// Echtes Bild vom Ort: erst Wikimedia (über die Edge Function), sonst Apple Look Around an genau dieser Koordinate.
+/// Ersatz, wenn Wikimedia nichts hat: Apple Look Around an genau dieser Koordinate.
 enum PlaceImageResolver {
-    static func resolve(for place: Place, root: URL) async -> PlaceImageAsset? {
-        guard let coordinate = place.coordinate else { return nil }
-        if let image = try? await PlaceImageService.image(for: place) { return image.asset(for: place) }
-        guard let data = await lookAroundSnapshot(at: coordinate),
-              let uploaded = try? PlaceImageStorage.save(data, root: root) else { return nil }
-        return .uploaded(uploaded)
-    }
-
     /// Straßenansicht von Apple Karten; läuft auf dem Gerät, ohne Schlüssel. Nil, wo es keine Aufnahmen gibt.
     static func lookAroundSnapshot(at coordinate: CLLocationCoordinate2D) async -> Data? {
         guard let scene = try? await MKLookAroundSceneRequest(coordinate: coordinate).scene else { return nil }

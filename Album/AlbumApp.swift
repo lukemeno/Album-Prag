@@ -1,6 +1,10 @@
 import SwiftUI
 
 @main struct AlbumApp: App {
+    init() {
+        // Ortsfotos bleiben zwischengespeichert, damit Karte und Liste auch mit schwachem Netz in Prag Bilder zeigen.
+        URLCache.shared = URLCache(memoryCapacity: 40_000_000, diskCapacity: 250_000_000)
+    }
     @State private var store: AlbumStore = {
         #if DEBUG
         if let name = ProcessInfo.processInfo.environment["ALBUM_TEST_STORE"] {

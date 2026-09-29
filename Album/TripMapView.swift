@@ -4,10 +4,14 @@ import MapKit
 struct TripMapView: View {
     @Environment(AlbumStore.self) private var store
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Zählt hoch, wenn „Tagesplan“ im Mehr-Menü gewählt wird: Dann klappt die Liste ganz auf.
+    var expandRequest = 0
     @State private var camera: MapCameraPosition = .region(.init(center: .init(latitude: 50.087, longitude: 14.423), span: .init(latitudeDelta: 0.035, longitudeDelta: 0.035)))
-    @State private var selected: Place?
+    @State private var selectedID: String?
     @State private var detail: Place?
     @State private var filter = MapFilter.all
+    @State private var detent = DrawerDetent.half
+    @State private var coveredHeight: CGFloat = 0
     /// Orte, die schon einmal auf der Karte gelandet sind. Nur neue fallen als Stecknadel.
     @AppStorage("album.landedPins") private var landedRaw = ""
 
@@ -20,77 +24,70 @@ struct TripMapView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            ScrollView(.horizontal) {
-                    HStack(spacing: Stitch.Space.xs) {
-                        ForEach(MapFilter.allCases) { item in
-                            Button { withAnimation(.snappy) { filter = item } } label: {
-                                HStack(spacing: Stitch.Space.xs) {
-                                    if let symbol = item.symbol {
-                                        StitchedSymbol(name: symbol, rows: 9, cell: 2, color: filter == item ? Stitch.onAccent : item.thread)
-                                    }
-                                    Text(item.title).font(.subheadline.weight(.semibold))
-                                }
-                                .padding(.horizontal, Stitch.Space.m).frame(minHeight: 44)
-                                .foregroundStyle(filter == item ? Stitch.onAccent : Stitch.ink)
-                                .background(filter == item ? Stitch.redFill : Stitch.card, in: Capsule())
-                                .overlay(Capsule().strokeBorder(Stitch.ink.opacity(filter == item ? 0 : 0.12), style: StrokeStyle(lineWidth: 1, dash: [3, 2])))
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityAddTraits(filter == item ? .isSelected : [])
-                        }
-                    }
-                    .padding(.horizontal, Stitch.Space.page)
-                }
-                .scrollIndicators(.hidden)
-                .padding(.vertical, Stitch.Space.xs)
-                .background(LinenBackground())
-
-            Map(position: $camera) {
-                ForEach(dayThreads, id: \.day) { thread in
-                    MapPolyline(coordinates: thread.coordinates)
-                        .stroke(thread.day % 2 == 0 ? Stitch.cobalt : Stitch.red,
-                                style: StrokeStyle(lineWidth: 3.5, lineCap: .round, dash: [8, 7]))
-                }
-                ForEach(visible) { place in
-                    if let coordinate = place.coordinate {
-                        Annotation(place.title, coordinate: coordinate, anchor: .bottom) {
-                            Button { withAnimation(.snappy) { selected = place } } label: {
-                                StitchPin(place: place, selected: selected?.id == place.id,
-                                          drops: !landed.contains(place.id) && !reduceMotion) {
-                                    markLanded(place.id)
-                                }
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        .annotationTitles(.hidden)
-                    }
-                }
-            }
-            .mapStyle(.standard(elevation: .flat, emphasis: .muted, pointsOfInterest: .excludingAll))
-            .onAppear { if !visible.isEmpty { camera = .automatic } }
-            .onChange(of: visible.map(\.id)) { _, ids in if !ids.isEmpty { camera = .automatic } }
-            .mapControls { MapUserLocationButton(); MapCompass() }
-            .overlay(alignment: .bottom) {
-                if let selected, let place = store.places.first(where: { $0.id == selected.id }) {
-                    PlaceSheetCard(place: place, root: store.root, onDetails: { detail = place }, onClose: { withAnimation(.snappy) { self.selected = nil } })
-                        .padding(Stitch.Space.s)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                } else if visible.isEmpty {
-                    VStack(spacing: Stitch.Space.xxs) {
-                        Text("Noch keine Orte auf der Karte").font(.headline).foregroundStyle(Stitch.ink)
-                        Text("Ideen, für die du dich entscheidest,\nlanden hier als Stecknadel.")
-                            .font(.subheadline).multilineTextAlignment(.center).foregroundStyle(Stitch.inkSoft)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .stitchCard(.floating)
-                    .padding(Stitch.Space.page)
-                }
+        GeometryReader { geo in
+            ZStack(alignment: .bottom) {
+                map
+                    // Die Karte rahmt ihre Nadeln im sichtbaren Teil über dem Blatt. Höchstens bis zur halben Höhe:
+                    // Ist die Liste ganz offen, sieht man die Karte ohnehin nicht, und sie soll nicht auf Europa zoomen.
+                    .safeAreaPadding(.bottom, min(coveredHeight, geo.size.height * 0.5))
+                    // Ganz offene Liste verdeckt die Karte; VoiceOver soll dann keine unsichtbaren Nadeln anbieten.
+                    .accessibilityHidden(detent == .full)
+                PlacesDrawer(detent: $detent, filter: $filter, selectedID: $selectedID, coveredHeight: $coveredHeight,
+                             available: geo.size.height, onShow: show, onDetails: { detail = $0 })
             }
         }
         .navigationTitle("Karte")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $detail) { PlaceDetail(placeID: $0.id) }
+        .onChange(of: expandRequest) { _, _ in
+            withAnimation(reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.86)) { detent = .full }
+        }
+    }
+
+    private var map: some View {
+        Map(position: $camera) {
+            ForEach(dayThreads, id: \.day) { thread in
+                MapPolyline(coordinates: thread.coordinates)
+                    .stroke(thread.day % 2 == 0 ? Stitch.cobalt : Stitch.red,
+                            style: StrokeStyle(lineWidth: 3.5, lineCap: .round, dash: [8, 7]))
+            }
+            ForEach(visible) { place in
+                if let coordinate = place.coordinate {
+                    Annotation(place.title, coordinate: coordinate, anchor: .bottom) {
+                        Button { select(place) } label: {
+                            StitchPin(place: place, selected: selectedID == place.id,
+                                      drops: !landed.contains(place.id) && !reduceMotion) {
+                                markLanded(place.id)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .annotationTitles(.hidden)
+                }
+            }
+        }
+        .mapStyle(.standard(elevation: .flat, emphasis: .muted, pointsOfInterest: .excludingAll))
+        .onAppear { if !visible.isEmpty { camera = .automatic } }
+        .onChange(of: visible.map(\.id)) { _, ids in if !ids.isEmpty { camera = .automatic } }
+        .mapControls { MapUserLocationButton(); MapCompass() }
+    }
+
+    /// Nadel angetippt: Die Liste springt zum Ort und öffnet sich so weit, dass man ihn sieht.
+    private func select(_ place: Place) {
+        withAnimation(reduceMotion ? nil : .snappy) {
+            selectedID = place.id
+            if detent == .collapsed { detent = .half }
+        }
+    }
+
+    /// Ort in der Liste angetippt: Die Karte fliegt hin, die Liste gibt die Karte frei.
+    private func show(_ place: Place) {
+        guard let coordinate = place.coordinate else { return }
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.6)) {
+            selectedID = place.id
+            if detent == .full { detent = .half }
+            camera = .region(MKCoordinateRegion(center: coordinate, span: .init(latitudeDelta: 0.012, longitudeDelta: 0.012)))
+        }
     }
 
     private var landed: Set<String> { Set(landedRaw.split(separator: ",").map(String.init)) }
@@ -182,141 +179,6 @@ struct StitchPin: View {
     }
 }
 
-/// Tag eines Ortes wählen; der Ort kommt ans Ende des Tages.
-struct DayMenu: View {
-    @Environment(AlbumStore.self) private var store
-    let place: Place
-    var body: some View {
-        Menu {
-            Button("Noch offen") { store.assign(place, to: nil) }
-            ForEach(4...9, id: \.self) { day in
-                Button("\(day). Oktober") { store.assign(place, to: day) }
-            }
-        } label: {
-            Label(place.day.map { "Am \($0). Oktober" } ?? "Tag festlegen", systemImage: "calendar")
-                .font(.subheadline.weight(.semibold)).foregroundStyle(Stitch.red)
-                .frame(maxWidth: .infinity, minHeight: 44)
-        }
-        .accessibilityLabel(place.day.map { "Tag: \($0). Oktober, ändern" } ?? "Tag festlegen")
-    }
-}
-
-/// Tagesplan: Orte pro Tag, per Ziehen sortierbar. Der Faden auf der Karte folgt dieser Reihenfolge.
-struct DayPlanner: View {
-    @Environment(AlbumStore.self) private var store
-    @Environment(\.dismiss) private var dismiss
-    @State private var proposing = false
-    var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    Button { proposing = true } label: {
-                        Label("Automatisch planen", systemImage: "wand.and.stars").font(.body.weight(.semibold))
-                    }
-                    .foregroundStyle(Stitch.red)
-                    .disabled(store.franked.allSatisfy { $0.coordinate == nil || $0.category == "Unterkunft" })
-                }
-                .listRowBackground(Stitch.card)
-                ForEach(4...9, id: \.self) { day in
-                    let places = store.plan(for: day)
-                    Section(TripDates.dayTitle(day)) {
-                        if places.isEmpty {
-                            Text("Noch nichts geplant").foregroundStyle(Stitch.inkSoft)
-                        }
-                        ForEach(places) { place in
-                            HStack(spacing: Stitch.Space.s) {
-                                AlbumPhoto(asset: place.image, root: store.root).frame(width: 44, height: 44)
-                                    .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
-                                Text(place.title).font(.body.weight(.semibold)).foregroundStyle(Stitch.ink)
-                            }
-                        }
-                        .onMove { source, destination in
-                            var ids = places.map(\.id)
-                            ids.move(fromOffsets: source, toOffset: destination)
-                            store.reorder(day: day, ids: ids)
-                        }
-                    }
-                    .listRowBackground(Stitch.card)
-                }
-                let unplanned = store.franked.filter { $0.day == nil }
-                if !unplanned.isEmpty {
-                    Section("Noch ohne Tag") {
-                        ForEach(unplanned) { place in
-                            HStack {
-                                Text(place.title).foregroundStyle(Stitch.ink)
-                                Spacer()
-                                DayMenu(place: place).fixedSize()
-                            }
-                        }
-                    }
-                    .listRowBackground(Stitch.card)
-                }
-            }
-            .scrollContentBackground(.hidden)
-            .background(LinenBackground())
-            .navigationTitle("Tagesplan").navigationBarTitleDisplayMode(.inline)
-            .sheet(isPresented: $proposing) { DayPlanPreview() }
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { EditButton() }
-                ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } }
-            }
-        }
-    }
-}
-
-/// Karte für den gewählten Ort über der Karte: Foto, Name, Route und Details.
-struct PlaceSheetCard: View {
-    let place: Place
-    let root: URL
-    var onDetails: () -> Void
-    var onClose: () -> Void
-    var body: some View {
-        VStack(spacing: Stitch.Space.s) {
-            HStack(alignment: .top, spacing: Stitch.Space.s) {
-                AlbumPhoto(asset: place.image, root: root)
-                    .frame(width: 88, height: 88)
-                    .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
-                    Text(place.title).font(.title3.weight(.bold)).foregroundStyle(Stitch.ink).lineLimit(2)
-                    Text(subtitle).font(.subheadline).foregroundStyle(Stitch.inkSoft).lineLimit(2)
-                    if !place.note.isEmpty {
-                        Text(place.note).font(.footnote).foregroundStyle(Stitch.inkSoft).lineLimit(2)
-                    }
-                }
-                Spacer(minLength: 0)
-                Button(action: onClose) { Image(systemName: "xmark").font(.footnote.weight(.bold)) }
-                    .buttonStyle(HeaderIconButton()).accessibilityLabel("Schließen")
-            }
-            HStack(spacing: Stitch.Space.s) {
-                if let coordinate = place.coordinate {
-                    Button {
-                        let item = MKMapItem(placemark: MKPlacemark(coordinate: coordinate))
-                        item.name = place.title
-                        item.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeWalking])
-                    } label: { Label("Route", systemImage: "figure.walk") }
-                    .buttonStyle(StitchButton(primary: true))
-                }
-                Button("Details", action: onDetails).buttonStyle(StitchButton())
-            }
-            DayMenu(place: place)
-        }
-        .padding(Stitch.Space.m)
-        .background {
-            RoundedRectangle(cornerRadius: Stitch.Radius.floating, style: .continuous).fill(Stitch.card)
-                .overlay(RoundedRectangle(cornerRadius: Stitch.Radius.floating - 6, style: .continuous)
-                    .strokeBorder(Stitch.red.opacity(0.5), style: StrokeStyle(lineWidth: 1.2, dash: [5, 4])).padding(6))
-                .stitchElevation(.floating)
-        }
-    }
-    private var subtitle: String {
-        var parts = [place.category]
-        if let day = place.day { parts.append("\(day). Oktober") }
-        if !place.address.isEmpty { parts = [place.address] + parts }
-        return parts.joined(separator: " · ")
-    }
-}
-
 struct PlaceDetail: View {
     @Environment(AlbumStore.self) private var store
     @Environment(\.dismiss) private var dismiss
@@ -344,13 +206,9 @@ struct PlaceDetail: View {
                         }
 
                         VStack(spacing: Stitch.Space.s) {
-                            if let coordinate = place.coordinate {
-                                Button {
-                                    let item = MKMapItem(placemark: MKPlacemark(coordinate: coordinate))
-                                    item.name = place.title
-                                    item.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeWalking])
-                                } label: { Label("Route", systemImage: "figure.walk") }
-                                .buttonStyle(StitchButton(primary: true))
+                            if place.coordinate != nil {
+                                Button { openWalkingRoute(to: place) } label: { Label("Route", systemImage: "figure.walk") }
+                                    .buttonStyle(StitchButton(primary: true))
                             }
                             Button(place.visited ? "Doch noch nicht besucht" : "Als besucht markieren") {
                                 var p = place; p.visited.toggle(); store.upsert(p)
@@ -371,6 +229,12 @@ struct PlaceDetail: View {
                                     Link("Lizenz: \(license)", destination: url)
                                 } else {
                                     Text("Lizenz: \(license)")
+                                }
+                            }
+                            // Weitere Fotos aus dem Foto-Streifen: Wikimedia verlangt die Nennung jeder Urheberin.
+                            ForEach(place.gallery ?? [], id: \.imageURL) { image in
+                                if let url = URL(string: image.sourceURL) {
+                                    Link("Foto: \(image.credit)\(image.licenseName.map { " · \($0)" } ?? "")", destination: url)
                                 }
                             }
                         }

@@ -117,32 +117,39 @@ enum DayPlanGenerator {
 
         var result: [Int: [PlanStop]] = [:]
         for day in days {
-            let ordered = route(buckets[day]!, from: hotel)
-            var clock = windows[day]!.start
-            var position = hotel
-            result[day] = ordered.map { place in
-                clock += walkingMinutes(distance(position, place.coordinate!))
-                position = place.coordinate!
-                let hours = place.openingHours.flatMap(OpeningHours.init)
-                var note: String?
-                if let hours {
-                    let weekday = weekday(day)
-                    if !hours.isOpen(weekday: weekday) {
-                        note = "an diesem Tag geschlossen"
-                    } else if !hours.isOpen(weekday: weekday, at: clock) {
-                        // Später am Tag geöffnet? Dann dorthin warten, statt vor verschlossener Tür zu stehen.
-                        if let opens = hours.ranges(weekday: weekday).map(\.lowerBound).filter({ $0 > clock }).min(), opens - clock <= 90 {
-                            clock = opens
-                        } else {
-                            note = "offen \(hours.summary(weekday: weekday))"
-                        }
-                    }
-                }
-                defer { clock += visitMinutes(place) }
-                return PlanStop(place: place, slot: slot(clock), note: note)
-            }
+            result[day] = timeline(route(buckets[day]!, from: hotel), day: day, window: windows[day]!, hotel: hotel)
         }
         return DayPlanProposal(days: result, leftOver: leftOver)
+    }
+
+    /// Ungefähre Tageszeit und Hinweis je Ort, in der gegebenen Reihenfolge ab dem Hotel.
+    /// Die Liste auf der Karte nutzt dieselbe Rechnung wie der Vorschlag.
+    static func timeline(_ ordered: [Place], day: Int, window: Window, hotel: CLLocationCoordinate2D) -> [PlanStop] {
+        var clock = window.start
+        var position = hotel
+        return ordered.map { place in
+            if let coordinate = place.coordinate {
+                clock += walkingMinutes(distance(position, coordinate))
+                position = coordinate
+            }
+            let hours = place.openingHours.flatMap(OpeningHours.init)
+            var note: String?
+            if let hours {
+                let weekday = weekday(day)
+                if !hours.isOpen(weekday: weekday) {
+                    note = "an diesem Tag geschlossen"
+                } else if !hours.isOpen(weekday: weekday, at: clock) {
+                    // Später am Tag geöffnet? Dann dorthin warten, statt vor verschlossener Tür zu stehen.
+                    if let opens = hours.ranges(weekday: weekday).map(\.lowerBound).filter({ $0 > clock }).min(), opens - clock <= 90 {
+                        clock = opens
+                    } else {
+                        note = "offen \(hours.summary(weekday: weekday))"
+                    }
+                }
+            }
+            defer { clock += visitMinutes(place) }
+            return PlanStop(place: place, slot: slot(clock), note: note)
+        }
     }
 
     /// Kürzeste Runde ab dem Hotel: nächster Nachbar, danach 2-opt (Teilstrecken umdrehen, solange es kürzer wird).

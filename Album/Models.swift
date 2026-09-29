@@ -57,6 +57,16 @@ enum PlaceImageAsset: Codable, Equatable {
         }
     }
 
+    /// Kleinere Fassung für Vorschaubilder („…/500px-Datei.jpg“). Wikimedia liefert nur feste Breiten aus,
+    /// andere enden mit HTTP 400; deshalb die nächste erlaubte Breite ab der gewünschten.
+    func remoteURL(width: Int) -> String? {
+        guard let url = remoteURL else { return nil }
+        guard case .external(let image) = self, image.provider == .wikimedia else { return url }
+        let allowed = [120, 250, 330, 500, 960, 1280, 1920]
+        let bucket = allowed.first { $0 >= width } ?? allowed.last!
+        return url.replacingOccurrences(of: #"/\d+px-"#, with: "/\(bucket)px-", options: .regularExpression)
+    }
+
     var bundledName: String {
         if case .bundled(let name) = self { return name }
         return ""
@@ -108,6 +118,8 @@ struct Place: Codable, Identifiable, Equatable {
     var passedBy: [String] = []
     /// Öffnungszeiten aus OpenStreetMap; "" heißt: nachgesehen, nichts gefunden. Nil: noch nicht nachgesehen.
     var openingHours: String?
+    /// Weitere Fotos neben `image` für den Foto-Streifen (höchstens zwei). Nil: noch nicht gesucht.
+    var gallery: [ExternalPlaceImage]?
     var updatedAt = Date()
     var coordinate: CLLocationCoordinate2D? {
         guard let lat, let lng, lat.isFinite, lng.isFinite,
@@ -129,7 +141,7 @@ struct Place: Codable, Identifiable, Equatable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, title, note, sourceURL, category, author, image, address, lat, lng, franked, deferred, deleted, visited, day, dayOrder, approvals, passedBy, openingHours, updatedAt
+        case id, title, note, sourceURL, category, author, image, address, lat, lng, franked, deferred, deleted, visited, day, dayOrder, approvals, passedBy, openingHours, gallery, updatedAt
         case imageName, remoteImage, imageSourceURL, imageCredit
     }
 
@@ -153,6 +165,7 @@ struct Place: Codable, Identifiable, Equatable {
         approvals = try values.decodeIfPresent([String].self, forKey: .approvals) ?? []
         passedBy = try values.decodeIfPresent([String].self, forKey: .passedBy) ?? []
         openingHours = try values.decodeIfPresent(String.self, forKey: .openingHours)
+        gallery = try values.decodeIfPresent([ExternalPlaceImage].self, forKey: .gallery)
         updatedAt = try values.decodeIfPresent(Date.self, forKey: .updatedAt) ?? Date()
         if let current = try values.decodeIfPresent(PlaceImageAsset.self, forKey: .image) {
             image = current
@@ -176,7 +189,8 @@ struct Place: Codable, Identifiable, Equatable {
         try values.encodeIfPresent(lng, forKey: .lng); try values.encode(franked, forKey: .franked); try values.encode(deferred, forKey: .deferred)
         try values.encode(deleted, forKey: .deleted); try values.encode(visited, forKey: .visited); try values.encodeIfPresent(day, forKey: .day)
         try values.encodeIfPresent(dayOrder, forKey: .dayOrder); try values.encode(approvals, forKey: .approvals); try values.encode(passedBy, forKey: .passedBy)
-        try values.encodeIfPresent(openingHours, forKey: .openingHours); try values.encode(updatedAt, forKey: .updatedAt)
+        try values.encodeIfPresent(openingHours, forKey: .openingHours); try values.encodeIfPresent(gallery, forKey: .gallery)
+        try values.encode(updatedAt, forKey: .updatedAt)
     }
 
     static let examples: [Place] = [

@@ -142,8 +142,10 @@ struct PlaceEditor: View {
         guard !imageSearching, PlaceImageService.shouldSearch(for: place, force: force) else { return }
         imageSearching = true; defer { imageSearching = false }
         do {
-            if let result = try await PlaceImageService.image(for: place) {
+            let found = try await PlaceImageService.images(for: place)
+            if let result = found.first {
                 place.image = result.asset(for: place)
+                place.gallery = PlaceImageService.gallery(from: found, for: place)
             } else if let coordinate = place.coordinate, let data = await PlaceImageResolver.lookAroundSnapshot(at: coordinate) {
                 // Kein Wikimedia-Foto: Straßenansicht genau an diesem Ort.
                 let uploaded = try PlaceImageStorage.save(data, root: store.root)
