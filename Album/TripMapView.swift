@@ -148,7 +148,7 @@ struct StitchPin: View {
                 StitchedSymbol(name: place.stitchSymbol, rows: 11, cell: selected ? 2.6 : 2.1, color: place.stitchThread)
             }
             .frame(width: size, height: size)
-            .shadow(color: .black.opacity(0.22), radius: 4, y: 3)
+            .stitchElevation(.pinned)
             Circle().fill(place.stitchThread).frame(width: 9, height: 9)
                 .overlay(Circle().strokeBorder(Stitch.card, lineWidth: 2))
                 .offset(y: -3)
@@ -220,34 +220,37 @@ struct PlaceDetail: View {
                             }
                         }
 
-                        VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
-                            if let source = place.image?.sourceURL, let url = URL(string: source) {
-                                Link("Foto: \(place.image?.credit ?? "Quelle")", destination: url)
-                            }
-                            if case .external(let image) = place.image, let license = image.licenseName {
-                                if let rawURL = image.licenseURL, let url = URL(string: rawURL) {
-                                    Link("Lizenz: \(license)", destination: url)
-                                } else {
-                                    Text("Lizenz: \(license)")
+                        // Nur wenn es etwas zu nennen gibt: Ein leerer Block würde den Abstand verdoppeln.
+                        if hasCredits(place) {
+                            VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
+                                if let source = place.image?.sourceURL, let url = URL(string: source) {
+                                    Link("Foto: \(place.image?.credit ?? "Quelle")", destination: url)
+                                }
+                                if case .external(let image) = place.image, let license = image.licenseName {
+                                    if let rawURL = image.licenseURL, let url = URL(string: rawURL) {
+                                        Link("Lizenz: \(license)", destination: url)
+                                    } else {
+                                        Text("Lizenz: \(license)")
+                                    }
+                                }
+                                // Weitere Fotos aus dem Foto-Streifen: Wikimedia verlangt die Nennung jeder Urheberin.
+                                ForEach(place.gallery ?? [], id: \.imageURL) { image in
+                                    if let url = URL(string: image.sourceURL) {
+                                        Link("Foto: \(image.credit)\(image.licenseName.map { " · \($0)" } ?? "")", destination: url)
+                                    }
                                 }
                             }
-                            // Weitere Fotos aus dem Foto-Streifen: Wikimedia verlangt die Nennung jeder Urheberin.
-                            ForEach(place.gallery ?? [], id: \.imageURL) { image in
-                                if let url = URL(string: image.sourceURL) {
-                                    Link("Foto: \(image.credit)\(image.licenseName.map { " · \($0)" } ?? "")", destination: url)
-                                }
-                            }
+                            .font(.caption).foregroundStyle(Stitch.inkSoft).tint(Stitch.inkSoft)
                         }
-                        .font(.caption).foregroundStyle(Stitch.inkSoft).tint(Stitch.inkSoft)
 
                         VStack(alignment: .leading, spacing: 0) {
                             Button("Zurück zu den Ideen") {
                                 var p = place; p.franked = false; p.deferred = false; p.approvals = []; p.passedBy = []; p.day = nil; p.dayOrder = nil
                                 store.upsert(p); dismiss()
                             }
-                            .frame(minHeight: 44)
+                            .frame(minHeight: Stitch.Size.touch)
                             Button("Ort löschen", role: .destructive) { confirmDelete = true }
-                                .frame(minHeight: 44)
+                                .frame(minHeight: Stitch.Size.touch)
                         }
                         .font(.body)
                     }
@@ -265,6 +268,10 @@ struct PlaceDetail: View {
                 }
             }
         }
+    }
+
+    private func hasCredits(_ place: Place) -> Bool {
+        place.image?.sourceURL.flatMap(URL.init(string:)) != nil || !(place.gallery ?? []).isEmpty
     }
 
     private func authorLine(_ place: Place) -> String? {

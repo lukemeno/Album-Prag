@@ -104,7 +104,7 @@ struct PlacesDrawer: View {
                         .accessibilityLabel("Automatisch planen")
                     Button(editing ? "Fertig" : "Bearbeiten") { editing.toggle() }
                         .font(.body.weight(.semibold)).foregroundStyle(Stitch.red)
-                        .frame(minHeight: 44)
+                        .frame(minHeight: Stitch.Size.touch)
                 }
             }
             .padding(.horizontal, Stitch.Space.page)
@@ -145,13 +145,12 @@ struct PlacesDrawer: View {
                 seam
             }
             .padding(.horizontal, Stitch.Space.l)
-            .frame(maxWidth: .infinity, minHeight: 28)
+            .frame(maxWidth: .infinity, minHeight: Stitch.Size.touch)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         // Wischen am Griff bewegt das Blatt; nur ein Tipp ohne Bewegung zählt als Knopfdruck.
         .highPriorityGesture(dragGesture)
-        .padding(.top, Stitch.Space.xxs)
         .accessibilityLabel(detent == .full ? "Liste einklappen" : "Liste ausklappen")
         .accessibilityAdjustableAction { direction in
             switch direction {
@@ -178,7 +177,7 @@ struct PlacesDrawer: View {
                             }
                             Text(item.title).font(.subheadline.weight(.semibold))
                         }
-                        .padding(.horizontal, Stitch.Space.m).frame(minHeight: 44)
+                        .padding(.horizontal, Stitch.Space.m).frame(minHeight: Stitch.Size.touch)
                         .foregroundStyle(filter == item ? Stitch.onAccent : Stitch.ink)
                         .background(filter == item ? Stitch.redFill : Stitch.card, in: Capsule())
                         .overlay(Capsule().strokeBorder(Stitch.ink.opacity(filter == item ? 0 : 0.12), style: StrokeStyle(lineWidth: 1, dash: [3, 2])))
@@ -231,24 +230,25 @@ struct PlacesDrawer: View {
     private var list: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: Stitch.Space.s) {
+                // Rhythmus wie überall: Überschrift → Inhalt 12, Karte → Karte 12, Abschnitt → Abschnitt 32.
+                LazyVStack(alignment: .leading, spacing: Stitch.Space.xl) {
                     ForEach(sections) { section in
-                        SwiftUI.Section {
+                        VStack(alignment: .leading, spacing: Stitch.Space.s) {
+                            sectionHeader(section)
                             if section.stops.isEmpty {
                                 Text("Noch frei").font(.subheadline).foregroundStyle(Stitch.inkSoft)
-                                    .padding(.bottom, Stitch.Space.xs)
                             }
                             ForEach(section.stops) { stop in
                                 PlaceRow(stop: stop, root: store.root, selected: selectedID == stop.id,
                                          onShow: { onShow(stop.place) }, onDetails: { onDetails(stop.place) })
                                     .id(stop.id)
                             }
-                        } header: {
-                            sectionHeader(section).id(section.id)
                         }
+                        .id(section.id)
                     }
                 }
                 .padding(.horizontal, Stitch.Space.page)
+                .padding(.top, Stitch.Space.s)
                 .padding(.bottom, Stitch.Space.xl)
             }
             .scrollIndicators(.hidden)
@@ -273,7 +273,6 @@ struct PlacesDrawer: View {
                     .font(.footnote).foregroundStyle(Stitch.inkSoft)
             }
         }
-        .padding(.top, Stitch.Space.m).padding(.bottom, Stitch.Space.xxs)
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityAddTraits(.isHeader)
     }
@@ -307,7 +306,7 @@ struct PlacesDrawer: View {
 
     private func editRow(_ place: Place) -> some View {
         HStack(spacing: Stitch.Space.s) {
-            AlbumPhoto(asset: place.image, root: store.root, thumbnailWidth: 120).frame(width: 44, height: 44)
+            AlbumPhoto(asset: place.image, root: store.root, thumbnailWidth: 120).frame(width: Stitch.Size.thumb, height: Stitch.Size.thumb)
                 .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
                 .accessibilityHidden(true)
             Text(place.title).font(.body.weight(.semibold)).foregroundStyle(Stitch.ink)
@@ -358,21 +357,21 @@ private struct PlaceRow: View {
             HStack(spacing: Stitch.Space.l) {
                 if place.coordinate != nil {
                     Button { openWalkingRoute(to: place) } label: { Label("Route", systemImage: "figure.walk") }
-                        .font(.subheadline.weight(.semibold)).foregroundStyle(Stitch.red).frame(minHeight: 44)
+                        .font(.subheadline.weight(.semibold)).foregroundStyle(Stitch.red).frame(minHeight: Stitch.Size.touch)
                 }
                 if place.category != "Unterkunft" { DayMenu(place: place) }
                 Spacer(minLength: 0)
                 Button(action: onDetails) { Image(systemName: "info.circle").font(.title3) }
-                    .foregroundStyle(Stitch.inkSoft).frame(width: 44, height: 44)
+                    .foregroundStyle(Stitch.inkSoft).frame(width: Stitch.Size.touch, height: Stitch.Size.touch)
                     .accessibilityLabel("Details zu \(place.title)")
             }
         }
         .stitchCard()
         .overlay {
             if selected {
-                RoundedRectangle(cornerRadius: Stitch.Radius.card - 5, style: .continuous)
+                RoundedRectangle(cornerRadius: Stitch.Radius.card - Stitch.Space.xxs, style: .continuous)
                     .strokeBorder(Stitch.red, style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
-                    .padding(5)
+                    .padding(Stitch.Space.xxs)
                     .allowsHitTesting(false)
             }
         }
@@ -441,7 +440,7 @@ struct DayMenu: View {
         } label: {
             Label(place.day == nil ? "Tag festlegen" : "Tag ändern", systemImage: "calendar")
                 .font(.subheadline.weight(.semibold)).foregroundStyle(Stitch.red)
-                .frame(minHeight: 44)
+                .frame(minHeight: Stitch.Size.touch)
         }
         .accessibilityLabel(place.day.map { "Tag ändern, jetzt \(TripDates.dayTitle($0))" } ?? "Tag festlegen")
     }

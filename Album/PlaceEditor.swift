@@ -54,7 +54,7 @@ struct PlaceEditor: View {
                             results = []
                             Task { await findImage(force: false) }
                         } label: {
-                            VStack(alignment: .leading, spacing: 4) { Text(item.name ?? "Ort"); Text(item.placemark.title ?? "").font(.caption).foregroundStyle(.secondary) }
+                            VStack(alignment: .leading, spacing: Stitch.Space.xxs) { Text(item.name ?? "Ort"); Text(item.placemark.title ?? "").font(.caption).foregroundStyle(.secondary) }
                         }
                     }
                     if place.coordinate != nil {

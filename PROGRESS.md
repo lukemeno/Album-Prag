@@ -50,3 +50,9 @@
 - Karte und Liste verbunden: Ort antippen → Karte fliegt hin, Rahmen im Heftstich; Nadel antippen → Liste springt zum Ort.
 - Fotos: `Place.gallery` (bis zu zwei weitere Wikimedia-Fotos samt Urheber, im JSON, keine Migration); Vorschaubilder in festen Wikimedia-Breiten (andere liefern HTTP 400); größerer URL-Zwischenspeicher für schwaches Netz.
 - Behoben dabei: Fotos, die über ihren Rahmen hinausragen, fingen Tipps auf Knöpfe darüber ab (`AlbumPhoto` hat jetzt eine begrenzte Tippfläche).
+
+## 29.09.2026 – Designschema festgehalten und durchgesetzt (impeccable layout)
+- `DESIGN.md` (+ `.impeccable/design.json`) beschreibt das Schema: Farben als Tag/Nacht-Paare, Systemtextstile, Abstände 4/8/12/16/24/32 mit Rand 16, Radien 8/16/24, drei Höhenstufen, feste Größen (`Stitch.Size`: Tippfläche 44, Knopf 56, Vorschaubild 44), Regeln wie „12 zusammen, 32 getrennt“.
+- Durchgesetzt: Flug-/Hotelkarten als flache Stoffkarten ohne Heftstich, „Heute“ mit Wochentag und 16 innen, Liste auf der Karte im selben Rhythmus wie Unterlagen, Lücke im Ortsdetail entfernt, eigene Schatten und feste Schriftgrößen ersetzt, Griff-Tippfläche 44.
+- Bewusst ausgenommen (Zeichnungsmaße): Nadel-Ring, Herzhälften, Briefschlitz, Kalendergröße; Polaroid-Schatten beim Ziehen.
+- UI-Test `testScreenTour` fährt alle Bildschirme ab (mit `TEST_RUNNER_ALBUM_TODAY` auch während der Reise).

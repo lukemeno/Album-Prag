@@ -73,7 +73,8 @@ struct AlbumRoot: View {
                     clipboardOffer = false
                     adding = Place(title: "", sourceURL: url.absoluteString, author: store.me)
                 }, onDismiss: { withAnimation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.85)) { clipboardOffer = false } })
-                .padding(.top, 52) // unter der Toolbar, damit „+“ und „Mehr“ erreichbar bleiben
+                // Unter der Toolbar (44) mit 8 Luft, damit „+“ und „Mehr“ erreichbar bleiben.
+                .padding(.top, Stitch.Size.touch + Stitch.Space.xs)
                 .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
             }
         }
@@ -172,11 +173,11 @@ struct ClipboardNote: View {
     var body: some View {
         HStack(spacing: Stitch.Space.s) {
             StitchedSymbol(name: "link", rows: 10, cell: 2.4, color: Stitch.red)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
                 Text("Link kopiert").font(.subheadline.weight(.bold)).foregroundStyle(Stitch.ink)
                 Text("Als Idee sichern?").font(.footnote).foregroundStyle(Stitch.inkSoft)
             }
-            Spacer(minLength: 8)
+            Spacer(minLength: Stitch.Space.xs)
             PasteButton(payloadType: URL.self) { urls in
                 guard let url = urls.first else { return }
                 Task { @MainActor in onPaste(url) }

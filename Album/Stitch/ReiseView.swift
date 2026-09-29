@@ -131,7 +131,7 @@ struct HeaderIconButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.body.weight(.semibold)).foregroundStyle(Stitch.ink)
-            .frame(width: 44, height: 44)
+            .frame(width: Stitch.Size.touch, height: Stitch.Size.touch)
             .background(Stitch.card.opacity(configuration.isPressed ? 1 : 0.85), in: Circle())
             .stitchElevation(.flat)
     }

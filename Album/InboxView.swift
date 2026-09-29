@@ -80,7 +80,7 @@ struct InboxView: View {
             }
             if let lastAction {
                 Button("Rückgängig", systemImage: "arrow.uturn.backward") { store.upsert(lastAction); self.lastAction = nil }
-                    .font(.subheadline.weight(.semibold)).foregroundStyle(Stitch.red).frame(minHeight: 44)
+                    .font(.subheadline.weight(.semibold)).foregroundStyle(Stitch.red).frame(minHeight: Stitch.Size.touch)
                     .accessibilityLabel("Letzte Entscheidung rückgängig")
             }
         }
@@ -194,7 +194,7 @@ private struct MagnetHearts: View {
             .mask(alignment: leading ? .leading : .trailing) {
                 Rectangle().frame(width: 22 * 4.4 / 2 * 1.1)
             }
-            .shadow(color: .black.opacity(0.25), radius: 6, y: 3)
+            .stitchElevation(.pinned)
     }
 }
 
@@ -207,14 +207,14 @@ private struct DecisionHint: View {
             Text(direction == .frank ? "Dafür" : "Später")
                 .font(.title2.weight(.heavy))
                 .foregroundStyle(direction == .frank ? Stitch.onAccent : Stitch.red)
-                .padding(.horizontal, 18).padding(.vertical, 8)
+                .padding(.horizontal, Stitch.Space.m).padding(.vertical, Stitch.Space.xs)
                 .background(direction == .frank ? Stitch.redFill : Stitch.card, in: Capsule())
                 .overlay(Capsule().strokeBorder(Stitch.redFill, lineWidth: 2))
                 .rotationEffect(.degrees(direction == .frank ? -8 : 8))
                 .opacity(Double(progress))
                 .scaleEffect(0.85 + 0.15 * progress)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: direction == .frank ? .topLeading : .topTrailing)
-                .padding(34)
+                .padding(Stitch.Space.xl)
                 .allowsHitTesting(false)
         }
     }
@@ -238,7 +238,7 @@ struct IdeaPolaroid: View {
                             Stitch.drawCross(&context, in: CGRect(origin: .zero, size: size), color: Stitch.red, progress: crossProgress)
                         }
                         .frame(width: 64, height: 64)
-                        .padding(14)
+                        .padding(Stitch.Space.s)
                         .opacity(crossProgress > 0 ? 1 : 0)
                         .accessibilityHidden(true)
                     }
@@ -246,7 +246,7 @@ struct IdeaPolaroid: View {
                     Text(place.title.isEmpty ? "Neue Idee" : place.title)
                         .font(.title2.weight(.bold)).foregroundStyle(Stitch.ink).lineLimit(2)
                         .minimumScaleFactor(0.8)
-                    HStack(spacing: 6) {
+                    HStack(spacing: Stitch.Space.xs) {
                         Image(systemName: sourceIcon).font(.footnote.weight(.semibold))
                         Text(place.sourceURL.isEmpty ? place.category : "\(place.sourceLabel) · \(place.category)")
                             .font(.subheadline)

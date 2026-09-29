@@ -94,4 +94,57 @@ final class AlbumUITests: XCTestCase {
         sleep(2)
         shot("map-collapsed")
     }
+
+    /// Rundgang über alle Bildschirme für die Layout-Prüfung. Braucht `TEST_RUNNER_ALBUM_PLAN_STORE` und `TEST_RUNNER_ALBUM_SHOT_DIR`.
+    /// Mit `TEST_RUNNER_ALBUM_TODAY` (z. B. 2026-10-06) zeigt er den Stand während der Reise.
+    func testScreenTour() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard let store = environment["ALBUM_PLAN_STORE"], let dir = environment["ALBUM_SHOT_DIR"] else { throw XCTSkip("Kein Rundgang angefordert") }
+        let prefix = environment["ALBUM_SHOT_SUFFIX"] ?? ""
+        let app = XCUIApplication()
+        app.launchEnvironment["ALBUM_TEST_STORE"] = store
+        app.launchEnvironment["ALBUM_MY_NAME"] = "Luke"
+        if let today = environment["ALBUM_TODAY"] { app.launchEnvironment["ALBUM_TODAY"] = today }
+        app.launch()
+        func shot(_ name: String) {
+            sleep(2)
+            try? XCUIScreen.main.screenshot().pngRepresentation.write(to: URL(fileURLWithPath: dir).appendingPathComponent("\(prefix)\(name).png"))
+        }
+        func openMenu(_ item: String) {
+            app.buttons["Mehr"].tap()
+            let entry = app.buttons[item]
+            XCTAssertTrue(entry.waitForExistence(timeout: 5))
+            entry.tap()
+        }
+        XCTAssertTrue(app.buttons["Mehr"].waitForExistence(timeout: 15))
+        sleep(6)
+        shot("01-reise")
+        app.swipeUp(); shot("02-reise-unten")
+
+        app.tabBars.buttons["Ideen"].tap(); shot("03-ideen")
+
+        app.tabBars.buttons["Karte"].tap(); shot("04-karte")
+        let details = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Details zu'")).firstMatch
+        if details.waitForExistence(timeout: 5) {
+            details.tap(); shot("05-ortsdetail")
+            app.swipeUp(); shot("06-ortsdetail-unten")
+            app.buttons["Bearbeiten"].firstMatch.tap(); shot("07-editor-ort")
+            app.buttons["Abbrechen"].tap()
+            app.buttons["Fertig"].firstMatch.tap()
+        }
+        app.buttons["Automatisch planen"].tap()
+        XCTAssertTrue(app.buttons["Übernehmen"].waitForExistence(timeout: 5))
+        sleep(4); shot("08-vorschlag")
+        app.buttons["Abbrechen"].tap()
+
+        app.buttons["Idee hinzufügen"].tap(); shot("09-editor-neu")
+        app.buttons["Abbrechen"].tap()
+
+        openMenu("Reiseunterlagen"); shot("10-unterlagen")
+        app.swipeUp(); shot("11-unterlagen-unten")
+        app.buttons["Fertig"].firstMatch.tap()
+
+        openMenu("Album teilen"); shot("12-teilen")
+        app.buttons["Fertig"].firstMatch.tap()
+    }
 }

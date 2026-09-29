@@ -52,6 +52,13 @@ enum Stitch {
         var y: CGFloat { switch self { case .flat: 0; case .pinned: 3; case .floating: 6 } }
     }
 
+    /// Feste Größen: Tippfläche nach Apple (44), Hauptknopf, Vorschaubild in Listen.
+    enum Size {
+        static let touch: CGFloat = 44
+        static let button: CGFloat = 56
+        static let thumb: CGFloat = 44
+    }
+
     /// Einheitliche Größe für Heftstiche.
     static let tackSize: CGFloat = 12
 
@@ -320,7 +327,7 @@ struct StitchButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline)
-            .frame(maxWidth: .infinity, minHeight: 56)
+            .frame(maxWidth: .infinity, minHeight: Stitch.Size.button)
             .foregroundStyle(primary ? Stitch.onAccent : Stitch.red)
             .background(primary ? Stitch.redFill : Stitch.card, in: RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous).strokeBorder(Stitch.red, lineWidth: primary ? 0 : 1.5))

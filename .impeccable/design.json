@@ -1,0 +1,273 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-29T09:50:13.923794+00:00",
+  "title": "Design System: Album",
+  "extensions": {
+    "colorMeta": {
+      "linen": {
+        "role": "neutral",
+        "displayName": "Leinen",
+        "canonical": "#EFE6D2",
+        "tonalRamp": [
+          "#382D14",
+          "#5E4B21",
+          "#84692F",
+          "#A9873C",
+          "#C3A156",
+          "#D7C08E",
+          "#EBE0C7",
+          "#F8F5EC"
+        ]
+      },
+      "card": {
+        "role": "neutral",
+        "displayName": "Papier",
+        "canonical": "#FBF8F0",
+        "tonalRamp": [
+          "#3C3010",
+          "#65511B",
+          "#8D7126",
+          "#B59130",
+          "#CFAA4A",
+          "#DFC786",
+          "#EFE3C3",
+          "#FAF6EB"
+        ]
+      },
+      "thread-red": {
+        "role": "primary",
+        "displayName": "Kreuzstich-Rot",
+        "canonical": "#B82A24",
+        "tonalRamp": [
+          "#400F0D",
+          "#6B1815",
+          "#95221D",
+          "#C02C26",
+          "#D9453F",
+          "#E6837F",
+          "#F2C1BF",
+          "#FBEAEA"
+        ]
+      },
+      "red-fill": {
+        "role": "primary",
+        "displayName": "Rot als Fläche",
+        "canonical": "#B82A24",
+        "tonalRamp": [
+          "#400F0D",
+          "#6B1815",
+          "#95221D",
+          "#C02C26",
+          "#D9453F",
+          "#E6837F",
+          "#F2C1BF",
+          "#FBEAEA"
+        ]
+      },
+      "cobalt": {
+        "role": "secondary",
+        "displayName": "Kobalt-Garn",
+        "canonical": "#1F3F8C",
+        "tonalRamp": [
+          "#0E1C3F",
+          "#172F68",
+          "#204292",
+          "#2A55BC",
+          "#436ED5",
+          "#829EE3",
+          "#C0CFF1",
+          "#EAEFFA"
+        ]
+      },
+      "mustard": {
+        "role": "tertiary",
+        "displayName": "Senf-Garn",
+        "canonical": "#D6A022",
+        "tonalRamp": [
+          "#42310A",
+          "#6E5211",
+          "#9A7318",
+          "#C6941F",
+          "#E0AE39",
+          "#EAC97B",
+          "#F5E4BD",
+          "#FCF6E9"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Tinte",
+        "canonical": "#1C1A17",
+        "tonalRamp": [
+          "#2A2722",
+          "#464139",
+          "#625B50",
+          "#7E7567",
+          "#988E81",
+          "#BAB4AB",
+          "#DCDAD5",
+          "#F4F2F1"
+        ]
+      },
+      "ink-soft": {
+        "role": "neutral",
+        "displayName": "Blasse Tinte",
+        "canonical": "#585044",
+        "tonalRamp": [
+          "#2B2721",
+          "#484138",
+          "#655C4E",
+          "#817664",
+          "#9B8F7E",
+          "#BCB4A9",
+          "#DEDAD4",
+          "#F4F3F1"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Gestickter Ortsname",
+        "purpose": "Nur „Prag“ auf der Reise-Seite und Stickmotive."
+      },
+      "section": {
+        "displayName": "Abschnitt",
+        "purpose": "Abschnittsüberschriften (.title3, bold)."
+      }
+    },
+    "shadows": [
+      {
+        "name": "flat",
+        "value": "none",
+        "purpose": "Karten in Listen, Felder, Knöpfe ohne Füllung."
+      },
+      {
+        "name": "pinned",
+        "value": "0 3px 5px rgba(0,0,0,0.14)",
+        "purpose": "Angeheftetes Papier: Polaroids, Tickets, Kalender, Kartennadeln, gefüllte Knöpfe."
+      },
+      {
+        "name": "floating",
+        "value": "0 6px 14px rgba(0,0,0,0.18)",
+        "purpose": "Schwebend über Inhalt: Blatt über der Karte, Zettel, Einwurf."
+      }
+    ],
+    "motion": [
+      {
+        "name": "spring-sheet",
+        "value": "spring(response 0.38, damping 0.86)",
+        "purpose": "Blatt über der Karte rastet ein; bei „Bewegung reduzieren“ ohne Animation."
+      },
+      {
+        "name": "spring-press",
+        "value": "spring(response 0.25, damping 0.7)",
+        "purpose": "Knopf drücken (97 %)."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Hauptaktion, volle Breite, 56 hoch.",
+      "html": "<button class=\"ds-btn-primary\">Übernehmen</button>",
+      "css": ".ds-btn-primary{background:#B82A24;color:#FBF8F0;font:600 17px -apple-system,system-ui;height:56px;width:100%;border:none;border-radius:16px;box-shadow:0 3px 5px rgba(0,0,0,.14);transition:transform .2s}.ds-btn-primary:active{transform:scale(.97)}.ds-btn-primary:focus-visible{outline:2px dashed #1F3F8C;outline-offset:3px}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Zweite Aktion: Papier mit roter Kontur.",
+      "html": "<button class=\"ds-btn-secondary\">Später</button>",
+      "css": ".ds-btn-secondary{background:#FBF8F0;color:#B82A24;font:600 17px -apple-system,system-ui;height:56px;width:100%;border:1.5px solid #B82A24;border-radius:16px;transition:transform .2s}.ds-btn-secondary:active{transform:scale(.97)}.ds-btn-secondary:focus-visible{outline:2px dashed #1F3F8C;outline-offset:3px}"
+    },
+    {
+      "name": "Filter Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Filter auf der Karte; gewählt rot gefüllt.",
+      "html": "<span class=\"ds-chip\">Essen</span><span class=\"ds-chip ds-chip-on\">Alle</span>",
+      "css": ".ds-chip{display:inline-flex;align-items:center;height:44px;padding:0 16px;margin-right:8px;border-radius:999px;background:#FBF8F0;color:#1C1A17;font:600 15px -apple-system,system-ui;border:1px dashed rgba(28,26,23,.12)}.ds-chip-on{background:#B82A24;color:#FBF8F0;border-color:transparent}.ds-chip:hover{border-color:rgba(28,26,23,.3)}"
+    },
+    {
+      "name": "Stoffkarte",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Papier auf Leinen, 16 innen, Radius 16, flach.",
+      "html": "<div class=\"ds-card\"><strong>Lokál Dlouhá</strong><p>Essen &amp; Trinken · abends · bis 24:00</p></div>",
+      "css": ".ds-card{background:#FBF8F0;color:#1C1A17;border-radius:16px;padding:16px;font:17px -apple-system,system-ui}.ds-card p{margin:4px 0 0;color:#585044;font-size:15px}"
+    },
+    {
+      "name": "Textfeld",
+      "kind": "input",
+      "refersTo": "text-field",
+      "description": "Ganze Fläche tippbar.",
+      "html": "<input class=\"ds-input\" placeholder=\"Vorname\">",
+      "css": ".ds-input{background:#FBF8F0;color:#1C1A17;border:none;border-radius:16px;padding:16px;font:17px -apple-system,system-ui;width:100%}.ds-input:focus-visible{outline:2px dashed #B82A24;outline-offset:2px}"
+    },
+    {
+      "name": "Heftstich",
+      "kind": "custom",
+      "description": "Ein Kreuz (12) heftet Papier an den Stoff.",
+      "html": "<span class=\"ds-tack\" aria-hidden=\"true\"></span>",
+      "css": ".ds-tack{display:inline-block;width:12px;height:12px;background:linear-gradient(45deg,transparent 40%,#B82A24 40% 60%,transparent 60%),linear-gradient(-45deg,transparent 40%,#B82A24 40% 60%,transparent 60%)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Das gestickte Reisetuch",
+    "overview": "Album ist ein Stück Leinen, auf das zwei Menschen ihre Reise sticken. Der Grund ist Aida-Stoff, alles Wichtige ist Garn: Rot, Kobalt, Senf. Karten liegen als Papier auf dem Stoff, besondere Dinge sind mit einem einzelnen Heftstich angeheftet. Die Oberfläche ist sonst ruhig und nativ.",
+    "keyCharacteristics": [
+      "Leinen als Grund, Farbe nur im Garn.",
+      "Ein Abstandsraster auf 4-Punkt-Basis, drei Radien, drei Höhenstufen.",
+      "Systemschrift für alles Lesbare; gestickte Schrift nur für den Ortsnamen.",
+      "Heftstiche markieren Angeheftetes, nicht Listen oder Formulare."
+    ],
+    "rules": [
+      {
+        "name": "The Thread Rule",
+        "body": "Farbe ist Garn. Flächen sind Leinen oder Papier; nur Knöpfe und gewählte Filter dürfen rot gefüllt sein.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two-Reds Rule",
+        "body": "Rote Schrift nutzt thread-red, rote Flächen nutzen red-fill. Nie tauschen, sonst kippt der Kontrast im Dunkelmodus.",
+        "section": "colors"
+      },
+      {
+        "name": "The Dynamic Type Rule",
+        "body": "Keine festen Schriftgrößen. Wo eine Zahl bewusst groß sein muss (Abreißkalender), wächst sie über @ScaledMetric mit und darf im festen Blatt verkleinern.",
+        "section": "typography"
+      },
+      {
+        "name": "The Twelve-Thirty-Two Rule",
+        "body": "Zusammengehöriges steht 12 auseinander, Getrenntes 32. Wer einen Wert dazwischen braucht, hat die Gruppe falsch geschnitten.",
+        "section": "layout"
+      },
+      {
+        "name": "The No Empty Spacing Rule",
+        "body": "Ein Block ohne Inhalt wird nicht gezeichnet; sonst zählt sein Abstand doppelt.",
+        "section": "layout"
+      },
+      {
+        "name": "The Three Levels Rule",
+        "body": "Nur diese drei Stufen (stitchElevation). Einzige Ausnahme: Etwas, das gerade gezogen wird, hebt sich mit dem Finger an und bekommt dabei mehr Schatten.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do jeden Abstand aus Stitch.Space nehmen (4, 8, 12, 16, 24, 32).",
+      "Do Stoffkarten immer über stitchCard() bauen: 16 innen, Radius 16.",
+      "Do Tippflächen auf mindestens 44 × 44 halten, auch wenn das sichtbare Zeichen kleiner ist.",
+      "Do Tagesangaben immer als „Dienstag, 6. Oktober“ schreiben (TripDates.dayTitle).",
+      "Do neue Farben nur als Paar für Tag und Nacht anlegen."
+    ],
+    "donts": [
+      "Don't eigene Schatten schreiben; nur die drei Stufen.",
+      "Don't feste Schriftgrößen setzen (.system(size:)), außer als @ScaledMetric.",
+      "Don't Heftstiche an Listenkarten, Flugkarten oder Formularfelder setzen.",
+      "Don't Senf oder Kobalt für Bedienelemente nutzen; Aktionen sind rot.",
+      "Don't Werte wie 2, 6, 10, 14 oder 18 als Abstand nutzen."
+    ]
+  }
+}

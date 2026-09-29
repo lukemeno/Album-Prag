@@ -27,7 +27,7 @@ struct DayPlanPreview: View {
                             }
                             ForEach(stops) { stop in
                                 HStack(spacing: Stitch.Space.s) {
-                                    AlbumPhoto(asset: stop.place.image, root: store.root).frame(width: 44, height: 44)
+                                    AlbumPhoto(asset: stop.place.image, root: store.root, thumbnailWidth: 120).frame(width: Stitch.Size.thumb, height: Stitch.Size.thumb)
                                         .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
                                         .accessibilityHidden(true)
                                     VStack(alignment: .leading, spacing: Stitch.Space.xxs) {

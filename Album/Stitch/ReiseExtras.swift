@@ -49,6 +49,8 @@ struct TearCalendar: View {
     @State private var drag: CGSize = .zero
     @State private var falling = false
     @State private var torn = 0
+    /// Die große Zahl wächst mit der Systemschrift; das Blatt bleibt gleich groß und verkleinert notfalls.
+    @ScaledMetric(relativeTo: .largeTitle) private var numberSize: CGFloat = 56
 
     private var todayKey: String { TripDates.key.string(from: TripDates.today) }
     private var days: Int { max(0, TripDates.daysUntilStart()) }
@@ -75,7 +77,7 @@ struct TearCalendar: View {
             }
             binding
         }
-        .frame(width: 128, height: 142)
+        .frame(width: 128, height: 128 + Stitch.Space.m)
         .sensoryFeedback(.impact(weight: .medium, intensity: 0.9), trigger: torn)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Noch \(days) Tage bis Prag")
@@ -101,32 +103,33 @@ struct TearCalendar: View {
     }
 
     private func page(number: Int, caption: String) -> some View {
-        VStack(spacing: 2) {
+        VStack(spacing: Stitch.Space.xxs) {
             Text("\(number)")
-                .font(.system(size: 56, weight: .heavy, design: .rounded).monospacedDigit())
+                .font(.system(size: numberSize, weight: .heavy, design: .rounded).monospacedDigit())
+                .minimumScaleFactor(0.5).lineLimit(1)
                 .foregroundStyle(Stitch.ink)
                 .contentTransition(.numericText())
             Text(caption).font(.footnote.weight(.semibold)).foregroundStyle(Stitch.inkSoft)
             if !tornToday && number == topNumber {
                 Label("abreißen", systemImage: "arrow.down").font(.caption2.weight(.bold)).foregroundStyle(Stitch.red)
-                    .padding(.top, 2)
             }
         }
         .frame(width: 128, height: 128)
-        .padding(.top, 14)
+        // Platz für die Heftstich-Bindung (16) über dem Blatt.
+        .padding(.top, Stitch.Space.m)
         .background(Stitch.card)
         .overlay(alignment: .top) {
             Line().stroke(Stitch.ink.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [2, 3])).frame(height: 1).offset(y: 16)
         }
-        .shadow(color: .black.opacity(0.14), radius: 4, x: 1, y: 3)
+        .stitchElevation(.pinned)
     }
 
     /// Gestickte Bindung am oberen Rand.
     private var binding: some View {
         HStack(spacing: 0) {
-            ForEach(0..<9, id: \.self) { _ in TackStitch(color: Stitch.red, size: 11).frame(maxWidth: .infinity) }
+            ForEach(0..<9, id: \.self) { _ in TackStitch(color: Stitch.red).frame(maxWidth: .infinity) }
         }
-        .frame(width: 128, height: 16)
+        .frame(width: 128, height: Stitch.Space.m)
         .background(Stitch.card)
         .allowsHitTesting(false)
     }
@@ -145,25 +148,29 @@ struct TodayPlan: View {
     var onSelect: (Place) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline) {
+        VStack(alignment: .leading, spacing: Stitch.Space.s) {
+            VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
                 Text("Heute").font(.title.weight(.bold)).foregroundStyle(Stitch.ink)
-                Text("\(day). Oktober").font(.title3.weight(.semibold)).foregroundStyle(Stitch.inkSoft)
+                Text(TripDates.dayTitle(day)).font(.subheadline).foregroundStyle(Stitch.inkSoft)
             }
+            .accessibilityElement(children: .combine).accessibilityAddTraits(.isHeader)
             ForEach(flights) { FlightCard(flight: $0) }
             if places.isEmpty && flights.isEmpty {
-                Text("Für heute ist noch nichts geplant. In der Karte könnt ihr Orten einen Tag geben.")
+                Text("Für heute ist noch nichts geplant. In der Karte kannst du Orten einen Tag geben.")
                     .font(.body).foregroundStyle(Stitch.inkSoft)
             }
             ForEach(Array(places.enumerated()), id: \.element.id) { index, place in
-                HStack(spacing: 14) {
+                HStack(spacing: Stitch.Space.s) {
                     Text("\(index + 1)").font(.headline.monospacedDigit()).foregroundStyle(Stitch.onAccent)
-                        .frame(width: 30, height: 30).background(Stitch.red, in: Circle())
+                        .frame(width: 30, height: 30).background(Stitch.redFill, in: Circle())
+                        .accessibilityHidden(true)
                     Button { onSelect(place) } label: {
-                        HStack(spacing: 12) {
-                            AlbumPhoto(asset: place.image, root: root).frame(width: 52, height: 52)
-                                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                            VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: Stitch.Space.s) {
+                            AlbumPhoto(asset: place.image, root: root, thumbnailWidth: 120)
+                                .frame(width: Stitch.Size.thumb, height: Stitch.Size.thumb)
+                                .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
+                                .accessibilityHidden(true)
+                            VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
                                 Text(place.title).font(.headline).foregroundStyle(Stitch.ink)
                                 Text(place.category).font(.subheadline).foregroundStyle(Stitch.inkSoft)
                             }
@@ -171,18 +178,13 @@ struct TodayPlan: View {
                         }
                     }
                     .buttonStyle(.plain)
-                    if let coordinate = place.coordinate {
-                        Button {
-                            let item = MKMapItem(placemark: MKPlacemark(coordinate: coordinate))
-                            item.name = place.title
-                            item.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeWalking])
-                        } label: { Image(systemName: "figure.walk") }
+                    if place.coordinate != nil {
+                        Button { openWalkingRoute(to: place) } label: { Image(systemName: "figure.walk") }
                         .buttonStyle(HeaderIconButton())
                         .accessibilityLabel("Route zu \(place.title)")
                     }
                 }
-                .padding(12)
-                .background(Stitch.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .stitchCard()
             }
         }
     }

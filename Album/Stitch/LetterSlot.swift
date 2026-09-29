@@ -16,12 +16,12 @@ struct LetterSlotDrop: View {
             ZStack(alignment: .top) {
                 LinenBackground().opacity(0.96)
 
-                VStack(spacing: 8) {
+                VStack(spacing: Stitch.Space.xs) {
                     ZStack(alignment: .top) {
                         Capsule().fill(Color.black.opacity(0.85)).frame(width: 220, height: 20)
                             .overlay(Capsule().strokeBorder(Stitch.red, style: StrokeStyle(lineWidth: 2, dash: [5, 4])).padding(-6))
                         // Klappe
-                        RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Stitch.red)
+                        RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous).fill(Stitch.redFill)
                             .frame(width: 236, height: 30)
                             .overlay(Text("Ideen").font(.footnote.weight(.bold)).foregroundStyle(Stitch.onAccent))
                             .rotation3DEffect(.degrees(phase == .rising || phase == .inside ? -70 : 0), axis: (x: 1, y: 0, z: 0), anchor: .top, perspective: 0.6)
@@ -29,7 +29,7 @@ struct LetterSlotDrop: View {
                     }
                     Text(phase == .closed ? "Eingeworfen" : " ")
                         .font(.subheadline.weight(.semibold)).foregroundStyle(Stitch.inkSoft)
-                        .padding(.top, 14)
+                        .padding(.top, Stitch.Space.s)
                 }
                 .padding(.top, slotY - 10)
                 .zIndex(2)
@@ -62,16 +62,16 @@ struct LetterSlotDrop: View {
     }
 
     private var card: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: Stitch.Space.s) {
             AlbumPhoto(asset: place.image, root: root).frame(width: 236, height: 200)
             Text(place.title).font(.title3.weight(.bold)).foregroundStyle(Stitch.ink).lineLimit(2)
                 .frame(width: 236, alignment: .leading)
         }
-        .padding(12)
+        .padding(Stitch.Space.s)
         .background(Stitch.card)
-        .overlay(alignment: .topLeading) { TackStitch(size: 14).offset(x: 6, y: 6) }
-        .overlay(alignment: .topTrailing) { TackStitch(size: 14).offset(x: -6, y: 6) }
-        .shadow(color: .black.opacity(0.2), radius: 12, y: 6)
+        .overlay(alignment: .topLeading) { TackStitch().offset(x: Stitch.Space.xs, y: Stitch.Space.xs) }
+        .overlay(alignment: .topTrailing) { TackStitch().offset(x: -Stitch.Space.xs, y: Stitch.Space.xs) }
+        .stitchElevation(.floating)
     }
 
     private func run() async {
