@@ -17,6 +17,15 @@ struct InboxView: View {
     /// Magnet-Klick: zwei Herzhälften schnappen zusammen, wenn beide dafür sind.
     @State private var magnet: CGFloat = 0
     @State private var magnetTick = 0
+    /// 1 = hintere Karten weit aufgefächert, 0 = ruhige Lage; federt beim Erscheinen des Stapels.
+    @State private var fan: CGFloat = 1
+    /// Oberste Karte in der Hand: 0…1 für Anheben (Größe, Schatten).
+    @State private var lift: CGFloat = 0
+    /// Neigung um die senkrechte Achse in Grad, aus der geglätteten Ziehgeschwindigkeit.
+    @State private var tilt: Double = 0
+    @State private var lastSample: (x: CGFloat, time: Date)?
+    @State private var tiltDecay: Task<Void, Never>?
+    @State private var viewer: PhotoViewerItem?
 
     private let decisionThreshold: CGFloat = 96
     private var progress: CGFloat { min(abs(offset) / decisionThreshold, 1) }
@@ -27,15 +36,17 @@ struct InboxView: View {
                 GeometryReader { geo in
                     ZStack {
                         ForEach(Array(store.inbox.dropFirst().prefix(2).enumerated()), id: \.element.id) { index, next in
+                            let spread = reduceMotion ? 0 : fan
                             IdeaPolaroid(place: next, root: store.root, tackColor: Stitch.cobalt)
-                                .rotationEffect(.degrees(index == 0 ? -4 : 5))
-                                .offset(x: index == 0 ? -14 : 16, y: 10)
+                                .rotationEffect(.degrees((index == 0 ? -4 : 5) + (index == 0 ? -6 : 6) * spread))
+                                .offset(x: (index == 0 ? -14 : 16) + (index == 0 ? -18 : 20) * spread, y: 10 - 4 * spread)
                                 .scaleEffect(reduceMotion ? 0.94 : 0.94 + 0.04 * progress)
                                 .allowsHitTesting(false)
                                 .accessibilityHidden(true)
                         }
 
-                        IdeaPolaroid(place: place, root: store.root, tackColor: Stitch.red, crossProgress: crossProgress)
+                        IdeaPolaroid(place: place, root: store.root, tackColor: Stitch.red, crossProgress: crossProgress,
+                                     onPhotoTap: { openPhoto(place, from: $0) })
                             .overlay(alignment: .topTrailing) {
                                 Button { shouldFrank = false; editing = place } label: {
                                     Image(systemName: "pencil").font(.body.weight(.semibold))
@@ -46,9 +57,11 @@ struct InboxView: View {
                             }
                             .overlay { DecisionHint(direction: offset == 0 ? nil : offset > 0 ? .frank : .shelve, progress: progress) }
                             .overlay { if magnet > 0 { MagnetHearts(progress: magnet) } }
+                            .rotation3DEffect(.degrees(reduceMotion ? 0 : tilt), axis: (x: 0, y: 1, z: 0), perspective: 0.5)
+                            .scaleEffect(reduceMotion ? 1 : 1 + 0.05 * lift)
                             .offset(x: offset, y: reduceMotion ? 0 : -4 * progress)
                             .rotationEffect(.degrees(reduceMotion ? 0 : Double(offset / 42).clamped(to: -6...6) + place.id.stableTilt))
-                            .shadow(color: .black.opacity(0.12 + 0.1 * progress), radius: 10 + 8 * progress, y: 6 + 5 * progress)
+                            .shadow(color: .black.opacity(0.12 + 0.1 * progress + 0.04 * lift), radius: 10 + 8 * progress + 6 * lift, y: 6 + 5 * progress + 4 * lift)
                             .gesture(dragGesture(for: place))
                             .accessibilityElement(children: .contain)
                             .accessibilityIdentifier("Inbox-Ticket")
@@ -93,6 +106,27 @@ struct InboxView: View {
         .sensoryFeedback(.selection, trigger: thresholdFeedback)
         .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.8), trigger: stitchTick)
         .sensoryFeedback(.success, trigger: magnetTick)
+        .onAppear { spread() }
+        .onChange(of: store.inbox.first?.id) { spread() }
+        .fullScreenCover(item: $viewer) { PhotoViewer(place: $0.place, root: store.root, source: $0.source) }
+    }
+
+    /// Die hinteren Karten fächern kurz weiter auf und legen sich per Feder auf ihre Lage;
+    /// nur beim Erscheinen und wenn eine neue Karte oben liegt.
+    private func spread() {
+        guard !reduceMotion else { return }
+        var instant = Transaction(animation: nil); instant.disablesAnimations = true
+        withTransaction(instant) { fan = 1 }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(80))
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.72)) { fan = 0 }
+        }
+    }
+
+    private func openPhoto(_ place: Place, from source: CGRect) {
+        guard !committing else { return }
+        var instant = Transaction(animation: nil); instant.disablesAnimations = true
+        withTransaction(instant) { viewer = PhotoViewerItem(place: place, source: source) }
     }
 
     /// Nur was du nicht schon weißt: wer außer dir die Idee gesammelt hat und wer schon dafür ist.
@@ -108,13 +142,15 @@ struct InboxView: View {
     private func dragGesture(for place: Place) -> some Gesture {
         DragGesture(minimumDistance: 8)
             .onChanged { value in
-                guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                guard !committing, abs(value.translation.width) > abs(value.translation.height) else { return }
                 offset = rubberBanded(value.translation.width)
+                if !reduceMotion { hold(value) }
                 let armed = abs(offset) >= decisionThreshold
                 if armed && !thresholdArmed { thresholdFeedback += 1 }
                 thresholdArmed = armed
             }
             .onEnded { value in
+                release()
                 let projected = value.predictedEndTranslation.width
                 let decision = abs(projected) > abs(value.translation.width) ? projected : value.translation.width
                 thresholdArmed = false
@@ -124,6 +160,33 @@ struct InboxView: View {
                     withAnimation(reduceMotion ? nil : .spring(response: 0.36, dampingFraction: 0.78)) { offset = 0 }
                 }
             }
+    }
+
+    /// Karte in der Hand: hebt sich an und neigt sich mit der Ziehgeschwindigkeit (geglättet, höchstens ±12°).
+    private func hold(_ value: DragGesture.Value) {
+        if lift == 0 { withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) { lift = 1 } }
+        if let last = lastSample {
+            let dt = value.time.timeIntervalSince(last.time)
+            if dt > 0.008 {
+                let velocity = Double(value.translation.width - last.x) / dt
+                tilt = tilt * 0.7 + (velocity / 1000 * 12).clamped(to: -12...12) * 0.3
+                lastSample = (value.translation.width, value.time)
+            }
+        } else {
+            lastSample = (value.translation.width, value.time)
+        }
+        // Hält der Finger inne, richtet sich die Karte wieder auf.
+        tiltDecay?.cancel()
+        tiltDecay = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else { return }
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { tilt = 0 }
+        }
+    }
+
+    private func release() {
+        tiltDecay?.cancel(); lastSample = nil
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.72)) { tilt = 0; lift = 0 }
     }
 
     private func rubberBanded(_ value: CGFloat) -> CGFloat {
@@ -198,24 +261,62 @@ private struct MagnetHearts: View {
     }
 }
 
-/// Während des Ziehens: „Dafür“ oder „Später“ erscheint auf dem Foto.
+/// Während des Ziehens: Garn füllt das Schild, „Dafür?“ / „Später?“ rastet an der Schwelle zu „Dafür“ / „Später“ ein.
 private struct DecisionHint: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let direction: InboxDecision?
     let progress: CGFloat
     var body: some View {
         if let direction {
-            Text(direction == .frank ? "Dafür" : "Später")
+            let frank = direction == .frank
+            let armed = progress >= 1
+            let thread = frank ? Stitch.red : Stitch.cobalt
+            Text((frank ? "Dafür" : "Später") + (armed ? "" : "?"))
                 .font(.title2.weight(.heavy))
-                .foregroundStyle(direction == .frank ? Stitch.onAccent : Stitch.red)
+                .contentTransition(.interpolate)
+                .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: armed)
+                .foregroundStyle(armed && frank ? Stitch.onAccent : Stitch.ink)
                 .padding(.horizontal, Stitch.Space.m).padding(.vertical, Stitch.Space.xs)
-                .background(direction == .frank ? Stitch.redFill : Stitch.card, in: Capsule())
-                .overlay(Capsule().strokeBorder(Stitch.redFill, lineWidth: 2))
-                .rotationEffect(.degrees(direction == .frank ? -8 : 8))
-                .opacity(Double(progress))
+                .background {
+                    ZStack {
+                        Stitch.card
+                        ThreadFill(color: thread, progress: progress, fromTrailing: !frank)
+                        // „Dafür“ rastet als Knopffläche ein, „Später“ mit dickerer Kante.
+                        if frank { Stitch.redFill.opacity(armed ? 1 : 0) }
+                    }
+                    .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: armed)
+                }
+                .clipShape(Capsule())
+                .overlay(Capsule().strokeBorder(thread, lineWidth: armed && !frank ? 3 : 2))
+                .phaseAnimator([1.0, reduceMotion ? 1.0 : 1.06, 1.0], trigger: armed) { content, scale in
+                    content.scaleEffect(scale)
+                } animation: { _ in .spring(response: 0.22, dampingFraction: 0.5) }
+                .rotationEffect(.degrees(frank ? -8 : 8))
+                .opacity(Double(min(progress * 4, 1)))
                 .scaleEffect(0.85 + 0.15 * progress)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: direction == .frank ? .topLeading : .topTrailing)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: frank ? .topLeading : .topTrailing)
                 .padding(Stitch.Space.xl)
                 .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
+    }
+}
+
+/// Laufstiche in Garnfarbe, die das Schild von einer Seite aus füllen.
+private struct ThreadFill: View {
+    let color: Color
+    let progress: CGFloat
+    let fromTrailing: Bool
+    var body: some View {
+        Canvas { context, size in
+            let width = size.width * progress
+            context.clip(to: Path(CGRect(x: fromTrailing ? size.width - width : 0, y: 0, width: width, height: size.height)))
+            var y: CGFloat = 3
+            while y < size.height {
+                var row = Path(); row.move(to: CGPoint(x: 0, y: y)); row.addLine(to: CGPoint(x: size.width, y: y))
+                context.stroke(row, with: .color(color.opacity(0.6)), style: StrokeStyle(lineWidth: 1.5, dash: [5, 3]))
+                y += 5
+            }
         }
     }
 }
@@ -226,6 +327,8 @@ struct IdeaPolaroid: View {
     let root: URL
     var tackColor = Stitch.red
     var crossProgress: CGFloat = 0
+    /// Tippen auf das Foto; liefert dessen Rahmen auf dem Bildschirm.
+    var onPhotoTap: ((CGRect) -> Void)?
 
     var body: some View {
         GeometryReader { geo in
@@ -233,6 +336,15 @@ struct IdeaPolaroid: View {
                 AlbumPhoto(asset: place.image, root: root)
                     .frame(maxWidth: .infinity)
                     .frame(height: max(160, geo.size.height - 118))
+                    .overlay {
+                        if let onPhotoTap {
+                            GeometryReader { photo in
+                                Color.clear.contentShape(Rectangle())
+                                    .onTapGesture { onPhotoTap(photo.frame(in: .global)) }
+                            }
+                            .accessibilityElement().accessibilityLabel("Foto vergrößern").accessibilityAddTraits(.isButton)
+                        }
+                    }
                     .overlay(alignment: .bottomTrailing) {
                         Canvas { context, size in
                             Stitch.drawCross(&context, in: CGRect(origin: .zero, size: size), color: Stitch.red, progress: crossProgress)
@@ -240,6 +352,7 @@ struct IdeaPolaroid: View {
                         .frame(width: 64, height: 64)
                         .padding(Stitch.Space.s)
                         .opacity(crossProgress > 0 ? 1 : 0)
+                        .allowsHitTesting(false)
                         .accessibilityHidden(true)
                     }
                 VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
@@ -277,5 +390,88 @@ struct IdeaPolaroid: View {
 private extension Comparable {
     func clamped(to limits: ClosedRange<Self>) -> Self {
         min(max(self, limits.lowerBound), limits.upperBound)
+    }
+}
+
+private struct PhotoViewerItem: Identifiable {
+    let id = UUID()
+    let place: Place
+    let source: CGRect
+}
+
+/// Foto im Vollbild. Wächst aus dem Polaroid, nach unten ziehen schrumpft es zurück (halbe Geste = halbe Verkleinerung).
+private struct PhotoViewer: View {
+    let place: Place
+    let root: URL
+    let source: CGRect
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// 0 = an der Stelle des Polaroids, 1 = groß.
+    @State private var open: CGFloat = 0
+    @State private var pull: CGSize = .zero
+    @State private var closing = false
+    /// 0…1 nach unten gezogen; 300 pt ziehen halbieren den Weg zurück zum Polaroid.
+    private var shrink: CGFloat { min(max(pull.height / 300, 0), 1) }
+
+    var body: some View {
+        ZStack {
+            GeometryReader { geo in
+                let full = CGRect(x: 0, y: 0, width: geo.size.width, height: min(geo.size.height * 0.72, geo.size.width * 1.3))
+                    .offsetBy(dx: 0, dy: geo.size.height * 0.46 - min(geo.size.height * 0.72, geo.size.width * 1.3) / 2)
+                let t = reduceMotion ? 1 : open * (1 - 0.5 * shrink)
+                let mix = { (a: CGFloat, b: CGFloat) in a + (b - a) * t }
+                ZStack {
+                    Stitch.opening.opacity(reduceMotion ? open : t)
+                    AlbumPhoto(asset: place.image, root: root)
+                        .frame(width: mix(source.width, full.width), height: mix(source.height, full.height))
+                        .position(x: mix(source.midX, full.midX) + pull.width * open, y: mix(source.midY, full.midY) + pull.height * open)
+                        .opacity(reduceMotion ? open : 1)
+                        .gesture(reduceMotion ? nil : drag)
+                        .accessibilityLabel("Foto von \(place.title)").accessibilityAddTraits(.isImage)
+                }
+            }
+            .ignoresSafeArea()
+
+            VStack {
+                HStack {
+                    Spacer()
+                    Button { close() } label: { Image(systemName: "xmark") }
+                        .buttonStyle(HeaderIconButton())
+                        .accessibilityLabel("Foto schließen")
+                }
+                Spacer()
+                if case .external(let image) = place.image {
+                    Text("Foto: \(image.credit)\(image.licenseName.map { " · \($0)" } ?? "")")
+                        .font(.caption).foregroundStyle(Stitch.onAccent.opacity(0.85)).multilineTextAlignment(.center)
+                }
+            }
+            .padding(Stitch.Space.page)
+            .opacity(Double(open * (1 - shrink)))
+        }
+        .presentationBackground(.clear)
+        .onAppear { withAnimation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.42, dampingFraction: 0.86)) { open = 1 } }
+        .accessibilityAction(.escape) { close() }
+    }
+
+    private var drag: some Gesture {
+        DragGesture()
+            .onChanged { value in
+                guard !closing else { return }
+                pull = CGSize(width: value.translation.width, height: value.translation.height > 0 ? value.translation.height : value.translation.height / 4)
+            }
+            .onEnded { value in
+                guard !closing else { return }
+                if pull.height > 110 || value.predictedEndTranslation.height > 320 { close() }
+                else { withAnimation(.spring(response: 0.36, dampingFraction: 0.78)) { pull = .zero } }
+            }
+    }
+
+    private func close() {
+        guard !closing else { return }
+        closing = true
+        withAnimation(.easeInOut(duration: reduceMotion ? 0.2 : 0.32)) { open = 0; pull = .zero } completion: {
+            var instant = Transaction(animation: nil); instant.disablesAnimations = true
+            withTransaction(instant) { dismiss() }
+        }
     }
 }

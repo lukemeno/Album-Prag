@@ -64,3 +64,9 @@
 - Bewegung reduzieren: keine Karte zum Ziehen, Zettel wird eingeblendet, dann schließt der Editor (vorher wurde direkt geschlossen).
 - Behoben dabei: Die Tastatur blieb nach „Speichern“ offen und verdeckte Karte und Knopf.
 - UI-Test `testLetterSlotThrow` läuft nur mit Wegwerf-Store (`TEST_RUNNER_ALBUM_SLOT_STORE=slot-…`).
+
+## 30.09.2026 – Ideen-Stapel lebendig (Auffächern, Anheben, Foto groß, Schild)
+- `InboxView.swift`: hintere Karten fächern beim Erscheinen auf und federn zurück; die oberste Karte hebt sich beim Ziehen (1,05, tieferer Schatten) und neigt sich mit der Geschwindigkeit; Foto im Vollbild (`PhotoViewer`, eigener Zoom aus dem Polaroid-Rahmen, kein `matchedGeometryEffect`, weil das Polaroid gedreht ist und die Zielansicht ein `fullScreenCover` ist); das Entscheidungsschild füllt sich mit Garn und rastet an der Schwelle ein.
+- Briefkasten nachgebessert: deckender Hintergrund, erledigter Knopf mit Häkchen.
+- UI-Test `testInboxStack` läuft nur mit Wegwerf-Store (`TEST_RUNNER_ALBUM_INBOX_STORE=slot-…`) mit offenen Ideen.
+- Bekannt: Das Vollbildfoto füllt den Rahmen (Zuschnitt), es zeigt nicht das ganze Foto.

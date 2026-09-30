@@ -87,6 +87,56 @@ final class AlbumUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Café Slavia"].waitForExistence(timeout: 5) || app.staticTexts["Petřín"].waitForExistence(timeout: 5))
     }
 
+    /// Ideen-Stapel: Auffächern, Anheben mit Neigung, Füllung und Label, Foto im Vollbild, Entscheiden.
+    /// Läuft nur mit einem Wegwerf-Store mit offenen Ideen (`TEST_RUNNER_ALBUM_INBOX_STORE`, Name beginnt mit `slot-`); entscheidet dort echte Ideen.
+    /// Mit `TEST_RUNNER_ALBUM_SHOT_DIR` liegen Standbilder dort.
+    func testInboxStack() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard let store = environment["ALBUM_INBOX_STORE"], store.hasPrefix("slot-") else { throw XCTSkip("Kein Wegwerf-Store mit offenen Ideen") }
+        let app = XCUIApplication()
+        app.launchEnvironment["ALBUM_TEST_STORE"] = store
+        app.launchEnvironment["ALBUM_MY_NAME"] = "Luke"
+        app.launchEnvironment["ALBUM_START_TAB"] = "Ideen"
+        app.launch()
+        let shots = environment["ALBUM_SHOT_DIR"].map { URL(fileURLWithPath: $0) }
+        func shot(_ name: String) { if let shots { try? XCUIScreen.main.screenshot().pngRepresentation.write(to: shots.appendingPathComponent(name + ".png")) } }
+        func later(_ seconds: Double, _ name: String) { DispatchQueue.global().asyncAfter(deadline: .now() + seconds) { shot(name) } }
+
+        let ticket = app.otherElements["Inbox-Ticket"]
+        XCTAssertTrue(ticket.waitForExistence(timeout: 15))
+        sleep(2); shot("B-1-stapel")
+
+        // Foto groß: Tippen öffnet, halb nach unten ziehen federt zurück, der Knopf schließt.
+        let photoButton = app.buttons["Foto vergrößern"]
+        XCTAssertTrue(photoButton.waitForExistence(timeout: 5))
+        photoButton.tap()
+        XCTAssertTrue(app.buttons["Foto schließen"].waitForExistence(timeout: 5))
+        sleep(1); shot("B-4-vollbild")
+        let middle = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.46))
+        later(1.0, "B-5-halb-zu")
+        middle.press(forDuration: 0.05, thenDragTo: middle.withOffset(CGVector(dx: 0, dy: 80)), withVelocity: .slow, thenHoldForDuration: 1.5)
+        XCTAssertTrue(app.buttons["Foto schließen"].exists)
+        app.buttons["Foto schließen"].tap()
+        XCTAssertTrue(ticket.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["Foto schließen"].waitForExistence(timeout: 1))
+        sleep(1)
+
+        // Unter der Schwelle losgelassen: Feder zurück, nichts entschieden.
+        let start = ticket.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4))
+        later(0.25, "B-2a-ziehen"); later(0.45, "B-2b-ziehen")
+        start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 70, dy: 0)), withVelocity: 250, thenHoldForDuration: 1.2)
+        XCTAssertTrue(ticket.waitForExistence(timeout: 5))
+        sleep(1)
+        // Über der Schwelle: Label rastet ein, beim Loslassen ist „Dafür“ entschieden.
+        later(1.0, "B-3-eingerastet")
+        start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 140, dy: 0)), withVelocity: 900, thenHoldForDuration: 1.5)
+        XCTAssertTrue(app.buttons["Letzte Entscheidung rückgängig"].waitForExistence(timeout: 5))
+        sleep(2); shot("B-6-nach-entscheid")
+        // Später per Knopf bleibt gleichwertig.
+        app.buttons["Später"].tap()
+        XCTAssertTrue(app.buttons["Letzte Entscheidung rückgängig"].waitForExistence(timeout: 5))
+    }
+
     /// Braucht vorbereitete Orte im Simulator (`TEST_RUNNER_ALBUM_PLAN_STORE`) und Netz für die Öffnungszeiten.
     /// Mit `TEST_RUNNER_ALBUM_SHOT_DIR` werden Screenshots der Vorschau dort abgelegt.
     func testAutomaticDayPlanPreview() throws {

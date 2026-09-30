@@ -55,3 +55,16 @@ Bleibt: Wischen zum Entscheiden (schon gebaut und getestet in `InboxView.swift`)
 Debug-Hilfen (nur in Debug-Builds): `ALBUM_START_TAB=Reise|Ideen|Karte`, `ALBUM_TODAY=yyyy-MM-dd`, `ALBUM_TEST_STORE=<ordner>`.
 
 Dunkelmodus: indigogefärbtes Leinen, hellere Garne (`Stitch.dynamic`). Name pro Gerät (`album.myName`), einmal beim ersten Start abgefragt.
+
+## Stand 30.09.2026 – Ideen-Stapel (`InboxView.swift`)
+
+| Baustein | Verhalten |
+|---|---|
+| Auffächern | Beim Erscheinen und wenn eine neue Karte oben liegt, fächern die zwei hinteren Polaroids kurz weiter auf und legen sich per Feder (response 0,4, damping 0,72, rund 4 % Überschwingen) auf -4°/5° |
+| Anheben | Beim Ziehen wächst die oberste Karte auf 1,05, der Schatten wird tiefer; dazu neigt sie sich um die Y-Achse mit der geglätteten Ziehgeschwindigkeit (höchstens ±12°), richtet sich bei Ruhe nach 300 ms und beim Loslassen per Feder auf |
+| Foto groß | Tippen auf das Foto wächst es im Vollbild aus dem Polaroid; nach unten ziehen schrumpft es proportional zurück (über 110 pt oder schneller Wurf schließt, sonst Feder), Schließen-Knopf oben rechts, Bildnachweis unten |
+| Schild „Dafür?“ / „Später?“ | Laufstiche in Garnfarbe (Rot / Kobalt) füllen das Schild mit dem Weg; an der Schwelle rastet das Label ein (ohne „?“, Puls 1,06, Selection-Haptik), „Dafür“ wird zur Knopffläche, „Später“ bekommt eine dickere Kante |
+| Bewegung reduzieren | Kein Auffächern, Anheben, Neigen; Foto wird überblendet statt bewegt und lässt sich nur über den Knopf schließen |
+
+Wischen bleibt „entscheiden“; „Später“ und „Dafür“ bleiben als Knöpfe.
+
