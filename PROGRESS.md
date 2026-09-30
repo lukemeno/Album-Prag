@@ -56,3 +56,11 @@
 - Durchgesetzt: Flug-/Hotelkarten als flache Stoffkarten ohne Heftstich, „Heute“ mit Wochentag und 16 innen, Liste auf der Karte im selben Rhythmus wie Unterlagen, Lücke im Ortsdetail entfernt, eigene Schatten und feste Schriftgrößen ersetzt, Griff-Tippfläche 44.
 - Bewusst ausgenommen (Zeichnungsmaße): Nadel-Ring, Herzhälften, Briefschlitz, Kalendergröße; Polaroid-Schatten beim Ziehen.
 - UI-Test `testScreenTour` fährt alle Bildschirme ab (mit `TEST_RUNNER_ALBUM_TODAY` auch während der Reise).
+
+## 30.09.2026 – Briefkasten per Finger
+- Die Karte wird nicht mehr automatisch eingeworfen: Der Finger zieht sie nach oben in den Schlitz (nur Y, halbe Geste = halber Zustand, Maske an der Schlitzkante bleibt). Ab 40 % Weg (oder vorhergesagtem Ende) wirft sie von selbst ein, Selection-Haptik beim Überschreiten, Klappe mit `.impact(.heavy)`; zu früh losgelassen federt sie zurück.
+- Erfolg ohne Grün: die gestrichelte rote Naht schließt sich (`SeamRing`), danach kommt aus demselben Schlitz ein Zettel „Liegt bei Ideen“ (mit Partnernamen, wenn genau ein weiterer Name im Album vorkommt). Der Knopf unten wird „Nach oben einwerfen“ → „Wird eingeworfen …“ → „Eingeworfen“; Tippen wirft automatisch ein, VoiceOver hat die Aktion „Einwerfen“.
+- Speichern bleibt unverändert beim Tipp auf „Sichern“ (`store.upsert`); das Ziehen ist nur Ritual, keine Idee geht verloren oder wird doppelt gespeichert („Speichern“ ist während des Rituals gesperrt).
+- Bewegung reduzieren: keine Karte zum Ziehen, Zettel wird eingeblendet, dann schließt der Editor (vorher wurde direkt geschlossen).
+- Behoben dabei: Die Tastatur blieb nach „Speichern“ offen und verdeckte Karte und Knopf.
+- UI-Test `testLetterSlotThrow` läuft nur mit Wegwerf-Store (`TEST_RUNNER_ALBUM_SLOT_STORE=slot-…`).

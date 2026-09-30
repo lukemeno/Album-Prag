@@ -32,6 +32,61 @@ final class AlbumUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Karte"].waitForExistence(timeout: 5))
     }
 
+    /// Briefkasten per Finger: erst zu kurz gezogen (Feder zurück), dann eingeworfen, danach eine zweite Idee per Knopf.
+    /// Läuft nur mit einem Wegwerf-Store (`TEST_RUNNER_ALBUM_SLOT_STORE`, Name beginnt mit `slot-`); speichert dort echte Ideen.
+    /// Mit `TEST_RUNNER_ALBUM_SHOT_DIR` liegen Standbilder dort.
+    func testLetterSlotThrow() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard let store = environment["ALBUM_SLOT_STORE"], store.hasPrefix("slot-") else { throw XCTSkip("Kein Wegwerf-Store für den Einwurf") }
+        let app = XCUIApplication()
+        app.launchEnvironment["ALBUM_TEST_STORE"] = store
+        app.launchEnvironment["ALBUM_MY_NAME"] = "Luke"
+        app.launch()
+        let shots = environment["ALBUM_SHOT_DIR"].map { URL(fileURLWithPath: $0) }
+        func shot(_ name: String) { if let shots { try? XCUIScreen.main.screenshot().pngRepresentation.write(to: shots.appendingPathComponent(name + ".png")) } }
+        func newIdea(_ name: String) {
+            XCTAssertTrue(app.buttons["Idee hinzufügen"].waitForExistence(timeout: 15))
+            app.buttons["Idee hinzufügen"].tap()
+            let title = app.textFields["Name der Idee"]
+            XCTAssertTrue(title.waitForExistence(timeout: 5))
+            title.tap(); title.typeText(name)
+            app.buttons["Speichern"].tap()
+        }
+
+        newIdea("Café Slavia")
+        let card = app.otherElements["Einwurf-Karte"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        sleep(1); shot("A-1-idle")
+        // Zu früh losgelassen: die Karte federt zurück, der Knopf bleibt im Ausgangszustand.
+        let start = card.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -50)), withVelocity: .slow, thenHoldForDuration: 0)
+        XCTAssertTrue(app.buttons["Nach oben einwerfen"].isEnabled)
+        XCTAssertTrue(card.exists)
+        sleep(1)
+        // Halb gezogen (Standbild aus dem Hintergrund, während der Finger liegt), dann über der Schwelle losgelassen.
+        DispatchQueue.global().asyncAfter(deadline: .now() + 1.2) { shot("A-2-halb") }
+        start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -150)), withVelocity: .slow, thenHoldForDuration: 2)
+        XCTAssertTrue(app.staticTexts["Liegt bei Ideen"].waitForExistence(timeout: 5))
+        usleep(700_000); shot("A-3-zettel")
+        XCTAssertTrue(app.buttons["Eingeworfen"].exists)
+        XCTAssertFalse(app.buttons["Eingeworfen"].isEnabled)
+        // Danach schließt der Editor wie bisher.
+        XCTAssertTrue(app.buttons["Idee hinzufügen"].waitForExistence(timeout: 6))
+
+        // Gleichwertige Schaltfläche: Tippen wirft von selbst ein.
+        newIdea("Petřín")
+        let button = app.buttons["Nach oben einwerfen"]
+        XCTAssertTrue(button.waitForExistence(timeout: 5))
+        button.tap()
+        XCTAssertTrue(app.staticTexts["Liegt bei Ideen"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Idee hinzufügen"].waitForExistence(timeout: 6))
+
+        // Beide Ideen sind gespeichert, auch wenn sie nur über die Schaltfläche oder gar nicht eingeworfen wurden.
+        app.terminate(); app.launch()
+        app.buttons["Ideen"].tap()
+        XCTAssertTrue(app.staticTexts["Café Slavia"].waitForExistence(timeout: 5) || app.staticTexts["Petřín"].waitForExistence(timeout: 5))
+    }
+
     /// Braucht vorbereitete Orte im Simulator (`TEST_RUNNER_ALBUM_PLAN_STORE`) und Netz für die Öffnungszeiten.
     /// Mit `TEST_RUNNER_ALBUM_SHOT_DIR` werden Screenshots der Vorschau dort abgelegt.
     func testAutomaticDayPlanPreview() throws {

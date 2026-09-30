@@ -18,7 +18,6 @@ struct PlaceEditor: View {
     @State private var photoItem: PhotosPickerItem?
     @State private var pendingPhotoID: String?
     @State private var posting = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let categories = ["Idee", "Sehenswert", "Essen & Trinken", "Aussicht", "Unterkunft", "Shopping"]
     var valid: Bool {
         !place.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && (place.sourceURL.isEmpty || LinkValidation.url(place.sourceURL) != nil) && (!frankOnSave || place.coordinate != nil)
@@ -91,7 +90,7 @@ struct PlaceEditor: View {
                         store.upsert(place)
                         pendingPhotoID = nil
                         // Neue Ideen werden sichtbar eingeworfen; gespeichert ist schon vorher.
-                        if isNew && !reduceMotion { withAnimation(.easeOut(duration: 0.2)) { posting = true } } else { dismiss() }
+                        if isNew { withAnimation(.easeOut(duration: 0.2)) { posting = true } } else { dismiss() }
                     }.disabled(!valid || posting) }
                 }
                 .onAppear { query = place.title == "Neue Reiseidee" ? "" : place.title }

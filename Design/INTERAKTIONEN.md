@@ -43,7 +43,7 @@ Bleibt: Wischen zum Entscheiden (schon gebaut und getestet in `InboxView.swift`)
 | # | Interaktion | Status | Wo im Code |
 |---|---|---|---|
 | 2 | Zettel aus der Zwischenablage | gebaut, im Simulator geprüft | `AlbumRoot.swift` (`ClipboardNote`, `PasteButton` ohne Einfüge-Dialog) |
-| 1 | Briefkasten-Schlitz | gebaut, im Simulator geprüft; reine SwiftUI statt Rive | `Stitch/LetterSlot.swift` |
+| 1 | Briefkasten-Schlitz | gebaut, geprüft; reine SwiftUI statt Rive. Seit 30.09. per Finger: Karte nach oben in den Schlitz ziehen (Schwelle mit Haptik, sonst Feder zurück) oder „Nach oben einwerfen“ tippen; Naht schließt sich, ein Zettel „Liegt bei Ideen“ wird nachgedruckt | `Stitch/LetterSlot.swift` |
 | – | Kreuz stickt sich bei „Dafür“ | gebaut, geprüft (ersetzt vorerst den Magnet-Klick) | `InboxView.swift` |
 | 5 | Magnet-Klick | gebaut: Stimmen pro Person (`approvals`), zwei Herzhälften schnappen zusammen; keine Migration nötig, Orte liegen als JSON in `places.payload` | `InboxView.swift` (`MagnetHearts`), `AlbumStore.decided` |
 | 7 | Stecknadel | gebaut, geprüft | `TripMapView.swift` (`StitchPin`) |
