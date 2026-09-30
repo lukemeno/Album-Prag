@@ -137,6 +137,22 @@ final class AlbumUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Letzte Entscheidung rückgängig"].waitForExistence(timeout: 5))
     }
 
+    /// Namensabfrage mit getipptem Namen (Vorstich und Nadel). Braucht `TEST_RUNNER_ALBUM_SHOT_DIR`; „Los geht’s“ wird nie getippt.
+    func testNamePromptStitch() throws {
+        guard let dir = ProcessInfo.processInfo.environment["ALBUM_SHOT_DIR"] else { throw XCTSkip("Kein Standbild angefordert") }
+        let app = XCUIApplication()
+        app.launchEnvironment["ALBUM_TEST_STORE"] = "ui-" + UUID().uuidString
+        app.launchArguments += ["-album.myName", ""]
+        app.launch()
+        let field = app.textFields["Vorname"]
+        XCTAssertTrue(field.waitForExistence(timeout: 15))
+        sleep(1)
+        field.tap(); field.typeText("Mathilde")
+        sleep(1)
+        try? XCUIScreen.main.screenshot().pngRepresentation.write(to: URL(fileURLWithPath: dir).appendingPathComponent("C-nameprompt.png"))
+        XCTAssertEqual(field.value as? String, "Mathilde")
+    }
+
     /// Braucht vorbereitete Orte im Simulator (`TEST_RUNNER_ALBUM_PLAN_STORE`) und Netz für die Öffnungszeiten.
     /// Mit `TEST_RUNNER_ALBUM_SHOT_DIR` werden Screenshots der Vorschau dort abgelegt.
     func testAutomaticDayPlanPreview() throws {

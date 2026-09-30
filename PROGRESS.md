@@ -70,3 +70,7 @@
 - Briefkasten nachgebessert: deckender Hintergrund, erledigter Knopf mit Häkchen.
 - UI-Test `testInboxStack` läuft nur mit Wegwerf-Store (`TEST_RUNNER_ALBUM_INBOX_STORE=slot-…`) mit offenen Ideen.
 - Bekannt: Das Vollbildfoto füllt den Rahmen (Zuschnitt), es zeigt nicht das ganze Foto.
+
+## 30.09.2026 – Eingabefeld mit Vorstich und Nadel
+- `StitchTextField` (Namensabfrage und Einstellungen): Vorstich unter dem Text, Nadel folgt mit kleiner Verzögerung; die Breite misst ein unsichtbarer Text in gleicher Schrift (`onGeometryChange`). `NamePrompt`: Hand-Plopp beim ersten Buchstaben.
+- UI-Test `testNamePromptStitch` (nur mit `TEST_RUNNER_ALBUM_SHOT_DIR`) startet die App mit `-album.myName ""`, tippt nie „Los geht’s“, damit der echte Name im Simulator unberührt bleibt.

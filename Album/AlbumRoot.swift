@@ -112,15 +112,22 @@ struct NamePrompt: View {
     @Environment(AlbumStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
+    @State private var waveTick = 0
     @FocusState private var focused: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         VStack(alignment: .leading, spacing: Stitch.Space.m) {
             StitchedSymbol(name: "hand.wave.fill", rows: 18, cell: 3.6, color: Stitch.red)
+                // Beim ersten Buchstaben ploppt die Hand einmal auf.
+                .phaseAnimator([1.0, reduceMotion ? 1.0 : 1.07, 1.0], trigger: waveTick) { content, scale in
+                    content.scaleEffect(scale, anchor: .bottomLeading)
+                } animation: { _ in .spring(response: 0.22, dampingFraction: 0.75) }
             Text("Wie heißt du?").font(.largeTitle.weight(.bold)).foregroundStyle(Stitch.ink)
             Text("Dein Name steht an den Ideen, die du sammelst.")
                 .font(.body).foregroundStyle(Stitch.inkSoft)
             StitchTextField(placeholder: "Vorname", text: $name, focused: $focused, onSubmit: save)
                 .textContentType(.givenName)
+                .onChange(of: name) { old, new in if old.isEmpty && !new.isEmpty { waveTick += 1 } }
             Button("Los geht’s", action: save).buttonStyle(StitchButton(primary: true))
                 .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
             Spacer()
@@ -145,19 +152,59 @@ struct NamePrompt: View {
 }
 
 /// Einzeiliges Eingabefeld im Stil der Karten. Die ganze Fläche ist antippbar.
+/// Unter dem Text wächst ein Vorstich; eine Nadel am Ende folgt jedem Anschlag mit kleiner Verzögerung.
 struct StitchTextField: View {
     let placeholder: String
     @Binding var text: String
     var focused: FocusState<Bool>.Binding
     var onSubmit: () -> Void = {}
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var textWidth: CGFloat = 0
+    /// Bis hierhin ist schon gestickt; die Nadel steckt am Ende.
+    @State private var sewn: CGFloat = 0
+    @State private var follow: Task<Void, Never>?
     var body: some View {
         TextField(placeholder, text: $text)
             .font(.body).submitLabel(.done)
             .focused(focused).onSubmit(onSubmit)
             .frame(maxWidth: .infinity, minHeight: 24, alignment: .leading)
+            // Unsichtbarer Text in gleicher Schrift misst die Breite; das Feld selbst bleibt unberührt.
+            .background(alignment: .leading) {
+                Text(text).font(.body).fixedSize().hidden()
+                    .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { moveNeedle(to: $0) }
+            }
+            .overlay(alignment: .bottomLeading) {
+                GeometryReader { box in
+                    let x = min(reduceMotion ? textWidth : sewn, box.size.width)
+                    ZStack(alignment: .leading) {
+                        Path { path in path.move(to: CGPoint(x: 0, y: 0)); path.addLine(to: CGPoint(x: x, y: 0)) }
+                            .stroke(Stitch.red, style: StrokeStyle(lineWidth: 1.5, dash: [5, 3]))
+                        if !reduceMotion && x > 0 {
+                            Capsule().fill(Stitch.inkSoft).frame(width: 2, height: 12)
+                                .rotationEffect(.degrees(25)).offset(x: x - 1, y: -4)
+                        }
+                    }
+                    .frame(height: 1.5).offset(y: 6)
+                    .allowsHitTesting(false).accessibilityHidden(true)
+                }
+                .frame(height: 1.5).offset(y: 6)
+            }
             .stitchCard()
             .contentShape(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
             .onTapGesture { focused.wrappedValue = true }
+    }
+
+    /// Der Text steht sofort; nur die Nadel kommt mit 40–90 ms Verzögerung nach (aus der Textlänge, kein Zufall).
+    private func moveNeedle(to width: CGFloat) {
+        textWidth = width
+        guard !reduceMotion else { return }
+        let delay = 40 + (text.count * 37) % 51
+        follow?.cancel()
+        follow = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(delay))
+            guard !Task.isCancelled else { return }
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) { sewn = width }
+        }
     }
 }
 

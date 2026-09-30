@@ -68,3 +68,7 @@ Dunkelmodus: indigogefärbtes Leinen, hellere Garne (`Stitch.dynamic`). Name pro
 
 Wischen bleibt „entscheiden“; „Später“ und „Dafür“ bleiben als Knöpfe.
 
+
+## Stand 30.09.2026 – Eingabefeld mit Nadel (`AlbumRoot.swift`)
+
+`StitchTextField`: Unter dem Text wächst ein Vorstich (gestrichelt, `Stitch.red`, 1,5 pt), eine kleine Nadel steckt am Ende und folgt jedem Anschlag per Feder mit 40–90 ms Verzögerung (aus der Textlänge, kein Zufall). Der Text erscheint sofort. `NamePrompt`: Beim ersten Buchstaben ploppt die Hand einmal auf (Feder, höchstens 1,07). Bewegung reduzieren: keine Nadel, Linie ohne Animation, kein Plopp.
