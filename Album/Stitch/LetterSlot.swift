@@ -33,7 +33,7 @@ struct LetterSlotDrop: View {
                 let travel = rest - (slotY - 150)
                 let shrink = min(progress / 0.5, 1)
                 ZStack(alignment: .top) {
-                    LinenBackground().opacity(0.96)
+                    LinenBackground()
 
                     VStack(spacing: Stitch.Space.xs) {
                         ZStack(alignment: .top) {
@@ -77,7 +77,14 @@ struct LetterSlotDrop: View {
             }
             .ignoresSafeArea()
 
-            Button { throwIn() } label: { Text(ctaTitle).contentTransition(.opacity) }
+            Button { throwIn() } label: {
+                // Erledigt zeigt sich mit Häkchen; der gesperrte Knopf bleibt sonst unverändert.
+                HStack(spacing: Stitch.Space.xs) {
+                    if stage == .done { Image(systemName: "checkmark").accessibilityHidden(true) }
+                    Text(ctaTitle)
+                }
+                .contentTransition(.opacity)
+            }
                 .buttonStyle(StitchButton(primary: true))
                 .disabled(stage != .idle)
                 .animation(.easeInOut(duration: 0.28), value: stage)
