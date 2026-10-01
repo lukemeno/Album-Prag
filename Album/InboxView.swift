@@ -40,15 +40,15 @@ struct InboxView: View {
                     ZStack {
                         ForEach(Array(undecided.dropFirst().prefix(2).enumerated()), id: \.element.id) { index, next in
                             let spread = reduceMotion ? 0 : fan
-                            IdeaPolaroid(place: next, root: store.root, tackColor: Stitch.cobalt)
-                                .rotationEffect(.degrees((index == 0 ? -4 : 5) + (index == 0 ? -6 : 6) * spread))
+                            IdeaPolaroid(place: next, root: store.root)
+                                .rotationEffect(.degrees((index == 0 ? -6 : 6) * spread))
                                 .offset(x: (index == 0 ? -14 : 16) + (index == 0 ? -18 : 20) * spread, y: 10 - 4 * spread)
                                 .scaleEffect(reduceMotion ? 0.94 : 0.94 + 0.04 * progress)
                                 .allowsHitTesting(false)
                                 .accessibilityHidden(true)
                         }
 
-                        IdeaPolaroid(place: place, root: store.root, tackColor: Stitch.red, crossProgress: crossProgress,
+                        IdeaPolaroid(place: place, root: store.root, crossProgress: crossProgress,
                                      onPhotoTap: { openPhoto(place, from: $0) })
                             .overlay(alignment: .topTrailing) {
                                 Button { shouldFrank = false; editing = place } label: {
@@ -63,8 +63,8 @@ struct InboxView: View {
                             .rotation3DEffect(.degrees(reduceMotion ? 0 : tilt), axis: (x: 0, y: 1, z: 0), perspective: 0.5)
                             .scaleEffect(reduceMotion ? 1 : 1 + 0.05 * lift)
                             .offset(x: offset, y: reduceMotion ? 0 : -4 * progress)
-                            .rotationEffect(.degrees(reduceMotion ? 0 : Double(offset / 42).clamped(to: -6...6) + place.id.stableTilt))
-                            .shadow(color: .black.opacity(0.12 + 0.1 * progress + 0.04 * lift), radius: 10 + 8 * progress + 6 * lift, y: 6 + 5 * progress + 4 * lift)
+                            .rotationEffect(.degrees(reduceMotion ? 0 : Double(offset / 42).clamped(to: -6...6)))
+                            .shadow(color: .black.opacity(0.07 + 0.1 * progress + 0.04 * lift), radius: 4 + 8 * progress + 6 * lift, y: 1 + 5 * progress + 4 * lift)
                             .gesture(dragGesture(for: place))
                             .accessibilityElement(children: .contain)
                             .accessibilityIdentifier("Inbox-Ticket")
@@ -79,10 +79,14 @@ struct InboxView: View {
                     Text(line).font(.footnote.weight(.medium)).foregroundStyle(Stitch.inkSoft)
                 }
 
-                HStack(spacing: Stitch.Space.s) {
-                    Button("Nein") { act(place, frank: false) }.buttonStyle(StitchButton())
-                    Button("Offen") { leaveOpen(place) }.buttonStyle(StitchButton())
-                    Button("Ja") { act(place, frank: true) }.buttonStyle(StitchButton(primary: true))
+                VStack(spacing: Stitch.Space.xxs) {
+                    HStack(spacing: Stitch.Space.s) {
+                        Button("Nein") { act(place, frank: false) }.buttonStyle(StitchButton())
+                        Button("Ja") { act(place, frank: true) }.buttonStyle(StitchButton(primary: true))
+                    }
+                    Button("Offen") { leaveOpen(place) }
+                        .font(.subheadline).foregroundStyle(Stitch.inkSoft)
+                        .frame(maxWidth: .infinity, minHeight: Stitch.Size.touch)
                 }
             } else {
                 Spacer()
@@ -212,6 +216,7 @@ struct InboxView: View {
     }
 
     private func leaveOpen(_ place: Place) {
+        guard !committing else { return }
         lastAction = place
         lastActionWasOpen = true
         openIDs.insert(place.id)
@@ -220,8 +225,8 @@ struct InboxView: View {
     }
 
     private func act(_ place: Place, frank: Bool) {
-        if frank && place.coordinate == nil { shouldFrank = true; editing = place; return }
         guard !committing else { return }
+        if frank && place.coordinate == nil { shouldFrank = true; editing = place; return }
         lastAction = place
         lastActionWasOpen = false
         let changed = store.decided(place, approve: frank)
@@ -229,7 +234,7 @@ struct InboxView: View {
         if reduceMotion { feedback += 1; if bothAgree { magnetTick += 1 }; store.upsert(changed); offset = 0; return }
         committing = true
         if frank {
-            // Das Kreuz stickt sich in zwei Stichen auf das Foto, jeder Stich mit eigener Haptik.
+            // Das Entscheidungssiegel erscheint in zwei Schritten; gespeichert wird nach dem Abflug.
             withAnimation(.easeOut(duration: 0.22)) { offset = 0; crossProgress = 0.5 } completion: {
                 stitchTick += 1
                 withAnimation(.easeOut(duration: 0.22)) { crossProgress = 1 } completion: {
@@ -264,7 +269,7 @@ struct InboxView: View {
 
 private enum InboxDecision { case shelve, frank }
 
-/// Zwei gestickte Herzhälften, die von links und rechts zusammenschnappen.
+/// Zwei Herzhälften zeigen, dass ihr beide für den Ort seid.
 private struct MagnetHearts: View {
     let progress: CGFloat
     var body: some View {
@@ -278,7 +283,9 @@ private struct MagnetHearts: View {
         .accessibilityHidden(true)
     }
     private func half(leading: Bool) -> some View {
-        StitchedSymbol(name: "heart.fill", rows: 22, cell: 4.4, color: leading ? Stitch.red : Stitch.cobalt)
+        Image(systemName: "heart.fill")
+            .font(.system(size: 80)).foregroundStyle(leading ? Stitch.red : Stitch.cobalt)
+            .frame(width: 22 * 4.4, height: 22 * 4.4)
             .mask(alignment: leading ? .leading : .trailing) {
                 Rectangle().frame(width: 22 * 4.4 / 2 * 1.1)
             }
@@ -304,7 +311,7 @@ private struct DecisionHint: View {
                 .background {
                     ZStack {
                         Stitch.card
-                        ThreadFill(color: thread, progress: progress, fromTrailing: !frank)
+                        thread.opacity(0.12 * progress)
                         if frank { Stitch.redFill.opacity(armed ? 1 : 0) }
                     }
                     .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: armed)
@@ -314,7 +321,7 @@ private struct DecisionHint: View {
                 .phaseAnimator([1.0, reduceMotion ? 1.0 : 1.06, 1.0], trigger: armed) { content, scale in
                     content.scaleEffect(scale)
                 } animation: { _ in .spring(response: 0.22, dampingFraction: 0.5) }
-                .rotationEffect(.degrees(frank ? -8 : 8))
+                .rotationEffect(.degrees(reduceMotion ? 0 : frank ? -8 : 8))
                 .opacity(Double(min(progress * 4, 1)))
                 .scaleEffect(0.85 + 0.15 * progress)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: frank ? .topLeading : .topTrailing)
@@ -325,79 +332,53 @@ private struct DecisionHint: View {
     }
 }
 
-/// Laufstiche in Garnfarbe, die das Schild von einer Seite aus füllen.
-private struct ThreadFill: View {
-    let color: Color
-    let progress: CGFloat
-    let fromTrailing: Bool
-    var body: some View {
-        Canvas { context, size in
-            let width = size.width * progress
-            context.clip(to: Path(CGRect(x: fromTrailing ? size.width - width : 0, y: 0, width: width, height: size.height)))
-            var y: CGFloat = 3
-            while y < size.height {
-                var row = Path(); row.move(to: CGPoint(x: 0, y: y)); row.addLine(to: CGPoint(x: size.width, y: y))
-                context.stroke(row, with: .color(color.opacity(0.6)), style: StrokeStyle(lineWidth: 1.5, dash: [5, 3]))
-                y += 5
-            }
-        }
-    }
-}
-
-/// Eine Idee als Polaroid, an zwei Ecken angeheftet.
+/// Eine Idee auf Papier mit einer Briefmarkenkante am Foto.
 struct IdeaPolaroid: View {
     let place: Place
     let root: URL
-    var tackColor = Stitch.red
     var crossProgress: CGFloat = 0
     /// Tippen auf das Foto; liefert dessen Rahmen auf dem Bildschirm.
     var onPhotoTap: ((CGRect) -> Void)?
 
     var body: some View {
-        GeometryReader { geo in
-            VStack(alignment: .leading, spacing: 0) {
-                AlbumPhoto(asset: place.image, root: root)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: max(160, geo.size.height - 118))
-                    .overlay {
-                        if let onPhotoTap {
-                            GeometryReader { photo in
-                                Color.clear.contentShape(Rectangle())
-                                    .onTapGesture { onPhotoTap(photo.frame(in: .global)) }
-                            }
-                            .accessibilityElement().accessibilityLabel("Foto vergrößern").accessibilityAddTraits(.isButton)
+        VStack(alignment: .leading, spacing: Stitch.Space.s) {
+            StampPhoto(asset: place.image, root: root)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .overlay {
+                    if let onPhotoTap {
+                        GeometryReader { photo in
+                            Color.clear.contentShape(Rectangle())
+                                .onTapGesture { onPhotoTap(photo.frame(in: .global)) }
                         }
+                        .accessibilityElement().accessibilityLabel("Foto vergrößern").accessibilityAddTraits(.isButton)
                     }
-                    .overlay(alignment: .bottomTrailing) {
-                        Canvas { context, size in
-                            Stitch.drawCross(&context, in: CGRect(origin: .zero, size: size), color: Stitch.red, progress: crossProgress)
-                        }
-                        .frame(width: 64, height: 64)
-                        .padding(Stitch.Space.s)
-                        .opacity(crossProgress > 0 ? 1 : 0)
-                        .allowsHitTesting(false)
-                        .accessibilityHidden(true)
-                    }
-                VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
-                    Text(place.title.isEmpty ? "Neue Idee" : place.title)
-                        .font(.title2.weight(.bold)).foregroundStyle(Stitch.ink).lineLimit(2)
-                        .minimumScaleFactor(0.8)
-                    HStack(spacing: Stitch.Space.xs) {
-                        Image(systemName: sourceIcon).font(.footnote.weight(.semibold))
-                        Text(place.sourceURL.isEmpty ? place.category : "\(place.sourceLabel) · \(place.category)")
-                            .font(.subheadline)
-                    }
-                    .foregroundStyle(Stitch.inkSoft)
                 }
-                .padding(.top, Stitch.Space.s)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                Spacer(minLength: 0)
+                .overlay(alignment: .bottomTrailing) {
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.system(size: 48)).foregroundStyle(Stitch.red)
+                        .padding(Stitch.Space.s)
+                        .background(Stitch.card, in: Circle())
+                        .padding(Stitch.Space.s)
+                        .opacity(Double(crossProgress))
+                        .scaleEffect(0.9 + 0.1 * crossProgress)
+                        .allowsHitTesting(false).accessibilityHidden(true)
+                }
+            VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
+                Text(place.title.isEmpty ? "Neue Idee" : place.title)
+                    .font(.title2.weight(.bold)).foregroundStyle(Stitch.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(alignment: .firstTextBaseline, spacing: Stitch.Space.xs) {
+                    Image(systemName: sourceIcon).font(.footnote.weight(.semibold)).accessibilityHidden(true)
+                    Text(place.sourceURL.isEmpty ? place.category : "\(place.sourceLabel) · \(place.category)")
+                        .font(.subheadline)
+                }
+                .foregroundStyle(Stitch.inkSoft)
             }
-            .padding(Stitch.Space.s)
-            .background(Stitch.card)
-            .overlay(alignment: .topLeading) { TackStitch(color: tackColor).offset(x: Stitch.Space.xs, y: Stitch.Space.xs) }
-            .overlay(alignment: .topTrailing) { TackStitch(color: tackColor).offset(x: -Stitch.Space.xs, y: Stitch.Space.xs) }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .padding(Stitch.Space.s)
+        .background(Stitch.card, in: RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous).strokeBorder(Stitch.rule, lineWidth: 1))
     }
 
     private var sourceIcon: String {

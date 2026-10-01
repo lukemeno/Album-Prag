@@ -184,7 +184,7 @@ final class AlbumUITests: XCTestCase {
         start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 70, dy: 0)), withVelocity: 250, thenHoldForDuration: 1.2)
         XCTAssertTrue(ticket.waitForExistence(timeout: 5))
         sleep(1)
-        // Über der Schwelle: Label rastet ein, beim Loslassen ist „Dafür“ entschieden.
+        // Über der Schwelle: Label rastet ein, beim Loslassen ist „Ja“ entschieden.
         later(1.0, "B-3-eingerastet")
         start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 140, dy: 0)), withVelocity: 900, thenHoldForDuration: 1.5)
         XCTAssertTrue(app.buttons["Letzte Entscheidung rückgängig"].waitForExistence(timeout: 5))
@@ -193,7 +193,7 @@ final class AlbumUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Letzte Entscheidung rückgängig"].waitForExistence(timeout: 5))
     }
 
-    /// Namensabfrage mit getipptem Namen (Vorstich und Nadel). Braucht `TEST_RUNNER_ALBUM_SHOT_DIR`; „Los geht’s“ wird nie getippt.
+    /// Namensabfrage mit getipptem Namen. Braucht `TEST_RUNNER_ALBUM_SHOT_DIR`; „Los geht’s“ wird nie getippt.
     func testNamePromptStitch() throws {
         guard let dir = ProcessInfo.processInfo.environment["ALBUM_SHOT_DIR"] else { throw XCTSkip("Kein Standbild angefordert") }
         let app = XCUIApplication()
@@ -264,7 +264,8 @@ final class AlbumUITests: XCTestCase {
         sleep(2)
         shot("map-full")
         // Ort in der Liste antippen: Die Karte fliegt hin, die Liste gibt die Karte frei.
-        let row = app.buttons["place-row-lokal"]
+        let rowID = environment["ALBUM_MAP_ROW_ID"] ?? "lokal"
+        let row = app.buttons["place-row-\(rowID)"]
         XCTAssertTrue(row.waitForExistence(timeout: 5))
         row.tap(); sleep(3); shot("map-selected")
         app.buttons["Liste ausklappen"].swipeDown(velocity: .fast)

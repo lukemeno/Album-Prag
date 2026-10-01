@@ -4,7 +4,7 @@ import MapKit
 /// Die drei Höhen des Blatts über der Karte.
 enum DrawerDetent: CaseIterable { case collapsed, half, full }
 
-/// Ein Stück Leinen über der Karte: alle beschlossenen Orte nach Tagen, mit Fotos, Route und Tag.
+/// Ein Blatt Papier über der Karte: alle beschlossenen Orte nach Tagen, mit Fotos, Route und Tag.
 /// Ersetzt das frühere Tagesplan-Blatt; Planen und Umsortieren passieren hier.
 /// Bewusst Teil der Karten-Ansicht statt eines Systemblatts, damit die Tab-Leiste erreichbar bleibt.
 struct PlacesDrawer: View {
@@ -93,7 +93,7 @@ struct PlacesDrawer: View {
             grabber
             HStack(alignment: .center, spacing: Stitch.Space.s) {
                 VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
-                    Text(title).font(.title3.weight(.bold)).foregroundStyle(Stitch.ink)
+                    Text(title).font(.headline).foregroundStyle(Stitch.ink)
                     Text(subtitle).font(.footnote).foregroundStyle(Stitch.inkSoft)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -132,24 +132,17 @@ struct PlacesDrawer: View {
         return parts.joined(separator: " · ")
     }
 
-    /// Griff als kurzer Vorstich auf einer Saumlinie: Ziehen oder Tippen ändert die Höhe.
+    /// Ziehen oder Tippen am Kapselgriff ändert die Höhe.
     private var grabber: some View {
         Button {
             move(to: detent == .half ? .full : .half)
         } label: {
-            // Saumlinie links und rechts, in der Mitte der kräftigere Stich als Griff.
-            HStack(spacing: Stitch.Space.xs) {
-                seam
-                StitchLine().stroke(Stitch.inkSoft, style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [6, 4]))
-                    .frame(width: 44, height: 3)
-                seam
-            }
-            .padding(.horizontal, Stitch.Space.l)
-            .frame(maxWidth: .infinity, minHeight: Stitch.Size.touch)
-            .contentShape(Rectangle())
+            Capsule().fill(Stitch.inkSoft.opacity(0.4))
+                .frame(width: 36, height: 5)
+                .frame(maxWidth: .infinity, minHeight: Stitch.Size.touch)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        // Wischen am Griff bewegt das Blatt; nur ein Tipp ohne Bewegung zählt als Knopfdruck.
         .highPriorityGesture(dragGesture)
         .accessibilityLabel(detent == .full ? "Liste einklappen" : "Liste ausklappen")
         .accessibilityAdjustableAction { direction in
@@ -161,26 +154,21 @@ struct PlacesDrawer: View {
         }
     }
 
-    private var seam: some View {
-        StitchLine().stroke(Stitch.inkSoft.opacity(0.25), style: StrokeStyle(lineWidth: 1, lineCap: .round, dash: [3, 5]))
-            .frame(height: 1)
-    }
-
     private var filterChips: some View {
         ScrollView(.horizontal) {
             HStack(spacing: Stitch.Space.xs) {
                 ForEach(MapFilter.allCases) { item in
-                    Button { withAnimation(reduceMotion ? nil : .snappy) { filter = item } } label: {
+                    Button { withAnimation(Stitch.Motion.maybe(reduceMotion, .easeOut(duration: Stitch.Motion.quick))) { filter = item } } label: {
                         HStack(spacing: Stitch.Space.xs) {
                             if let symbol = item.symbol {
-                                StitchedSymbol(name: symbol, rows: 9, cell: 2, color: filter == item ? Stitch.onAccent : item.thread)
+                                Image(systemName: symbol).font(.subheadline).accessibilityHidden(true)
                             }
                             Text(item.title).font(.subheadline.weight(.semibold))
                         }
                         .padding(.horizontal, Stitch.Space.m).frame(minHeight: Stitch.Size.touch)
                         .foregroundStyle(filter == item ? Stitch.onAccent : Stitch.ink)
                         .background(filter == item ? Stitch.redFill : Stitch.card, in: Capsule())
-                        .overlay(Capsule().strokeBorder(Stitch.ink.opacity(filter == item ? 0 : 0.12), style: StrokeStyle(lineWidth: 1, dash: [3, 2])))
+                        .overlay(Capsule().strokeBorder(filter == item ? Color.clear : Stitch.rule, lineWidth: 1))
                     }
                     .buttonStyle(.plain)
                     .accessibilityAddTraits(filter == item ? .isSelected : [])
@@ -264,17 +252,8 @@ struct PlacesDrawer: View {
     }
 
     private func sectionHeader(_ section: Section) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: Stitch.Space.xs) {
-            if section.isToday { Text("Heute").font(.headline).foregroundStyle(Stitch.red) }
-            Text(section.title).font(.headline).foregroundStyle(Stitch.ink)
-            Spacer(minLength: 0)
-            if !section.stops.isEmpty {
-                Text(section.stops.count == 1 ? "1 Ort" : "\(section.stops.count) Orte")
-                    .font(.footnote).foregroundStyle(Stitch.inkSoft)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityAddTraits(.isHeader)
+        AlbumSectionHeader(title: section.title, highlight: section.isToday ? "Heute" : nil,
+                           detail: section.stops.isEmpty ? "" : section.stops.count == 1 ? "1 Ort" : "\(section.stops.count) Orte")
     }
 
     // MARK: Bearbeiten
@@ -316,8 +295,9 @@ struct PlacesDrawer: View {
     }
 }
 
-/// Ein Ort als Stoffkarte: Name, Art, Tageszeit, Fotos und die zwei Wege, die man unterwegs braucht.
+/// Kompakte Ortszeile mit Tageszeit, Route, Tag und Details.
 private struct PlaceRow: View {
+    @Environment(\.dynamicTypeSize) private var typeSize
     let stop: PlanStop
     let root: URL
     let selected: Bool
@@ -327,56 +307,50 @@ private struct PlaceRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Stitch.Space.s) {
-            Button(action: onShow) {
+            AlbumPlaceRow(title: place.title, meta: meta, note: place.note, asset: place.image,
+                          root: root, visited: place.visited, metaHighlighted: stop.note != nil, action: onShow)
+                .accessibilityHint("Zeigt den Ort auf der Karte")
+                .accessibilityIdentifier("place-row-\(place.id)")
+
+            if typeSize.isAccessibilitySize {
                 VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
-                    HStack(alignment: .firstTextBaseline, spacing: Stitch.Space.xs) {
-                        Text(place.title).font(.headline).foregroundStyle(Stitch.ink).multilineTextAlignment(.leading)
+                    HStack {
+                        if place.coordinate != nil { routeButton }
                         Spacer(minLength: 0)
-                        if place.visited {
-                            Image(systemName: "checkmark.seal.fill").foregroundStyle(Stitch.cobalt).accessibilityLabel("Besucht")
-                        }
+                        detailsButton
                     }
-                    HStack(spacing: Stitch.Space.xs) {
-                        StitchedSymbol(name: place.stitchSymbol, rows: 9, cell: 1.9, color: place.stitchThread)
-                            .accessibilityHidden(true)
-                        Text(meta).font(.subheadline).foregroundStyle(stop.note == nil ? Stitch.inkSoft : Stitch.red)
-                    }
-                    if !place.note.isEmpty {
-                        Text(place.note).font(.footnote).foregroundStyle(Stitch.inkSoft).lineLimit(1)
-                    }
+                    if place.category != "Unterkunft" { DayMenu(place: place) }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityHint("Zeigt den Ort auf der Karte")
-            .accessibilityIdentifier("place-row-\(place.id)")
-
-            if !photos.isEmpty { photoStrip }
-
-            HStack(spacing: Stitch.Space.l) {
-                if place.coordinate != nil {
-                    Button { openWalkingRoute(to: place) } label: { Label("Route", systemImage: "figure.walk") }
-                        .font(.subheadline.weight(.semibold)).foregroundStyle(Stitch.red).frame(minHeight: Stitch.Size.touch)
+            } else {
+                HStack(spacing: Stitch.Space.l) {
+                    if place.coordinate != nil { routeButton }
+                    if place.category != "Unterkunft" { DayMenu(place: place) }
+                    Spacer(minLength: 0)
+                    detailsButton
                 }
-                if place.category != "Unterkunft" { DayMenu(place: place) }
-                Spacer(minLength: 0)
-                Button(action: onDetails) { Image(systemName: "info.circle").font(.title3) }
-                    .foregroundStyle(Stitch.inkSoft).frame(width: Stitch.Size.touch, height: Stitch.Size.touch)
-                    .accessibilityLabel("Details zu \(place.title)")
             }
         }
         .stitchCard()
         .overlay {
             if selected {
-                RoundedRectangle(cornerRadius: Stitch.Radius.card - Stitch.Space.xxs, style: .continuous)
-                    .strokeBorder(Stitch.red, style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
-                    .padding(Stitch.Space.xxs)
+                RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous)
+                    .strokeBorder(Stitch.red, lineWidth: 1.5)
                     .allowsHitTesting(false)
             }
         }
         .accessibilityElement(children: .contain)
         .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    private var routeButton: some View {
+        Button { openWalkingRoute(to: place) } label: { Label("Route", systemImage: "figure.walk") }
+            .albumTextAction()
+    }
+
+    private var detailsButton: some View {
+        Button(action: onDetails) { Image(systemName: "info.circle").font(.title3) }
+            .foregroundStyle(Stitch.inkSoft).frame(width: Stitch.Size.touch, height: Stitch.Size.touch)
+            .accessibilityLabel("Details zu \(place.title)")
     }
 
     /// „Sehenswert · vormittags · bis 18:00“ – nur was stimmt; Unbekanntes bleibt weg.
@@ -394,37 +368,6 @@ private struct PlaceRow: View {
         return "bis \(OpeningHours.clock(last.upperBound))"
     }
 
-    private var photos: [PlaceImageAsset] {
-        guard let main = place.image else { return [] }
-        return [main] + (place.gallery ?? []).map(PlaceImageAsset.external)
-    }
-
-    private var photoStrip: some View {
-        Group {
-            if photos.count == 1 {
-                photo(photos[0]).frame(maxWidth: .infinity).frame(height: 150)
-            } else {
-                ScrollView(.horizontal) {
-                    HStack(spacing: Stitch.Space.xs) {
-                        ForEach(Array(photos.enumerated()), id: \.offset) { _, asset in
-                            photo(asset).frame(width: 164, height: 124)
-                        }
-                    }
-                }
-                .scrollIndicators(.hidden)
-                .scrollClipDisabled()
-            }
-        }
-        .accessibilityHidden(true)
-    }
-
-    private func photo(_ asset: PlaceImageAsset) -> some View {
-        Button(action: onDetails) {
-            AlbumPhoto(asset: asset, root: root, thumbnailWidth: 480)
-                .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
-        }
-        .buttonStyle(.plain)
-    }
 }
 
 /// Tag eines Ortes wählen; der Ort kommt ans Ende des Tages.
@@ -443,13 +386,6 @@ struct DayMenu: View {
                 .frame(minHeight: Stitch.Size.touch)
         }
         .accessibilityLabel(place.day.map { "Tag ändern, jetzt \(TripDates.dayTitle($0))" } ?? "Tag festlegen")
-    }
-}
-
-/// Gerade Linie für gestrichelte Stiche.
-private struct StitchLine: Shape {
-    func path(in rect: CGRect) -> Path {
-        Path { $0.move(to: CGPoint(x: rect.minX, y: rect.midY)); $0.addLine(to: CGPoint(x: rect.maxX, y: rect.midY)) }
     }
 }
 

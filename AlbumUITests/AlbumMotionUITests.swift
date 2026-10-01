@@ -74,16 +74,16 @@ final class AlbumMotionUITests: XCTestCase {
     }
 
     /// B · Foto-Stapel im Ortsdetail: wischen blättert zyklisch, Zähler blättert ohne Geste, Tippen öffnet das Foto groß.
-    /// Braucht einen Ort mit mehreren Fotos (Café Savoy im Demo-Store).
+    /// Braucht einen Ort mit drei Fotos; ALBUM_PHOTO_STACK_PLACE wählt ihn im Wegwerf-Store.
     func testPhotoStack() throws {
         let (app, shot) = try launch(["ALBUM_START_TAB": "Karte"])
         let grabber = app.buttons["Liste ausklappen"]
         XCTAssertTrue(grabber.waitForExistence(timeout: 15))
         grabber.tap()
-        let savoy = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Details zu' AND label CONTAINS 'Savoy'")).firstMatch
-        XCTAssertTrue(savoy.waitForExistence(timeout: 8))
-        // Der Eintrag liegt weiter unten in der Liste; tippen scrollt dorthin.
-        savoy.tap()
+        let photoPlace = ProcessInfo.processInfo.environment["ALBUM_PHOTO_STACK_PLACE"] ?? "Savoy"
+        let detail = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Details zu' AND label CONTAINS %@", photoPlace)).firstMatch
+        XCTAssertTrue(detail.waitForExistence(timeout: 8))
+        detail.tap()
         let counter = app.buttons["Foto-Zähler"]
         XCTAssertTrue(counter.waitForExistence(timeout: 8))
         let stack = app.otherElements["Foto-Stapel"]
@@ -161,4 +161,3 @@ final class AlbumMotionUITests: XCTestCase {
         sleep(2); shot("E-4-besucht")
     }
 }
-

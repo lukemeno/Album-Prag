@@ -48,8 +48,8 @@ struct TripMapView: View {
         Map(position: $camera) {
             ForEach(dayThreads, id: \.day) { thread in
                 MapPolyline(coordinates: thread.coordinates)
-                    .stroke(thread.day % 2 == 0 ? Stitch.cobalt : Stitch.red,
-                            style: StrokeStyle(lineWidth: 3.5, lineCap: .round, dash: [8, 7]))
+                    .stroke((thread.day % 2 == 0 ? Stitch.cobalt : Stitch.red).opacity(0.65),
+                            style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
             }
             ForEach(visible) { place in
                 if let coordinate = place.coordinate {
@@ -113,7 +113,7 @@ enum MapFilter: String, CaseIterable, Identifiable {
 }
 
 extension Place {
-    /// Gesticktes Symbol und Garnfarbe je Kategorie.
+    /// Natives Symbol und Akzent je Kategorie; API-Namen bleiben kompatibel.
     var stitchSymbol: String {
         switch category {
         case "Essen & Trinken": "fork.knife"
@@ -127,8 +127,9 @@ extension Place {
     var stitchThread: Color { category == "Sehenswert" || category == "Unterkunft" ? Stitch.cobalt : Stitch.red }
 }
 
-/// Runder Stoff-Pin. Neue Orte fallen als Stecknadel auf die Karte und drücken eine kleine Delle in den Plan.
+/// Natives Kategoriesymbol auf Papier. Neue Orte landen mit dem bestehenden Nadel-Ritual.
 struct StitchPin: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let place: Place
     let selected: Bool
     let drops: Bool
@@ -138,14 +139,14 @@ struct StitchPin: View {
     @State private var landedTick = 0
 
     var body: some View {
-        let size: CGFloat = selected ? 58 : 46
+        let size: CGFloat = selected ? 50 : Stitch.Size.touch
         VStack(spacing: 0) {
             ZStack {
-                LinenBackground()
-                    .frame(width: size, height: size).clipShape(Circle())
-                Circle().strokeBorder(place.stitchThread, style: StrokeStyle(lineWidth: selected ? 3 : 1.6, dash: selected ? [] : [4, 3]))
-                    .padding(3)
-                StitchedSymbol(name: place.stitchSymbol, rows: 11, cell: selected ? 2.6 : 2.1, color: place.stitchThread)
+                Circle().fill(selected ? Stitch.redFill : Stitch.card)
+                Circle().strokeBorder(selected ? Color.clear : Stitch.rule, lineWidth: 1)
+                Image(systemName: place.stitchSymbol).font(.title3)
+                    .foregroundStyle(selected ? Stitch.onAccent : place.visited ? Stitch.cobalt : Stitch.ink)
+                    .accessibilityHidden(true)
             }
             .frame(width: size, height: size)
             .stitchElevation(.pinned)
@@ -161,7 +162,7 @@ struct StitchPin: View {
         .offset(y: drops && !fallen ? -140 : 0)
         .scaleEffect(drops && !fallen ? 1.25 : 1, anchor: .bottom)
         .opacity(drops && !fallen ? 0 : 1)
-        .animation(.spring(response: 0.3, dampingFraction: 0.72), value: selected)
+        .animation(Stitch.Motion.maybe(reduceMotion, Stitch.Motion.snap), value: selected)
         .sensoryFeedback(.impact(weight: .light, intensity: 0.9), trigger: landedTick)
         .onAppear {
             guard drops else { return }
@@ -203,12 +204,22 @@ struct PlaceDetail: View {
                         Group {
                             if place.photoAssets.count > 1 {
                                 PhotoStack(photos: place.photoAssets, root: store.root, title: place.title, subtitle: place.category) { photo, source in
-                                    var instant = Transaction(animation: nil); instant.disablesAnimations = true
-                                    withTransaction(instant) { viewing = PhotoView(photo: photo, source: source) }
+                                    open(photo, from: source)
                                 }
-                                .frame(height: 320)
+                                .frame(height: 280)
                             } else {
-                                PhotoCard(asset: place.image, root: store.root, title: place.title, subtitle: place.category).frame(height: 320)
+                                PhotoCard(asset: place.image, root: store.root, thumbnailWidth: 960)
+                                    .frame(height: 280)
+                                    .overlay {
+                                        if let photo = place.image {
+                                            GeometryReader { geometry in
+                                                Color.clear.contentShape(Rectangle())
+                                                    .onTapGesture { open(photo, from: geometry.frame(in: .global)) }
+                                            }
+                                            .accessibilityElement().accessibilityLabel("Foto vergrößern")
+                                            .accessibilityAddTraits(.isButton)
+                                        }
+                                    }
                             }
                         }
                         .overlay(alignment: .topLeading) {
@@ -220,14 +231,12 @@ struct PlaceDetail: View {
                         .animation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.34, dampingFraction: 0.55), value: place.visited)
 
                         VStack(alignment: .leading, spacing: Stitch.Space.xs) {
+                            Text(place.title).font(.title2.weight(.bold)).foregroundStyle(Stitch.ink)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Label(place.category, systemImage: place.stitchSymbol)
+                                .font(.subheadline).foregroundStyle(Stitch.inkSoft)
                             if !place.address.isEmpty {
-                                Text(place.address).font(.subheadline).foregroundStyle(Stitch.inkSoft)
-                            }
-                            if !place.note.isEmpty {
-                                Text(place.note).font(.body).foregroundStyle(Stitch.ink)
-                            }
-                            if let from = authorLine(place) {
-                                Text(from).font(.footnote.weight(.semibold)).foregroundStyle(Stitch.red)
+                                Text(place.address).font(.body).foregroundStyle(Stitch.inkSoft)
                             }
                         }
 
@@ -243,15 +252,30 @@ struct PlaceDetail: View {
                             }
                         }
 
+                        if !place.note.isEmpty || authorLine(place) != nil {
+                            VStack(alignment: .leading, spacing: Stitch.Space.s) {
+                                AlbumSectionHeader(title: "Notizen")
+                                if !place.note.isEmpty {
+                                    Text(place.note).font(.body).foregroundStyle(Stitch.ink)
+                                }
+                                if let from = authorLine(place) {
+                                    Text(from).font(.footnote).foregroundStyle(Stitch.inkSoft)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .stitchCard()
+                        }
+
                         // Nur wenn es etwas zu nennen gibt: Ein leerer Block würde den Abstand verdoppeln.
                         if hasCredits(place) {
-                            VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
+                            VStack(alignment: .leading, spacing: Stitch.Space.s) {
+                                AlbumSectionHeader(title: "Bildnachweise")
                                 if let source = place.image?.sourceURL, let url = URL(string: source) {
-                                    Link("Foto: \(place.image?.credit ?? "Quelle")", destination: url)
+                                    Link("Foto: \(place.image?.credit ?? "Quelle")", destination: url).frame(minHeight: Stitch.Size.touch, alignment: .leading)
                                 }
                                 if case .external(let image) = place.image, let license = image.licenseName {
                                     if let rawURL = image.licenseURL, let url = URL(string: rawURL) {
-                                        Link("Lizenz: \(license)", destination: url)
+                                        Link("Lizenz: \(license)", destination: url).frame(minHeight: Stitch.Size.touch, alignment: .leading)
                                     } else {
                                         Text("Lizenz: \(license)")
                                     }
@@ -259,11 +283,13 @@ struct PlaceDetail: View {
                                 // Weitere Fotos aus dem Foto-Streifen: Wikimedia verlangt die Nennung jeder Urheberin.
                                 ForEach(place.gallery ?? [], id: \.imageURL) { image in
                                     if let url = URL(string: image.sourceURL) {
-                                        Link("Foto: \(image.credit)\(image.licenseName.map { " · \($0)" } ?? "")", destination: url)
+                                        Link("Foto: \(image.credit)\(image.licenseName.map { " · \($0)" } ?? "")", destination: url).frame(minHeight: Stitch.Size.touch, alignment: .leading)
                                     }
                                 }
                             }
-                            .font(.caption).foregroundStyle(Stitch.inkSoft).tint(Stitch.inkSoft)
+                            .font(.caption).foregroundStyle(Stitch.inkSoft).tint(Stitch.red)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .stitchCard()
                         }
 
                         VStack(alignment: .leading, spacing: 0) {
@@ -280,6 +306,7 @@ struct PlaceDetail: View {
                     .padding(Stitch.Space.page)
                 }
                 .background(LinenBackground())
+                .navigationTitle("Ort")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button("Fertig") { dismiss() } }
@@ -292,6 +319,11 @@ struct PlaceDetail: View {
                 }
             }
         }
+    }
+
+    private func open(_ photo: PlaceImageAsset, from source: CGRect) {
+        var instant = Transaction(animation: nil); instant.disablesAnimations = true
+        withTransaction(instant) { viewing = PhotoView(photo: photo, source: source) }
     }
 
     private func hasCredits(_ place: Place) -> Bool {

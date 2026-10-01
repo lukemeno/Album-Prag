@@ -43,9 +43,9 @@ Stand: 01.10.2026. SwiftUI-Implementierung: `Album/Stitch/Stitch.swift`.
 
 Album ist ein gemeinsames Reisealbum: warmes Papier, dunkle Tinte, Burgunder für Aktionen und sparsame Briefmarkenkanten an besonderen Fotos. Die Hauptansichten verwenden native Symbole und lesbare Systemschrift. Fotos, Orte und der Tagesplan stehen im Vordergrund.
 
-Umgesetzt sind die gemeinsamen Farben, Flächen, Buttons und Symbole sowie die Reiseansicht mit Tagesauswahl, Tagesplan, Unterkunft, Unterlagen und beschlossenen Orten. Unterlagen verwenden die gemeinsame Abschnittsüberschrift; Teilen verwendet Ladezustände.
+Umgesetzt sind die gemeinsamen Farben, Flächen, Buttons und Symbole sowie Reise, Ideen, Kartenblatt, Ortsdetail, Fotostapel und Namenseingabe. Reise verwendet Tagesauswahl, Tagesplan, Unterkunft, Unterlagen und beschlossene Orte. Unterlagen verwenden die gemeinsame Abschnittsüberschrift; Teilen verwendet Ladezustände.
 
-Die vollständige Umstellung von Ideen, Kartenblatt, Ortsdetail, Fotostapel und Namenseingabe steht noch aus. Diese Ansichten erhalten bereits die gemeinsamen Farben und Flächen. Ihre bestehenden Gesten und Rituale bleiben bis zur gezielten Überarbeitung erhalten. Die folgenden Komponentenregeln beschreiben die gemeinsame Grundlage; neue Zielregeln sind ausdrücklich als ausstehend markiert.
+Ideen zeigen ein aufrechtes Briefmarkenfoto auf einer Papierkarte. Ja und Nein sind gleich groß; Offen steht darunter als leise Textaktion. Das Kartenblatt verwendet einen Kapselgriff, Filter mit neutraler Haarlinie und kompakte Ortszeilen. Im Ortsdetail stehen Name, Kategorie und Adresse lesbar unter den aufrechten Fotos; Route ist die Hauptaktion, Besucht die Nebenaktion. Notizen und Bildnachweise sind eigene Gruppen. Die Namenseingabe verwendet ein natives TextField auf Papier.
 
 ## Farben
 
@@ -111,21 +111,29 @@ Keine feste Schriftgröße für lesbaren Text. Zeichnungen und Symbole dürfen g
 | Foto | `PhotoCard` | Aufrecht, Radius 20; Verlauf nur bei Text auf dem Bild |
 | Briefmarkenfoto | `StampPhoto` / `StampBorder` | Kleine Kerben, auf ausgewählten Fotos; kein Schmuck an jedem Feld |
 | Reisetag | `DayStrip` | Gewählt burgundergefüllt; heute zusätzlicher Rahmen; Punkt bei vorhandenem Plan |
+| Namensfeld | `StitchTextField` | Natives TextField, Papier und Haarlinie; insgesamt mindestens 52 hoch, wächst mit Schrift; Fokus, Binding und Submit bleiben erhalten |
 | Formular | native `Form` | Papierzeilen, Systemfelder, sichtbare Fehler im Text |
+| Ideenkarte | `IdeaPolaroid` | API-Name bleibt; Papierkarte ohne Heftkreuze, Briefmarkenkante nur am Foto, Ja-Siegel |
+| Ideenaktionen | `InboxView` | Ja/Nein nebeneinander, gleiche Breite und 52 Mindesthöhe; Offen mittig mit 44 Mindesthöhe |
+| Kartenblatt | `PlacesDrawer` | Drei Höhen, Kapselgriff, native Filter; Auswahl mit Rahmen und Accessibility-Zustand |
+| Fotostapel | `PhotoStack` | Aufrecht in Ruhe; Ziehen darf neigen; Zähler und Vollbild ohne Geste erreichbar |
+| Besucht | `VisitedTrack` / `VisitedStamp` | Neutrale Nebenaktion, skalierende Höhe und umbrechbarer Text; Erfolg mit Cobalt-Siegel |
 | Navigation | native NavigationStack / TabView | Reise · Ideen · Karte; + oben, seltene Aktionen im Mehr-Menü |
 
-Zielregeln für die nächste Stufe: Ja/Nein als gleich große Aktionen, Offen als separate Textaktion; Kartenblatt mit ruhigem Kapselgriff und neutralen Filterkonturen; Ortsdetail mit aufrechtem Fotostapel und klarer Route-Aktion; Namenseingabe ohne Stickdekoration. Chips tragen Auswahl zusätzlich zum Farbwechsel als Accessibility-Zustand. Fehler bleiben lesbar und erneut versuchbar; Erfolg verwendet ein dezentes Siegel oder Häkchen. Diese Anpassungen sind noch nicht vollständig umgesetzt.
+Chips tragen Auswahl zusätzlich zum Farbwechsel als Accessibility-Zustand; die ausgewählte Ortskarte hat einen durchgehenden Rahmen. Ortszeilen erhalten Kategorie, berechneten Zeitabschnitt und Öffnungszeit-Hinweis aus dem unveränderten Tagesplan. Route, Tageszuordnung, Umsortieren und Details bleiben erreichbar; bei Accessibility-Schriftgrößen wandern die Ortsaktionen in zwei Zeilen. Fehler bleiben lesbar und erneut versuchbar; Erfolg verwendet ein dezentes Siegel oder Häkchen. Bildnachweise, Lizenz- und Quelllinks bleiben im Ortsdetail und im Vollbildfoto erreichbar.
 
-Die bestehenden API-Namen `Stitch`, `LinenBackground` und `stitchCard` bleiben zur Kompatibilität erhalten. Sie beschreiben keine Stofftextur mehr. Einladung, Briefkasten und Bordkarte behalten ihre funktionierenden Bewegungsabläufe; ihre Zeichnungsprimitive werden gezielt weiterentwickelt.
+Die bestehenden API-Namen `Stitch`, `LinenBackground` und `stitchCard` bleiben zur Kompatibilität erhalten. Sie beschreiben keine Stofftextur mehr. Einladung, Briefkasten und Bordkarte sind die ausdrückliche Ausnahme für bestehende Stick- und Schlitzrituale. Sie behalten ihre funktionierenden Zeichnungsprimitive und Bewegungsabläufe; Ideenkarte, Kartenblatt, Ortsdetail und Namensfeld verwenden keine Heftkreuze oder Stickunterlinien mehr.
 
 ## Bewegung
 
 `Stitch.Motion`: `quick = 0,18 s`, `settle = 0,28 s`; Federn `press = 0,22 / 0,78`, `snap = 0,30 / 0,80`, `sheet = 0,38 / 0,86` (response / dampingFraction). Neue Auswahl- und Buttonbewegungen verwenden diese Werte.
 
-„Bewegung reduzieren“ entfernt die neue Button-Skalierung und die animierte Tagesauswahl. Bestehende komplexe Rituale haben eigene Reduktionspfade; ihre Timingwerte sind noch nicht auf die neue Gruppe vereinheitlicht. Gesten dürfen nie für Speicherung notwendig sein. Ja/Nein/Offen und Rückgängig bleiben per Button und VoiceOver erreichbar.
+„Bewegung reduzieren“ entfernt die neue Button-Skalierung und die animierte Tagesauswahl. Bestehende komplexe Rituale haben eigene Reduktionspfade; ihre Timingwerte sind noch nicht auf die neue Gruppe vereinheitlicht. Gesten dürfen nie für Speicherung notwendig sein. Ja/Nein/Offen, Rückgängig, Foto-Wechsel und Besucht bleiben per Tipp und VoiceOver erreichbar. Die Ideenkarte behält Auffächern, Gummiband, Geschwindigkeitsneigung und Abschluss-Callbacks; das neue Ja-Siegel verwendet denselben abgeschlossenen Commit-Pfad. Bei Bewegung reduzieren speichert Ja/Nein direkt, Fotos blättern durch Überblenden, Kartenpins springen ohne Neigung oder Fallschritt. Die Namenseingabe hat keine Nadel- oder Unterlinienanimation.
 
 ## Prüfung
 
 Screenshots mit einem Wegwerf-Album: Reise vor/unterwegs/nach der Reise, wechselnde Tage, Ideen, Karte und Liste, Ortsdetail, Editor, Tagesplanvorschlag, Unterlagen, Teilen. Zusätzlich Dunkelmodus und große Schrift.
 
 Prüfpunkte: gleiche Seitenkanten und Abschnittsabstände; keine überdeckten Aktionen; verständliche leere Zustände; Bildnachweise erreichbar; Auswahl und Laden sichtbar; keine Änderung der Stimmen oder Persistenz. Build allein bestätigt die visuelle Hierarchie nicht.
+
+Geprüft am 01.10.2026 auf iPhone 17 Pro / iOS 26.5: Simulator-Build erfolgreich; 39 Unit-Tests mit einem vorgesehenen Skip und ohne Fehler. Neun unterschiedliche UI-Tests, elf Testausführungen inklusive Wiederholungen, ohne Fehler: Ideen anlegen und nach Neustart erhalten, Offen nach Neustart, Tagesauswahl, drei Kartenblatt-Höhen und Auswahl, Namenseingabe, Screen-Rundgang, Fotostapel, Besucht-Spur und Ideenstapel. Reise/Ideen/Karte zusätzlich im Dunkelmodus mit Accessibility-Medium-Schrift visuell geprüft. Das Namensfeld wurde nach Screenshotbefund auf die gemeinsame Gesamthöhe korrigiert und erneut geprüft. Screenshots stammen aus XCTest im Simulator; die Computer-Verbindung zum Device Hub war nicht erreichbar. Modelle, Speicherung und Backend sind unverändert.

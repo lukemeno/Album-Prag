@@ -150,60 +150,22 @@ struct NamePrompt: View {
     }
 }
 
-/// Einzeiliges Eingabefeld im Stil der Karten. Die ganze Fläche ist antippbar.
-/// Unter dem Text wächst ein Vorstich; eine Nadel am Ende folgt jedem Anschlag mit kleiner Verzögerung.
+/// Natives Namensfeld auf Papier; die ganze Fläche fokussiert die Eingabe.
 struct StitchTextField: View {
     let placeholder: String
     @Binding var text: String
     var focused: FocusState<Bool>.Binding
     var onSubmit: () -> Void = {}
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var textWidth: CGFloat = 0
-    /// Bis hierhin ist schon gestickt; die Nadel steckt am Ende.
-    @State private var sewn: CGFloat = 0
-    @State private var follow: Task<Void, Never>?
+
     var body: some View {
         TextField(placeholder, text: $text)
-            .font(.body).submitLabel(.done)
+            .font(.body).foregroundStyle(Stitch.ink).tint(Stitch.red)
+            .submitLabel(.done)
             .focused(focused).onSubmit(onSubmit)
-            .frame(maxWidth: .infinity, minHeight: 24, alignment: .leading)
-            // Unsichtbarer Text in gleicher Schrift misst die Breite; das Feld selbst bleibt unberührt.
-            .background(alignment: .leading) {
-                Text(text).font(.body).fixedSize().hidden()
-                    .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { moveNeedle(to: $0) }
-            }
-            .overlay(alignment: .bottomLeading) {
-                GeometryReader { box in
-                    let x = min(reduceMotion ? textWidth : sewn, box.size.width)
-                    ZStack(alignment: .leading) {
-                        Path { path in path.move(to: CGPoint(x: 0, y: 0)); path.addLine(to: CGPoint(x: x, y: 0)) }
-                            .stroke(Stitch.red, style: StrokeStyle(lineWidth: 1.5, dash: [5, 3]))
-                        if !reduceMotion && x > 0 {
-                            Capsule().fill(Stitch.inkSoft).frame(width: 2, height: 12)
-                                .rotationEffect(.degrees(25)).offset(x: x - 1, y: -4)
-                        }
-                    }
-                    .frame(height: 1.5).offset(y: 6)
-                    .allowsHitTesting(false).accessibilityHidden(true)
-                }
-                .frame(height: 1.5).offset(y: 6)
-            }
+            .frame(maxWidth: .infinity, minHeight: Stitch.Size.button - 2 * Stitch.Space.m, alignment: .leading)
             .stitchCard()
             .contentShape(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
             .onTapGesture { focused.wrappedValue = true }
-    }
-
-    /// Der Text steht sofort; nur die Nadel kommt mit 40–90 ms Verzögerung nach (aus der Textlänge, kein Zufall).
-    private func moveNeedle(to width: CGFloat) {
-        textWidth = width
-        guard !reduceMotion else { return }
-        let delay = 40 + (text.count * 37) % 51
-        follow?.cancel()
-        follow = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(delay))
-            guard !Task.isCancelled else { return }
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) { sewn = width }
-        }
     }
 }
 

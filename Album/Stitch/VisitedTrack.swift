@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Wisch-Spur „Als besucht markieren“: Der Daumen zieht nach rechts, Garn füllt die Spur, an der Schwelle rastet das Label
+/// Nebenaktion „Als besucht markieren“: Der Daumen zieht nach rechts, Farbe füllt die Spur, an der Schwelle rastet das Label
 /// ein („Loslassen“), danach steht dort „Besucht“ (gesperrt). Zu früh losgelassen federt zurück. Tippen füllt die Spur
 /// von selbst (gleichwertige Schaltfläche), VoiceOver aktiviert sie ebenso. Rückgängig geht über „Schon besucht“ im Editor.
 struct VisitedTrack: View {
@@ -10,6 +10,7 @@ struct VisitedTrack: View {
     @State private var dx: CGFloat = 0
     @State private var armed = false
     @State private var tick = 0
+    @ScaledMetric(relativeTo: .headline) private var trackHeight = Stitch.Size.button
 
     private let knob = Stitch.Size.button - Stitch.Space.xs
     private let inset = Stitch.Space.xxs
@@ -23,25 +24,25 @@ struct VisitedTrack: View {
             let shape = RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous)
             ZStack(alignment: .leading) {
                 shape.fill(Stitch.card)
-                // Das Garn füllt die Spur bis unter den Knopf.
-                shape.fill(Stitch.redFill).frame(width: inset + knob + travel * p).opacity(p > 0 ? 1 : 0)
+                shape.fill(visited ? Stitch.cobalt.opacity(0.12) : Stitch.redFill)
+                    .frame(width: inset + knob + travel * p).opacity(p > 0 ? 1 : 0)
                 label(p: p)
                     .frame(maxWidth: .infinity)
                     .padding(.horizontal, knob + Stitch.Space.m)
                 Circle().fill(Stitch.card)
                     .frame(width: knob, height: knob)
-                    .overlay(Image(systemName: visited ? "checkmark" : "chevron.right.2").font(.body.weight(.bold)).foregroundStyle(Stitch.red))
+                    .overlay(Image(systemName: visited ? "checkmark" : "chevron.right.2").font(.body.weight(.bold)).foregroundStyle(visited ? Stitch.cobalt : Stitch.ink))
                     .stitchElevation(.pinned)
                     .offset(x: inset + travel * p)
             }
             .clipShape(shape)
-            .overlay(shape.strokeBorder(Stitch.red, style: StrokeStyle(lineWidth: 1.5, dash: [6, 4])))
+            .overlay(shape.strokeBorder(visited ? Stitch.cobalt.opacity(0.35) : Stitch.rule, lineWidth: 1))
             .contentShape(shape)
             .gesture(reduceMotion || visited ? nil : drag(travel: travel))
             .onTapGesture { fill(travel: travel) }
             .animation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.4, dampingFraction: 0.78), value: visited)
         }
-        .frame(height: Stitch.Size.button)
+        .frame(height: max(Stitch.Size.button, trackHeight))
         .sensoryFeedback(.selection, trigger: tick)
         .onChange(of: visited) { _, now in if !now { dx = 0; armed = false } }
         .accessibilityElement(children: .ignore)
@@ -56,8 +57,8 @@ struct VisitedTrack: View {
             if visited { Image(systemName: "checkmark").accessibilityHidden(true) }
             Text(visited ? "Besucht" : armed ? "Loslassen" : "Als besucht markieren")
         }
-        .font(.headline).lineLimit(1).minimumScaleFactor(0.8)
-        .foregroundStyle(p > 0.5 ? Stitch.onAccent : Stitch.red)
+        .font(.headline).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+        .foregroundStyle(visited ? Stitch.cobalt : p > 0.5 ? Stitch.onAccent : Stitch.ink)
         .contentTransition(.opacity)
         .animation(.easeInOut(duration: 0.18), value: armed)
     }
@@ -90,15 +91,14 @@ struct VisitedTrack: View {
     }
 }
 
-/// Kleiner gestickter Stempel, der auf dem Foto landet, wenn der Ort besucht ist.
+/// Ein ruhiges Siegel landet auf dem Foto, wenn der Ort besucht ist.
 struct VisitedStamp: View {
     var body: some View {
-        StitchedSymbol(name: "checkmark", rows: 12, cell: 3, color: Stitch.red)
+        Image(systemName: "checkmark.seal.fill").font(.title2).foregroundStyle(Stitch.cobalt)
             .frame(width: 56, height: 56)
             .background(Stitch.card, in: Circle())
-            .overlay(Circle().strokeBorder(Stitch.red, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])).padding(Stitch.Space.xxs))
+            .overlay(Circle().strokeBorder(Stitch.rule, lineWidth: 1))
             .stitchElevation(.pinned)
-            .rotationEffect(.degrees(-12))
             .allowsHitTesting(false)
             .accessibilityHidden(true)
     }
