@@ -29,6 +29,7 @@
 		6CE226A25567DD39D8B1B669 /* ReiseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D65E5CE134035E1E79693B07 /* ReiseView.swift */; };
 		71CCB29D97812AF1824E5BCC /* InstrumentSerif.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C4C6D8A6AB41421423966DE5 /* InstrumentSerif.ttf */; };
 		72B947044B080F06C425979C /* idle-notif-cooldown.json in Resources */ = {isa = PBXBuildFile; fileRef = D13143BECDF867690F9A2C0B /* idle-notif-cooldown.json */; };
+		73F323DDE803430E6089C724 /* SyncIsland.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDF5B5A216983D29274750D0 /* SyncIsland.swift */; };
 		82B985A9E054F2306C718B8C /* AlbumMotionUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF18804D14A00730CE4A1FE6 /* AlbumMotionUITests.swift */; };
 		84BEFEC7B0E0A8D41CF4E49D /* mission-state.json in Resources */ = {isa = PBXBuildFile; fileRef = 15A3BCD1A66E051706063D5D /* mission-state.json */; };
 		861C66CA273B9FCF131CC452 /* AlbumSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = F288A095809BE84F03E8D0A2 /* AlbumSettings.swift */; };
@@ -113,6 +114,7 @@
 		D2E1F3DD70F74660FD65787B /* tram-bell.riv */ = {isa = PBXFileReference; path = "tram-bell.riv"; sourceTree = "<group>"; };
 		D48710D3053AD6A54DD19DDC /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		D65E5CE134035E1E79693B07 /* ReiseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReiseView.swift; sourceTree = "<group>"; };
+		DDF5B5A216983D29274750D0 /* SyncIsland.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncIsland.swift; sourceTree = "<group>"; };
 		E4CB9566B5C99924A3FCEF35 /* AlbumUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = AlbumUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E726CEE21D6684745507C0D6 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		EADF5566061B2E2A123B8884 /* PlaceEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceEditor.swift; sourceTree = "<group>"; };
@@ -178,6 +180,7 @@
 				77AD0E6783FBAB9D06D1ED1F /* ReiseExtras.swift */,
 				D65E5CE134035E1E79693B07 /* ReiseView.swift */,
 				305FA30E10D7BF85DFC620CA /* Stitch.swift */,
+				DDF5B5A216983D29274750D0 /* SyncIsland.swift */,
 				1E474EB9D9CCF8084253023D /* TripDataViews.swift */,
 			);
 			path = Stitch;
@@ -419,6 +422,7 @@
 				6CE226A25567DD39D8B1B669 /* ReiseView.swift in Sources */,
 				8A3A0243BFBCE279E3311BE4 /* Stitch.swift in Sources */,
 				A69878017DC315B837CEA926 /* SupabaseSync.swift in Sources */,
+				73F323DDE803430E6089C724 /* SyncIsland.swift in Sources */,
 				2D52439BB4B470948D57A8BF /* TripDataViews.swift in Sources */,
 				601AFE907AFB6E28C12E4A80 /* TripDocumentParser.swift in Sources */,
 				44B7AB72701D03DF20EFB2A1 /* TripDocumentsView.swift in Sources */,

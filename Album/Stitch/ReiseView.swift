@@ -11,6 +11,8 @@ struct ReiseView: View {
     @State private var finished = 0
     @State private var selected: Place?
     @State private var bellRings = 0
+    /// Solange das Herunterziehen abgleicht, gibt die Klingel die Rückmeldung; die Abgleich-Insel wartet.
+    @State private var refreshing = false
 
     private let motif = StitchGrid(pattern: CharlesBridgeMotif.rows)
     private var decided: Int { store.franked.count }
@@ -57,9 +59,15 @@ struct ReiseView: View {
         }
         .scrollIndicators(.hidden)
         .refreshable {
+            refreshing = true
             await store.sync()
             bellRings += 1
+            refreshing = false
         }
+        .toolbar { islandItem }
+        #if DEBUG
+        .task { await demoSync() }
+        #endif
         .background(LinenBackground())
         .navigationBarTitleDisplayMode(.inline)
         .onAppear(perform: stitchToTarget)
@@ -67,6 +75,34 @@ struct ReiseView: View {
         .sensoryFeedback(.impact(weight: .light), trigger: finished)
         .sheet(item: $selected) { PlaceDetail(placeID: $0.id) }
     }
+
+    /// Die Insel sitzt links in der Leiste, wo sonst nichts steht; ohne eigene Glasfläche des Systems.
+    @ToolbarContentBuilder private var islandItem: some ToolbarContent {
+        if #available(iOS 26.0, *) {
+            ToolbarItem(placement: .topBarLeading) { SyncIsland(suppressed: refreshing) }
+                .sharedBackgroundVisibility(.hidden)
+        } else {
+            ToolbarItem(placement: .topBarLeading) { SyncIsland(suppressed: refreshing) }
+        }
+    }
+
+    #if DEBUG
+    /// `ALBUM_DEMO_SYNC=1|none`: zeigt die Abgleich-Insel mit simulierten Neuigkeiten, ohne zu schreiben oder abzugleichen.
+    private func demoSync() async {
+        guard let mode = ProcessInfo.processInfo.environment["ALBUM_DEMO_SYNC"] else { return }
+        try? await Task.sleep(for: .seconds(2))
+        store.syncing = true
+        try? await Task.sleep(for: .seconds(2))
+        var after = store.places
+        if mode != "none" {
+            after.append(Place(title: "Café Savoy", author: "Mia"))
+            after.append(Place(title: "Strahov", author: "Mia"))
+            if let index = after.firstIndex(where: { $0.franked }) { after[index].approvals.append("Mia") }
+            store.syncChange = SyncChange.between(before: store.places, after: after, me: store.me)
+        }
+        store.syncing = false
+    }
+    #endif
 
     private var progressCard: some View {
         Button(action: openIdeas) {

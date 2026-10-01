@@ -7,6 +7,8 @@ import CoreLocation
     var error: String?
     var syncStatus = "Auf diesem iPhone gespeichert"
     var syncing = false
+    /// Was der letzte Abgleich von anderen gebracht hat; die Abgleich-Insel zeigt es kurz.
+    var syncChange: SyncChange?
     let root: URL
     var syncService: AlbumSyncService?
     private var loadFailed = false
@@ -251,9 +253,12 @@ import CoreLocation
         guard isShared, !syncing, !loadFailed else { return }
         syncing = true; syncStatus = "Album wird abgeglichen …"
         defer { syncing = false }
+        let before = data.places
         do {
             let service = try service()
             try await service.sync(store: self)
+            // Beim ersten Abgleich ist alles neu; das ist keine Neuigkeit der anderen Person.
+            if !before.isEmpty { syncChange = SyncChange.between(before: before, after: data.places, me: me) ?? syncChange }
             service.startRealtime { [weak self] in await self?.sync() }
             syncStatus = "Synchronisiert"
         } catch { syncStatus = "Lokal gespeichert · Synchronisierung nicht erreichbar"; self.error = error.localizedDescription }

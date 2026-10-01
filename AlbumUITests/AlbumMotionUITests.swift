@@ -49,4 +49,27 @@ final class AlbumMotionUITests: XCTestCase {
         app.buttons["Album ansehen"].tap()
         XCTAssertTrue(app.buttons["Idee hinzufügen"].waitForExistence(timeout: 5))
     }
+
+    /// F · Abgleich-Insel: pulsiert während des (simulierten) Abgleichs, wächst mit Neuigkeiten auf, klappt per Tipp zu.
+    func testSyncIsland() throws {
+        let (app, shot) = try launch(["ALBUM_DEMO_SYNC": "1"])
+        XCTAssertTrue(app.buttons["Mehr"].waitForExistence(timeout: 15))
+        // Der Abgleich beginnt 2 s nach dem Start, die Kapsel pulsiert ab 0,5 s danach und wächst nach 2 s.
+        for index in 0..<12 {
+            let delay = 0.4 * Double(index)
+            DispatchQueue.global().asyncAfter(deadline: .now() + delay) { shot("F-1-pulsiert-\(index)") }
+        }
+        let island = app.descendants(matching: .any).matching(identifier: "Abgleich-Insel").firstMatch
+        XCTAssertTrue(island.waitForExistence(timeout: 12))
+        shot("F-2-waechst-0")
+        usleep(250_000); shot("F-2-waechst-1")
+        usleep(900_000); shot("F-3-offen")
+        XCTAssertTrue(island.label.contains("Mia hat 2 Ideen eingeworfen"))
+        XCTAssertTrue(island.label.contains("1× Ja"))
+        island.tap()
+        usleep(300_000); shot("F-4-zuklappen")
+        sleep(1); shot("F-5-zu")
+        // Zugeklappt reagiert die Kapsel nicht mehr auf Tipps.
+        XCTAssertFalse(island.isHittable)
+    }
 }

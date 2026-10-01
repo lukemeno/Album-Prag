@@ -88,3 +88,11 @@
 - Mechanik herausgezogen: `SlotScene` in `Stitch/LetterSlot.swift` (Schlitz, Zug-Geste, Schwelle 40 %, Naht, Zettel, Knopf-Morph, `commit`-Hook). `LetterSlotDrop` (Briefkasten) ist jetzt ein dünner Aufsatz darauf; Verhalten und Zeiten unverändert, `testLetterSlotThrow` läuft wie vorher.
 - Bewegung reduzieren: Karte bleibt stehen (keine Geste), Knopf löst aus, Karte und Zettel werden überblendet.
 - Debug: `ALBUM_DEMO_INVITE=ok|fail|failthenok` (optional `ALBUM_DEMO_SENDER`) zeigt den Moment mit simuliertem Beitritt, ruft nie Supabase auf. UI-Test `testInvitationMoment` (neue Datei `AlbumUITests/AlbumMotionUITests.swift`, braucht `TEST_RUNNER_ALBUM_MOTION_STORE=slot-…`).
+
+## 01.10.2026 – Abgleich-Insel (impeccable animate)
+- `Stitch/SyncIsland.swift`: kleine Kapsel links in der Leiste der Reise-Seite (dort steht sonst nichts). Pulsiert dezent, wenn ein Abgleich länger als 0,5 s dauert (kurze bleiben unsichtbar). Bringt der Abgleich etwas von der anderen Person, wächst sie auf („Mia hat 2 Ideen eingeworfen · 1× Ja“, Text blendet nach der Hülle ein) und klappt nach 5 s oder per Tipp zu; jederzeit unterbrechbar. Ohne Neuigkeit bleibt sie klein und verschwindet.
+- Ermittlung in `AlbumStore.sync`: Stand vorher/nachher vergleichen (`SyncChange.between`): neue Orte anderer Autoren, neue Ja-Stimmen anderer auf schon bekannten Orten. Eigene Ideen und Stimmen zählen nicht, ebenso wenig Stimmen auf neuen Ideen und der erste Abgleich nach dem Beitritt. Keine Schema- oder Supabase-Änderung.
+- Beim Herunterziehen zum Abgleichen wartet die Insel (`refreshing`), damit sie nicht mit Spinner und Tram-Klingel kollidiert; Neuigkeiten erscheinen danach.
+- Bewegung reduzieren: kein Pulsieren, Hülle springt, Text blendet ein.
+- Debug: `ALBUM_DEMO_SYNC=1|none` simuliert Abgleich mit/ohne Neuigkeiten, schreibt nichts. UI-Test `testSyncIsland` (`AlbumMotionUITests.swift`).
+- Bekannt: Bei sehr schmalen iPhones oder großer Schrift schrumpft der Text bis 80 %, danach wird er gekürzt.

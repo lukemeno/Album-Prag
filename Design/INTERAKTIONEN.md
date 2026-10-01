@@ -85,3 +85,13 @@ Wischen bleibt „entscheiden“; „Später“ und „Dafür“ bleiben als Kn�
 | Bewegung reduzieren | Karte bleibt stehen, Knopf löst aus, Überblenden statt Bewegen |
 
 Die Schlitz-Mechanik liegt als `SlotScene` in `Stitch/LetterSlot.swift` und wird auch vom Briefkasten benutzt.
+
+## Stand 01.10.2026 – Abgleich-Insel (`Stitch/SyncIsland.swift`)
+
+| Baustein | Verhalten |
+|---|---|
+| Pulsieren | Kleine Kapsel links in der Leiste der Reise-Seite, ab 0,5 s Abgleich, Garn-Kreuz und „Abgleich“ atmen |
+| Aufwachsen | Bringt der Abgleich Neues der anderen Person, wächst die Hülle mit durchgehendem Kapselradius (Feder), nach 0,15 s blendet der Text ein |
+| Zuklappen | Nach 5 s oder per Tipp: erst Text weg, dann schrumpft die Hülle; jederzeit unterbrechbar, auch von einer neuen Meldung |
+| Tipp | Gleichwertig zur Geste gibt es keine: die Insel hat keine Geste, nur Tipp zum Schließen und eine VoiceOver-Ansage |
+| Bewegung reduzieren | Kein Pulsieren, Hülle springt, Text blendet |
