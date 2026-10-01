@@ -2,6 +2,59 @@ import XCTest
 import UIKit
 
 final class AlbumUITests: XCTestCase {
+    func testSelectTravelDay() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard let store = environment["ALBUM_PLAN_STORE"], store.hasPrefix("slot-") else {
+            throw XCTSkip("Kein Wegwerf-Tagesplan angefordert")
+        }
+        let app = XCUIApplication()
+        app.launchEnvironment["ALBUM_TEST_STORE"] = store
+        app.launchEnvironment["ALBUM_MY_NAME"] = "Luke"
+        app.launchEnvironment["ALBUM_TODAY"] = "2026-10-06"
+        app.launch()
+        func shot(_ name: String) {
+            guard let dir = environment["ALBUM_SHOT_DIR"] else { return }
+            let prefix = environment["ALBUM_SHOT_SUFFIX"] ?? ""
+            try? XCUIScreen.main.screenshot().pngRepresentation.write(to: URL(fileURLWithPath: dir).appendingPathComponent(prefix + name + ".png"))
+        }
+        let firstDay = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Sonntag, 4.'")).firstMatch
+        XCTAssertTrue(firstDay.waitForExistence(timeout: 15))
+        shot("13-tagesauswahl")
+        firstDay.tap()
+        XCTAssertTrue(app.staticTexts["Für diesen Tag ist noch nichts geplant. In der Karte kannst du Orten einen Tag geben."].waitForExistence(timeout: 5))
+        let plannedRoute = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Route zu'")).firstMatch
+        XCTAssertFalse(plannedRoute.exists)
+        let today = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Dienstag, 6.'")).firstMatch
+        today.tap()
+        XCTAssertTrue(plannedRoute.waitForExistence(timeout: 5))
+        app.tabBars.buttons["Ideen"].tap()
+        XCTAssertTrue(app.buttons["Offen"].waitForExistence(timeout: 5))
+        shot("14-ideen-layout")
+        app.tabBars.buttons["Karte"].tap()
+        XCTAssertTrue(app.buttons["Automatisch planen"].waitForExistence(timeout: 5))
+        shot("15-karte-layout")
+    }
+
+    func testOpenIdeasRemainUndecidedAfterRelaunch() {
+        let app = XCUIApplication()
+        app.launchEnvironment["ALBUM_TEST_STORE"] = "ui-" + UUID().uuidString
+        app.launchEnvironment["ALBUM_MY_NAME"] = "Luke"
+        app.launch()
+        app.buttons["Ideen"].tap()
+        for _ in 0..<3 {
+            let open = app.buttons["Offen"]
+            XCTAssertTrue(open.waitForExistence(timeout: 5))
+            open.tap()
+        }
+        XCTAssertTrue(app.staticTexts["Noch offen"].waitForExistence(timeout: 5))
+        app.terminate()
+        app.launch()
+        app.buttons["Ideen"].tap()
+        XCTAssertTrue(app.otherElements["Inbox-Ticket"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Offen"].exists)
+        XCTAssertFalse(app.staticTexts["Alles entschieden"].exists)
+    }
+
     func testCreateIdeaAndPersistence() {
         UIPasteboard.general.items = [] // keine Reste früherer Läufe
         let app = XCUIApplication()

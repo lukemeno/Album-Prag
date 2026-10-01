@@ -45,13 +45,13 @@ struct AlbumSettings: View {
                                     do { _ = try await store.createSharedTrip() }
                                     catch { localError = error.localizedDescription }
                                 }
-                            }.buttonStyle(StitchButton(primary: true)).disabled(preparing || store.syncing)
+                            }.buttonStyle(StitchButton(primary: true, loading: preparing)).disabled(preparing || store.syncing)
                         }
                         if store.isShared {
                             Button(store.syncing ? "Wird abgeglichen …" : "Jetzt abgleichen") {
                                 Task { await store.sync() }
                             }
-                            .buttonStyle(StitchButton()).disabled(store.syncing || preparing)
+                            .buttonStyle(StitchButton(loading: store.syncing)).disabled(store.syncing || preparing)
                         }
                         Text(store.syncStatus).font(.footnote).foregroundStyle(Stitch.inkSoft)
                     }
@@ -60,7 +60,7 @@ struct AlbumSettings: View {
             }
             .background(LinenBackground())
             .navigationTitle("Geteiltes Album").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } } }
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Fertig") { dismiss() } } }
             .alert("Teilen hat nicht geklappt", isPresented: Binding(get: { localError != nil }, set: { if !$0 { localError = nil } })) { Button("OK") { localError = nil } } message: { Text(localError ?? "") }
         }
     }

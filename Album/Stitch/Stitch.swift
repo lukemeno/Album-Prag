@@ -1,23 +1,30 @@
 import SwiftUI
 import UIKit
 
-/// Welt „Kreuzstich“: Leinen, Garn und Stiche. Farbe steckt nur im Garn.
+/// Welt „Papier & Marke“: flaches Papier, dunkle Tinte, Burgunder als einzige Aktionsfarbe.
+/// Die Namen bleiben wie gewachsen (`Stitch`, `LinenBackground`, `stitchCard`, `StitchButton`),
+/// nur ihr Aussehen ist neu. Die Rituale (Briefkasten, Einladung) sticken weiter und nutzen
+/// dafür `TackStitch`, `StitchedText` und `StitchPatternView`; die Hauptbildschirme nicht mehr.
 enum Stitch {
-    // Hell: ungefärbtes Leinen. Dunkel: indigogefärbtes Leinen, die Garne etwas heller.
-    static let linen = dynamic(light: (239, 230, 210), dark: (29, 33, 48))
-    static let card = dynamic(light: (251, 248, 240), dark: (41, 46, 64))
-    /// Rot als Schrift und Garn. Auf Leinen und Karte mindestens 4,5:1 in beiden Modi.
-    static let red = dynamic(light: (184, 42, 36), dark: (245, 122, 108))
-    /// Rot als Fläche (Knöpfe, ausgewählte Chips) mit heller Schrift darauf, mindestens 5,8:1.
-    static let redFill = dynamic(light: (184, 42, 36), dark: (178, 48, 40))
-    static let cobalt = dynamic(light: (31, 63, 140), dark: (128, 162, 238))
-    static let mustard = dynamic(light: (214, 160, 34), dark: (238, 192, 84))
-    static let ink = dynamic(light: (28, 26, 23), dark: (242, 236, 222))
-    static let inkSoft = dynamic(light: (88, 80, 68), dark: (186, 178, 162))
-    /// Dunkles Garn für Öffnungen im Stickbild, unabhängig vom Modus.
-    static let opening = Color(red: 28/255, green: 26/255, blue: 23/255)
+    /// Seitengrund: ruhiges, flaches Papier. Nachts warmes Dunkelbraun, kein Blaustich.
+    static let linen = dynamic(light: (245, 242, 236), dark: (26, 23, 21))
+    /// Karten, Felder, Knöpfe ohne Füllung: einen Hauch heller als der Grund, dazu eine Haarlinie.
+    static let card = dynamic(light: (254, 253, 250), dark: (38, 34, 32))
+    /// Haarlinie: Kontur von Karten, Feldern, Chips und Trennern.
+    static let rule = dynamic(light: (225, 219, 208), dark: (60, 54, 50))
+    /// Burgunder als Schrift (Links, Textknöpfe, Hinweise). Auf Papier und Karte mindestens 6:1 in beiden Modi.
+    static let red = dynamic(light: (159, 52, 56), dark: (225, 137, 139))
+    /// Burgunder als Fläche (Hauptknopf, gewählter Filter) mit heller Schrift darauf, mindestens 6,5:1.
+    static let redFill = dynamic(light: (159, 52, 56), dark: (142, 48, 52))
+    /// Zweiter, kühler Akzent: Besucht-Siegel, zweiter Tagesfaden auf der Karte. Nie für Hauptaktionen.
+    static let cobalt = dynamic(light: (59, 85, 116), dark: (157, 182, 212))
+    static let ink = dynamic(light: (36, 33, 30), dark: (243, 239, 232))
+    static let inkSoft = dynamic(light: (107, 100, 89), dark: (176, 167, 156))
+    /// Hinter dem Vollbildfoto, in beiden Modi dunkel.
+    static let scrim = Color(red: 20/255, green: 18/255, blue: 16/255)
+    static let opening = scrim
     /// Schrift auf `redFill`: in beiden Modi hell.
-    static let onAccent = Color(red: 251/255, green: 248/255, blue: 240/255)
+    static let onAccent = Color(red: 251/255, green: 247/255, blue: 241/255)
 
     static func dynamic(light: (Int, Int, Int), dark: (Int, Int, Int)) -> Color {
         Color(UIColor { traits in
@@ -26,7 +33,8 @@ enum Stitch {
         })
     }
 
-    /// Abstände im 8-Punkt-Raster. `page` ist der Seitenrand überall.
+    /// Abstände: 4, 8, 12, 16, 24, 32, 48. `page` ist der Seitenrand und bewusst kein Rasterwert:
+    /// 20 gibt Text und Karten Luft zum Bildschirmrand, ohne die Rhythmen im Inneren zu verschieben.
     enum Space {
         static let xxs: CGFloat = 4
         static let xs: CGFloat = 8
@@ -34,74 +42,48 @@ enum Stitch {
         static let m: CGFloat = 16
         static let l: CGFloat = 24
         static let xl: CGFloat = 32
-        static let page: CGFloat = 16
+        static let xxl: CGFloat = 48
+        static let page: CGFloat = 20
     }
 
     /// Eckenradien, immer mit kontinuierlicher Kurve.
     enum Radius {
-        static let thumb: CGFloat = 8
-        static let card: CGFloat = 16
-        static let floating: CGFloat = 24
+        static let thumb: CGFloat = 12
+        static let card: CGFloat = 20
+        /// Blätter und große schwebende Flächen.
+        static let sheet: CGFloat = 28
+        static let floating = sheet
     }
 
-    /// Drei Höhenstufen: flach (keine), angeheftet (Papier auf Stoff), schwebend (über der Karte).
+    /// Drei Höhenstufen, bewusst flach: Ruhende Flächen trennt die Haarlinie, nicht der Schatten.
     enum Elevation {
         case flat, pinned, floating
-        var opacity: Double { switch self { case .flat: 0; case .pinned: 0.14; case .floating: 0.18 } }
-        var radius: CGFloat { switch self { case .flat: 0; case .pinned: 5; case .floating: 14 } }
-        var y: CGFloat { switch self { case .flat: 0; case .pinned: 3; case .floating: 6 } }
+        var opacity: Double { switch self { case .flat: 0; case .pinned: 0.07; case .floating: 0.12 } }
+        var radius: CGFloat { switch self { case .flat: 0; case .pinned: 4; case .floating: 14 } }
+        var y: CGFloat { switch self { case .flat: 0; case .pinned: 1; case .floating: 5 } }
     }
 
-    /// Feste Größen: Tippfläche nach Apple (44), Hauptknopf, Vorschaubild in Listen.
+    /// Feste Größen: Tippfläche nach Apple (44), Hauptknopf (52), Vorschaubild in kompakten Zeilen (56).
     enum Size {
         static let touch: CGFloat = 44
-        static let button: CGFloat = 56
-        static let thumb: CGFloat = 44
+        static let button: CGFloat = 52
+        static let thumb: CGFloat = 56
     }
 
-    /// Einheitliche Größe für Heftstiche.
+    /// Bewegung: kurze Dauern, zwei Federn, nichts darüber. `maybe` nimmt „Bewegung reduzieren“ mit.
+    enum Motion {
+        /// Farbe, Deckkraft, Auswahl.
+        static let quick = 0.18
+        /// Inhalt, der sich umbaut.
+        static let settle = 0.28
+        static let press = Animation.spring(response: 0.22, dampingFraction: 0.78)
+        static let snap = Animation.spring(response: 0.30, dampingFraction: 0.80)
+        static let sheet = Animation.spring(response: 0.38, dampingFraction: 0.86)
+        static func maybe(_ reduceMotion: Bool, _ animation: Animation) -> Animation? { reduceMotion ? nil : animation }
+    }
+
+    /// Einheitliche Größe für Heftstiche (nur noch in den Ritualen).
     static let tackSize: CGFloat = 12
-
-    static func linenTile(dark: Bool) -> UIImage { dark ? darkTile : lightTile }
-    private static let lightTile = makeTile(dark: false)
-    private static let darkTile = makeTile(dark: true)
-
-    /// Aida-Gewebe als Kachel: Garnbündel mit kleinen Löchern an den Kreuzungspunkten.
-    private static func makeTile(dark: Bool) -> UIImage {
-        let cell: CGFloat = 6, count = 16
-        let size = CGSize(width: cell * CGFloat(count), height: cell * CGFloat(count))
-        var random = SeededRandom(seed: 7)
-        let base = dark ? UIColor(red: 29/255, green: 33/255, blue: 48/255, alpha: 1) : UIColor(red: 239/255, green: 230/255, blue: 210/255, alpha: 1)
-        let lift = dark ? 0.035 : 0.30
-        return UIGraphicsImageRenderer(size: size).image { context in
-            let cg = context.cgContext
-            base.setFill(); cg.fill(CGRect(origin: .zero, size: size))
-            for row in 0..<count {
-                for column in 0..<count {
-                    let rect = CGRect(x: CGFloat(column) * cell, y: CGFloat(row) * cell, width: cell, height: cell).insetBy(dx: 0.55, dy: 0.55)
-                    let jitter = CGFloat(random.next(in: -0.035...0.045))
-                    UIColor(white: 1, alpha: lift + jitter * (dark ? 0.4 : 1)).setFill()
-                    UIBezierPath(roundedRect: rect, cornerRadius: 1.4).fill()
-                    UIColor(white: 1, alpha: dark ? 0.025 : 0.22).setFill()
-                    cg.fill(CGRect(x: rect.minX + 0.6, y: rect.minY + 0.5, width: rect.width - 1.8, height: 0.8))
-                }
-            }
-            (dark ? UIColor(white: 0, alpha: 0.22) : UIColor(red: 150/255, green: 132/255, blue: 104/255, alpha: 0.42)).setFill()
-            for row in 0...count {
-                for column in 0...count {
-                    cg.fillEllipse(in: CGRect(x: CGFloat(column) * cell - 0.75, y: CGFloat(row) * cell - 0.75, width: 1.5, height: 1.5))
-                }
-            }
-            for _ in 0..<40 {
-                let start = CGPoint(x: random.next(in: 0...Double(size.width)), y: random.next(in: 0...Double(size.height)))
-                let path = UIBezierPath()
-                path.move(to: start)
-                path.addLine(to: CGPoint(x: start.x + random.next(in: -9...9), y: start.y + random.next(in: -2...2)))
-                (dark ? UIColor(white: 1, alpha: 0.05) : UIColor(red: 120/255, green: 100/255, blue: 70/255, alpha: 0.10)).setStroke()
-                path.lineWidth = 0.4; path.stroke()
-            }
-        }
-    }
 
     /// Ein Kreuzstich: erst „/“, dann „\“. `progress` 0…1 zeichnet beide Hälften nacheinander.
     static func drawCross(_ context: inout GraphicsContext, in rect: CGRect, color: Color, progress: CGFloat = 1) {
@@ -137,23 +119,32 @@ enum Stitch {
     }
 }
 
+/// Grund jeder Seite: flaches Papier. Der Name bleibt, die Gewebe-Kachel ist fort.
 struct LinenBackground: View {
-    @Environment(\.colorScheme) private var scheme
     var body: some View {
-        Image(uiImage: Stitch.linenTile(dark: scheme == .dark)).resizable(resizingMode: .tile).ignoresSafeArea()
+        Stitch.linen.ignoresSafeArea()
     }
 }
 
 extension View {
-    /// Einheitliche Karte: Innenabstand 16, Radius 16, Kartenfläche, wahlweise mit Schatten.
+    /// Einheitliche Karte: Innenabstand 16, Radius 20, Papierfläche, Haarlinie, wahlweise mit Schatten.
     func stitchCard(_ elevation: Stitch.Elevation = .flat, padding: CGFloat = Stitch.Space.m) -> some View {
-        self.padding(padding)
-            .background(Stitch.card, in: RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
+        let shape = RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous)
+        return self.padding(padding)
+            .background(Stitch.card, in: shape)
+            .overlay(shape.strokeBorder(Stitch.rule, lineWidth: 1))
             .stitchElevation(elevation)
     }
 
     func stitchElevation(_ elevation: Stitch.Elevation) -> some View {
         shadow(color: .black.opacity(elevation.opacity), radius: elevation.radius, y: elevation.y)
+    }
+
+    /// Textknopf ohne Fläche: Burgunder, mindestens 44 hoch (Route, Tag ändern, Bearbeiten).
+    func albumTextAction() -> some View {
+        font(.subheadline.weight(.semibold))
+            .foregroundStyle(Stitch.red)
+            .frame(minHeight: Stitch.Size.touch)
     }
 }
 
@@ -161,7 +152,7 @@ extension View {
 struct PerforationLine: View {
     var body: some View {
         Rectangle().fill(.clear).frame(height: 1)
-            .overlay(HLine().stroke(Stitch.ink.opacity(0.25), style: StrokeStyle(lineWidth: 1, dash: [4, 4])))
+            .overlay(HLine().stroke(Stitch.rule, style: StrokeStyle(lineWidth: 1, dash: [4, 4])))
             .accessibilityHidden(true)
     }
     private struct HLine: Shape {
@@ -169,32 +160,172 @@ struct PerforationLine: View {
     }
 }
 
-/// Ein Stickmuster: Kästchen mit Garnfarbe, in Stickreihenfolge.
+/// Umriss einer Briefmarke: runde Ecken, dazu sparsame Zähne an allen vier Kanten.
+/// Mit `FillStyle(eoFill: true)` geclippt schneiden die Zähne kleine Kerben in die Fläche.
+struct StampBorder: Shape {
+    var radius: CGFloat = Stitch.Radius.thumb
+    var tooth: CGFloat = 3
+    var spacing: CGFloat = 18
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path(roundedRect: rect, cornerRadius: radius, style: .continuous)
+        func notches(along length: CGFloat, at point: (CGFloat) -> CGPoint) {
+            let usable = length - radius * 2
+            guard usable > spacing else { return }
+            let count = max(1, Int(usable / spacing))
+            let step = usable / CGFloat(count)
+            for index in 0...count {
+                let center = point(radius + step * CGFloat(index))
+                path.addEllipse(in: CGRect(x: center.x - tooth, y: center.y - tooth, width: tooth * 2, height: tooth * 2))
+            }
+        }
+        notches(along: rect.width) { CGPoint(x: rect.minX + $0, y: rect.minY) }
+        notches(along: rect.width) { CGPoint(x: rect.minX + $0, y: rect.maxY) }
+        notches(along: rect.height) { CGPoint(x: rect.minX, y: rect.minY + $0) }
+        notches(along: rect.height) { CGPoint(x: rect.maxX, y: rect.minY + $0) }
+        return path
+    }
+}
+
+/// Ein Foto wie eine Marke: die Zähne kerben die Kante aus, dahinter scheint die Karte durch.
+/// Ersetzt das frühere Polaroid mit Heftstich und Schräglage.
+struct StampPhoto: View {
+    var asset: PlaceImageAsset?
+    var root: URL? = nil
+    var thumbnailWidth: Int? = nil
+    var tooth: CGFloat = 3
+    var spacing: CGFloat = 18
+    var body: some View {
+        AlbumPhoto(asset: asset, root: root, thumbnailWidth: thumbnailWidth)
+            .clipShape(StampBorder(tooth: tooth, spacing: spacing), style: FillStyle(eoFill: true))
+    }
+}
+
+/// Abschnittsüberschrift, überall gleich: optional ein Burgunder-Hinweis davor („Heute“),
+/// rechts eine leise Zweitangabe. 12 Abstand zum Inhalt setzt der Aufrufer.
+struct AlbumSectionHeader: View {
+    let title: String
+    var highlight: String? = nil
+    var detail: String = ""
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: Stitch.Space.xs) {
+            if let highlight {
+                Text(highlight).font(.headline).foregroundStyle(Stitch.red)
+            }
+            Text(title).font(.headline).foregroundStyle(Stitch.ink)
+            Spacer(minLength: 0)
+            if !detail.isEmpty {
+                Text(detail).font(.footnote).foregroundStyle(Stitch.inkSoft)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
+    }
+}
+
+/// Ein Ort als kompakte Zeile: Vorschaubild 56, Name, Zweitzeile, optional eine Notiz.
+/// Die ganze Zeile ist die Hauptaktion; Nebenaktionen setzt der Aufrufer daneben.
+struct AlbumPlaceRow: View {
+    let title: String
+    var meta: String = ""
+    var note: String = ""
+    var asset: PlaceImageAsset? = nil
+    var root: URL? = nil
+    /// Nummer im Tagesplan.
+    var index: Int? = nil
+    var visited = false
+    /// Zweitzeile in Burgunder, wenn sie einen Hinweis trägt („hat dann zu“).
+    var metaHighlighted = false
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: Stitch.Space.s) {
+                AlbumPhoto(asset: asset, root: root, thumbnailWidth: 120)
+                    .frame(width: Stitch.Size.thumb, height: Stitch.Size.thumb)
+                    .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous).strokeBorder(Stitch.rule, lineWidth: 1))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
+                    HStack(alignment: .firstTextBaseline, spacing: Stitch.Space.xs) {
+                        if let index {
+                            Text("\(index)").font(.footnote.weight(.bold).monospacedDigit())
+                                .foregroundStyle(Stitch.inkSoft).accessibilityHidden(true)
+                        }
+                        Text(title).font(.headline).foregroundStyle(Stitch.ink)
+                            .multilineTextAlignment(.leading).lineLimit(2)
+                        if visited {
+                            Image(systemName: "checkmark.seal.fill").font(.footnote)
+                                .foregroundStyle(Stitch.cobalt).accessibilityLabel("Besucht")
+                        }
+                    }
+                    if !meta.isEmpty {
+                        Text(meta).font(.subheadline).foregroundStyle(metaHighlighted ? Stitch.red : Stitch.inkSoft)
+                    }
+                    if !note.isEmpty {
+                        Text(note).font(.footnote).foregroundStyle(Stitch.inkSoft).lineLimit(1)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// Hauptknopf (gefüllt, Burgunder) und Nebenknopf (Papier mit Haarlinie). Gleiche Höhe, gleiche Form.
+/// `loading` zeigt einen Spinner vor der Beschriftung; gesperrt wird der Knopf von außen (`.disabled`).
+struct StitchButton: ButtonStyle {
+    var primary = false
+    var loading = false
+    @Environment(\.isEnabled) private var enabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        let shape = RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous)
+        return HStack(spacing: Stitch.Space.xs) {
+            if loading {
+                ProgressView().controlSize(.small).tint(primary ? Stitch.onAccent : Stitch.red)
+            }
+            configuration.label
+        }
+        .font(.headline)
+        .frame(maxWidth: .infinity, minHeight: Stitch.Size.button)
+        .foregroundStyle(primary ? Stitch.onAccent : Stitch.ink)
+        .background(primary ? Stitch.redFill : Stitch.card, in: shape)
+        .overlay(shape.fill(Stitch.ink.opacity(configuration.isPressed ? 0.06 : 0)))
+        .overlay(shape.strokeBorder(primary ? Color.clear : Stitch.rule, lineWidth: 1))
+        .opacity(enabled ? 1 : 0.4)
+        .contentShape(shape)
+        .scaleEffect(configuration.isPressed && !reduceMotion ? 0.98 : 1)
+        .animation(Stitch.Motion.maybe(reduceMotion, Stitch.Motion.press), value: configuration.isPressed)
+    }
+}
+
+/// Runder Knopf nur mit Symbol, 44 × 44: Papier, Haarlinie, Tinte.
+struct HeaderIconButton: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.body.weight(.semibold)).foregroundStyle(Stitch.ink)
+            .frame(width: Stitch.Size.touch, height: Stitch.Size.touch)
+            .background(Stitch.card, in: Circle())
+            .overlay(Circle().strokeBorder(Stitch.rule, lineWidth: 1))
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.96 : 1)
+            .animation(Stitch.Motion.maybe(reduceMotion, Stitch.Motion.press), value: configuration.isPressed)
+    }
+}
+
+/// Ein Stickmuster: Kästchen mit Garnfarbe, in Stickreihenfolge. Nur noch für die Rituale.
 struct StitchGrid {
     struct Cell { let x: Int; let y: Int; let color: Color }
     let columns: Int
     let rows: Int
     let cells: [Cell]
-
-    /// Muster aus Textzeilen. Zeichen: `r` rot, `b` kobalt, `y` senf, `k` tinte, alles andere leer.
-    init(pattern: [String]) {
-        let width = pattern.map(\.count).max() ?? 0
-        var cells: [Cell] = []
-        for (y, line) in pattern.enumerated() {
-            for (x, char) in line.enumerated() {
-                let color: Color? = switch char {
-                case "r": Stitch.red
-                case "b": Stitch.cobalt
-                case "y": Stitch.mustard
-                case "k": Stitch.opening // Öffnungen (Fenster, Tor) bleiben in beiden Modi dunkel
-                default: nil
-                }
-                if let color { cells.append(Cell(x: x, y: y, color: color)) }
-            }
-        }
-        columns = width; rows = pattern.count
-        self.cells = cells.sorted { ($0.x, $0.y) < ($1.x, $1.y) }
-    }
 
     /// Muster aus einer Schrift oder einem SF Symbol, abgetastet auf ein Raster.
     init(rendering image: UIImage, rows: Int, color: Color) {
@@ -241,12 +372,6 @@ struct StitchGrid {
         let image = UIGraphicsImageRenderer(size: size).image { _ in attributed.draw(at: CGPoint(x: 4, y: 4)) }
         return StitchGrid(rendering: image, rows: rows, color: color).trimmed()
     }
-
-    static func symbol(_ name: String, rows: Int, color: Color) -> StitchGrid {
-        let config = UIImage.SymbolConfiguration(pointSize: 120, weight: .bold)
-        let image = UIImage(systemName: name, withConfiguration: config)?.withTintColor(.black, renderingMode: .alwaysOriginal) ?? UIImage()
-        return StitchGrid(rendering: image, rows: rows, color: color)
-    }
 }
 
 /// Zeichnet ein Muster. `stitched` ist animierbar: Stiche entstehen Kästchen für Kästchen.
@@ -286,7 +411,7 @@ struct StitchPatternView: View, Animatable {
     }
 }
 
-/// Gestickte Überschrift.
+/// Gestickte Überschrift. Nur noch in den Ritualen (Einladung); die Hauptbildschirme setzen Serifenschrift.
 struct StitchedText: View {
     let text: String
     var rows = 13
@@ -298,18 +423,24 @@ struct StitchedText: View {
     }
 }
 
-/// Kleines gesticktes Symbol.
+/// Kleines Symbol in der Größe, die früher ein Stickbild hatte (`rows` × `cell`), jetzt als SF Symbol.
+/// Der Name bleibt, damit Aufrufer außerhalb des Redesigns unverändert bleiben und doch nativ aussehen.
 struct StitchedSymbol: View {
     let name: String
     var rows = 11
     var cell: CGFloat = 2.4
     var color = Stitch.red
+    private var side: CGFloat { CGFloat(rows) * cell }
     var body: some View {
-        StitchPatternView(StitchGrid.symbol(name, rows: rows, color: color), cell: cell, showPrinted: false)
+        Image(systemName: name)
+            .font(.system(size: side * 0.82, weight: .regular))
+            .foregroundStyle(color)
+            .frame(height: side)
+            .accessibilityHidden(true)
     }
 }
 
-/// Zwei kleine Kreuze als „Heftstich“, der Fotos und Zettel am Stoff hält.
+/// Zwei kleine Kreuze als „Heftstich“. Nur noch in den Ritualen (Briefkasten, Einladung, Bordkarte).
 struct TackStitch: View {
     var color = Stitch.red
     var size: CGFloat = Stitch.tackSize
@@ -319,21 +450,6 @@ struct TackStitch: View {
         }
         .frame(width: size, height: size)
         .accessibilityHidden(true)
-    }
-}
-
-struct StitchButton: ButtonStyle {
-    var primary = false
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.headline)
-            .frame(maxWidth: .infinity, minHeight: Stitch.Size.button)
-            .foregroundStyle(primary ? Stitch.onAccent : Stitch.red)
-            .background(primary ? Stitch.redFill : Stitch.card, in: RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous).strokeBorder(Stitch.red, lineWidth: primary ? 0 : 1.5))
-            .stitchElevation(primary ? .pinned : .flat)
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
     }
 }
 
@@ -347,7 +463,7 @@ struct SeededRandom {
 }
 
 extension String {
-    /// Stabiler Wert −1…1 aus einer ID, z. B. für die Schräglage eines Fotos.
+    /// Stabiler Wert −1…1 aus einer ID, z. B. für die Reihenfolge kleiner Verzögerungen.
     var stableTilt: Double {
         let sum = unicodeScalars.reduce(0) { ($0 &* 31 &+ Int($1.value)) % 1000 }
         return Double(sum) / 500 - 1

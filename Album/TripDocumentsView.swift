@@ -94,8 +94,8 @@ struct TripDocumentsView: View {
             .background(LinenBackground())
             .navigationTitle("Reiseunterlagen").navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Bearbeiten") { editing = true } }
-                ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button("Fertig") { dismiss() } }
+                ToolbarItem(placement: .primaryAction) { Button("Bearbeiten") { editing = true } }
             }
             .fileImporter(isPresented: $importing, allowedContentTypes: [.pdf]) { result in
                 do {
@@ -110,10 +110,10 @@ struct TripDocumentsView: View {
         }
     }
 
-    /// Abschnitt mit Überschrift: 8 pt zwischen Überschrift und Inhalt, 12 pt zwischen Karten.
+    /// Gleicher Abschnittsrhythmus wie auf Reise und Karte.
     private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: Stitch.Space.s) {
-            Text(title).font(.title3.weight(.bold)).foregroundStyle(Stitch.ink)
+            AlbumSectionHeader(title: title)
             content()
         }
     }

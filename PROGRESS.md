@@ -114,3 +114,12 @@
 - `Stitch/VisitedTrack.swift`: Im Ortsdetail ersetzt die Spur den Knopf „Als besucht markieren“. Daumen nach rechts, Garn füllt die Spur, Label „Als besucht markieren“ → „Loslassen“ (ab 85 %, Selection-Haptik) → „Besucht ✓“ (gesperrt). Zu früh losgelassen federt zurück. Tippen füllt die Spur von selbst, VoiceOver aktiviert sie. Erfolg setzt `visited = true` per `store.upsert`; ist der Ort schon besucht, steht sie eingerastet da. Rückgängig weiter über „Schon besucht“ im Editor.
 - Gestickter Stempel (`VisitedStamp`) landet mit Feder auf dem Foto (oben links); bei „Bewegung reduzieren“ blendet er nur ein.
 - UI-Test `testVisitedTrack` auf einer Wegwerf-Kopie.
+
+## 01.10.2026 – Papier & Marke, erste Umsetzungsstufe
+- Grundlage: flacher Papiergrund, Tinte/Burgunder, Hell/Dunkel-Paare, Haarlinien und ruhigere Schatten. Abstandsskala 4/8/12/16/24/32/48, Seitenrand 20; Radien 12/20/28; Tippziel 44, Button 52, Vorschaubild 56.
+- Gemeinsame Komponenten in Stitch.swift: native Symbole, Buttonzustände inklusive Laden/Gesperrt/Bewegung reduzieren, AlbumSectionHeader, AlbumPlaceRow, StampPhoto/StampBorder. API-Namen bleiben kompatibel.
+- Reise: kompakter Prag-Kopf, reales Ortsfoto, Tagesauswahl 4–9, Plan des gewählten Tages, Unterkunft/Unterlagen, beschlossene Orte als Markenfotos. Kalender/Glocke/Brückenmotiv entfernt; Bordkarten- und Sync-Abläufe erhalten.
+- Unterlagen: gemeinsame Überschrift und konsistente Fertig/Bearbeiten-Kopfzeile. Teilen: Ladezustände.
+- DESIGN.md und generierter Designkatalog beschreiben die neue Grundlage und kennzeichnen ausstehende Ansichten ausdrücklich.
+- Prüfung: Simulator-Build erfolgreich, 39 Unit-Tests (1 übersprungen), 4 UI-Tests ohne Fehler. Tagesauswahl zusätzlich im Dunkelmodus mit Accessibility-Medium geprüft; Feldhöhe nach Screenshotbefund mit @ScaledMetric korrigiert und erneut geprüft. Screenshots des Rundgangs gespeichert. Modelle, Speicherung und Backend unverändert.
+- Offen: gezieltes Layout für Ideen (Ja/Nein gleichwertig, Offen separate Textaktion), Kartenblatt/Ortsdetail/Fotostapel/Namensfeld. Externer Opus-Worker hat nach 4 UI-Dateien wegen Berechtigungsgrenzen abgebrochen; gleicher Modell-Retry meldet Sitzungslimit bis 13:10 Europe/Berlin. Zustimmung zum Modellwechsel auf Codex angefragt, noch nicht erhalten. Keine automatische Fortsetzung eingerichtet.
