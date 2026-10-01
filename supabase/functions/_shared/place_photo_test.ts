@@ -24,13 +24,14 @@ import { rankPhotos, scorePhoto } from "./place_photo.ts";
 const photo = (title: string, extra: Partial<import("./place_photo.ts").PhotoCandidate> = {}) =>
   ({ title, source: "category" as const, uses: 0, assessments: "", width: 3000, height: 2000, ...extra });
 
-Deno.test("a view over the river beats the stadium for a viewpoint", () => {
+Deno.test("a viewpoint does not borrow an unnamed nearby panorama", () => {
   const ranked = rankPhotos([
     photo("File:Praha, Letná, sad.jpg", { source: "main" }),
     photo("File:Praha, Letná, Toyota Arena.jpg", { uses: 5, source: "nearby" }),
     photo("File:Vltava in Prague at sunset.jpg", { uses: 2, assessments: "quality", source: "nearby" }),
   ], "Letná", "Aussicht");
-  assertEquals(ranked[0].photo.title, "File:Vltava in Prague at sunset.jpg");
+  assertEquals(ranked[0].photo.title, "File:Praha, Letná, sad.jpg");
+  assert(!ranked.some(item => item.photo.title === "File:Vltava in Prague at sunset.jpg"));
 });
 
 Deno.test("protests, maps and unrelated nearby photos are dropped", () => {
@@ -53,7 +54,7 @@ Deno.test("only the best photo of a series is kept", () => {
     photo("File:1Procházka po Karlově mostě 20250818 182341.jpg"),
     photo("File:1Procházka po Karlově mostě 20250818 182343.jpg"),
     photo("File:Charles Bridge at dawn.jpg", { uses: 3 }),
-  ], "Karlův most", "Sehenswert");
+  ], ["Karlův most", "Charles Bridge"], "Sehenswert");
   assertEquals(ranked.length, 2);
   assertEquals(ranked[0].photo.title, "File:Charles Bridge at dawn.jpg");
 });
@@ -72,4 +73,57 @@ Deno.test("a view taken from the sight ranks below a photo of it", () => {
     photo("File:Prague Charles Bridge.jpg", { source: "nearby" }),
   ], names, "Sehenswert");
   assertEquals(ranked[0].photo.title, "File:Prague Charles Bridge.jpg");
+});
+
+Deno.test("an unrelated panorama cannot stand in for a viewpoint", () => {
+  assertEquals(scorePhoto(photo("File:Vltava in Prague at sunset.jpg", { source: "nearby", uses: 10 }), "Letná", "Aussicht"), null);
+});
+
+Deno.test("a view from a sight is rejected even when it is the only candidate", () => {
+  assertEquals(rankPhotos([photo("File:Prague View from Charles Bridge of Smetana Museum.jpg", { source: "main", uses: 10 })], "Charles Bridge", "Sehenswert"), []);
+});
+
+Deno.test("a matching branch far from the selected place is rejected", () => {
+  assertEquals(choosePlace([{ id: "other", name: "Café Louvre", latitude: 50.092, longitude: 14.4185 }], "Café Louvre", 50.0819, 14.4185), undefined);
+});
+
+Deno.test("a shared generic word does not identify a different restaurant", () => {
+  assertEquals(choosePlace([{ id: "other", name: "Café Louvre Gallery", latitude: 50.0819, longitude: 14.4185 }], "Café Louvre", 50.0819, 14.4185), undefined);
+});
+
+Deno.test("ambiguous nearby entities require confirmation", () => {
+  assertEquals(choosePlace([
+    { id: "one", name: "Café Louvre", latitude: 50.0819, longitude: 14.4185 },
+    { id: "two", name: "Café Louvre", latitude: 50.082, longitude: 14.4185 },
+  ], "Café Louvre", 50.0819, 14.4185), undefined);
+});
+
+Deno.test("a conflicting house number rejects an otherwise exact place", () => {
+  const candidate = { id: "one", name: "Café Louvre", latitude: 50.0819, longitude: 14.4185, address: "Národní 22" };
+  assertEquals(choosePlace([candidate], "Café Louvre", 50.0819, 14.4185, "Národní 24, Prag"), undefined);
+  assertEquals(choosePlace([candidate], "Café Louvre", 50.0819, 14.4185, "Národní 116/22, Prag")?.id, "one");
+});
+
+Deno.test("structured evidence alone does not make an unnamed panorama automatic", () => {
+  const ranked = rankPhotos([photo("File:Vltava in Prague at sunset.jpg", { source: "nearby", depictsPlace: true })], "Letná", "Aussicht");
+  assertEquals(ranked[0].confidence, "suggested");
+});
+
+Deno.test("a named viewpoint with structured evidence can be automatic", () => {
+  const ranked = rankPhotos([photo("File:View from Letná over Prague.jpg", { source: "nearby", depictsPlace: true })], "Letná", "Aussicht");
+  assertEquals(ranked[0].confidence, "verified");
+});
+
+Deno.test("an orchard main image is not an automatic viewpoint photo", () => {
+  const ranked = rankPhotos([photo("File:Praha Letná sad.jpg", { source: "main" })], "Letná", "Aussicht");
+  assertEquals(ranked[0].confidence, "suggested");
+});
+
+Deno.test("a nearby name match stays a suggestion without entity evidence", () => {
+  const ranked = rankPhotos([photo("File:Charles Bridge at night.jpg", { source: "nearby" })], "Charles Bridge", "Sehenswert");
+  assertEquals(ranked[0].confidence, "suggested");
+});
+
+Deno.test("low quality leftovers are not selected", () => {
+  assertEquals(rankPhotos([photo("File:Charles Bridge.jpg", { width: 400, height: 800 })], "Charles Bridge", "Sehenswert"), []);
 });

@@ -12,12 +12,15 @@ struct ResolvedPlaceIdentity: Codable, Equatable {
     let title: String
     let latitude: Double
     let longitude: Double
+    var category: String?
+    var address: String?
 
     func matches(_ place: Place) -> Bool {
         guard let coordinate = place.coordinate else { return false }
         let sameTitle = title.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
             == place.title.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
         return sameTitle && abs(latitude - coordinate.latitude) < 0.0001 && abs(longitude - coordinate.longitude) < 0.0001
+            && (category == nil || category == place.category) && (address == nil || address == place.address)
     }
 }
 
@@ -32,6 +35,7 @@ struct ExternalPlaceImage: Codable, Equatable {
     var resolvedFor: ResolvedPlaceIdentity?
     /// Version der Foto-Auswahl, mit der das Bild gefunden wurde. Ältere Bilder werden einmal neu gesucht.
     var ranking: Int?
+    var userSelected: Bool?
 }
 
 struct UploadedPlaceImage: Codable, Equatable {
@@ -39,6 +43,7 @@ struct UploadedPlaceImage: Codable, Equatable {
     var storagePath: String?
     let pixelWidth: Int
     let pixelHeight: Int
+    var resolvedFor: ResolvedPlaceIdentity?
 
     var filename: String { "place-image-\(id).jpg" }
 }

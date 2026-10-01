@@ -11,6 +11,10 @@ struct PlaceImage: Decodable, Equatable {
     let licenseName: String?
     let licenseURL: URL?
     let providerPlaceID: String?
+    var confidence: Confidence?
+    var caption: String?
+
+    enum Confidence: String, Decodable { case verified, suggested }
 
     enum CodingKeys: String, CodingKey {
         case imageURL = "image_url"
@@ -20,9 +24,10 @@ struct PlaceImage: Decodable, Equatable {
         case licenseName = "license_name"
         case licenseURL = "license_url"
         case providerPlaceID = "provider_place_id"
+        case confidence, caption
     }
 
-    func asset(for place: Place) -> PlaceImageAsset {
+    func asset(for place: Place, userSelected: Bool = false) -> PlaceImageAsset {
         let coordinate = place.coordinate
         return .external(ExternalPlaceImage(
             imageURL: imageURL.absoluteString,
@@ -32,28 +37,44 @@ struct PlaceImage: Decodable, Equatable {
             licenseName: licenseName,
             licenseURL: licenseURL?.absoluteString,
             providerPlaceID: providerPlaceID,
-            resolvedFor: coordinate.map { ResolvedPlaceIdentity(title: place.title, latitude: $0.latitude, longitude: $0.longitude) },
-            ranking: PlaceImageService.ranking
+            resolvedFor: coordinate.map { ResolvedPlaceIdentity(title: place.title, latitude: $0.latitude, longitude: $0.longitude, category: place.category, address: place.address) },
+            ranking: PlaceImageService.ranking,
+            userSelected: userSelected
         ))
     }
 }
 
+struct PlaceImageSearchResult: Decodable {
+    let image: PlaceImage?
+    let candidates: [PlaceImage]?
+    let selectionVersion: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case image, candidates
+        case selectionVersion = "selection_version"
+    }
+
+    var isCurrent: Bool { (selectionVersion ?? 0) >= PlaceImageService.ranking }
+    var choices: [PlaceImage] {
+        var seen: Set<URL> = []
+        return ((image.map { [$0] } ?? []) + (candidates ?? [])).filter { seen.insert($0.imageURL).inserted }
+    }
+    var automaticImages: [PlaceImage] {
+        guard isCurrent, image?.confidence == .verified else { return [] }
+        return choices.filter { $0.confidence == .verified }
+    }
+}
+
 enum PlaceImageService {
-    /// 2: typischstes Foto aus Hauptbild, Commons-Kategorie und Umgebung (statt nur Wikidata-Hauptbild).
-    static let ranking = 2
+    static let ranking = 3
 
     private struct Request: Encodable {
+        let selection_version = PlaceImageService.ranking
         let title: String
         let latitude: Double
         let longitude: Double
         let category: String
         let address: String
-    }
-
-    private struct Response: Decodable {
-        let image: PlaceImage?
-        /// Bis zu acht Fotos, das beste zuerst (seit Foto-Auswahl 2).
-        let candidates: [PlaceImage]?
     }
 
     static func image(for place: Place, bundle: Bundle = .main) async throws -> PlaceImage? {
@@ -62,11 +83,22 @@ enum PlaceImageService {
 
     /// Das Hauptfoto und weitere Fotos für den Foto-Streifen, bestes zuerst.
     static func images(for place: Place, bundle: Bundle = .main) async throws -> [PlaceImage] {
+        try await search(for: place, bundle: bundle).automaticImages
+    }
+
+    static func search(for place: Place, bundle: Bundle = .main) async throws -> PlaceImageSearchResult {
         guard let coordinate = place.coordinate,
-              !place.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return [] }
+              !place.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return .init(image: nil, candidates: [], selectionVersion: ranking) }
+        #if DEBUG
+        let environment = ProcessInfo.processInfo.environment
+        if let store = environment["ALBUM_TEST_STORE"], store.hasPrefix("slot-"), let filename = environment["ALBUM_IMAGE_RESPONSE"] {
+            let file = FileManager.default.temporaryDirectory.appendingPathComponent(store).appendingPathComponent(filename)
+            return try JSONDecoder().decode(PlaceImageSearchResult.self, from: Data(contentsOf: file))
+        }
+        #endif
         let client = try SupabaseConfiguration.client(bundle: bundle)
         if (try? await client.auth.session) == nil { _ = try await client.auth.signInAnonymously() }
-        let response: Response = try await client.functions.invoke(
+        let response: PlaceImageSearchResult = try await client.functions.invoke(
             "place-photo",
             options: FunctionInvokeOptions(body: Request(
                 title: place.title,
@@ -76,12 +108,12 @@ enum PlaceImageService {
                 address: place.address
             ))
         )
-        return response.candidates ?? response.image.map { [$0] } ?? []
+        return response
     }
 
     /// Weitere Fotos neben dem Hauptfoto: höchstens zwei, ohne Doppelte.
     static func gallery(from images: [PlaceImage], for place: Place) -> [ExternalPlaceImage] {
-        images.dropFirst().prefix(2).compactMap {
+        images.dropFirst().filter { $0.confidence == .verified }.prefix(2).compactMap {
             if case .external(let image) = $0.asset(for: place) { return image }
             return nil
         }
@@ -90,7 +122,7 @@ enum PlaceImageService {
     /// Ein Wikimedia-Ort ohne Foto-Streifen bekommt ihn einmal nachgeliefert.
     static func needsGallery(_ place: Place) -> Bool {
         guard place.gallery == nil, case .external(let image) = place.image else { return false }
-        return image.provider == .wikimedia
+        return image.provider == .wikimedia && image.userSelected != true
     }
 
     static func shouldSearch(for place: Place, force: Bool) -> Bool {
@@ -98,12 +130,19 @@ enum PlaceImageService {
         switch place.image {
         case nil, .bundled: return true
         case .external(let image):
+            if image.resolvedFor.map({ !$0.matches(place) }) == true { return true }
+            if image.userSelected == true { return false }
             if image.provider == .wikimedia && (image.ranking ?? 1) < ranking { return true }
-            return image.resolvedFor.map { !$0.matches(place) } ?? false
+            return image.provider == .legacy || image.resolvedFor == nil
         // Ein TikTok-Standbild zeigt meist Menschen, nicht den Ort: Sobald der Ort bestätigt ist, gewinnt ein echtes Ortsfoto.
         case .linkPreview: return place.coordinate != nil
-        case .uploaded: return false
+        case .uploaded(let image): return image.resolvedFor.map { !$0.matches(place) } ?? false
         }
+    }
+
+    static func matchesRequest(_ original: Place, _ current: Place) -> Bool {
+        original.title == current.title && original.lat == current.lat && original.lng == current.lng
+            && original.category == current.category && original.address == current.address
     }
 }
 

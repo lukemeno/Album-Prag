@@ -177,32 +177,33 @@ import CoreLocation
     /// Sucht für alle Orte mit Koordinaten, aber ohne echtes Ortsfoto, ein Bild vom tatsächlichen Ort.
     func refreshPlaceImages() async {
         for place in places where place.coordinate != nil && (PlaceImageService.shouldSearch(for: place, force: false) || PlaceImageService.needsGallery(place)) {
-            let key = "\(place.id)|\(place.title)|\(place.lat ?? 0)|\(place.lng ?? 0)"
+            let key = "\(place.id)|\(place.title)|\(place.lat ?? 0)|\(place.lng ?? 0)|\(place.category)|\(place.address)"
             guard imageLookupsTried.insert(key).inserted else { continue }
-            if case .external(var old) = place.image, old.provider == .wikimedia, old.resolvedFor?.matches(place) ?? false {
-                // Nur neu auswählen: Ein altes Wikimedia-Foto wird nie durch eine Straßenansicht ersetzt.
-                guard let found = try? await PlaceImageService.images(for: place) else { continue } // offline: später erneut
-                guard var current = places.first(where: { $0.id == place.id }), current.image == place.image else { continue }
-                if let best = found.first { current.image = best.asset(for: current) } else { old.ranking = PlaceImageService.ranking; current.image = .external(old) }
-                current.gallery = PlaceImageService.gallery(from: found, for: current)
-                upsert(current)
-                continue
+            do {
+                let result = try await PlaceImageService.search(for: place)
+                guard result.isCurrent else { imageLookupsTried.remove(key); continue }
+                let found = result.automaticImages
+                var lookAround: UploadedPlaceImage?
+                if found.isEmpty, let coordinate = place.coordinate, let data = await PlaceImageResolver.lookAroundSnapshot(at: coordinate) {
+                    lookAround = try PlaceImageStorage.save(data, root: root)
+                    lookAround?.resolvedFor = ResolvedPlaceIdentity(title: place.title, latitude: coordinate.latitude, longitude: coordinate.longitude, category: place.category, address: place.address)
+                }
+                guard var current = places.first(where: { $0.id == place.id }),
+                      PlaceImageService.matchesRequest(place, current), current.image == place.image else {
+                    if let lookAround { PlaceImageStorage.remove(lookAround, root: root) }
+                    continue
+                }
+                if let best = found.first {
+                    current.image = best.asset(for: current)
+                    current.gallery = PlaceImageService.gallery(from: found, for: current)
+                } else {
+                    current.image = lookAround.map { .uploaded($0) }
+                    current.gallery = []
+                }
+                if current != place { upsert(current) }
+            } catch {
+                imageLookupsTried.remove(key)
             }
-            // Erst Wikimedia (mit Foto-Streifen), sonst die Straßenansicht genau an diesem Ort.
-            let found = (try? await PlaceImageService.images(for: place)) ?? []
-            var lookAround: UploadedPlaceImage?
-            if found.isEmpty, let coordinate = place.coordinate, let data = await PlaceImageResolver.lookAroundSnapshot(at: coordinate) {
-                lookAround = try? PlaceImageStorage.save(data, root: root)
-            }
-            guard var current = places.first(where: { $0.id == place.id }),
-                  PlaceImageService.shouldSearch(for: current, force: false) else { continue }
-            if let best = found.first {
-                current.image = best.asset(for: current)
-                current.gallery = PlaceImageService.gallery(from: found, for: current)
-            } else if let lookAround {
-                current.image = .uploaded(lookAround)
-            } else { continue }
-            upsert(current)
         }
     }
 

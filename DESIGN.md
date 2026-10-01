@@ -109,3 +109,8 @@ UI-Test `testScreenTour` (mit `TEST_RUNNER_ALBUM_PLAN_STORE=plan-demo`, `TEST_RU
 ## Button-Typografie
 
 Nutzerpräferenz: zentrierte Beschriftungen, ruhige Schriftgrößen und ausreichend Luft. Flächige Buttons verwenden Subheadline Semibold (15 Punkte Standard), 16 Punkte seitlichen und 12 Punkte vertikalen Innenabstand, mindestens 52 Punkte Höhe. Mehrzeiliger Text ist zentriert und darf den Button vergrößern. Dynamic Type bleibt aktiv. Die Besucht-Spur wächst mit der Schriftgröße und kürzt ihren Text nicht.
+
+
+## Bildauswahl
+
+„Bild wählen“ öffnet ein natives Blatt mit den gemeinsamen Papierfarben, Kartenradien und Abstandstokens. Jede Karte zeigt Foto, zentrierten Subheadline-Titel, optional den Hinweis „Ortszuordnung bitte prüfen“, Urheber und Quelle. Karten verwenden 16 Punkte Innenabstand, die Liste 24 Punkte Abstand; die Quellenaktion hat mindestens 44 Punkte Höhe. „Straßenansicht“ verwendet den gemeinsamen Buttonstil. Die Auswahl wird explizit gespeichert und nach Neustart erhalten.

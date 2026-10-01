@@ -367,3 +367,64 @@ final class AlbumTests: XCTestCase {
     }
     func startRealtime(onChange: @escaping @MainActor @Sendable () async -> Void) {}
 }
+
+extension AlbumTests {
+    func testImageSuggestionsNeverBecomeAutomaticByArrayPosition() throws {
+        let json = #"{"selection_version":3,"image":null,"candidates":[{"image_url":"https://example.com/nearby.jpg","source_url":"https://example.com/source","credit":"A","provider":"wikimedia","confidence":"suggested"}]}"#.data(using: .utf8)!
+        let result = try JSONDecoder().decode(PlaceImageSearchResult.self, from: json)
+        XCTAssertEqual(result.choices.count, 1)
+        XCTAssertTrue(result.automaticImages.isEmpty)
+    }
+
+    func testLegacyServerResultsRequireManualSelection() throws {
+        let json = #"{"image":{"image_url":"https://example.com/old.jpg","source_url":"https://example.com/source","credit":"A","provider":"wikimedia"}}"#.data(using: .utf8)!
+        let result = try JSONDecoder().decode(PlaceImageSearchResult.self, from: json)
+        XCTAssertFalse(result.isCurrent)
+        XCTAssertEqual(result.choices.count, 1)
+        XCTAssertTrue(result.automaticImages.isEmpty)
+    }
+
+    func testAutomaticGalleryExcludesSuggestionsAndDuplicates() throws {
+        let json = #"{"selection_version":3,"image":{"image_url":"https://example.com/verified.jpg","source_url":"https://example.com/source","credit":"A","provider":"wikimedia","confidence":"verified"},"candidates":[{"image_url":"https://example.com/verified.jpg","source_url":"https://example.com/source","credit":"A","provider":"wikimedia","confidence":"verified"},{"image_url":"https://example.com/nearby.jpg","source_url":"https://example.com/source","credit":"B","provider":"wikimedia","confidence":"suggested"}]}"#.data(using: .utf8)!
+        let result = try JSONDecoder().decode(PlaceImageSearchResult.self, from: json)
+        XCTAssertEqual(result.choices.count, 2)
+        XCTAssertEqual(result.automaticImages.count, 1)
+        XCTAssertTrue(PlaceImageService.gallery(from: result.automaticImages, for: Place(title: "Ort")).isEmpty)
+    }
+
+    func testManualImageSelectionSurvivesRoundTripAndRankingUpdates() throws {
+        let json = #"{"image_url":"https://example.com/manual.jpg","source_url":"https://example.com/source","credit":"A","provider":"wikimedia","confidence":"suggested"}"#.data(using: .utf8)!
+        let image = try JSONDecoder().decode(PlaceImage.self, from: json)
+        var place = Place(title: "Café Louvre", category: "Essen & Trinken", lat: 50.0819, lng: 14.4185)
+        place.image = image.asset(for: place, userSelected: true)
+        if case .external(var chosen) = place.image {
+            chosen.ranking = 1
+            place.image = .external(chosen)
+        }
+        let decoded = try JSONDecoder().decode(Place.self, from: JSONEncoder().encode(place))
+        XCTAssertFalse(PlaceImageService.shouldSearch(for: decoded, force: false))
+        XCTAssertFalse(PlaceImageService.needsGallery(decoded))
+        var changed = decoded
+        changed.category = "Sehenswert"
+        XCTAssertTrue(PlaceImageService.shouldSearch(for: changed, force: false))
+    }
+
+    func testImageRequestRejectsStaleAddressAndCategory() {
+        let place = Place(title: "Café Louvre", category: "Essen & Trinken", address: "Národní 22", lat: 50.0819, lng: 14.4185)
+        var changed = place
+        changed.address = "Národní 24"
+        XCTAssertFalse(PlaceImageService.matchesRequest(place, changed))
+        changed = place
+        changed.category = "Unterkunft"
+        XCTAssertFalse(PlaceImageService.matchesRequest(place, changed))
+    }
+
+    func testStreetViewIsResolvedForItsCoordinate() {
+        var photo = UploadedPlaceImage(id: "street", storagePath: nil, pixelWidth: 1200, pixelHeight: 900)
+        photo.resolvedFor = ResolvedPlaceIdentity(title: "Café Louvre", latitude: 50.0819, longitude: 14.4185)
+        var place = Place(title: "Café Louvre", image: .uploaded(photo), lat: 50.0819, lng: 14.4185)
+        XCTAssertFalse(PlaceImageService.shouldSearch(for: place, force: false))
+        place.lat = 50.092
+        XCTAssertTrue(PlaceImageService.shouldSearch(for: place, force: false))
+    }
+}

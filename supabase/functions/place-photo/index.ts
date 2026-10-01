@@ -14,16 +14,18 @@ Deno.serve(async request => {
     const longitude = Number(body.longitude);
     if (!title || !validCoordinate(latitude, longitude)) return json({ error: "Ort oder Koordinaten fehlen" }, 400);
 
-    const photos = await resolveWikimedia(title, category, latitude, longitude);
-    if (photos.length) return json({ image: photos[0], candidates: photos });
+    const photos = await resolveWikimedia(title, category, latitude, longitude, address);
+    const candidates = body.selection_version >= 3 ? photos : photos.filter(photo => photo.confidence === "verified");
+    const image = photos.find(photo => photo.confidence === "verified");
+    if (image) return json({ image, candidates, selection_version: 3 });
 
     const enabled = Deno.env.get("TRIPADVISOR_TERRA_ENABLED")?.toLowerCase() === "true";
     const key = Deno.env.get("TRIPADVISOR_TERRA_API_KEY");
     if (enabled && key) {
       const tripadvisor = await resolveTripadvisor(title, address, category, latitude, longitude, key).catch(() => null);
-      if (tripadvisor) return json({ image: tripadvisor });
+      if (tripadvisor && body.selection_version >= 3) return json({ image: null, candidates: [{ ...tripadvisor, confidence: "suggested" }, ...photos], selection_version: 3 });
     }
-    return json({ image: null });
+    return json({ image: null, candidates, selection_version: 3 });
   } catch (error) { return respond(error); }
 });
 

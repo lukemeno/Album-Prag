@@ -324,3 +324,54 @@ final class AlbumUITests: XCTestCase {
         close.tap()
     }
 }
+
+extension AlbumUITests {
+    func testChoosePlaceImageAndPersistence() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard let store = environment["ALBUM_IMAGE_STORE"], store.hasPrefix("slot-"), let credit = environment["ALBUM_IMAGE_CREDIT"] else {
+            throw XCTSkip("Keine Wegwerf-Bildauswahl vorbereitet")
+        }
+        let app = XCUIApplication()
+        app.launchEnvironment["ALBUM_TEST_STORE"] = store
+        app.launchEnvironment["ALBUM_IMAGE_RESPONSE"] = "image-response.json"
+        app.launchEnvironment["ALBUM_MY_NAME"] = "Luke"
+        app.launchEnvironment["ALBUM_START_TAB"] = "Karte"
+        app.launch()
+        func edit() {
+            let details = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Details zu'")).firstMatch
+            XCTAssertTrue(details.waitForExistence(timeout: 15))
+            details.tap()
+            app.buttons["Bearbeiten"].firstMatch.tap()
+        }
+        func reveal(_ button: XCUIElement) {
+            for _ in 0..<4 where !button.isHittable { app.swipeUp() }
+            XCTAssertTrue(button.isHittable)
+        }
+        edit()
+        let choose = app.buttons["Bild wählen"]
+        reveal(choose)
+        choose.tap()
+        XCTAssertTrue(app.navigationBars["Bild wählen"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Ortszuordnung bitte prüfen"].exists)
+        if let dir = environment["ALBUM_SHOT_DIR"] {
+            try XCUIScreen.main.screenshot().pngRepresentation.write(to: URL(fileURLWithPath: dir).appendingPathComponent("16-bildauswahl.png"))
+        }
+        let alternative = app.buttons["place-image-choice-1"]
+        reveal(alternative)
+        alternative.tap()
+        let chosenCredit = app.staticTexts["Foto: \(credit)"]
+        for _ in 0..<4 where !chosenCredit.isHittable { app.swipeUp() }
+        XCTAssertTrue(chosenCredit.exists)
+        app.buttons["Speichern"].tap()
+        app.terminate()
+        app.launch()
+        edit()
+        let savedCredit = app.staticTexts["Foto: \(credit)"]
+        for _ in 0..<4 where !savedCredit.isHittable { app.swipeUp() }
+        XCTAssertTrue(savedCredit.exists)
+        if let dir = environment["ALBUM_SHOT_DIR"] {
+            try XCUIScreen.main.screenshot().pngRepresentation.write(to: URL(fileURLWithPath: dir).appendingPathComponent("17-bild-gewaehlt.png"))
+        }
+        app.buttons["Abbrechen"].tap()
+    }
+}

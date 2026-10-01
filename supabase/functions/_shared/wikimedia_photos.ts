@@ -3,13 +3,13 @@ import { choosePlace, distanceMeters, firstArray, rankPhotos, stripHTML, type Ph
 const wikimediaHeaders = { "User-Agent": Deno.env.get("WIKIMEDIA_USER_AGENT") || "Album-Prague/1.0 (private travel app)" };
 
 /// Sammelt Fotos aus drei Quellen (Hauptbild, Commons-Kategorie, Umgebung) und gibt die typischsten zuerst zurück.
-export async function resolveWikimedia(title: string, category: string, latitude: number, longitude: number) {
+export async function resolveWikimedia(title: string, category: string, latitude: number, longitude: number, address = "") {
   // Nacheinander statt gleichzeitig: Wikimedia drosselt Schwälle von Anfragen (HTTP 429).
   const searches = [];
   for (const language of ["cs", "de", "en"]) searches.push(await wikidataSearch(title, language));
   const ids = [...new Set(searches.flat().map(item => item.id).filter(Boolean))].slice(0, 12);
   const entities = await wikidataEntities(ids);
-  const place = choosePlace(entities.flatMap(entityCandidate), title, latitude, longitude);
+  const place = choosePlace(entities.flatMap(entityCandidate), title, latitude, longitude, address);
 
   const members = place?.commonsCategory ? await categoryFiles(place.commonsCategory) : [];
   const nearby = await nearbyFiles(latitude, longitude);
@@ -21,10 +21,21 @@ export async function resolveWikimedia(title: string, category: string, latitude
   const infos = await fileInfos([...sources.keys()]);
   // Alle Namen des Orts, damit auch „Karlův most“ und „Charles Bridge“ im Dateinamen zählen.
   const names = [title, ...entities.filter(entity => entity.id === place?.id)
-    .flatMap(entity => Object.values(entity.value?.labels ?? {}).map((label: any) => label?.value))
+    .flatMap(entity => [...Object.values(entity.value?.labels ?? {}), ...Object.values(entity.value?.aliases ?? {}).flat()].map((label: any) => label?.value))
     .filter((value): value is string => typeof value === "string")];
-  const ranked = rankPhotos(infos.map(info => ({ ...info.candidate, ...sources.get(info.candidate.title)! })), [...new Set(names)], category);
-  return ranked.map(({ photo }) => {
+  const mediaIDs = infos.map(info => `M${info.pageID}`);
+  const depicted = new Set<number>();
+  if (place) {
+    for (let index = 0; index < mediaIDs.length; index += 50) {
+      const payload = await commons({ action: "wbgetentities", ids: mediaIDs.slice(index, index + 50).join("|"), props: "claims" });
+      for (const [id, entity] of Object.entries(payload?.entities ?? {}) as Array<[string, any]>) {
+        const statements = entity.statements ?? entity.claims;
+        if (statements?.P180?.some((claim: any) => claim.rank !== "deprecated" && claim.mainsnak?.datavalue?.value?.id === place.id)) depicted.add(Number(id.slice(1)));
+      }
+    }
+  }
+  const ranked = rankPhotos(infos.map(info => ({ ...info.candidate, ...sources.get(info.candidate.title)!, depictsPlace: depicted.has(info.pageID) })), [...new Set(names)], category);
+  return ranked.map(({ photo, confidence }) => {
     const info = infos.find(value => value.candidate.title === photo.title)!;
     return {
       image_url: info.imageURL,
@@ -34,6 +45,8 @@ export async function resolveWikimedia(title: string, category: string, latitude
       provider_place_id: place?.id ?? null,
       license_name: info.licenseName,
       license_url: info.licenseURL,
+      confidence,
+      caption: photo.title.replace(/^File:/, "").replace(/\.[a-z]+$/i, ""),
     };
   });
 }
@@ -45,7 +58,11 @@ async function wikimedia(host: "www.wikidata.org" | "commons.wikimedia.org", par
   Object.entries({ format: "json", ...params }).forEach(([key, value]) => url.searchParams.set(key, value));
   for (let attempt = 0; attempt < 2; attempt++) {
     const response = await fetch(url, { headers: wikimediaHeaders });
-    if (response.ok) return await response.json();
+    if (response.ok) {
+      const payload = await response.json();
+      if (payload.error) throw new Error(`Wikimedia: ${payload.error.code}`);
+      return payload;
+    }
     if (response.status !== 429 || attempt === 1) throw new Error(`Wikimedia antwortet mit ${response.status}`);
     await response.body?.cancel();
     const wait = Math.min(Number(response.headers.get("retry-after")) || 2, 5);
@@ -86,6 +103,7 @@ async function fileInfos(titles: string[]) {
     if (!info?.thumburl && !info?.url) return [];
     const metadata = info.extmetadata || {};
     return [{
+      pageID: page.pageid as number,
       candidate: {
         title: page.title as string, source: "category" as const, uses: (page.globalusage ?? []).length,
         assessments: metadata.Assessments?.value ?? "", width: info.width ?? 0, height: info.height ?? 0,
@@ -107,7 +125,7 @@ async function wikidataSearch(title: string, language: string) {
 /// Alle Einträge in einer Anfrage (statt einer pro Eintrag).
 async function wikidataEntities(ids: string[]) {
   if (!ids.length) return [];
-  const payload = await wikimedia("www.wikidata.org", { action: "wbgetentities", ids: ids.join("|"), props: "claims|labels" });
+  const payload = await wikimedia("www.wikidata.org", { action: "wbgetentities", ids: ids.join("|"), props: "claims|labels|aliases", languages: "cs|de|en" });
   return ids.flatMap(id => payload?.entities?.[id]?.claims ? [{ id, value: payload.entities[id] }] : []);
 }
 
@@ -116,8 +134,10 @@ function entityCandidate(entity: { id: string; value: any } | null): PlaceCandid
   const coordinate = entity.value?.claims?.P625?.[0]?.mainsnak?.datavalue?.value;
   const image = entity.value?.claims?.P18?.[0]?.mainsnak?.datavalue?.value;
   const commonsCategory = entity.value?.claims?.P373?.[0]?.mainsnak?.datavalue?.value;
+  const address = entity.value?.claims?.P6375?.[0]?.mainsnak?.datavalue?.value?.text;
   if (!coordinate || (typeof image !== "string" && typeof commonsCategory !== "string")) return [];
-  const labels = Object.values(entity.value?.labels || {}).map((label: any) => label?.value).filter((value): value is string => typeof value === "string");
+  const labels = [...Object.values(entity.value?.labels || {}), ...Object.values(entity.value?.aliases || {}).flat()].map((label: any) => label?.value).filter((value): value is string => typeof value === "string");
   return [...new Set(labels)].map(name => ({ id: entity.id, name, latitude: Number(coordinate.latitude), longitude: Number(coordinate.longitude),
+    address: typeof address === "string" ? address : undefined,
     image: typeof image === "string" ? image : undefined, commonsCategory: typeof commonsCategory === "string" ? commonsCategory : undefined }));
 }

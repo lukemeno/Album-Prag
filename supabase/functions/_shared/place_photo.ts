@@ -1,6 +1,7 @@
 export type PlaceCandidate = {
   id: string;
   name: string;
+  address?: string;
   latitude: number;
   longitude: number;
   image?: string;
@@ -18,24 +19,36 @@ export type WikimediaFile = {
   licenseURL?: string;
 };
 
-export function choosePlace(candidates: PlaceCandidate[], title: string, latitude: number, longitude: number) {
-  return candidates
-    .map(candidate => ({ candidate, rank: rankCandidate(candidate, title, latitude, longitude) }))
+export function choosePlace(candidates: PlaceCandidate[], title: string, latitude: number, longitude: number, address = "") {
+  const ranked = candidates
+    .map(candidate => ({ candidate, rank: rankCandidate(candidate, title, latitude, longitude, address) }))
     .filter(value => value.rank !== null)
-    .sort((left, right) => left.rank! - right.rank!)[0]?.candidate;
+    .sort((left, right) => left.rank! - right.rank!);
+  const best = ranked[0];
+  if (!best) return undefined;
+  const other = ranked.find(value => value.candidate.id !== best.candidate.id);
+  if (other && other.rank! - best.rank! < 50) return undefined;
+  return best.candidate;
 }
 
-export function rankCandidate(candidate: PlaceCandidate, title: string, latitude: number, longitude: number) {
+export function rankCandidate(candidate: PlaceCandidate, title: string, latitude: number, longitude: number, address = "") {
   if (!candidate.id || !candidate.name || !validCoordinate(candidate.latitude, candidate.longitude)) return null;
+  const wanted = houseNumbers(address);
+  const found = houseNumbers(candidate.address ?? "");
+  if (wanted.length && found.length && !wanted.some(number => found.includes(number))) return null;
   const query = normalize(title);
   const name = normalize(candidate.name);
   const meters = distanceMeters(candidate.latitude, candidate.longitude, latitude, longitude);
   const exact = name === query;
   const similarity = tokenSimilarity(name, query);
-  const contains = name.includes(query) || query.includes(name);
-  if (exact && meters <= 2_000) return meters;
-  if ((contains || similarity >= 0.6) && meters <= 250) return 10_000 + (1 - similarity) * 1_000 + meters;
+  if (exact && meters <= 350) return meters;
+  if (similarity >= 0.8 && meters <= 120) return 10_000 + (1 - similarity) * 1_000 + meters;
   return null;
+}
+
+function houseNumbers(address: string): string[] {
+  const street = address.split(",").find(part => /\d/.test(part)) ?? "";
+  return street.match(/\b\d{1,4}[a-z]?\b/gi)?.slice(-2).map(number => number.toLowerCase()) ?? [];
 }
 
 export function normalize(value: string) {
@@ -89,7 +102,17 @@ export type PhotoCandidate = {
   width: number;
   height: number;
   meters?: number;
+  depictsPlace?: boolean;
 };
+
+export function photoConfidence(photo: PhotoCandidate, placeNames: string | string[], category: string): "verified" | "suggested" {
+  const fileStems = new Set(stems(photo.title));
+  const names = (Array.isArray(placeNames) ? placeNames : [placeNames]).map(stems).filter(words => words.length);
+  const matchesName = names.some(words => words.every(word => fileStems.has(word)));
+  const viewpoint = category !== "Aussicht" || categoryHints.Aussicht.some(word => normalize(photo.title).includes(word));
+  const tiedToPlace = photo.source === "main" || (matchesName && (photo.source === "category" || photo.depictsPlace));
+  return viewpoint && tiedToPlace ? "verified" : "suggested";
+}
 
 // Worte im Dateinamen, die zur Kategorie passen: Bei einer Aussicht will man den Blick, beim Café den Raum.
 const categoryHints: Record<string, string[]> = {
@@ -105,7 +128,7 @@ const offTopic = ["demonstr", "protest", "pochod", "exhibition", "vystava", "obn
   "kick", "match", "zapas", "map", "mapa", "plan ", "logo", "coat of arms", "znak", "sign", "tabul", "plaque", "deska", "dort", "cake"];
 
 /// Wortanfänge (4 Zeichen), damit Beugungen passen: „Karlův most“ trifft „Karlově mostě“.
-const stems = (value: string) => normalize(value).split(" ").filter(token => token.length >= 4).map(token => token.slice(0, 4));
+const stems = (value: string) => normalize(value).split(" ").filter(token => token.length >= 3).map(token => token.slice(0, 4));
 
 /// Punkte für ein Foto: typisch (oft in Wikipedia verwendet, ausgezeichnet), passend zur Kategorie, nicht nebensächlich.
 /// `placeNames` sind alle Namen des Orts (Titel in der App plus Wikidata-Namen in allen Sprachen). Null heißt: nicht verwenden.
@@ -113,6 +136,7 @@ export function scorePhoto(photo: PhotoCandidate, placeNames: string | string[],
   if (!/\.(jpe?g|webp)$/i.test(photo.title)) return null;
   const name = normalize(photo.title.replace(/^File:/i, "").replace(/\.[a-z]+$/i, ""));
   if (offTopic.some(word => name.includes(word))) return null;
+  if (category === "Aussicht" && ["stadion", "stadium", "arena"].some(word => name.includes(word))) return null;
   const words = name.split(" ").filter(Boolean);
   const wordStems = new Set(words.map(word => word.slice(0, 4)));
   const names = (Array.isArray(placeNames) ? placeNames : [placeNames]).map(stems).filter(list => list.length);
@@ -123,21 +147,22 @@ export function scorePhoto(photo: PhotoCandidate, placeNames: string | string[],
   const rest = words.filter(word => !placeStems.has(word.slice(0, 4))).join(" ");
   const hint = (categoryHints[category] ?? []).some(word => rest.includes(word));
   // Fotos aus der Umgebung brauchen einen Bezug: den Ortsnamen, bei Aussichtspunkten reicht auch ein Blick-Stichwort.
-  if (photo.source === "nearby" && !matchesPlace && !(hint && category === "Aussicht")) return null;
+  if (photo.source === "nearby" && !matchesPlace && !photo.depictsPlace) return null;
 
   // Das Hauptbild steckt in jeder Infobox; seine Verwendung zählt deshalb nur begrenzt.
   // „View from Charles Bridge of …“ zeigt etwas anderes, von der Brücke aus fotografiert.
   const fromIndex = words.findIndex(word => ["from", "von", "vom", "z", "ze"].includes(word));
   const viewFromPlace = fromIndex >= 0 && words.slice(fromIndex + 1).some(word => placeStems.has(word.slice(0, 4)));
+  if (viewFromPlace && category !== "Aussicht") return null;
 
   let score = Math.min(photo.uses, photo.source === "main" ? 5 : 10) * 3;
-  if (viewFromPlace && category !== "Aussicht") score -= 25;
   const assessed = photo.assessments.toLowerCase();
   if (assessed.includes("featured") || assessed.includes("poty")) score += 30;
   else if (assessed.includes("quality") || assessed.includes("valued")) score += 15;
   if (hint) score += 20;
   if (matchesPlace) score += 8;
-  if (photo.source === "main") score += 8;
+  if (photo.source === "main") score += 12;
+  if (photo.depictsPlace) score += 30;
   if (photo.width >= photo.height) score += 5; else score -= 5;
   if (photo.width < 1000) score -= 15;
   if (photo.meters != null) score -= photo.meters / 50;
@@ -148,9 +173,9 @@ export function scorePhoto(photo: PhotoCandidate, placeNames: string | string[],
 export function rankPhotos(photos: PhotoCandidate[], placeNames: string | string[], category: string, limit = 8) {
   const series = new Set<string>();
   return photos
-    .map(photo => ({ photo, score: scorePhoto(photo, placeNames, category) }))
-    .filter((value): value is { photo: PhotoCandidate; score: number } => value.score !== null)
-    .sort((left, right) => right.score - left.score)
+    .map(photo => ({ photo, score: scorePhoto(photo, placeNames, category), confidence: photoConfidence(photo, placeNames, category) }))
+    .filter((value): value is { photo: PhotoCandidate; score: number; confidence: "verified" | "suggested" } => value.score !== null && value.score >= 10)
+    .sort((left, right) => Number(right.confidence === "verified") - Number(left.confidence === "verified") || right.score - left.score)
     .filter(({ photo }) => {
       const key = seriesKey(photo.title);
       return !series.has(key) && !!series.add(key);

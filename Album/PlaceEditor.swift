@@ -14,6 +14,7 @@ struct PlaceEditor: View {
     @State private var searchError: String?
     @State private var enriching = false
     @State private var imageSearching = false
+    @State private var imageChoices: ImageChoices?
     @State private var searchTask: Task<Void, Never>?
     @State private var photoItem: PhotosPickerItem?
     @State private var pendingPhotoID: String?
@@ -61,13 +62,18 @@ struct PlaceEditor: View {
                     }
                     if place.coordinate != nil {
                         Label(place.address.isEmpty ? "Ort gefunden" : place.address, systemImage: "checkmark.circle.fill").foregroundStyle(Stitch.red)
-                        Button(imageSearching ? "Bild wird gesucht …" : "Bild neu suchen") { Task { await findImage(force: true) } }
+                        Button(imageSearching ? "Bilder werden gesucht …" : "Bild wählen") { Task { await findImage(force: true) } }
                             .disabled(imageSearching)
                         PhotosPicker(selection: $photoItem, matching: .images) {
                             Label("Eigenes Foto wählen", systemImage: "photo.on.rectangle")
                         }
                         if place.image != nil {
-                            Button("Bild entfernen", role: .destructive) { place.image = nil }
+                            AlbumPhoto(asset: place.image, root: store.root, thumbnailWidth: 500)
+                                .frame(height: 160).clipped().accessibilityLabel("Gewähltes Bild")
+                            if let credit = place.image?.credit {
+                                Text("Foto: \(credit)").font(.footnote).foregroundStyle(Stitch.inkSoft)
+                            }
+                            Button("Bild entfernen", role: .destructive) { place.image = nil; place.gallery = [] }
                         }
                     }
                 } header: { Text("Ort") } footer: { Text("Such den Ort, damit er auf der Karte erscheint.") }
@@ -115,6 +121,19 @@ struct PlaceEditor: View {
                     }.disabled(!valid || posting) }
                 }
                 .onAppear { query = place.title == "Neue Reiseidee" ? "" : place.title }
+                .sheet(item: $imageChoices) { choices in
+                    PlaceImagePicker(choices: choices, root: store.root) { selected in
+                        guard PlaceImageService.matchesRequest(choices.place, place) else { return }
+                        place.image = selected.asset(for: place, userSelected: true)
+                        let others = choices.images.filter { $0.imageURL != selected.imageURL && $0.confidence == .verified }
+                        place.gallery = selected.confidence == .verified ? PlaceImageService.gallery(from: [selected] + others, for: place) : []
+                        imageChoices = nil
+                    } streetView: {
+                        guard PlaceImageService.matchesRequest(choices.place, place) else { return }
+                        imageChoices = nil
+                        Task { await useStreetView(for: choices.place) }
+                    }
+                }
                 .task(id: place.sourceURL) {
                     // Gültiger Link: Vorschau von selbst laden, kurz nach dem Tippen.
                     guard place.image == nil || place.title.isEmpty, LinkValidation.url(place.sourceURL) != nil else { return }
@@ -161,24 +180,45 @@ struct PlaceEditor: View {
     func findImage(force: Bool) async {
         guard !imageSearching, PlaceImageService.shouldSearch(for: place, force: force) else { return }
         imageSearching = true; defer { imageSearching = false }
+        let requested = place
         do {
-            let found = try await PlaceImageService.images(for: place)
+            let result = try await PlaceImageService.search(for: requested)
+            guard PlaceImageService.matchesRequest(requested, place), requested.image == place.image else { return }
+            if force || (!result.choices.isEmpty && result.automaticImages.isEmpty) {
+                imageChoices = ImageChoices(place: requested, images: result.choices)
+                searchError = nil
+                return
+            }
+            let found = result.automaticImages
             if let result = found.first {
                 place.image = result.asset(for: place)
                 place.gallery = PlaceImageService.gallery(from: found, for: place)
-            } else if let coordinate = place.coordinate, let data = await PlaceImageResolver.lookAroundSnapshot(at: coordinate) {
-                // Kein Wikimedia-Foto: Straßenansicht genau an diesem Ort.
-                let uploaded = try PlaceImageStorage.save(data, root: store.root)
-                pendingPhotoID = uploaded.id
-                place.image = .uploaded(uploaded)
             } else {
-                searchError = "Kein passendes Bild gefunden."
+                await useStreetView(for: requested)
                 return
             }
             searchError = nil
         } catch {
             searchError = "Bildsuche fehlgeschlagen. Bitte erneut versuchen."
         }
+    }
+
+    func useStreetView(for requested: Place) async {
+        guard let coordinate = requested.coordinate else { return }
+        guard let data = await PlaceImageResolver.lookAroundSnapshot(at: coordinate) else {
+            searchError = "Für diesen Ort ist keine Straßenansicht verfügbar. Du kannst ein eigenes Foto wählen."
+            return
+        }
+        guard PlaceImageService.matchesRequest(requested, place), requested.image == place.image else { return }
+        do {
+            var uploaded = try PlaceImageStorage.save(data, root: store.root)
+            removePendingPhoto()
+            uploaded.resolvedFor = ResolvedPlaceIdentity(title: requested.title, latitude: coordinate.latitude, longitude: coordinate.longitude, category: requested.category, address: requested.address)
+            pendingPhotoID = uploaded.id
+            place.image = .uploaded(uploaded)
+            place.gallery = []
+            searchError = nil
+        } catch { searchError = "Die Straßenansicht konnte nicht gespeichert werden." }
     }
 
     func importPhoto(_ item: PhotosPickerItem) async {
@@ -189,6 +229,7 @@ struct PlaceEditor: View {
             }
             let uploaded = try PlaceImageStorage.save(data, root: store.root)
             place.image = .uploaded(uploaded)
+            place.gallery = []
             pendingPhotoID = uploaded.id
             searchError = nil
         } catch { searchError = "Das Foto konnte nicht gespeichert werden." }
@@ -229,5 +270,63 @@ struct OEmbedService {
             throw NSError(domain: "Album", code: 4, userInfo: [NSLocalizedDescriptionKey: "Die Vorschau ist nicht verfügbar. Titel und Ort kannst du direkt ergänzen."])
         }
         return try JSONDecoder().decode(Preview.self, from: data)
+    }
+}
+
+private struct ImageChoices: Identifiable {
+    let id = UUID()
+    let place: Place
+    let images: [PlaceImage]
+}
+
+private struct PlaceImagePicker: View {
+    let choices: ImageChoices
+    let root: URL
+    let select: (PlaceImage) -> Void
+    let streetView: () -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: Stitch.Space.l) {
+                    Text("Prüfe, ob das Foto wirklich \(choices.place.title) zeigt.")
+                        .font(.subheadline).foregroundStyle(Stitch.inkSoft)
+                        .multilineTextAlignment(.center)
+                    if choices.images.isEmpty {
+                        Text("Kein Ortsfoto gefunden").font(.headline).foregroundStyle(Stitch.ink)
+                    }
+                    ForEach(Array(choices.images.enumerated()), id: \.offset) { index, image in
+                        VStack(spacing: Stitch.Space.xs) {
+                            Button { select(image) } label: {
+                                VStack(spacing: Stitch.Space.s) {
+                                    AlbumPhoto(asset: image.asset(for: choices.place), root: root, thumbnailWidth: 500)
+                                        .frame(height: 180).clipped()
+                                        .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.thumb))
+                                    Text(image.caption ?? "Ortsfoto").font(.subheadline.weight(.semibold))
+                                    if image.confidence != .verified {
+                                        Text("Ortszuordnung bitte prüfen").font(.footnote).foregroundStyle(Stitch.inkSoft)
+                                    }
+                                }
+                                .multilineTextAlignment(.center).frame(maxWidth: .infinity)
+                                .foregroundStyle(Stitch.ink)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("place-image-choice-\(index)")
+                            Text(image.credit).font(.footnote).foregroundStyle(Stitch.inkSoft)
+                            Link(image.licenseName.map { "Quelle · \($0)" } ?? "Quelle ansehen", destination: image.sourceURL)
+                                .font(.footnote).frame(minHeight: Stitch.Size.touch)
+                        }
+                        .stitchCard(padding: Stitch.Space.m)
+                    }
+                    Button(action: streetView) { Label("Straßenansicht", systemImage: "binoculars") }
+                        .buttonStyle(StitchButton())
+                }
+                .padding(Stitch.Space.page)
+            }
+            .background(PaperBackground())
+            .navigationTitle("Bild wählen").navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } } }
+        }
     }
 }
