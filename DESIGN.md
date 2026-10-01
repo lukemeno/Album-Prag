@@ -89,7 +89,9 @@ Höhenstufen: `flat` ohne Schatten; `pinned` Schwarz 7 %, Radius 4, Y 1; `floati
 
 ## Typografie
 
-SF Pro über SwiftUI-Textstile: `.headline` für Ortsnamen, Abschnittstitel und Buttons; `.body` für Inhalte und Felder; `.subheadline` für zweite Zeilen; `.footnote`/`.caption` für Zähler und Bildnachweise. „Prag“ verwendet `.largeTitle` mit Systemserife. Alle Textstile folgen Dynamic Type.
+SF Pro über SwiftUI-Textstile: `.headline` für Ortsnamen und Abschnittstitel; `.body` für Inhalte und Felder; `.subheadline` für zweite Zeilen und mit Semibold für Buttons; `.footnote`/`.caption` für Zähler und Bildnachweise. „Prag“ verwendet `.largeTitle` mit Systemserife. Alle Textstile folgen Dynamic Type.
+
+Beschriftungen flächiger Aktionsbuttons stehen horizontal und vertikal mittig. Die Standardschrift ist Subheadline Semibold (15 Punkt bei Standardgröße). Der Inhalt erhält 16 Punkte horizontal und 12 Punkte vertikal Innenabstand; Symbol oder Spinner und Text haben 8 Punkte Abstand. Mehrzeiliger Text ist zentriert und vergrößert den Button über seine Mindesthöhe von 52 hinaus. Keine feste Zeilenzahl oder automatische Verkleinerung. Nutzerpräferenz: ruhige Schriftgrößen, zentrierte Beschriftungen und ausreichend Luft zwischen Text, Symbolen und Rändern.
 
 Keine feste Schriftgröße für lesbaren Text. Zeichnungen und Symbole dürfen geometrische Größen haben. Texte müssen bei großen Schriftgrößen umbrechen; das Datum darf nicht hinter einer Aktion verschwinden. Die Tagesleiste und der Ideenstapel müssen gesondert bei Accessibility-Schriftgrößen geprüft werden.
 

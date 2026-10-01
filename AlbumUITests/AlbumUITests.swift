@@ -294,7 +294,8 @@ final class AlbumUITests: XCTestCase {
             XCTAssertTrue(entry.waitForExistence(timeout: 5))
             entry.tap()
         }
-        XCTAssertTrue(app.buttons["Mehr"].waitForExistence(timeout: 15))
+        let firstDay = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Sonntag, 4.'")).firstMatch
+        XCTAssertTrue(firstDay.waitForExistence(timeout: 15))
         sleep(6)
         shot("01-reise")
         app.swipeUp(); shot("02-reise-unten")

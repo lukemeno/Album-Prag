@@ -293,8 +293,12 @@ struct StitchButton: ButtonStyle {
             }
             configuration.label
         }
-        .font(.headline)
-        .frame(maxWidth: .infinity, minHeight: Stitch.Size.button)
+        .font(.subheadline.weight(.semibold))
+        .multilineTextAlignment(.center)
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(.horizontal, Stitch.Space.m)
+        .padding(.vertical, Stitch.Space.s)
+        .frame(maxWidth: .infinity, minHeight: Stitch.Size.button, alignment: .center)
         .foregroundStyle(primary ? Stitch.onAccent : Stitch.ink)
         .background(primary ? Stitch.redFill : Stitch.card, in: shape)
         .overlay(shape.fill(Stitch.ink.opacity(configuration.isPressed ? 0.06 : 0)))

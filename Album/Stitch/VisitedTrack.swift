@@ -10,7 +10,7 @@ struct VisitedTrack: View {
     @State private var dx: CGFloat = 0
     @State private var armed = false
     @State private var tick = 0
-    @ScaledMetric(relativeTo: .headline) private var trackHeight = Stitch.Size.button
+    @ScaledMetric(relativeTo: .subheadline) private var trackHeight = Stitch.Size.button
 
     private let knob = Stitch.Size.button - Stitch.Space.xs
     private let inset = Stitch.Space.xxs
@@ -57,7 +57,7 @@ struct VisitedTrack: View {
             if visited { Image(systemName: "checkmark").accessibilityHidden(true) }
             Text(visited ? "Besucht" : armed ? "Loslassen" : "Als besucht markieren")
         }
-        .font(.headline).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+        .font(.subheadline.weight(.semibold)).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
         .foregroundStyle(visited ? Stitch.cobalt : p > 0.5 ? Stitch.onAccent : Stitch.ink)
         .contentTransition(.opacity)
         .animation(.easeInOut(duration: 0.18), value: armed)
