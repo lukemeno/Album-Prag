@@ -1,13 +1,43 @@
 import SwiftUI
 
-/// Briefkasten-Schlitz: Die Karte wird per Finger nach oben eingeworfen, die Klappe schlägt zu,
-/// die Naht schließt sich, und ein kleiner Zettel wird nachgedruckt.
-/// Gespeichert ist die Idee schon vor dieser Ansicht; das Ziehen ist nur das Ritual.
-struct LetterSlotDrop: View {
-    let place: Place
-    let root: URL
-    var onDone: () -> Void
-    @Environment(AlbumStore.self) private var store
+/// Beschriftungen und Kennungen einer Schlitz-Szene.
+struct SlotLabels {
+    var flap: String
+    var cardLabel: String
+    var cardHint: String
+    var action: String
+    var cardID: String
+    var buttonID: String
+    var idle: String
+    var working: String
+    var done: String
+    var announcement: String
+}
+
+/// Gemeinsame Mechanik von Briefkasten und Einladung: Eine Karte wird per Finger nach oben in den Schlitz
+/// gezogen (nur Y, halbe Geste = halber Zustand, Maske an der Schlitzkante), ab 40 % Weg oder vorhergesagtem Ende
+/// wirft sie von selbst ein, die Klappe schlägt zu, die Naht schließt sich, und ein Zettel wird nach unten nachgedruckt.
+/// `commit` läuft ab der Schwelle; liefert es einen Text, ist es gescheitert: Die Karte federt zurück,
+/// der Text steht ruhig über dem Knopf, und es lässt sich erneut versuchen.
+struct SlotScene<Card: View, Receipt: View>: View {
+    var labels: SlotLabels
+    var commit: @MainActor () async -> String? = { nil }
+    /// Sekunden bis `onFinished` von selbst; nil: erst, wenn der Knopf im erledigten Zustand getippt wird.
+    var autoFinish: Double?
+    /// Bei „Bewegung reduzieren“ bleibt die Karte stehen (ohne Geste) und wird überblendet, statt gleich zu verschwinden.
+    var keepsCardWhenReduced = false
+    var onFinished: () -> Void
+    private let card: Card
+    private let receipt: Receipt
+
+    init(labels: SlotLabels, commit: @escaping @MainActor () async -> String? = { nil }, autoFinish: Double? = nil,
+         keepsCardWhenReduced: Bool = false, onFinished: @escaping () -> Void,
+         @ViewBuilder card: () -> Card, @ViewBuilder receipt: () -> Receipt) {
+        self.labels = labels; self.commit = commit; self.autoFinish = autoFinish
+        self.keepsCardWhenReduced = keepsCardWhenReduced; self.onFinished = onFinished
+        self.card = card(); self.receipt = receipt()
+    }
+
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// 0 = Karte liegt unten, 1 = ganz im Schlitz. Der Finger setzt den Wert direkt.
     @State private var progress: CGFloat = 0
@@ -15,6 +45,8 @@ struct LetterSlotDrop: View {
     @State private var flapClosed = false
     @State private var seam: CGFloat = 0
     @State private var receiptOut = false
+    @State private var cardGone = false
+    @State private var failure: String?
     @State private var armed = false
     @State private var armTick = 0
     @State private var clack = 0
@@ -25,6 +57,7 @@ struct LetterSlotDrop: View {
     private let slotY: CGFloat = 150
     /// Ab hier gilt die Geste als Einwurf (Weg oder vorhergesagtes Ende).
     private let armAt: CGFloat = 0.4
+    private var showsCard: Bool { !reduceMotion || keepsCardWhenReduced }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -42,7 +75,7 @@ struct LetterSlotDrop: View {
                             // Klappe
                             RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous).fill(Stitch.redFill)
                                 .frame(width: 236, height: 30)
-                                .overlay(Text("Ideen").font(.footnote.weight(.bold)).foregroundStyle(Stitch.onAccent))
+                                .overlay(Text(labels.flap).font(.footnote.weight(.bold)).foregroundStyle(Stitch.onAccent))
                                 .rotation3DEffect(.degrees(flapClosed ? 0 : -70 * min(progress / 0.3, 1)), axis: (x: 1, y: 0, z: 0), anchor: .top, perspective: 0.6)
                                 .offset(y: -10)
                         }
@@ -51,19 +84,21 @@ struct LetterSlotDrop: View {
                     .zIndex(2)
 
                     ZStack(alignment: .top) {
-                        if !reduceMotion {
+                        if showsCard {
                             card
                                 .scaleEffect(1 - 0.58 * shrink, anchor: .top)
                                 .offset(y: rest - progress * travel)
                                 .rotation3DEffect(.degrees(18 * shrink), axis: (x: 1, y: 0, z: 0))
-                                .gesture(pull(travel: travel))
+                                .opacity(cardGone ? 0 : 1)
+                                .gesture(reduceMotion ? nil : pull(travel: travel))
                                 .accessibilityElement(children: .ignore)
-                                .accessibilityLabel("\(place.title), Idee")
-                                .accessibilityHint("Nach oben ziehen zum Einwerfen")
-                                .accessibilityAction(named: "Einwerfen") { throwIn() }
-                                .accessibilityIdentifier("Einwurf-Karte")
+                                .accessibilityLabel(labels.cardLabel)
+                                .accessibilityHint(labels.cardHint)
+                                .accessibilityAction(named: labels.action) { throwIn() }
+                                .accessibilityIdentifier(labels.cardID)
                         }
                         receipt
+                            .accessibilityHidden(!receiptOut)
                             .offset(y: receiptOut || reduceMotion ? slotY + 36 : slotY - 100)
                             .opacity(reduceMotion && !receiptOut ? 0 : 1)
                     }
@@ -77,36 +112,163 @@ struct LetterSlotDrop: View {
             }
             .ignoresSafeArea()
 
-            Button { throwIn() } label: {
-                // Erledigt zeigt sich mit Häkchen; der gesperrte Knopf bleibt sonst unverändert.
-                HStack(spacing: Stitch.Space.xs) {
-                    if stage == .done { Image(systemName: "checkmark").accessibilityHidden(true) }
-                    Text(ctaTitle)
+            VStack(spacing: Stitch.Space.s) {
+                if let failure {
+                    Label(failure, systemImage: "exclamationmark.circle")
+                        .font(.footnote).foregroundStyle(Stitch.red).multilineTextAlignment(.center)
+                        .transition(.opacity)
+                        .accessibilityIdentifier("Einlass-Fehler")
                 }
-                .contentTransition(.opacity)
-            }
+                Button { stage == .done ? onFinished() : throwIn() } label: {
+                    // Erledigt zeigt sich mit Häkchen; der gesperrte Knopf bleibt sonst unverändert.
+                    HStack(spacing: Stitch.Space.xs) {
+                        if stage == .done { Image(systemName: "checkmark").accessibilityHidden(true) }
+                        Text(ctaTitle)
+                    }
+                    .contentTransition(.opacity)
+                }
                 .buttonStyle(StitchButton(primary: true))
-                .disabled(stage != .idle)
+                .disabled(stage == .swallowing || (stage == .done && autoFinish != nil))
                 .animation(.easeInOut(duration: 0.28), value: stage)
-                .padding(.horizontal, Stitch.Space.page)
-                .padding(.bottom, Stitch.Space.m)
-                .accessibilityIdentifier("Einwurf-Knopf")
+                .accessibilityIdentifier(labels.buttonID)
+            }
+            .animation(.easeInOut(duration: 0.28), value: failure)
+            .padding(.horizontal, Stitch.Space.page)
+            .padding(.bottom, Stitch.Space.m)
         }
         .sensoryFeedback(.selection, trigger: armTick)
         .sensoryFeedback(.impact(weight: .heavy, intensity: 1), trigger: clack)
         .task {
             // Die Tastatur des Editors darf Karte und Knopf nicht verdecken.
             UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-            if reduceMotion { await settleWithoutMotion() }
+            if reduceMotion && !keepsCardWhenReduced { await settleWithoutMotion() }
         }
         .onDisappear { flow?.cancel() }
     }
 
     private var ctaTitle: String {
         switch stage {
-        case .idle: "Nach oben einwerfen"
-        case .swallowing: "Wird eingeworfen …"
-        case .done: "Eingeworfen"
+        case .idle: labels.idle
+        case .swallowing: labels.working
+        case .done: labels.done
+        }
+    }
+
+    private func pull(travel: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 8)
+            .onChanged { value in
+                guard stage == .idle else { return }
+                progress = min(max(-value.translation.height / travel, 0), 1)
+                let nowArmed = progress >= armAt
+                if nowArmed && !armed { armTick += 1 }
+                armed = nowArmed
+            }
+            .onEnded { value in
+                guard stage == .idle else { return }
+                armed = false
+                let projected = -value.predictedEndTranslation.height / travel
+                if max(progress, projected) >= armAt {
+                    throwIn()
+                } else {
+                    withAnimation(.spring(response: 0.36, dampingFraction: 0.78)) { progress = 0 }
+                }
+            }
+    }
+
+    /// Wirft die Karte von der aktuellen Stelle an ganz ein; Geste, Knopf und VoiceOver landen hier.
+    private func throwIn() {
+        guard stage == .idle else { return }
+        stage = .swallowing
+        failure = nil
+        flow = Task { await run() }
+    }
+
+    private func run() async {
+        // Der Beitritt o. Ä. läuft ab der Schwelle und wird auch nicht abgebrochen, wenn die Ansicht verschwindet.
+        let committing = Task { await commit() }
+        if reduceMotion { await finishWithoutMotion(committing); return }
+        let rise = 0.16 + 0.24 * (1 - progress)
+        withAnimation(.easeIn(duration: rise)) { progress = 1 }
+        guard await pause(rise) else { return }
+        clack += 1
+        withAnimation(.spring(response: 0.18, dampingFraction: 0.45)) { flapClosed = true }
+        if let message = await committing.value {
+            guard !Task.isCancelled else { return }
+            bounceBack(message)
+            return
+        }
+        withAnimation(.easeInOut(duration: 0.4)) { seam = 1 }
+        guard await pause(0.32) else { return }
+        stage = .done
+        // Federt mit rund 4 % Überschwingen des Wegs auf.
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.72)) { receiptOut = true }
+        announce()
+        guard let autoFinish else { return }
+        guard await pause(autoFinish) else { return }
+        onFinished()
+    }
+
+    /// Gescheitert: Die Klappe öffnet sich, die Karte federt wieder heraus, der Text bleibt ruhig stehen.
+    private func bounceBack(_ message: String) {
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) { flapClosed = false }
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.74)) { progress = 0 }
+        failure = message
+        stage = .idle
+        AccessibilityNotification.Announcement(message).post()
+    }
+
+    /// Bewegung reduzieren, Karte bleibt stehen: kein Weg, nur Überblenden.
+    private func finishWithoutMotion(_ committing: Task<String?, Never>) async {
+        if let message = await committing.value {
+            failure = message; stage = .idle
+            AccessibilityNotification.Announcement(message).post()
+            return
+        }
+        flapClosed = true; seam = 1; stage = .done
+        withAnimation(.easeInOut(duration: 0.3)) { cardGone = true; receiptOut = true }
+        announce()
+        guard let autoFinish else { return }
+        guard await pause(autoFinish) else { return }
+        onFinished()
+    }
+
+    /// Bewegung reduzieren: keine Karte zum Ziehen, der Zettel wird nur eingeblendet.
+    private func settleWithoutMotion() async {
+        flapClosed = true; seam = 1; stage = .done
+        withAnimation(.easeInOut(duration: 0.3)) { receiptOut = true }
+        announce()
+        guard let autoFinish else { return }
+        guard await pause(min(autoFinish, 0.9)) else { return }
+        onFinished()
+    }
+
+    private func announce() {
+        AccessibilityNotification.Announcement(labels.announcement).post()
+    }
+
+    private func pause(_ seconds: Double) async -> Bool {
+        (try? await Task.sleep(for: .seconds(seconds))) != nil && !Task.isCancelled
+    }
+}
+
+/// Briefkasten-Schlitz: Die Karte wird per Finger nach oben eingeworfen, die Klappe schlägt zu,
+/// die Naht schließt sich, und ein kleiner Zettel wird nachgedruckt.
+/// Gespeichert ist die Idee schon vor dieser Ansicht; das Ziehen ist nur das Ritual.
+struct LetterSlotDrop: View {
+    let place: Place
+    let root: URL
+    var onDone: () -> Void
+    @Environment(AlbumStore.self) private var store
+
+    var body: some View {
+        SlotScene(labels: SlotLabels(flap: "Ideen", cardLabel: "\(place.title), Idee", cardHint: "Nach oben ziehen zum Einwerfen",
+                                     action: "Einwerfen", cardID: "Einwurf-Karte", buttonID: "Einwurf-Knopf",
+                                     idle: "Nach oben einwerfen", working: "Wird eingeworfen …", done: "Eingeworfen",
+                                     announcement: "Idee eingeworfen. Liegt bei Ideen."),
+                  autoFinish: 1.35, onFinished: onDone) {
+            card
+        } receipt: {
+            receipt
         }
     }
 
@@ -140,7 +302,6 @@ struct LetterSlotDrop: View {
         .stitchElevation(.pinned)
         .rotationEffect(.degrees(-1.5))
         .accessibilityElement(children: .combine)
-        .accessibilityHidden(!receiptOut)
     }
 
     /// Der Album hat keine Mitgliederliste; die andere Person kennen wir nur, wenn genau ein
@@ -149,67 +310,6 @@ struct LetterSlotDrop: View {
         let names = Set(store.places.flatMap { [$0.author] + $0.approvals + $0.passedBy }
             .filter { !$0.isEmpty && $0 != store.me && $0.localizedCaseInsensitiveCompare("Wir") != .orderedSame })
         return names.count == 1 ? names.first : nil
-    }
-
-    private func pull(travel: CGFloat) -> some Gesture {
-        DragGesture(minimumDistance: 8)
-            .onChanged { value in
-                guard stage == .idle else { return }
-                progress = min(max(-value.translation.height / travel, 0), 1)
-                let nowArmed = progress >= armAt
-                if nowArmed && !armed { armTick += 1 }
-                armed = nowArmed
-            }
-            .onEnded { value in
-                guard stage == .idle else { return }
-                armed = false
-                let projected = -value.predictedEndTranslation.height / travel
-                if max(progress, projected) >= armAt {
-                    throwIn()
-                } else {
-                    withAnimation(.spring(response: 0.36, dampingFraction: 0.78)) { progress = 0 }
-                }
-            }
-    }
-
-    /// Wirft die Karte von der aktuellen Stelle an ganz ein; Geste, Knopf und VoiceOver landen hier.
-    private func throwIn() {
-        guard stage == .idle else { return }
-        stage = .swallowing
-        flow = Task { await run() }
-    }
-
-    private func run() async {
-        let rise = 0.16 + 0.24 * (1 - progress)
-        withAnimation(.easeIn(duration: rise)) { progress = 1 }
-        guard await pause(rise) else { return }
-        clack += 1
-        withAnimation(.spring(response: 0.18, dampingFraction: 0.45)) { flapClosed = true }
-        withAnimation(.easeInOut(duration: 0.4)) { seam = 1 }
-        guard await pause(0.32) else { return }
-        stage = .done
-        // Federt mit rund 4 % Überschwingen des Wegs auf.
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.72)) { receiptOut = true }
-        announce()
-        guard await pause(1.35) else { return }
-        onDone()
-    }
-
-    /// Bewegung reduzieren: keine Karte zum Ziehen, der Zettel wird nur eingeblendet.
-    private func settleWithoutMotion() async {
-        flapClosed = true; seam = 1; stage = .done
-        withAnimation(.easeInOut(duration: 0.3)) { receiptOut = true }
-        announce()
-        guard await pause(0.9) else { return }
-        onDone()
-    }
-
-    private func announce() {
-        AccessibilityNotification.Announcement("Idee eingeworfen. Liegt bei Ideen.").post()
-    }
-
-    private func pause(_ seconds: Double) async -> Bool {
-        (try? await Task.sleep(for: .seconds(seconds))) != nil && !Task.isCancelled
     }
 }
 

@@ -72,3 +72,16 @@ Wischen bleibt „entscheiden“; „Später“ und „Dafür“ bleiben als Kn�
 ## Stand 30.09.2026 – Eingabefeld mit Nadel (`AlbumRoot.swift`)
 
 `StitchTextField`: Unter dem Text wächst ein Vorstich (gestrichelt, `Stitch.red`, 1,5 pt), eine kleine Nadel steckt am Ende und folgt jedem Anschlag per Feder mit 40–90 ms Verzögerung (aus der Textlänge, kein Zufall). Der Text erscheint sofort. `NamePrompt`: Beim ersten Buchstaben ploppt die Hand einmal auf (Feder, höchstens 1,07). Bewegung reduzieren: keine Nadel, Linie ohne Animation, kein Plopp.
+
+## Stand 01.10.2026 – Einladung einlösen (`Stitch/InvitationMoment.swift`)
+
+| Baustein | Verhalten |
+|---|---|
+| Fahrkarte | Gestickte Karte „Prag · 4.–9. Oktober“ (Absender, wenn bekannt) mit Heftstich; wird wie die Briefkasten-Karte nach oben in den Schlitz gezogen |
+| Schwelle | Ab 40 % Weg oder vorhergesagtem Ende beginnt der echte Beitritt; halbe Geste = halber Zustand, zu früh losgelassen federt zurück |
+| Knopf | „Einladung einlösen“ → „Album wird geöffnet …“ → „Album ansehen“; Tippen löst ohne Ziehen aus, VoiceOver-Aktion „Einlösen“ |
+| Ergebnis | Aus demselben Schlitz druckt ein Zettel nach unten („13 Orte · 5 Tage“) |
+| Fehler | Klappe öffnet, Karte federt heraus, Text ruhig über dem Knopf, erneut versuchbar |
+| Bewegung reduzieren | Karte bleibt stehen, Knopf löst aus, Überblenden statt Bewegen |
+
+Die Schlitz-Mechanik liegt als `SlotScene` in `Stitch/LetterSlot.swift` und wird auch vom Briefkasten benutzt.

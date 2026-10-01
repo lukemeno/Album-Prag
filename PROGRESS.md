@@ -81,3 +81,10 @@
 - „Offen“ stellt die Idee nur für den aktuellen Durchgang zurück, ohne Speicherung oder Synchronisierung einer Stimme. „Offene Ideen ansehen“ holt sie zurück; Rückgängig funktioniert auch hier.
 - Bestehende Aufnahme auf die Karte bei einer Ja-Stimme bleibt unverändert.
 - Prüfung: Simulator-Build erfolgreich; 39 Unit-Tests (1 übersprungen) und 1 UI-Test ohne Fehler.
+
+## 01.10.2026 – Einladung einlösen (impeccable animate)
+- Ein Einladungslink öffnet jetzt ein Vollbild statt still beizutreten (`Stitch/InvitationMoment.swift`, eingehängt in `AlbumApp.swift`): gestickte Fahrkarte „Prag · 4.–9. Oktober“ (Absender nur, wenn bekannt; der Link trägt heute keinen). Karte nach oben in den Schlitz ziehen oder „Einladung einlösen“ tippen; erst ab der Schwelle beginnt `store.joinSharedTrip` (unverändert). Knopf: „Einladung einlösen“ → „Album wird geöffnet …“ → „Album ansehen“, dazu druckt der Schlitz einen Zettel („13 Orte · 5 Tage“ aus den geladenen Daten).
+- Fehler: Klappe öffnet sich, Karte federt zurück, Fehlertext ruhig über dem Knopf (kein Alert), erneut versuchbar. Schließen-Knopf oben rechts, solange kein Beitritt läuft.
+- Mechanik herausgezogen: `SlotScene` in `Stitch/LetterSlot.swift` (Schlitz, Zug-Geste, Schwelle 40 %, Naht, Zettel, Knopf-Morph, `commit`-Hook). `LetterSlotDrop` (Briefkasten) ist jetzt ein dünner Aufsatz darauf; Verhalten und Zeiten unverändert, `testLetterSlotThrow` läuft wie vorher.
+- Bewegung reduzieren: Karte bleibt stehen (keine Geste), Knopf löst aus, Karte und Zettel werden überblendet.
+- Debug: `ALBUM_DEMO_INVITE=ok|fail|failthenok` (optional `ALBUM_DEMO_SENDER`) zeigt den Moment mit simuliertem Beitritt, ruft nie Supabase auf. UI-Test `testInvitationMoment` (neue Datei `AlbumUITests/AlbumMotionUITests.swift`, braucht `TEST_RUNNER_ALBUM_MOTION_STORE=slot-…`).

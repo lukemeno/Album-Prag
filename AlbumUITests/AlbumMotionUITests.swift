@@ -1,0 +1,52 @@
+import XCTest
+
+/// Bewegungsmuster vom 01.10.2026. Alle laufen nur mit Wegwerf-Stores (Kopien von plan-demo, Name beginnt mit `slot-`)
+/// und nie gegen die echte Reise. Mit `TEST_RUNNER_ALBUM_SHOT_DIR` liegen Standbilder dort.
+final class AlbumMotionUITests: XCTestCase {
+    private func launch(_ extra: [String: String] = [:]) throws -> (XCUIApplication, (String) -> Void) {
+        let environment = ProcessInfo.processInfo.environment
+        guard let store = environment["ALBUM_MOTION_STORE"], store.hasPrefix("slot-") else { throw XCTSkip("Kein Wegwerf-Store (TEST_RUNNER_ALBUM_MOTION_STORE=slot-…)") }
+        let app = XCUIApplication()
+        app.launchEnvironment["ALBUM_TEST_STORE"] = store
+        app.launchEnvironment["ALBUM_MY_NAME"] = "Luke"
+        for (key, value) in extra { app.launchEnvironment[key] = value }
+        app.launch()
+        let shots = environment["ALBUM_SHOT_DIR"].map { URL(fileURLWithPath: $0) }
+        let shot = { (name: String) in
+            if let shots { try? XCUIScreen.main.screenshot().pngRepresentation.write(to: shots.appendingPathComponent(name + ".png")) }
+        }
+        return (app, shot)
+    }
+
+    /// C · Einladung einlösen: zu kurz gezogen federt zurück, über der Schwelle startet der (simulierte) Beitritt,
+    /// der scheitert zuerst (Karte federt zurück, Text bleibt ruhig), dann klappt es per Knopf.
+    func testInvitationMoment() throws {
+        let (app, shot) = try launch(["ALBUM_DEMO_INVITE": "failthenok", "ALBUM_DEMO_SENDER": "Mia"])
+        let card = app.otherElements["Einladungs-Karte"]
+        XCTAssertTrue(card.waitForExistence(timeout: 15))
+        sleep(1); shot("C-1-karte")
+        let start = card.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        // Zu früh losgelassen: nichts passiert, der Knopf bleibt im Ausgangszustand.
+        start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -50)), withVelocity: .slow, thenHoldForDuration: 0)
+        XCTAssertTrue(app.buttons["Einladung einlösen"].isEnabled)
+        sleep(1)
+        // Halb gezogen (Standbild aus dem Hintergrund, während der Finger liegt), dann über der Schwelle losgelassen.
+        DispatchQueue.global().asyncAfter(deadline: .now() + 1.2) { shot("C-2-halb") }
+        start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -170)), withVelocity: .slow, thenHoldForDuration: 2)
+        // Erster Versuch scheitert: Text ruhig in der Ansicht, kein Alert, Karte wieder da.
+        let failure = app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'nicht geklappt'")).firstMatch
+        XCTAssertTrue(failure.waitForExistence(timeout: 8))
+        XCTAssertFalse(app.alerts.firstMatch.exists)
+        sleep(1); shot("C-3-fehler")
+        XCTAssertTrue(card.exists)
+        // Erneut versuchen ohne Ziehen: Der Knopf löst aus.
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.9) { shot("C-4-beitritt") }
+        app.buttons["Einladung einlösen"].tap()
+        XCTAssertTrue(app.buttons["Album wird geöffnet …"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["Album geöffnet"].waitForExistence(timeout: 8))
+        sleep(1); shot("C-5-zettel")
+        XCTAssertTrue(app.buttons["Album ansehen"].isEnabled)
+        app.buttons["Album ansehen"].tap()
+        XCTAssertTrue(app.buttons["Idee hinzufügen"].waitForExistence(timeout: 5))
+    }
+}

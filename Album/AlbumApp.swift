@@ -14,6 +14,8 @@ import SwiftUI
         return AlbumStore()
     }()
     @Environment(\.scenePhase) private var scenePhase
+    /// Ein geöffneter Einladungslink zeigt erst den Moment mit der Fahrkarte; der Beitritt startet beim Einlösen.
+    @State private var invitation: InvitationRequest?
     /// Als Test-Host für Unit-Tests nie mit der echten Datenbank abgleichen.
     private let isUnitTestHost = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     var body: some Scene {
@@ -33,12 +35,22 @@ import SwiftUI
                             }
                         } catch { store.error = error.localizedDescription }
                     } else if InvitationLink.token(from: url) != nil {
-                        Task {
-                            do { try await store.joinSharedTrip(url: url) }
-                            catch { store.error = error.localizedDescription }
+                        invitation = InvitationRequest(sender: nil) {
+                            do { try await store.joinSharedTrip(url: url); return nil }
+                            catch { return "Das hat nicht geklappt. \(error.localizedDescription)" }
                         }
                     }
                 }
+                .fullScreenCover(item: $invitation) { request in
+                    InvitationMoment(request: request) { invitation = nil }.environment(store)
+                }
+                #if DEBUG
+                .onAppear {
+                    if let mode = ProcessInfo.processInfo.environment["ALBUM_DEMO_INVITE"], invitation == nil {
+                        invitation = .demo(mode, sender: ProcessInfo.processInfo.environment["ALBUM_DEMO_SENDER"])
+                    }
+                }
+                #endif
                 .task { if !isUnitTestHost { await store.sync(); await store.refreshPlaceImages() } }
                 .alert("Album", isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) {
                     Button("OK") { store.error = nil }
