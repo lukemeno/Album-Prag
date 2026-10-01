@@ -13,15 +13,15 @@ struct FlightCard: View {
             }
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
-                    Text(flight.departure).font(.largeTitle.weight(.bold)).fontDesign(.rounded).monospacedDigit()
-                    Text(flight.from).font(.subheadline.weight(.semibold))
+                    Text(flight.departure).font(Stitch.Face.display(34, relativeTo: .largeTitle)).monospacedDigit()
+                    Text(flight.from).font(Stitch.Face.code(.subheadline))
                 }
                 Spacer()
                 Image(systemName: "airplane").font(.title3).foregroundStyle(Stitch.red)
                 Spacer()
                 VStack(alignment: .trailing, spacing: Stitch.Space.xxs) {
-                    Text(flight.arrival).font(.largeTitle.weight(.bold)).fontDesign(.rounded).monospacedDigit()
-                    Text(flight.to).font(.subheadline.weight(.semibold))
+                    Text(flight.arrival).font(Stitch.Face.display(34, relativeTo: .largeTitle)).monospacedDigit()
+                    Text(flight.to).font(Stitch.Face.code(.subheadline))
                 }
             }
             .foregroundStyle(Stitch.ink)
@@ -39,7 +39,7 @@ struct FlightCard: View {
     private func fact(_ label: String, _ value: String, copyable: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
             Text(label).font(.caption.weight(.semibold)).foregroundStyle(Stitch.inkSoft)
-            Text(value).font(.subheadline.weight(.bold).monospacedDigit()).foregroundStyle(Stitch.ink)
+            Text(value).font(Stitch.Face.code(.subheadline)).foregroundStyle(Stitch.ink)
                 .textSelection(.enabled)
         }
         .contextMenu { if copyable { Button("Kopieren", systemImage: "doc.on.doc") { UIPasteboard.general.string = value } } }
@@ -53,7 +53,7 @@ struct HotelCard: View {
     let details: HotelDetails
     var body: some View {
         VStack(alignment: .leading, spacing: Stitch.Space.s) {
-            Label(name, systemImage: "bed.double.fill").font(.title3.weight(.bold)).foregroundStyle(Stitch.ink)
+            Text(name).font(Stitch.Face.place(26, relativeTo: .title2)).foregroundStyle(Stitch.ink)
             if let address = details.address {
                 Button {
                     let query = address.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
@@ -128,7 +128,7 @@ struct ExtractedTripSheet: View {
                 }
                 .padding(Stitch.Space.page)
             }
-            .background(LinenBackground())
+            .background(PaperBackground())
             .safeAreaInset(edge: .bottom) {
                 if !extracted.isEmpty {
                     Button(applying ? "Wird übernommen …" : "Übernehmen") {

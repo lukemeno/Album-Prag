@@ -18,6 +18,9 @@ struct PlaceEditor: View {
     @State private var photoItem: PhotosPickerItem?
     @State private var pendingPhotoID: String?
     @State private var posting = false
+    @State private var confirmDelete = false
+    /// Schon gespeichert? Dann gibt es Zurücklegen und Löschen.
+    private var exists: Bool { store.places.contains { $0.id == place.id } }
     let categories = ["Idee", "Sehenswert", "Essen & Trinken", "Aussicht", "Unterkunft", "Shopping"]
     var valid: Bool {
         !place.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && (place.sourceURL.isEmpty || LinkValidation.url(place.sourceURL) != nil) && (!frankOnSave || place.coordinate != nil)
@@ -79,8 +82,26 @@ struct PlaceEditor: View {
                     }
                     .listRowBackground(Stitch.card)
                 }
-            }.scrollContentBackground(.hidden).background(LinenBackground())
-                .navigationTitle(frankOnSave ? "Wo ist das?" : "Idee").navigationBarTitleDisplayMode(.inline)
+                if exists && !frankOnSave {
+                    Section {
+                        if place.franked {
+                            Button("Zurück zu den Ideen") {
+                                place.franked = false; place.deferred = false; place.approvals = []; place.passedBy = []
+                                place.day = nil; place.dayOrder = nil
+                                store.upsert(place); dismiss()
+                            }
+                        }
+                        Button("Ort löschen", role: .destructive) { confirmDelete = true }
+                    } footer: {
+                        Text(place.franked ? "Zurück zu den Ideen nimmt den Ort aus dem Plan; ihr entscheidet dann neu." : "")
+                    }
+                    .listRowBackground(Stitch.card)
+                }
+            }.scrollContentBackground(.hidden).background(PaperBackground())
+                .confirmationDialog("Diesen Ort löschen?", isPresented: $confirmDelete, titleVisibility: .visible) {
+                    Button("Löschen", role: .destructive) { place.deleted = true; store.upsert(place); dismiss() }
+                } message: { Text("Er verschwindet auch auf dem anderen iPhone.") }
+                .navigationTitle(frankOnSave ? "Wo ist das?" : exists ? "Bearbeiten" : "Neue Idee").navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { cancel() } }
                     ToolbarItem(placement: .confirmationAction) { Button("Speichern") {

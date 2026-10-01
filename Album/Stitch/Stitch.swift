@@ -1,30 +1,39 @@
 import SwiftUI
 import UIKit
 
-/// Welt „Papier & Marke“: flaches Papier, dunkle Tinte, Burgunder als einzige Aktionsfarbe.
-/// Die Namen bleiben wie gewachsen (`Stitch`, `LinenBackground`, `stitchCard`, `StitchButton`),
-/// nur ihr Aussehen ist neu. Die Rituale (Briefkasten, Einladung) sticken weiter und nutzen
-/// dafür `TackStitch`, `StitchedText` und `StitchPatternView`; die Hauptbildschirme nicht mehr.
+/// Welt „Briefmarke“: ruhiges Papier, Tinte, Poststempel. Jeder Ort ist eine Marke mit Pastellrand je Kategorie.
+/// Quelle der Werte: Figma „Album Foundations“ (Datei BvFJ4PzwQXAxhPlrEw73rB). Der Name `Stitch` bleibt aus Gründen
+/// der Verträglichkeit; gestickt wird nichts mehr.
 enum Stitch {
-    /// Seitengrund: ruhiges, flaches Papier. Nachts warmes Dunkelbraun, kein Blaustich.
-    static let linen = dynamic(light: (245, 242, 236), dark: (26, 23, 21))
-    /// Karten, Felder, Knöpfe ohne Füllung: einen Hauch heller als der Grund, dazu eine Haarlinie.
-    static let card = dynamic(light: (254, 253, 250), dark: (38, 34, 32))
-    /// Haarlinie: Kontur von Karten, Feldern, Chips und Trennern.
-    static let rule = dynamic(light: (225, 219, 208), dark: (60, 54, 50))
-    /// Burgunder als Schrift (Links, Textknöpfe, Hinweise). Auf Papier und Karte mindestens 6:1 in beiden Modi.
-    static let red = dynamic(light: (159, 52, 56), dark: (225, 137, 139))
-    /// Burgunder als Fläche (Hauptknopf, gewählter Filter) mit heller Schrift darauf, mindestens 6,5:1.
-    static let redFill = dynamic(light: (159, 52, 56), dark: (142, 48, 52))
-    /// Zweiter, kühler Akzent: Besucht-Siegel, zweiter Tagesfaden auf der Karte. Nie für Hauptaktionen.
-    static let cobalt = dynamic(light: (59, 85, 116), dark: (157, 182, 212))
-    static let ink = dynamic(light: (36, 33, 30), dark: (243, 239, 232))
-    static let inkSoft = dynamic(light: (107, 100, 89), dark: (176, 167, 156))
-    /// Hinter dem Vollbildfoto, in beiden Modi dunkel.
-    static let scrim = Color(red: 20/255, green: 18/255, blue: 16/255)
-    static let opening = scrim
-    /// Schrift auf `redFill`: in beiden Modi hell.
-    static let onAccent = Color(red: 251/255, green: 247/255, blue: 241/255)
+    // MARK: Farben (Hell / Dunkel)
+
+    static let paper = dynamic(light: (244, 239, 228), dark: (26, 23, 20))
+    static let paperDeep = dynamic(light: (232, 223, 208), dark: (42, 37, 32))
+    /// Markenweiß: Karten, Marken, Felder.
+    static let card = dynamic(light: (251, 248, 242), dark: (37, 33, 29))
+    static let rule = dynamic(light: (221, 211, 194), dark: (62, 56, 49))
+    static let ink = dynamic(light: (28, 25, 21), dark: (242, 237, 227))
+    static let inkSoft = dynamic(light: (107, 100, 92), dark: (181, 172, 160))
+    /// Poststempel als Schrift und Linie. Auf Papier 4,7:1, auf Karte 5,1:1.
+    static let red = dynamic(light: (182, 69, 50), dark: (236, 134, 114))
+    /// Poststempel als Fläche, helle Schrift darauf mindestens 5,2:1.
+    static let redFill = dynamic(light: (182, 69, 50), dark: (166, 61, 44))
+    /// Zweite Tinte: Besucht, Hinweise, zweite Route.
+    static let teal = dynamic(light: (61, 92, 90), dark: (141, 179, 175))
+    /// Nur Zierde (Stempelring, Sterne), nie Schrift.
+    static let gold = dynamic(light: (196, 165, 116), dark: (214, 186, 138))
+    static let onAccent = Color(red: 251 / 255, green: 248 / 255, blue: 242 / 255)
+    /// Hintergrund hinter Vollbildfotos, in beiden Modi dunkel.
+    static let scrim = Color(red: 20 / 255, green: 18 / 255, blue: 16 / 255)
+
+    /// Pastellränder der Marken, fest je Kategorie. Nie für Schrift.
+    enum Mat {
+        static let rose = dynamic(light: (240, 206, 198), dark: (94, 62, 57))
+        static let sky = dynamic(light: (203, 221, 235), dark: (52, 71, 88))
+        static let butter = dynamic(light: (242, 227, 178), dark: (88, 78, 47))
+        static let mint = dynamic(light: (207, 227, 209), dark: (50, 73, 58))
+        static let lilac = dynamic(light: (221, 211, 235), dark: (67, 59, 86))
+    }
 
     static func dynamic(light: (Int, Int, Int), dark: (Int, Int, Int)) -> Color {
         Color(UIColor { traits in
@@ -33,8 +42,27 @@ enum Stitch {
         })
     }
 
-    /// Abstände: 4, 8, 12, 16, 24, 32, 48. `page` ist der Seitenrand und bewusst kein Rasterwert:
-    /// 20 gibt Text und Karten Luft zum Bildschirmrand, ohne die Rhythmen im Inneren zu verschieben.
+    // MARK: Schrift
+
+    /// Fraunces für Titel, Instrument Serif für Ortsnamen, SF für alles Lesbare, SF Mono für Codes und Zeiten.
+    /// Alle wachsen mit Dynamic Type.
+    enum Face {
+        static func display(_ size: CGFloat = 34, relativeTo style: Font.TextStyle = .largeTitle) -> Font {
+            .custom("Fraunces-SemiBold", size: size, relativeTo: style)
+        }
+        static func title(_ size: CGFloat = 22, relativeTo style: Font.TextStyle = .title2) -> Font {
+            .custom("Fraunces-SemiBold", size: size, relativeTo: style)
+        }
+        static func place(_ size: CGFloat = 22, relativeTo style: Font.TextStyle = .title2) -> Font {
+            .custom("InstrumentSerif-Regular", size: size, relativeTo: style)
+        }
+        static let ticket = Font.system(.footnote, design: .monospaced).weight(.medium)
+        static func code(_ style: Font.TextStyle) -> Font { Font.system(style, design: .monospaced).weight(.medium) }
+    }
+
+    // MARK: Maße
+
+    /// Abstände in Punkten; `page` ist der Seitenrand überall.
     enum Space {
         static let xxs: CGFloat = 4
         static let xs: CGFloat = 8
@@ -46,416 +74,250 @@ enum Stitch {
         static let page: CGFloat = 20
     }
 
-    /// Eckenradien, immer mit kontinuierlicher Kurve.
+    /// Eckenradien, immer mit kontinuierlicher Kurve. Marken haben fast keine Ecke.
     enum Radius {
-        static let thumb: CGFloat = 12
-        static let card: CGFloat = 20
-        /// Blätter und große schwebende Flächen.
-        static let sheet: CGFloat = 28
-        static let floating = sheet
+        static let stamp: CGFloat = 4
+        static let thumb: CGFloat = 10
+        static let card: CGFloat = 18
+        static let floating: CGFloat = 26
     }
 
-    /// Drei Höhenstufen, bewusst flach: Ruhende Flächen trennt die Haarlinie, nicht der Schatten.
+    /// Drei Höhen: flach, aufgeklebt (Marke auf Papier), schwebend (über der Karte).
     enum Elevation {
         case flat, pinned, floating
-        var opacity: Double { switch self { case .flat: 0; case .pinned: 0.07; case .floating: 0.12 } }
-        var radius: CGFloat { switch self { case .flat: 0; case .pinned: 4; case .floating: 14 } }
-        var y: CGFloat { switch self { case .flat: 0; case .pinned: 1; case .floating: 5 } }
+        var opacity: Double { switch self { case .flat: 0; case .pinned: 0.10; case .floating: 0.16 } }
+        var radius: CGFloat { switch self { case .flat: 0; case .pinned: 6; case .floating: 18 } }
+        var y: CGFloat { switch self { case .flat: 0; case .pinned: 3; case .floating: 8 } }
     }
 
-    /// Feste Größen: Tippfläche nach Apple (44), Hauptknopf (52), Vorschaubild in kompakten Zeilen (56).
+    /// Feste Größen: Tippfläche nach Apple, Hauptknopf, Vorschaubild.
     enum Size {
         static let touch: CGFloat = 44
         static let button: CGFloat = 52
-        static let thumb: CGFloat = 56
+        static let thumb: CGFloat = 48
     }
 
-    /// Bewegung: kurze Dauern, zwei Federn, nichts darüber. `maybe` nimmt „Bewegung reduzieren“ mit.
-    enum Motion {
-        /// Farbe, Deckkraft, Auswahl.
-        static let quick = 0.18
-        /// Inhalt, der sich umbaut.
-        static let settle = 0.28
-        static let press = Animation.spring(response: 0.22, dampingFraction: 0.78)
-        static let snap = Animation.spring(response: 0.30, dampingFraction: 0.80)
-        static let sheet = Animation.spring(response: 0.38, dampingFraction: 0.86)
-        static func maybe(_ reduceMotion: Bool, _ animation: Animation) -> Animation? { reduceMotion ? nil : animation }
-    }
-
-    /// Einheitliche Größe für Heftstiche (nur noch in den Ritualen).
-    static let tackSize: CGFloat = 12
-
-    /// Ein Kreuzstich: erst „/“, dann „\“. `progress` 0…1 zeichnet beide Hälften nacheinander.
-    static func drawCross(_ context: inout GraphicsContext, in rect: CGRect, color: Color, progress: CGFloat = 1) {
-        guard progress > 0 else { return }
-        let inset = rect.width * 0.12
-        let r = rect.insetBy(dx: inset, dy: inset)
-        let width = rect.width * 0.36
-        let first = (CGPoint(x: r.minX, y: r.maxY), CGPoint(x: r.maxX, y: r.minY))
-        let second = (CGPoint(x: r.minX, y: r.minY), CGPoint(x: r.maxX, y: r.maxY))
-        drawThread(&context, from: first.0, to: first.1, amount: min(progress * 2, 1), color: color, width: width)
-        if progress > 0.5 {
-            drawThread(&context, from: second.0, to: second.1, amount: (progress - 0.5) * 2, color: color, width: width)
-        }
-    }
-
-    /// Vorgedrucktes Muster für noch nicht Gesticktes.
-    static func drawPrinted(_ context: inout GraphicsContext, in rect: CGRect) {
-        let r = rect.insetBy(dx: rect.width * 0.22, dy: rect.width * 0.22)
-        var path = Path()
-        path.move(to: CGPoint(x: r.minX, y: r.maxY)); path.addLine(to: CGPoint(x: r.maxX, y: r.minY))
-        path.move(to: CGPoint(x: r.minX, y: r.minY)); path.addLine(to: CGPoint(x: r.maxX, y: r.maxY))
-        context.stroke(path, with: .color(Stitch.ink.opacity(0.3)), lineWidth: max(0.8, rect.width * 0.1))
-    }
-
-    private static func drawThread(_ context: inout GraphicsContext, from a: CGPoint, to b: CGPoint, amount: CGFloat, color: Color, width: CGFloat) {
-        let end = CGPoint(x: a.x + (b.x - a.x) * amount, y: a.y + (b.y - a.y) * amount)
-        var path = Path(); path.move(to: a); path.addLine(to: end)
-        let round = StrokeStyle(lineWidth: width, lineCap: .round)
-        context.stroke(path.offsetBy(dx: width * 0.18, dy: width * 0.26), with: .color(.black.opacity(0.22)), style: round)
-        context.stroke(path, with: .color(color), style: round)
-        context.stroke(path.offsetBy(dx: -width * 0.12, dy: -width * 0.14), with: .color(.white.opacity(0.28)),
-                       style: StrokeStyle(lineWidth: width * 0.34, lineCap: .round))
-    }
+    /// Warme Schattenfarbe statt Schwarz, damit Marken auf Papier liegen statt zu schweben.
+    static let shadow = Color(red: 0.24, green: 0.17, blue: 0.10)
 }
 
-/// Grund jeder Seite: flaches Papier. Der Name bleibt, die Gewebe-Kachel ist fort.
-struct LinenBackground: View {
-    var body: some View {
-        Stitch.linen.ignoresSafeArea()
-    }
+// MARK: Flächen
+
+struct PaperBackground: View {
+    var body: some View { Stitch.paper.ignoresSafeArea() }
 }
 
 extension View {
-    /// Einheitliche Karte: Innenabstand 16, Radius 20, Papierfläche, Haarlinie, wahlweise mit Schatten.
+    /// Einheitliche Karte: Markenweiß, Radius 18, feine Kontur; wahlweise mit Schatten.
     func stitchCard(_ elevation: Stitch.Elevation = .flat, padding: CGFloat = Stitch.Space.m) -> some View {
-        let shape = RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous)
-        return self.padding(padding)
-            .background(Stitch.card, in: shape)
-            .overlay(shape.strokeBorder(Stitch.rule, lineWidth: 1))
+        self.padding(padding)
+            .background(Stitch.card, in: RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous)
+                .strokeBorder(Stitch.rule, lineWidth: elevation == .flat ? 1 : 0))
             .stitchElevation(elevation)
     }
 
     func stitchElevation(_ elevation: Stitch.Elevation) -> some View {
-        shadow(color: .black.opacity(elevation.opacity), radius: elevation.radius, y: elevation.y)
-    }
-
-    /// Textknopf ohne Fläche: Burgunder, mindestens 44 hoch (Route, Tag ändern, Bearbeiten).
-    func albumTextAction() -> some View {
-        font(.subheadline.weight(.semibold))
-            .foregroundStyle(Stitch.red)
-            .frame(minHeight: Stitch.Size.touch)
+        shadow(color: Stitch.shadow.opacity(elevation.opacity), radius: elevation.radius, y: elevation.y)
     }
 }
 
-/// Gestrichelte Trennlinie (Perforation), überall gleich.
+/// Gepunktete Trennlinie (Perforation), überall gleich.
 struct PerforationLine: View {
+    var color = Stitch.rule
     var body: some View {
-        Rectangle().fill(.clear).frame(height: 1)
-            .overlay(HLine().stroke(Stitch.rule, style: StrokeStyle(lineWidth: 1, dash: [4, 4])))
-            .accessibilityHidden(true)
-    }
-    private struct HLine: Shape {
-        func path(in rect: CGRect) -> Path { Path { $0.move(to: CGPoint(x: 0, y: rect.midY)); $0.addLine(to: CGPoint(x: rect.width, y: rect.midY)) } }
+        Canvas { context, size in
+            var x: CGFloat = 2
+            while x < size.width {
+                context.fill(Path(ellipseIn: CGRect(x: x - 1.5, y: size.height / 2 - 1.5, width: 3, height: 3)), with: .color(color))
+                x += 7
+            }
+        }
+        .frame(height: 3)
+        .accessibilityHidden(true)
     }
 }
 
-/// Umriss einer Briefmarke: runde Ecken, dazu sparsame Zähne an allen vier Kanten.
-/// Mit `FillStyle(eoFill: true)` geclippt schneiden die Zähne kleine Kerben in die Fläche.
-struct StampBorder: Shape {
-    var radius: CGFloat = Stitch.Radius.thumb
-    var tooth: CGFloat = 3
-    var spacing: CGFloat = 18
+// MARK: Marke
+
+/// Rechteck mit Zähnung: an allen Kanten halbrunde Bisse in gleichem Abstand, an den Ecken ausgerichtet.
+struct StampShape: Shape {
+    var hole: CGFloat = 2.6
+    var pitch: CGFloat = 9
 
     func path(in rect: CGRect) -> Path {
-        var path = Path(roundedRect: rect, cornerRadius: radius, style: .continuous)
-        func notches(along length: CGFloat, at point: (CGFloat) -> CGPoint) {
-            let usable = length - radius * 2
-            guard usable > spacing else { return }
-            let count = max(1, Int(usable / spacing))
-            let step = usable / CGFloat(count)
-            for index in 0...count {
-                let center = point(radius + step * CGFloat(index))
-                path.addEllipse(in: CGRect(x: center.x - tooth, y: center.y - tooth, width: tooth * 2, height: tooth * 2))
+        var holes = Path()
+        func bite(along length: CGFloat, at point: (CGFloat) -> CGPoint) {
+            let count = max(2, Int((length / pitch).rounded()))
+            let step = length / CGFloat(count)
+            for index in 0..<count {
+                let center = point(step * (CGFloat(index) + 0.5))
+                holes.addEllipse(in: CGRect(x: center.x - hole, y: center.y - hole, width: hole * 2, height: hole * 2))
             }
         }
-        notches(along: rect.width) { CGPoint(x: rect.minX + $0, y: rect.minY) }
-        notches(along: rect.width) { CGPoint(x: rect.minX + $0, y: rect.maxY) }
-        notches(along: rect.height) { CGPoint(x: rect.minX, y: rect.minY + $0) }
-        notches(along: rect.height) { CGPoint(x: rect.maxX, y: rect.minY + $0) }
-        return path
+        bite(along: rect.width) { CGPoint(x: rect.minX + $0, y: rect.minY) }
+        bite(along: rect.width) { CGPoint(x: rect.minX + $0, y: rect.maxY) }
+        bite(along: rect.height) { CGPoint(x: rect.minX, y: rect.minY + $0) }
+        bite(along: rect.height) { CGPoint(x: rect.maxX, y: rect.minY + $0) }
+        return Path(rect).subtracting(holes)
     }
 }
 
-/// Ein Foto wie eine Marke: die Zähne kerben die Kante aus, dahinter scheint die Karte durch.
-/// Ersetzt das frühere Polaroid mit Heftstich und Schräglage.
-struct StampPhoto: View {
-    var asset: PlaceImageAsset?
-    var root: URL? = nil
-    var thumbnailWidth: Int? = nil
-    var tooth: CGFloat = 3
-    var spacing: CGFloat = 18
+/// Ein Foto als Briefmarke: gezähntes Markenweiß, darin der Pastellrand der Kategorie, darin das Bild.
+struct StampFrame<Content: View>: View {
+    var mat: Color = Stitch.paperDeep
+    var inset: CGFloat = 7
+    var matWidth: CGFloat = 4
+    var elevation: Stitch.Elevation = .pinned
+    @ViewBuilder var content: Content
+
     var body: some View {
-        AlbumPhoto(asset: asset, root: root, thumbnailWidth: thumbnailWidth)
-            .clipShape(StampBorder(tooth: tooth, spacing: spacing), style: FillStyle(eoFill: true))
+        content
+            .clipShape(RoundedRectangle(cornerRadius: 2, style: .continuous))
+            .padding(matWidth)
+            .background(mat, in: RoundedRectangle(cornerRadius: 3, style: .continuous))
+            .padding(inset)
+            .background(Stitch.card)
+            .clipShape(StampShape())
+            .compositingGroup()
+            .stitchElevation(elevation)
     }
 }
 
-/// Abschnittsüberschrift, überall gleich: optional ein Burgunder-Hinweis davor („Heute“),
-/// rechts eine leise Zweitangabe. 12 Abstand zum Inhalt setzt der Aufrufer.
-struct AlbumSectionHeader: View {
-    let title: String
-    var highlight: String? = nil
-    var detail: String = ""
+/// Ticket: Karte mit zwei halbrunden Kerben an der Abrisskante. `stub` ist die Breite des Abschnitts rechts.
+struct TicketShape: Shape {
+    var stub: CGFloat
+    var notch: CGFloat = 9
+    var radius: CGFloat = Stitch.Radius.thumb
 
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: Stitch.Space.xs) {
-            if let highlight {
-                Text(highlight).font(.headline).foregroundStyle(Stitch.red)
-            }
-            Text(title).font(.headline).foregroundStyle(Stitch.ink)
-            Spacer(minLength: 0)
-            if !detail.isEmpty {
-                Text(detail).font(.footnote).foregroundStyle(Stitch.inkSoft)
-            }
+    func path(in rect: CGRect) -> Path {
+        let x = rect.maxX - stub
+        let notches = Path { path in
+            path.addEllipse(in: CGRect(x: x - notch, y: rect.minY - notch, width: notch * 2, height: notch * 2))
+            path.addEllipse(in: CGRect(x: x - notch, y: rect.maxY - notch, width: notch * 2, height: notch * 2))
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isHeader)
+        return Path(roundedRect: rect, cornerRadius: radius, style: .continuous).subtracting(notches)
     }
 }
 
-/// Ein Ort als kompakte Zeile: Vorschaubild 56, Name, Zweitzeile, optional eine Notiz.
-/// Die ganze Zeile ist die Hauptaktion; Nebenaktionen setzt der Aufrufer daneben.
-struct AlbumPlaceRow: View {
-    let title: String
-    var meta: String = ""
-    var note: String = ""
-    var asset: PlaceImageAsset? = nil
-    var root: URL? = nil
-    /// Nummer im Tagesplan.
-    var index: Int? = nil
-    var visited = false
-    /// Zweitzeile in Burgunder, wenn sie einen Hinweis trägt („hat dann zu“).
-    var metaHighlighted = false
-    var action: () -> Void
-
+/// Runder Poststempel: Ring mit Ortsname und Datum, leicht schräg aufgedrückt.
+struct Postmark: View {
+    var top = "PRAHA"
+    var bottom: String
+    var color = Stitch.red
+    var size: CGFloat = 76
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: Stitch.Space.s) {
-                AlbumPhoto(asset: asset, root: root, thumbnailWidth: 120)
-                    .frame(width: Stitch.Size.thumb, height: Stitch.Size.thumb)
-                    .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous).strokeBorder(Stitch.rule, lineWidth: 1))
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
-                    HStack(alignment: .firstTextBaseline, spacing: Stitch.Space.xs) {
-                        if let index {
-                            Text("\(index)").font(.footnote.weight(.bold).monospacedDigit())
-                                .foregroundStyle(Stitch.inkSoft).accessibilityHidden(true)
-                        }
-                        Text(title).font(.headline).foregroundStyle(Stitch.ink)
-                            .multilineTextAlignment(.leading).lineLimit(2)
-                        if visited {
-                            Image(systemName: "checkmark.seal.fill").font(.footnote)
-                                .foregroundStyle(Stitch.cobalt).accessibilityLabel("Besucht")
-                        }
-                    }
-                    if !meta.isEmpty {
-                        Text(meta).font(.subheadline).foregroundStyle(metaHighlighted ? Stitch.red : Stitch.inkSoft)
-                    }
-                    if !note.isEmpty {
-                        Text(note).font(.footnote).foregroundStyle(Stitch.inkSoft).lineLimit(1)
-                    }
-                }
-                Spacer(minLength: 0)
+        ZStack {
+            Circle().strokeBorder(color, lineWidth: 2)
+            Circle().strokeBorder(color.opacity(0.7), lineWidth: 1).padding(5)
+            VStack(spacing: 1) {
+                Text(top).font(.system(size: size * 0.15, weight: .bold, design: .monospaced)).tracking(1.5)
+                Rectangle().fill(color).frame(width: size * 0.5, height: 1)
+                Text(bottom).font(.system(size: size * 0.13, weight: .semibold, design: .monospaced))
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
+            .foregroundStyle(color)
         }
-        .buttonStyle(.plain)
+        .frame(width: size, height: size)
+        .rotationEffect(.degrees(-12))
+        .accessibilityHidden(true)
     }
 }
 
-/// Hauptknopf (gefüllt, Burgunder) und Nebenknopf (Papier mit Haarlinie). Gleiche Höhe, gleiche Form.
-/// `loading` zeigt einen Spinner vor der Beschriftung; gesperrt wird der Knopf von außen (`.disabled`).
+// MARK: Kategorien
+
+extension Place {
+    /// Pastellrand der Marke.
+    var mat: Color {
+        switch category {
+        case "Essen & Trinken": Stitch.Mat.rose
+        case "Sehenswert": Stitch.Mat.sky
+        case "Aussicht": Stitch.Mat.butter
+        case "Unterkunft": Stitch.Mat.lilac
+        case "Shopping": Stitch.Mat.mint
+        default: Stitch.paperDeep
+        }
+    }
+
+    var symbol: String {
+        switch category {
+        case "Essen & Trinken": "fork.knife"
+        case "Sehenswert": "building.columns"
+        case "Aussicht": "binoculars"
+        case "Unterkunft": "bed.double"
+        case "Shopping": "bag"
+        default: "sparkle"
+        }
+    }
+}
+
+// MARK: Knöpfe
+
+/// Hauptknopf als Pille (Poststempel), Nebenknopf als helle Pille mit Kontur.
 struct StitchButton: ButtonStyle {
     var primary = false
-    var loading = false
     @Environment(\.isEnabled) private var enabled
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
     func makeBody(configuration: Configuration) -> some View {
-        let shape = RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous)
-        return HStack(spacing: Stitch.Space.xs) {
-            if loading {
-                ProgressView().controlSize(.small).tint(primary ? Stitch.onAccent : Stitch.red)
-            }
-            configuration.label
-        }
-        .font(.subheadline.weight(.semibold))
-        .multilineTextAlignment(.center)
-        .fixedSize(horizontal: false, vertical: true)
-        .padding(.horizontal, Stitch.Space.m)
-        .padding(.vertical, Stitch.Space.s)
-        .frame(maxWidth: .infinity, minHeight: Stitch.Size.button, alignment: .center)
-        .foregroundStyle(primary ? Stitch.onAccent : Stitch.ink)
-        .background(primary ? Stitch.redFill : Stitch.card, in: shape)
-        .overlay(shape.fill(Stitch.ink.opacity(configuration.isPressed ? 0.06 : 0)))
-        .overlay(shape.strokeBorder(primary ? Color.clear : Stitch.rule, lineWidth: 1))
-        .opacity(enabled ? 1 : 0.4)
-        .contentShape(shape)
-        .scaleEffect(configuration.isPressed && !reduceMotion ? 0.98 : 1)
-        .animation(Stitch.Motion.maybe(reduceMotion, Stitch.Motion.press), value: configuration.isPressed)
+        configuration.label
+            .font(.subheadline.weight(.semibold))
+            .labelStyle(.titleAndIcon)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, Stitch.Space.m)
+            .padding(.vertical, Stitch.Space.s)
+            .frame(maxWidth: .infinity, minHeight: Stitch.Size.button, alignment: .center)
+            .foregroundStyle(primary ? Stitch.onAccent : Stitch.ink)
+            .background(primary ? Stitch.redFill : Stitch.card, in: Capsule())
+            .overlay(Capsule().strokeBorder(Stitch.rule, lineWidth: primary ? 0 : 1))
+            .opacity(enabled ? 1 : 0.45)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
     }
 }
 
-/// Runder Knopf nur mit Symbol, 44 × 44: Papier, Haarlinie, Tinte.
+/// Runder Knopf nur mit Symbol, 44 × 44.
 struct HeaderIconButton: ButtonStyle {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.body.weight(.semibold)).foregroundStyle(Stitch.ink)
             .frame(width: Stitch.Size.touch, height: Stitch.Size.touch)
             .background(Stitch.card, in: Circle())
             .overlay(Circle().strokeBorder(Stitch.rule, lineWidth: 1))
-            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.96 : 1)
-            .animation(Stitch.Motion.maybe(reduceMotion, Stitch.Motion.press), value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed ? 0.94 : 1)
+            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
     }
 }
 
-/// Ein Stickmuster: Kästchen mit Garnfarbe, in Stickreihenfolge. Nur noch für die Rituale.
-struct StitchGrid {
-    struct Cell { let x: Int; let y: Int; let color: Color }
-    let columns: Int
-    let rows: Int
-    let cells: [Cell]
-
-    /// Muster aus einer Schrift oder einem SF Symbol, abgetastet auf ein Raster.
-    init(rendering image: UIImage, rows: Int, color: Color) {
-        let aspect = image.size.width / max(image.size.height, 1)
-        let columns = max(1, Int((CGFloat(rows) * aspect).rounded()))
-        let size = CGSize(width: columns, height: rows)
-        let format = UIGraphicsImageRendererFormat(); format.scale = 1; format.preferredRange = .standard
-        let small = UIGraphicsImageRenderer(size: size, format: format).image { ctx in
-            ctx.cgContext.interpolationQuality = .high
-            image.draw(in: CGRect(origin: .zero, size: size))
-        }
-        var cells: [Cell] = []
-        if let data = small.cgImage?.dataProvider?.data, let bytes = CFDataGetBytePtr(data), let cg = small.cgImage {
-            let perRow = cg.bytesPerRow, perPixel = cg.bitsPerPixel / 8
-            for y in 0..<rows {
-                for x in 0..<columns where bytes[y * perRow + x * perPixel + (perPixel - 1)] > 110 {
-                    cells.append(Cell(x: x, y: y, color: color))
-                }
-            }
-        }
-        self.columns = columns; self.rows = rows
-        self.cells = cells.sorted { ($0.x, $0.y) < ($1.x, $1.y) }
-    }
-
-    private init(columns: Int, rows: Int, cells: [Cell]) {
-        self.columns = columns; self.rows = rows; self.cells = cells
-    }
-
-    /// Entfernt leere Ränder, damit das Muster genau so groß ist wie seine Stiche.
-    func trimmed() -> StitchGrid {
-        guard let minX = cells.map(\.x).min(), let maxX = cells.map(\.x).max(),
-              let minY = cells.map(\.y).min(), let maxY = cells.map(\.y).max() else { return self }
-        return StitchGrid(columns: maxX - minX + 1, rows: maxY - minY + 1,
-                          cells: cells.map { Cell(x: $0.x - minX, y: $0.y - minY, color: $0.color) })
-    }
-
-    static func text(_ string: String, rows: Int, color: Color) -> StitchGrid {
-        let base = UIFont.systemFont(ofSize: 120, weight: .black)
-        let font = base.fontDescriptor.withDesign(.serif).map { UIFont(descriptor: $0, size: 120) } ?? base
-        let attributed = NSAttributedString(string: string, attributes: [.font: font, .foregroundColor: UIColor.black])
-        let width = attributed.size().width
-        // Volle Zeilenhöhe inklusive Unterlänge, damit das „g“ nicht abgeschnitten wird.
-        let size = CGSize(width: ceil(width) + 8, height: ceil(font.ascender - font.descender) + 8)
-        let image = UIGraphicsImageRenderer(size: size).image { _ in attributed.draw(at: CGPoint(x: 4, y: 4)) }
-        return StitchGrid(rendering: image, rows: rows, color: color).trimmed()
+/// Stille Textaktion in Poststempel-Rot, 44 hoch.
+struct TextActionButton: ButtonStyle {
+    var tint = Stitch.red
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.subheadline.weight(.semibold)).foregroundStyle(tint)
+            .frame(minHeight: Stitch.Size.touch)
+            .contentShape(Rectangle())
+            .opacity(configuration.isPressed ? 0.55 : 1)
     }
 }
 
-/// Zeichnet ein Muster. `stitched` ist animierbar: Stiche entstehen Kästchen für Kästchen.
-struct StitchPatternView: View, Animatable {
-    let grid: StitchGrid
-    var cell: CGFloat
-    var stitched: Double
-    var showPrinted = true
-
-    var animatableData: Double {
-        get { stitched }
-        set { stitched = newValue }
-    }
-
-    init(_ grid: StitchGrid, cell: CGFloat, stitched: Double? = nil, showPrinted: Bool = true) {
-        self.grid = grid; self.cell = cell; self.showPrinted = showPrinted
-        self.stitched = stitched ?? Double(grid.cells.count)
-    }
-
+/// Abschnittsüberschrift: Fraunces links, optional eine Zahl oder Aktion rechts.
+struct SectionTitle<Trailing: View>: View {
+    let title: String
+    @ViewBuilder var trailing: Trailing
     var body: some View {
-        Canvas { context, _ in
-            for (index, item) in grid.cells.enumerated() {
-                let rect = CGRect(x: CGFloat(item.x) * cell, y: CGFloat(item.y) * cell, width: cell, height: cell)
-                let amount = CGFloat(stitched - Double(index))
-                if amount >= 1 {
-                    Stitch.drawCross(&context, in: rect, color: item.color)
-                } else if amount > 0 {
-                    if showPrinted { Stitch.drawPrinted(&context, in: rect) }
-                    Stitch.drawCross(&context, in: rect, color: item.color, progress: amount)
-                } else if showPrinted {
-                    Stitch.drawPrinted(&context, in: rect)
-                }
-            }
+        HStack(alignment: .firstTextBaseline) {
+            Text(title).font(Stitch.Face.title(22, relativeTo: .title3)).foregroundStyle(Stitch.ink)
+                .accessibilityAddTraits(.isHeader)
+            Spacer(minLength: Stitch.Space.s)
+            trailing
         }
-        .frame(width: CGFloat(grid.columns) * cell, height: CGFloat(grid.rows) * cell)
-        .accessibilityHidden(true)
     }
 }
 
-/// Gestickte Überschrift. Nur noch in den Ritualen (Einladung); die Hauptbildschirme setzen Serifenschrift.
-struct StitchedText: View {
-    let text: String
-    var rows = 13
-    var cell: CGFloat = 5
-    var color = Stitch.red
-    var body: some View {
-        StitchPatternView(StitchGrid.text(text, rows: rows, color: color), cell: cell, showPrinted: false)
-            .accessibilityElement().accessibilityLabel(text).accessibilityAddTraits(.isHeader)
-    }
+extension SectionTitle where Trailing == EmptyView {
+    init(_ title: String) { self.title = title; self.trailing = EmptyView() }
 }
 
-/// Kleines Symbol in der Größe, die früher ein Stickbild hatte (`rows` × `cell`), jetzt als SF Symbol.
-/// Der Name bleibt, damit Aufrufer außerhalb des Redesigns unverändert bleiben und doch nativ aussehen.
-struct StitchedSymbol: View {
-    let name: String
-    var rows = 11
-    var cell: CGFloat = 2.4
-    var color = Stitch.red
-    private var side: CGFloat { CGFloat(rows) * cell }
-    var body: some View {
-        Image(systemName: name)
-            .font(.system(size: side * 0.82, weight: .regular))
-            .foregroundStyle(color)
-            .frame(height: side)
-            .accessibilityHidden(true)
-    }
-}
-
-/// Zwei kleine Kreuze als „Heftstich“. Nur noch in den Ritualen (Briefkasten, Einladung, Bordkarte).
-struct TackStitch: View {
-    var color = Stitch.red
-    var size: CGFloat = Stitch.tackSize
-    var body: some View {
-        Canvas { context, canvasSize in
-            Stitch.drawCross(&context, in: CGRect(origin: .zero, size: canvasSize), color: color)
-        }
-        .frame(width: size, height: size)
-        .accessibilityHidden(true)
-    }
-}
+// MARK: Hilfen
 
 struct SeededRandom {
     private var state: UInt64
@@ -467,9 +329,13 @@ struct SeededRandom {
 }
 
 extension String {
-    /// Stabiler Wert −1…1 aus einer ID, z. B. für die Reihenfolge kleiner Verzögerungen.
+    /// Stabiler Wert −1…1 aus einer ID.
     var stableTilt: Double {
         let sum = unicodeScalars.reduce(0) { ($0 &* 31 &+ Int($1.value)) % 1000 }
         return Double(sum) / 500 - 1
     }
+}
+
+extension Comparable {
+    func clamped(to limits: ClosedRange<Self>) -> Self { min(max(self, limits.lowerBound), limits.upperBound) }
 }

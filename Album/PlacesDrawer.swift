@@ -38,8 +38,8 @@ struct PlacesDrawer: View {
         .frame(maxWidth: .infinity)
         .frame(height: currentHeight, alignment: .top)
         .background(alignment: .top) {
-            // Das Leinen reicht unter die Tab-Leiste, der Inhalt endet über ihr.
-            LinenBackground()
+            // Das Papier reicht unter die Tab-Leiste, der Inhalt endet über ihr.
+            PaperBackground()
                 .clipShape(UnevenRoundedRectangle(topLeadingRadius: Stitch.Radius.floating, topTrailingRadius: Stitch.Radius.floating, style: .continuous))
                 .stitchElevation(.floating)
                 .ignoresSafeArea(edges: .bottom)
@@ -93,18 +93,18 @@ struct PlacesDrawer: View {
             grabber
             HStack(alignment: .center, spacing: Stitch.Space.s) {
                 VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
-                    Text(title).font(.headline).foregroundStyle(Stitch.ink)
+                    Text(title).font(Stitch.Face.title(24, relativeTo: .title3)).foregroundStyle(Stitch.ink)
                     Text(subtitle).font(.footnote).foregroundStyle(Stitch.inkSoft)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
                 if !planned.isEmpty {
-                    Button { proposing = true } label: { Image(systemName: "wand.and.stars") }
-                        .buttonStyle(HeaderIconButton())
-                        .accessibilityLabel("Automatisch planen")
-                    Button(editing ? "Fertig" : "Bearbeiten") { editing.toggle() }
-                        .font(.body.weight(.semibold)).foregroundStyle(Stitch.red)
-                        .frame(minHeight: Stitch.Size.touch)
+                    if !editing {
+                        Button("Tage planen") { proposing = true }.buttonStyle(TextActionButton())
+                            .accessibilityHint("Schlägt für jeden Tag eine Runde vor")
+                    }
+                    Button(editing ? "Fertig" : "Ordnen") { editing.toggle() }.buttonStyle(TextActionButton(tint: Stitch.ink))
+                        .accessibilityHint(editing ? "" : "Tage und Reihenfolge von Hand ändern")
                 }
             }
             .padding(.horizontal, Stitch.Space.page)
@@ -132,17 +132,17 @@ struct PlacesDrawer: View {
         return parts.joined(separator: " · ")
     }
 
-    /// Ziehen oder Tippen am Kapselgriff ändert die Höhe.
+    /// Griff: Ziehen oder Tippen ändert die Höhe.
     private var grabber: some View {
         Button {
             move(to: detent == .half ? .full : .half)
         } label: {
-            Capsule().fill(Stitch.inkSoft.opacity(0.4))
-                .frame(width: 36, height: 5)
-                .frame(maxWidth: .infinity, minHeight: Stitch.Size.touch)
-                .contentShape(Rectangle())
+            Capsule().fill(Stitch.inkSoft.opacity(0.4)).frame(width: 40, height: 5)
+                .frame(maxWidth: .infinity, minHeight: 36)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        // Wischen am Griff bewegt das Blatt; nur ein Tipp ohne Bewegung zählt als Knopfdruck.
         .highPriorityGesture(dragGesture)
         .accessibilityLabel(detent == .full ? "Liste einklappen" : "Liste ausklappen")
         .accessibilityAdjustableAction { direction in
@@ -158,17 +158,17 @@ struct PlacesDrawer: View {
         ScrollView(.horizontal) {
             HStack(spacing: Stitch.Space.xs) {
                 ForEach(MapFilter.allCases) { item in
-                    Button { withAnimation(Stitch.Motion.maybe(reduceMotion, .easeOut(duration: Stitch.Motion.quick))) { filter = item } } label: {
+                    Button { withAnimation(reduceMotion ? nil : .snappy) { filter = item } } label: {
                         HStack(spacing: Stitch.Space.xs) {
                             if let symbol = item.symbol {
-                                Image(systemName: symbol).font(.subheadline).accessibilityHidden(true)
+                                Image(systemName: symbol).font(.footnote.weight(.semibold))
                             }
                             Text(item.title).font(.subheadline.weight(.semibold))
                         }
                         .padding(.horizontal, Stitch.Space.m).frame(minHeight: Stitch.Size.touch)
-                        .foregroundStyle(filter == item ? Stitch.onAccent : Stitch.ink)
-                        .background(filter == item ? Stitch.redFill : Stitch.card, in: Capsule())
-                        .overlay(Capsule().strokeBorder(filter == item ? Color.clear : Stitch.rule, lineWidth: 1))
+                        .foregroundStyle(filter == item ? Stitch.paper : Stitch.ink)
+                        .background(filter == item ? Stitch.ink : Stitch.card, in: Capsule())
+                        .overlay(Capsule().strokeBorder(Stitch.rule, lineWidth: filter == item ? 0 : 1))
                     }
                     .buttonStyle(.plain)
                     .accessibilityAddTraits(filter == item ? .isSelected : [])
@@ -252,8 +252,17 @@ struct PlacesDrawer: View {
     }
 
     private func sectionHeader(_ section: Section) -> some View {
-        AlbumSectionHeader(title: section.title, highlight: section.isToday ? "Heute" : nil,
-                           detail: section.stops.isEmpty ? "" : section.stops.count == 1 ? "1 Ort" : "\(section.stops.count) Orte")
+        HStack(alignment: .firstTextBaseline, spacing: Stitch.Space.xs) {
+            if section.isToday { Text("Heute").font(Stitch.Face.title(19, relativeTo: .headline)).foregroundStyle(Stitch.red) }
+            Text(section.title).font(Stitch.Face.title(19, relativeTo: .headline)).foregroundStyle(Stitch.ink)
+            Spacer(minLength: 0)
+            if !section.stops.isEmpty {
+                Text(section.stops.count == 1 ? "1 Ort" : "\(section.stops.count) Orte")
+                    .font(.footnote).foregroundStyle(Stitch.inkSoft)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityAddTraits(.isHeader)
     }
 
     // MARK: Bearbeiten
@@ -295,9 +304,9 @@ struct PlacesDrawer: View {
     }
 }
 
-/// Kompakte Ortszeile mit Tageszeit, Route, Tag und Details.
+/// Ein Ort als Zeile: kleine Marke, Name in Serif, Art und Tageszeit; darunter Route und Tag.
+/// Tippen zeigt ihn auf der Karte, der Pfeil öffnet das Detail.
 private struct PlaceRow: View {
-    @Environment(\.dynamicTypeSize) private var typeSize
     let stop: PlanStop
     let root: URL
     let selected: Bool
@@ -306,51 +315,54 @@ private struct PlaceRow: View {
     private var place: Place { stop.place }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Stitch.Space.s) {
-            AlbumPlaceRow(title: place.title, meta: meta, note: place.note, asset: place.image,
-                          root: root, visited: place.visited, metaHighlighted: stop.note != nil, action: onShow)
+        VStack(alignment: .leading, spacing: Stitch.Space.xs) {
+            HStack(spacing: Stitch.Space.s) {
+                Button(action: onShow) {
+                    HStack(spacing: Stitch.Space.s) {
+                        StampFrame(mat: place.mat, inset: 4, matWidth: 2, elevation: .flat) {
+                            AlbumPhoto(asset: place.image, root: root, thumbnailWidth: 160).frame(width: 48, height: 56)
+                        }
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: Stitch.Space.xs) {
+                                Text(place.title).font(Stitch.Face.place(21, relativeTo: .headline)).foregroundStyle(Stitch.ink)
+                                    .multilineTextAlignment(.leading).lineLimit(2)
+                                if place.visited {
+                                    Image(systemName: "checkmark.seal.fill").foregroundStyle(Stitch.teal).accessibilityLabel("Besucht")
+                                }
+                            }
+                            Text(meta).font(.footnote).foregroundStyle(stop.note == nil ? Stitch.inkSoft : Stitch.red)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
                 .accessibilityHint("Zeigt den Ort auf der Karte")
                 .accessibilityIdentifier("place-row-\(place.id)")
-
-            if typeSize.isAccessibilitySize {
-                VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
-                    HStack {
-                        if place.coordinate != nil { routeButton }
-                        Spacer(minLength: 0)
-                        detailsButton
-                    }
-                    if place.category != "Unterkunft" { DayMenu(place: place) }
-                }
-            } else {
-                HStack(spacing: Stitch.Space.l) {
-                    if place.coordinate != nil { routeButton }
-                    if place.category != "Unterkunft" { DayMenu(place: place) }
-                    Spacer(minLength: 0)
-                    detailsButton
-                }
+                Button(action: onDetails) { Image(systemName: "chevron.right") }
+                    .font(.footnote.weight(.semibold)).foregroundStyle(Stitch.inkSoft)
+                    .frame(width: Stitch.Size.touch, height: Stitch.Size.touch)
+                    .accessibilityLabel("Details zu \(place.title)")
             }
+            HStack(spacing: Stitch.Space.l) {
+                if place.coordinate != nil {
+                    Button { openWalkingRoute(to: place) } label: { Label("Route", systemImage: "figure.walk") }
+                        .buttonStyle(TextActionButton())
+                }
+                if place.category != "Unterkunft" { DayMenu(place: place) }
+                Spacer(minLength: 0)
+            }
+            .padding(.leading, 56 + Stitch.Space.s)
         }
-        .stitchCard()
+        .padding(Stitch.Space.s)
+        .background(Stitch.card, in: RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
         .overlay {
-            if selected {
-                RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous)
-                    .strokeBorder(Stitch.red, lineWidth: 1.5)
-                    .allowsHitTesting(false)
-            }
+            RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous)
+                .strokeBorder(selected ? Stitch.red : Stitch.rule, lineWidth: selected ? 2 : 1)
+                .allowsHitTesting(false)
         }
         .accessibilityElement(children: .contain)
         .accessibilityAddTraits(selected ? .isSelected : [])
-    }
-
-    private var routeButton: some View {
-        Button { openWalkingRoute(to: place) } label: { Label("Route", systemImage: "figure.walk") }
-            .albumTextAction()
-    }
-
-    private var detailsButton: some View {
-        Button(action: onDetails) { Image(systemName: "info.circle").font(.title3) }
-            .foregroundStyle(Stitch.inkSoft).frame(width: Stitch.Size.touch, height: Stitch.Size.touch)
-            .accessibilityLabel("Details zu \(place.title)")
     }
 
     /// „Sehenswert · vormittags · bis 18:00“ – nur was stimmt; Unbekanntes bleibt weg.
@@ -367,7 +379,6 @@ private struct PlaceRow: View {
         guard let last = ranges.last, !(last.lowerBound == 0 && last.upperBound >= 1440) else { return nil }
         return "bis \(OpeningHours.clock(last.upperBound))"
     }
-
 }
 
 /// Tag eines Ortes wählen; der Ort kommt ans Ende des Tages.
@@ -381,7 +392,7 @@ struct DayMenu: View {
                 ForEach(DayPlanGenerator.days, id: \.self) { Text(TripDates.dayTitle($0)).tag(Optional($0)) }
             }
         } label: {
-            Label(place.day == nil ? "Tag festlegen" : "Tag ändern", systemImage: "calendar")
+            Label(place.day.map { "\($0). Okt" } ?? "Tag festlegen", systemImage: "calendar")
                 .font(.subheadline.weight(.semibold)).foregroundStyle(Stitch.red)
                 .frame(minHeight: Stitch.Size.touch)
         }

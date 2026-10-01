@@ -8,7 +8,7 @@ extension Place {
     }
 }
 
-/// Aufrechte Fotos eines Ortes; hintere Fotos liegen leicht versetzt darunter.
+/// Die Fotos eines Ortes als kleiner Stapel: Die hinteren liegen leicht versetzt und gedreht darunter.
 /// Horizontal wischen blättert zyklisch (der Finger führt die Karte, halbe Geste = halbe Bewegung, zu kurz federt zurück),
 /// Tippen öffnet das Foto groß, die Zähler-Schaltfläche blättert ohne Geste.
 struct PhotoStack: View {
@@ -62,8 +62,7 @@ struct PhotoStack: View {
         let slot = slot(position)
         Group {
             if position == 0 {
-                PhotoCard(asset: photos[id], root: root, thumbnailWidth: 960)
-                    .accessibilityLabel("Foto von \(title), \(subtitle)")
+                PhotoCard(asset: photos[id], root: root, title: title, subtitle: subtitle, thumbnailWidth: 960)
             } else {
                 AlbumPhoto(asset: photos[id], root: root, thumbnailWidth: 500)
                     .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
@@ -82,8 +81,8 @@ struct PhotoStack: View {
         func base(_ p: Int) -> (CGSize, Double) {
             switch min(p, 2) {
             case 0: (.zero, 0)
-            case 1: (CGSize(width: 6, height: 4), 0)
-            default: (CGSize(width: -6, height: 6), 0)
+            case 1: (CGSize(width: 6, height: 4), 2.5)
+            default: (CGSize(width: -6, height: 6), -2.5)
             }
         }
         guard position > 0, flying == nil else { return base(position) }
@@ -102,7 +101,7 @@ struct PhotoStack: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .padding(Stitch.Space.xs)
+        .padding(.trailing, Stitch.Space.xs)
         .accessibilityLabel("Nächstes Foto, \(front + 1) von \(photos.count)")
         .accessibilityIdentifier("Foto-Zähler")
     }

@@ -1,23 +1,24 @@
 import SwiftUI
-import UIKit
 
+/// Gemeinsames Album: dein Name und genau ein Weg, die andere Person dazuzuholen.
+/// Abgeglichen wird von selbst und per Herunterziehen auf „Reise“.
 struct AlbumSettings: View {
     @Environment(AlbumStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @State private var preparing = false
     @State private var localError: String?
-    @State private var linkCopied = false
     @FocusState private var nameFocused: Bool
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: Stitch.Space.xl) {
-                    VStack(spacing: Stitch.Space.s) {
-                        StitchedSymbol(name: "person.2.fill", rows: 20, cell: 4, color: Stitch.cobalt)
+                    VStack(alignment: .leading, spacing: Stitch.Space.s) {
+                        Postmark(top: "ALBUM", bottom: "FÜR ZWEI", size: 84)
+                        Text(store.isShared ? "Ihr teilt dieses Album" : "Zu zweit planen")
+                            .font(Stitch.Face.display(32, relativeTo: .largeTitle)).foregroundStyle(Stitch.ink)
                         Text("Ideen, Orte und Unterlagen landen auf beiden iPhones. Der Link gilt nur für diese Reise.")
-                            .font(.subheadline).multilineTextAlignment(.center).foregroundStyle(Stitch.inkSoft)
+                            .font(.body).foregroundStyle(Stitch.inkSoft)
                     }
-                    .frame(maxWidth: .infinity)
 
                     VStack(alignment: .leading, spacing: Stitch.Space.xs) {
                         Text("Dein Name").font(.footnote.weight(.semibold)).foregroundStyle(Stitch.inkSoft)
@@ -28,40 +29,33 @@ struct AlbumSettings: View {
 
                     VStack(alignment: .leading, spacing: Stitch.Space.s) {
                         if let inviteURL = store.inviteURL {
-                            ShareLink(item: inviteURL, subject: Text("Prag 2026")) {
-                                Label("Einladung senden", systemImage: "paperplane.fill")
-                            }.buttonStyle(StitchButton(primary: true))
-                            Button {
-                                UIPasteboard.general.url = inviteURL
-                                linkCopied = true
-                            } label: {
-                                Label(linkCopied ? "Link kopiert" : "Link kopieren", systemImage: linkCopied ? "checkmark" : "doc.on.doc")
-                            }.buttonStyle(StitchButton())
+                            ShareLink(item: inviteURL, subject: Text("Prag 2026"), message: Text("Komm in unser Prag-Album")) {
+                                Label("Einladung senden", systemImage: "paperplane")
+                            }
+                            .buttonStyle(StitchButton(primary: true))
                         } else if !store.isShared {
-                            Button(preparing ? "Wird eingerichtet …" : "Album teilen") {
+                            Button {
                                 preparing = true
                                 Task {
                                     defer { preparing = false }
                                     do { _ = try await store.createSharedTrip() }
                                     catch { localError = error.localizedDescription }
                                 }
-                            }.buttonStyle(StitchButton(primary: true, loading: preparing)).disabled(preparing || store.syncing)
-                        }
-                        if store.isShared {
-                            Button(store.syncing ? "Wird abgeglichen …" : "Jetzt abgleichen") {
-                                Task { await store.sync() }
+                            } label: {
+                                if preparing { ProgressView().tint(Stitch.onAccent) } else { Label("Einladung erstellen", systemImage: "link") }
                             }
-                            .buttonStyle(StitchButton(loading: store.syncing)).disabled(store.syncing || preparing)
+                            .buttonStyle(StitchButton(primary: true)).disabled(preparing || store.syncing)
                         }
-                        Text(store.syncStatus).font(.footnote).foregroundStyle(Stitch.inkSoft)
+                        Label(store.syncStatus, systemImage: store.isShared ? "arrow.triangle.2.circlepath" : "iphone")
+                            .font(.footnote).foregroundStyle(Stitch.inkSoft)
                     }
                 }
                 .padding(Stitch.Space.page)
             }
-            .background(LinenBackground())
-            .navigationTitle("Geteiltes Album").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Fertig") { dismiss() } } }
-            .alert("Teilen hat nicht geklappt", isPresented: Binding(get: { localError != nil }, set: { if !$0 { localError = nil } })) { Button("OK") { localError = nil } } message: { Text(localError ?? "") }
+            .background(PaperBackground())
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Schließen", systemImage: "xmark") { dismiss() } } }
+            .alert("Einladung hat nicht geklappt", isPresented: Binding(get: { localError != nil }, set: { if !$0 { localError = nil } })) { Button("OK") { localError = nil } } message: { Text(localError ?? "") }
         }
     }
 }

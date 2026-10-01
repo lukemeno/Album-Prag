@@ -1,250 +1,184 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-01T11:34:27.311558+00:00",
-  "title": "Album · Papier & Marke",
+  "generatedAt": "2026-10-01T19:16:15.250157+00:00",
+  "title": "Album · Briefmarke",
   "source": "DESIGN.md",
   "extensions": {
     "colorMeta": {
-      "linen": {
-        "displayName": "Seitengrund",
-        "canonical": "#F5F2EC",
-        "dark": "#1A1715",
+      "paper": {
+        "displayName": "paper",
+        "canonical": "#F4EFE4",
+        "dark": "#1A1714",
+        "role": "neutral"
+      },
+      "paper-deep": {
+        "displayName": "paper-deep",
+        "canonical": "#E8DFD0",
+        "dark": "#2A2520",
         "role": "neutral"
       },
       "card": {
-        "displayName": "Karte",
-        "canonical": "#FEFDFA",
-        "dark": "#262220",
+        "displayName": "card",
+        "canonical": "#FBF8F2",
+        "dark": "#25211D",
         "role": "neutral"
       },
       "rule": {
-        "displayName": "Kontur",
-        "canonical": "#E1DBD0",
-        "dark": "#3C3632",
+        "displayName": "rule",
+        "canonical": "#DDD3C2",
+        "dark": "#3E3831",
         "role": "neutral"
       },
       "ink": {
-        "displayName": "Tinte",
-        "canonical": "#24211E",
-        "dark": "#F3EFE8",
+        "displayName": "ink",
+        "canonical": "#1C1915",
+        "dark": "#F2EDE3",
         "role": "neutral"
       },
       "ink-soft": {
-        "displayName": "Nebentext",
-        "canonical": "#6B6459",
-        "dark": "#B0A79C",
+        "displayName": "ink-soft",
+        "canonical": "#6B645C",
+        "dark": "#B5ACA0",
         "role": "neutral"
       },
-      "thread-red": {
-        "displayName": "Burgundertext",
-        "canonical": "#9F3438",
-        "dark": "#E1898B",
-        "role": "primary"
+      "postmark": {
+        "displayName": "postmark",
+        "canonical": "#B64532",
+        "dark": "#EC8672",
+        "role": "accent"
       },
-      "red-fill": {
-        "displayName": "Burgunderfläche",
-        "canonical": "#9F3438",
-        "dark": "#8E3034",
-        "role": "primary"
+      "postmark-fill": {
+        "displayName": "postmark-fill",
+        "canonical": "#B64532",
+        "dark": "#A63D2C",
+        "role": "accent"
       },
-      "cobalt": {
-        "displayName": "Besucht",
-        "canonical": "#3B5574",
-        "dark": "#9DB6D4",
-        "role": "secondary"
+      "teal": {
+        "displayName": "teal",
+        "canonical": "#3D5C5A",
+        "dark": "#8DB3AF",
+        "role": "accent"
       },
-      "on-accent": {
-        "displayName": "Text auf Aktionsfläche",
-        "canonical": "#FBF7F1",
-        "dark": "#FBF7F1",
-        "role": "neutral"
+      "mat-rose": {
+        "displayName": "mat-rose",
+        "canonical": "#F0CEC6",
+        "dark": "#5E3E39",
+        "role": "accent"
+      },
+      "mat-sky": {
+        "displayName": "mat-sky",
+        "canonical": "#CBDDEB",
+        "dark": "#344758",
+        "role": "accent"
+      },
+      "mat-butter": {
+        "displayName": "mat-butter",
+        "canonical": "#F2E3B2",
+        "dark": "#584E2F",
+        "role": "accent"
+      },
+      "mat-mint": {
+        "displayName": "mat-mint",
+        "canonical": "#CFE3D1",
+        "dark": "#32493A",
+        "role": "accent"
+      },
+      "mat-lilac": {
+        "displayName": "mat-lilac",
+        "canonical": "#DDD3EB",
+        "dark": "#433B56",
+        "role": "accent"
       }
     },
-    "spacing": {
-      "scale": [
-        4,
-        8,
-        12,
-        16,
-        24,
-        32,
-        48
-      ],
-      "page": 20,
-      "card": 16
-    },
+    "spacing": [
+      4,
+      8,
+      12,
+      16,
+      24,
+      32,
+      48
+    ],
     "radii": {
-      "thumb": 12,
-      "card": 20,
-      "sheet": 28
+      "stamp": 4,
+      "thumb": 10,
+      "card": 18,
+      "floating": 26
     },
     "sizes": {
+      "page": 20,
       "touch": 44,
       "button": 52,
-      "thumb": 56
+      "thumb": 48
     },
     "typographyMeta": {
-      "display": {
-        "fontFamily": "System Serif",
-        "textStyle": "largeTitle",
-        "dynamicType": true
-      },
-      "body": {
-        "fontFamily": "SF Pro",
-        "textStyle": "body",
-        "dynamicType": true
-      }
+      "display": "Fraunces SemiBold",
+      "place": "Instrument Serif Regular",
+      "body": "SF Pro",
+      "code": "SF Mono Medium",
+      "button": "Subheadline Semibold, 15 Standard; Dynamic Type"
     },
-    "motion": [
-      {
-        "name": "quick",
-        "value": 0.18
-      },
-      {
-        "name": "settle",
-        "value": 0.28
-      },
-      {
-        "name": "spring-press",
-        "value": "0.22 / 0.78"
-      },
-      {
-        "name": "spring-snap",
-        "value": "0.30 / 0.80"
-      },
-      {
-        "name": "spring-sheet",
-        "value": "0.38 / 0.86"
-      }
-    ],
-    "shadows": [
-      {
-        "name": "flat",
-        "opacity": 0,
-        "radius": 0,
-        "y": 0
-      },
-      {
-        "name": "pinned",
-        "opacity": 0.07,
-        "radius": 4,
-        "y": 1
-      },
-      {
-        "name": "floating",
-        "opacity": 0.12,
-        "radius": 14,
-        "y": 5
-      }
-    ]
+    "motion": {
+      "reduceMotion": "Überblenden statt Bewegen"
+    }
   },
   "components": [
     {
-      "name": "Primary Button",
+      "name": "StitchButton",
       "kind": "button",
-      "refersTo": "button-primary",
-      "description": "StitchButton(primary: true): Burgunder, mindestens 52 hoch; Subheadline Semibold (15 Standard), zentriert mit 16 horizontal und 12 vertikal innen. Mehrzeilige Inhalte dürfen wachsen; Laden, Gesperrt, Gedrückt und Bewegung reduzieren.",
-      "html": "<button class=\"ds-btn-primary\">Übernehmen</button>",
-      "css": ".ds-btn-primary{box-sizing:border-box;background:#9F3438;color:#FBF7F1;font:600 15px -apple-system,system-ui;min-height:52px;padding:12px 16px;display:flex;align-items:center;justify-content:center;gap:8px;text-align:center;width:100%;border:none;border-radius:20px;transition:transform .2s}.ds-btn-primary:active{transform:scale(.98)}.ds-btn-primary:focus-visible{outline:2px solid #3B5574;outline-offset:3px}"
+      "refersTo": "StitchButton",
+      "description": "15 Punkte Semibold, mittig, 16/12 innen, mindestens 52 hoch, natürlicher Zeilenumbruch."
     },
     {
-      "name": "Secondary Button",
-      "kind": "button",
-      "refersTo": "button-secondary",
-      "description": "StitchButton(): Papier, Tinte und neutrale Haarlinie; gleiche zentrierte Typografie, Innenabstände und Mindesthöhe wie Ja.",
-      "html": "<button class=\"ds-btn-secondary\">Nein</button>",
-      "css": ".ds-btn-secondary{box-sizing:border-box;background:#FEFDFA;color:#24211E;font:600 15px -apple-system,system-ui;min-height:52px;padding:12px 16px;display:flex;align-items:center;justify-content:center;gap:8px;text-align:center;width:100%;border:1px solid #E1DBD0;border-radius:20px;transition:transform .2s}.ds-btn-secondary:active{transform:scale(.98)}.ds-btn-secondary:focus-visible{outline:2px solid #3B5574;outline-offset:3px}"
+      "name": "StampFrame",
+      "kind": "image",
+      "refersTo": "StampFrame",
+      "description": "Gezähntes Markenweiß, Pastellrand je Kategorie, echtes Ortsfoto."
     },
     {
-      "name": "Filter Chip",
-      "kind": "chip",
-      "refersTo": "chip",
-      "description": "PlacesDrawer: native Symbole, Haarlinie, mindestens 44 hoch; gewählt Burgunder und Accessibility-Auswahl.",
-      "html": "<span class=\"ds-chip\">Essen</span><span class=\"ds-chip ds-chip-on\">Alle</span>",
-      "css": ".ds-chip{display:inline-flex;align-items:center;height:44px;padding:0 16px;margin-right:8px;border-radius:999px;background:#FEFDFA;color:#24211E;font:600 15px -apple-system,system-ui;border:1px solid #E1DBD0}.ds-chip-on{background:#9F3438;color:#FEFDFA;border-color:transparent}.ds-chip:hover{border-color:rgba(28,26,23,.3)}"
-    },
-    {
-      "name": "Papierkarte",
+      "name": "TicketRow",
       "kind": "card",
-      "refersTo": "card",
-      "description": "stitchCard(): 16 innen, Radius 20, neutrale Haarlinie, flach.",
-      "html": "<div class=\"ds-card\"><strong>Lokál Dlouhá</strong><p>Essen &amp; Trinken · abends · bis 24:00</p></div>",
-      "css": ".ds-card{background:#FEFDFA;color:#24211E;border:1px solid #E1DBD0;border-radius:20px;padding:16px;font:17px -apple-system,system-ui}.ds-card p{margin:4px 0 0;color:#6B6459;font-size:15px}"
+      "refersTo": "TicketRow",
+      "description": "Flug und Hotel mit Abschnitt und Perforation."
     },
     {
-      "name": "Textfeld",
-      "kind": "input",
-      "refersTo": "text-field",
-      "description": "StitchTextField: natives Namensfeld ohne Stickunterlinie; Gesamthöhe mindestens 52 und mit Schrift wachsend. Ganze Fläche fokussiert, Binding und Submit bleiben erhalten.",
-      "html": "<input class=\"ds-input\" placeholder=\"Vorname\">",
-      "css": ".ds-input{box-sizing:border-box;min-height:52px;background:#FEFDFA;color:#24211E;border:1px solid #E1DBD0;border-radius:20px;padding:16px;font:17px -apple-system,system-ui;width:100%}.ds-input:focus-visible{outline:2px solid #9F3438;outline-offset:2px}"
+      "name": "Postmark",
+      "kind": "badge",
+      "refersTo": "Postmark",
+      "description": "Poststempel für Ja, besucht und leere Zustände."
     },
     {
-      "name": "Heftstich",
-      "kind": "custom",
-      "description": "Legacy-Ausnahme: Kreuz (12) nur in Einladung, Briefkasten und Bordkarte; nicht in Hauptansichten.",
-      "html": "<span class=\"ds-tack\" aria-hidden=\"true\"></span>",
-      "css": ".ds-tack{display:inline-block;width:12px;height:12px;background:linear-gradient(45deg,transparent 40%,#9F3438 40% 60%,transparent 60%),linear-gradient(-45deg,transparent 40%,#9F3438 40% 60%,transparent 60%)}"
-    },
-    {
-      "name": "Ideenaktionen",
+      "name": "HeaderIconButton",
       "kind": "button",
-      "description": "InboxView: gleich breite Ja/Nein-Aktionen mit Mindesthöhe 52; Offen darunter mittig und mindestens 44 hoch. Rechts Ja, links persönliches Nein, Offen nur im Durchgang; Rückgängig bleibt erreichbar.",
-      "html": "<div class=\"ds-decisions\"><button class=\"ds-btn-secondary\">Nein</button><button class=\"ds-btn-primary\">Ja</button></div><button class=\"ds-open\">Offen</button>",
-      "css": ".ds-decisions{display:flex;gap:12px}.ds-decisions button{flex:1}.ds-open{display:block;min-height:44px;margin:4px auto 0;border:0;background:transparent;color:#6B6459;font:15px -apple-system,system-ui}"
+      "refersTo": "HeaderIconButton",
+      "description": "Runder Symbolknopf mit 44 Punkten Tippfläche."
     },
     {
-      "name": "Ortszeile",
-      "kind": "card",
-      "description": "AlbumPlaceRow: Foto 56, Name, Kategorie, Tageszeit und Öffnungszeit-Hinweis, optional Notiz/Besucht; Route, Tag und Details separat erreichbar.",
-      "html": "<div class=\"ds-place-row\"><div class=\"ds-thumb\" aria-hidden=\"true\"></div><div><strong>Karlsbrücke</strong><p>Sehenswert · vormittags</p></div></div>",
-      "css": ".ds-place-row{display:flex;align-items:center;gap:12px;color:#24211E;font:17px -apple-system,system-ui}.ds-thumb{width:56px;height:56px;flex:none;border-radius:12px;border:1px solid #E1DBD0;background:#F5F2EC}.ds-place-row p{margin:4px 0;color:#6B6459;font-size:15px}"
-    },
-    {
-      "name": "Kapselgriff",
-      "kind": "custom",
-      "description": "PlacesDrawer: Griff 36 × 5 in Tippfläche 44; drei Höhen, Ziehen, Tippen und VoiceOver-Höhensteuerung.",
-      "html": "<button class=\"ds-grabber\" aria-label=\"Liste ausklappen\"><span></span></button>",
-      "css": ".ds-grabber{display:flex;align-items:center;justify-content:center;min-height:44px;width:100%;background:transparent;border:0}.ds-grabber span{width:36px;height:5px;border-radius:999px;background:#6B645966}"
-    },
-    {
-      "name": "Aufrechtes Foto",
-      "kind": "custom",
-      "description": "PhotoCard/PhotoStack: ruhende Fotos aufrecht, Radius 20; Titel und Kategorie im Ortsdetail darunter. StampPhoto/StampBorder geben der Ideenkarte sparsame Foto-Kerben. Tap, Zähler, Vollbild und Bildnachweis bleiben erreichbar.",
-      "html": "<div class=\"ds-photo\" role=\"img\" aria-label=\"Ortsfoto\"></div><strong>Karlsbrücke</strong><p>Sehenswert</p>",
-      "css": ".ds-photo{height:280px;border:1px solid #E1DBD0;border-radius:20px;background:#F5F2EC;margin-bottom:24px}"
-    },
-    {
-      "name": "Besucht",
+      "name": "TextActionButton",
       "kind": "button",
-      "description": "VisitedTrack/VisitedStamp: neutrale Nebenaktion mit Haarlinie; Wischen oder Tippen markiert besucht, Erfolg mit Cobalt-Siegel. Höhe folgt Dynamic Type; Bewegung reduzieren blendet über.",
-      "html": "<button class=\"ds-visited\">Als besucht markieren</button>",
-      "css": ".ds-visited{min-height:52px;width:100%;border:1px solid #E1DBD0;border-radius:20px;background:#FEFDFA;color:#24211E;font:600 15px -apple-system,system-ui;text-align:center}.ds-visited[aria-pressed=\"true\"]{color:#3B5574;background:#3B55741f}"
+      "refersTo": "TextActionButton",
+      "description": "Offen und leise Nebenaktionen mit mindestens 44 Punkten Tippfläche."
+    },
+    {
+      "name": "SectionTitle",
+      "kind": "heading",
+      "refersTo": "SectionTitle",
+      "description": "Fraunces links, optionale Zahl oder Aktion rechts."
+    },
+    {
+      "name": "VisitedTrack",
+      "kind": "button",
+      "refersTo": "VisitedTrack",
+      "description": "Zentrierte Subheadline Semibold, skalierende Höhe, Geste oder Tippen, kein Kürzen."
     }
   ],
   "narrative": {
-    "northStar": "Papier & Marke",
-    "overview": "Gemeinsames Reisealbum auf ruhigem Papier. Reise, Ideen, Karte, Ortsdetail, Fotos und Namenseingabe verwenden Papier, Tinte und native Symbole.",
-    "keyCharacteristics": [
-      "Papier, Tinte, Burgunder",
-      "Systemschrift und native Navigation",
-      "Sparsame Briefmarkenfotos"
-    ],
+    "northStar": "Eine Reise als Briefmarkenalbum.",
+    "overview": "Ruhiges Papier, Tinte und Pastellränder je Ortskategorie.",
     "rules": [
-      "Dynamic Type und umbrechbare Texte",
-      "Mindesttippziel 44, Aktionshöhe mindestens 52",
-      "Hell/Dunkel-Paare",
-      "Ja/Nein gleiche Maße; Offen separate Textaktion",
-      "Einladung, Briefkasten und Bordkarte behalten bestehende Stick- und Schlitzrituale"
-    ],
-    "dos": [
-      "Titel, Kategorie und Adresse unter dem Ortsfoto",
-      "Alle Gesten auch als Tipp- und VoiceOver-Aktion",
-      "Bildnachweise und Quelllinks erreichbar"
-    ],
-    "donts": [
-      "Heftkreuze, konstante Fotoneigung oder Stickunterlinien in Ideenkarte, Kartenblatt, Ortsdetail und Namensfeld",
-      "Änderungen an Stimmen, Persistenz oder Backend durch das Design"
+      "Offen bleibt ohne Stimme für einen späteren Durchgang.",
+      "Buttonbeschriftungen stehen mittig und haben ausreichend Innenabstand.",
+      "Dynamic Type und mindestens 44 Punkte Tippflächen."
     ]
   }
 }

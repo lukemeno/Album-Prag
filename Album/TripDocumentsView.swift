@@ -69,7 +69,8 @@ struct TripDocumentsView: View {
                             HStack(spacing: Stitch.Space.xs) {
                                 Button { selected = doc } label: {
                                     HStack(spacing: Stitch.Space.s) {
-                                        Image(systemName: "doc.richtext").foregroundStyle(Stitch.red)
+                                        Image(systemName: "doc.text").foregroundStyle(Stitch.ink)
+                                            .frame(width: 36, height: 36).background(Stitch.paperDeep, in: Circle())
                                         Text(doc.name).font(.body).foregroundStyle(Stitch.ink).multilineTextAlignment(.leading)
                                         Spacer(minLength: 0)
                                         Image(systemName: "chevron.right").font(.footnote.weight(.bold)).foregroundStyle(Stitch.inkSoft)
@@ -78,9 +79,9 @@ struct TripDocumentsView: View {
                                     .stitchCard()
                                 }
                                 .buttonStyle(.plain)
-                                Button { extraction = store.extraction(from: doc) } label: { Image(systemName: "text.viewfinder") }
-                                    .buttonStyle(HeaderIconButton())
-                                    .accessibilityLabel("Reisedaten aus \(doc.name) lesen")
+                                Button("Auslesen") { extraction = store.extraction(from: doc) }
+                                    .buttonStyle(TextActionButton())
+                                    .accessibilityLabel("Flüge und Hotel aus \(doc.name) übernehmen")
                             }
                         }
                         Button("PDF hinzufügen", systemImage: "plus") { importing = true }
@@ -91,10 +92,10 @@ struct TripDocumentsView: View {
                 }
                 .padding(Stitch.Space.page)
             }
-            .background(LinenBackground())
-            .navigationTitle("Reiseunterlagen").navigationBarTitleDisplayMode(.inline)
+            .background(PaperBackground())
+            .navigationTitle("Unterlagen").navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Fertig") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button("Schließen", systemImage: "xmark") { dismiss() } }
                 ToolbarItem(placement: .primaryAction) { Button("Bearbeiten") { editing = true } }
             }
             .fileImporter(isPresented: $importing, allowedContentTypes: [.pdf]) { result in
@@ -110,10 +111,10 @@ struct TripDocumentsView: View {
         }
     }
 
-    /// Gleicher Abschnittsrhythmus wie auf Reise und Karte.
+    /// Abschnitt mit Überschrift: 8 pt zwischen Überschrift und Inhalt, 12 pt zwischen Karten.
     private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: Stitch.Space.s) {
-            AlbumSectionHeader(title: title)
+            SectionTitle(title)
             content()
         }
     }
@@ -132,8 +133,8 @@ struct DocumentDetail: View {
                 } else { PDFReader(url: store.root.appendingPathComponent(document.filename)) }
             }.navigationTitle(document.name).navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .cancellationAction) { Button("Fertig") { dismiss() } }
-                    ToolbarItem(placement: .primaryAction) { Button(showText ? "Original" : "Text") { showText.toggle() } }
+                    ToolbarItem(placement: .cancellationAction) { Button("Schließen", systemImage: "xmark") { dismiss() } }
+                    ToolbarItem(placement: .primaryAction) { Button(showText ? "Original" : "Als Text") { showText.toggle() } }
                     ToolbarItem(placement: .bottomBar) { ShareLink(item: store.root.appendingPathComponent(document.filename)) { Label("PDF teilen", systemImage: "square.and.arrow.up") } }
                 }
         }
@@ -160,7 +161,7 @@ struct TripEditor: View {
                     TextField("Notizen", text: $trip.notes, axis: .vertical).lineLimit(4...10)
                 }
                 .listRowBackground(Stitch.card)
-            }.scrollContentBackground(.hidden).background(LinenBackground()).navigationTitle("Reisedaten").navigationBarTitleDisplayMode(.inline)
+            }.scrollContentBackground(.hidden).background(PaperBackground()).navigationTitle("Reisedaten").navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }
                     ToolbarItem(placement: .confirmationAction) { Button("Speichern") { store.updateTrip(trip); dismiss() } }

@@ -15,13 +15,6 @@ final class AlbumTests: XCTestCase {
         XCTAssertNil(TripDates.tripDay(on: date(10, 0)))
     }
 
-    func testStitchedTextKeepsDescender() {
-        let grid = StitchGrid.text("Prag", rows: 30, color: .red)
-        XCTAssertGreaterThan(grid.cells.count, 100)
-        // Die Unterlänge des „g“ reicht tiefer als die Grundlinie der übrigen Buchstaben.
-        let lowestInLeftHalf = grid.cells.filter { $0.x < grid.columns / 2 }.map(\.y).max() ?? 0
-        XCTAssertGreaterThan(grid.rows - 1, lowestInLeftHalf)
-    }
     /// Anonymisiertes Muster im Aufbau einer Voyage-Privé-Reisebestätigung, inklusive zerstückeltem PDF-Text.
     private static let bookingSample = """
     I H R E  R E I S E D O K U M E N T E

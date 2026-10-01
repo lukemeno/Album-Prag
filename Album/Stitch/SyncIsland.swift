@@ -74,7 +74,7 @@ struct SyncIsland: View {
             }
             .frame(width: expanded ? wide : small.width, height: expanded ? Stitch.Size.touch : small.height)
             .background(Stitch.card, in: Capsule())
-            .overlay(Capsule().strokeBorder(Stitch.ink.opacity(expanded ? 0 : 0.12), style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
+            .overlay(Capsule().strokeBorder(Stitch.rule, lineWidth: expanded ? 0 : 1))
             .stitchElevation(expanded ? .floating : .pinned)
         }
         .buttonStyle(.plain)
@@ -104,12 +104,12 @@ struct SyncIsland: View {
         .onDisappear { collapse?.cancel() }
     }
 
-    /// Ein dunkles Garn pulsiert in der kleinen Kapsel; bei „Bewegung reduzieren“ steht es still.
+    /// Ein Punkt in Poststempel-Rot pulsiert in der kleinen Kapsel; bei „Bewegung reduzieren“ steht es still.
     private var pulse: some View {
         TimelineView(.animation(paused: reduceMotion || !showsPulse)) { context in
             let t = context.date.timeIntervalSinceReferenceDate
             HStack(spacing: Stitch.Space.xs) {
-                TackStitch(color: Stitch.red)
+                Circle().fill(Stitch.red).frame(width: 7, height: 7)
                 Text("Abgleich").font(.footnote).foregroundStyle(Stitch.inkSoft)
             }
             .opacity(reduceMotion ? 1 : 0.65 + 0.35 * sin(t * 2.6))

@@ -3,24 +3,26 @@ import SwiftUI
 struct InboxView: View {
     @Environment(AlbumStore.self) private var store
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var offset: CGFloat = 0
+    var add: () -> Void = {}
+    @State private var offset: CGSize = .zero
     @State private var editing: Place?
     @State private var shouldFrank = false
     @State private var lastAction: Place?
-    @State private var lastActionWasOpen = false
-    @State private var openIDs: Set<String> = []
+    @State private var lastActionWasLater = false
+    @State private var laterIDs: Set<String> = []
     @State private var feedback = 0
     @State private var thresholdFeedback = 0
     @State private var thresholdArmed = false
     @State private var committing = false
-    @State private var crossProgress: CGFloat = 0
-    @State private var stitchTick = 0
-    /// Magnet-Klick: zwei Herzhälften schnappen zusammen, wenn beide dafür sind.
+    /// 0…1: Der Poststempel landet auf dem Foto („frankiert“).
+    @State private var stamp: CGFloat = 0
+    @State private var stampTick = 0
+    /// Wenn beide Ja sagen: zwei Herzhälften schnappen zusammen.
     @State private var magnet: CGFloat = 0
     @State private var magnetTick = 0
-    /// 1 = hintere Karten weit aufgefächert, 0 = ruhige Lage; federt beim Erscheinen des Stapels.
+    /// 1 = hintere Marken weit aufgefächert, 0 = ruhige Lage; federt beim Erscheinen des Stapels.
     @State private var fan: CGFloat = 1
-    /// Oberste Karte in der Hand: 0…1 für Anheben (Größe, Schatten).
+    /// Oberste Marke in der Hand: 0…1 für Anheben (Größe, Schatten).
     @State private var lift: CGFloat = 0
     /// Neigung um die senkrechte Achse in Grad, aus der geglätteten Ziehgeschwindigkeit.
     @State private var tilt: Double = 0
@@ -29,9 +31,10 @@ struct InboxView: View {
     @State private var viewer: PhotoViewerItem?
 
     private let decisionThreshold: CGFloat = 96
-    private var progress: CGFloat { min(abs(offset) / decisionThreshold, 1) }
+    private var progress: CGFloat { min(abs(offset.width) / decisionThreshold, 1) }
+    private var laterProgress: CGFloat { min(max(-offset.height, 0) / decisionThreshold, 1) }
 
-    private var undecided: [Place] { store.inbox.filter { !openIDs.contains($0.id) } }
+    private var undecided: [Place] { store.inbox.filter { !laterIDs.contains($0.id) } }
 
     var body: some View {
         VStack(spacing: Stitch.Space.m) {
@@ -40,37 +43,34 @@ struct InboxView: View {
                     ZStack {
                         ForEach(Array(undecided.dropFirst().prefix(2).enumerated()), id: \.element.id) { index, next in
                             let spread = reduceMotion ? 0 : fan
-                            IdeaPolaroid(place: next, root: store.root)
-                                .rotationEffect(.degrees((index == 0 ? -6 : 6) * spread))
-                                .offset(x: (index == 0 ? -14 : 16) + (index == 0 ? -18 : 20) * spread, y: 10 - 4 * spread)
-                                .scaleEffect(reduceMotion ? 0.94 : 0.94 + 0.04 * progress)
+                            IdeaStamp(place: next, root: store.root)
+                                .rotationEffect(.degrees((index == 0 ? -2.5 : 3) + (index == 0 ? -5 : 5) * spread))
+                                .offset(x: (index == 0 ? -10 : 12) + (index == 0 ? -16 : 18) * spread, y: 8 - 4 * spread)
+                                .scaleEffect(reduceMotion ? 0.95 : 0.95 + 0.03 * progress)
                                 .allowsHitTesting(false)
                                 .accessibilityHidden(true)
                         }
 
-                        IdeaPolaroid(place: place, root: store.root, crossProgress: crossProgress,
-                                     onPhotoTap: { openPhoto(place, from: $0) })
+                        IdeaStamp(place: place, root: store.root, stamp: stamp, onPhotoTap: { openPhoto(place, from: $0) })
                             .overlay(alignment: .topTrailing) {
-                                Button { shouldFrank = false; editing = place } label: {
-                                    Image(systemName: "pencil").font(.body.weight(.semibold))
-                                }
-                                .buttonStyle(HeaderIconButton())
-                                .padding(Stitch.Space.l)
-                                .accessibilityLabel("Idee bearbeiten")
+                                Button { shouldFrank = false; editing = place } label: { Image(systemName: "pencil") }
+                                    .buttonStyle(HeaderIconButton())
+                                    .padding(Stitch.Space.l)
+                                    .accessibilityLabel("Idee bearbeiten")
                             }
-                            .overlay { DecisionHint(direction: offset == 0 ? nil : offset > 0 ? .frank : .shelve, progress: progress) }
+                            .overlay { DecisionHint(direction: hintDirection, progress: max(progress, laterProgress)) }
                             .overlay { if magnet > 0 { MagnetHearts(progress: magnet) } }
                             .rotation3DEffect(.degrees(reduceMotion ? 0 : tilt), axis: (x: 0, y: 1, z: 0), perspective: 0.5)
                             .scaleEffect(reduceMotion ? 1 : 1 + 0.05 * lift)
-                            .offset(x: offset, y: reduceMotion ? 0 : -4 * progress)
-                            .rotationEffect(.degrees(reduceMotion ? 0 : Double(offset / 42).clamped(to: -6...6)))
-                            .shadow(color: .black.opacity(0.07 + 0.1 * progress + 0.04 * lift), radius: 4 + 8 * progress + 6 * lift, y: 1 + 5 * progress + 4 * lift)
+                            .offset(x: offset.width, y: min(offset.height, 0) + (reduceMotion ? 0 : -4 * progress))
+                            .rotationEffect(.degrees(reduceMotion ? 0 : Double(offset.width / 42).clamped(to: -6...6)))
+                            .shadow(color: Stitch.shadow.opacity(0.06 * lift + 0.08 * progress), radius: 10 + 8 * lift, y: 6 + 6 * lift)
                             .gesture(dragGesture(for: place))
                             .accessibilityElement(children: .contain)
                             .accessibilityIdentifier("Inbox-Ticket")
                             .accessibilityAction(named: "Ja") { act(place, frank: true) }
                             .accessibilityAction(named: "Nein") { act(place, frank: false) }
-                            .accessibilityAction(named: "Offen") { leaveOpen(place) }
+                            .accessibilityAction(named: "Offen") { later(place) }
                     }
                     .frame(width: geo.size.width, height: geo.size.height)
                 }
@@ -79,60 +79,83 @@ struct InboxView: View {
                     Text(line).font(.footnote.weight(.medium)).foregroundStyle(Stitch.inkSoft)
                 }
 
-                VStack(spacing: Stitch.Space.xxs) {
-                    HStack(spacing: Stitch.Space.s) {
-                        Button("Nein") { act(place, frank: false) }.buttonStyle(StitchButton())
-                        Button("Ja") { act(place, frank: true) }.buttonStyle(StitchButton(primary: true))
-                    }
-                    Button("Offen") { leaveOpen(place) }
-                        .font(.subheadline).foregroundStyle(Stitch.inkSoft)
-                        .frame(maxWidth: .infinity, minHeight: Stitch.Size.touch)
+                HStack(spacing: Stitch.Space.s) {
+                    Button { act(place, frank: false) } label: { Label("Nein", systemImage: "xmark") }
+                        .buttonStyle(StitchButton())
+                    Button { act(place, frank: true) } label: { Label("Ja", systemImage: "checkmark") }
+                        .buttonStyle(StitchButton(primary: true))
+                }
+                HStack {
+                    if let lastAction { undoButton(lastAction) }
+                    Spacer()
+                    Button("Offen") { later(place) }.buttonStyle(TextActionButton(tint: Stitch.inkSoft))
                 }
             } else {
-                Spacer()
-                StitchedSymbol(name: "heart.fill", rows: 16, cell: 5, color: Stitch.red)
-                Text(openIDs.isEmpty ? "Alles entschieden" : "Noch offen").font(.title2.weight(.bold)).foregroundStyle(Stitch.ink).padding(.top, Stitch.Space.xs)
-                Text("Neue Links landen hier.\nBeschlossene Orte findest du auf der Karte.")
-                    .font(.body).multilineTextAlignment(.center).foregroundStyle(Stitch.inkSoft)
-                if !openIDs.isEmpty {
-                    Button("Offene Ideen ansehen") { openIDs.removeAll(); lastAction = nil }
-                        .buttonStyle(StitchButton()).padding(.top, Stitch.Space.xs).padding(.horizontal, Stitch.Space.xl)
-                }
-                if !store.deferred.isEmpty {
-                    Button("\(store.deferred.count) abgelehnte Ideen ansehen") { store.restoreDeferred() }
-                        .buttonStyle(StitchButton()).padding(.top, Stitch.Space.xs).padding(.horizontal, Stitch.Space.xl)
-                }
-                Spacer()
-            }
-            if let lastAction {
-                Button("Rückgängig", systemImage: "arrow.uturn.backward") {
-                    if lastActionWasOpen {
-                        openIDs.remove(lastAction.id)
-                    } else {
-                        store.upsert(lastAction)
-                    }
-                    self.lastAction = nil
-                }
-                    .font(.subheadline.weight(.semibold)).foregroundStyle(Stitch.red).frame(minHeight: Stitch.Size.touch)
-                    .accessibilityLabel("Letzte Entscheidung rückgängig")
+                empty
             }
         }
         .allowsHitTesting(!committing)
-        .padding(.horizontal, Stitch.Space.page).padding(.bottom, Stitch.Space.s)
-        .background(LinenBackground())
+        .padding(.horizontal, Stitch.Space.page).padding(.bottom, Stitch.Space.xs)
+        .background(PaperBackground())
         .navigationTitle("Ideen")
         .sheet(item: $editing) { PlaceEditor(place: $0, frankOnSave: shouldFrank) }
         .sensoryFeedback(.impact(weight: .medium), trigger: feedback)
         .sensoryFeedback(.selection, trigger: thresholdFeedback)
-        .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.8), trigger: stitchTick)
+        .sensoryFeedback(.impact(weight: .heavy, intensity: 0.9), trigger: stampTick)
         .sensoryFeedback(.success, trigger: magnetTick)
         .onAppear { spread() }
         .onChange(of: undecided.first?.id) { spread() }
         .fullScreenCover(item: $viewer) { PhotoViewer(place: $0.place, root: store.root, source: $0.source) }
     }
 
-    /// Die hinteren Karten fächern kurz weiter auf und legen sich per Feder auf ihre Lage;
-    /// nur beim Erscheinen und wenn eine neue Karte oben liegt.
+    private var hintDirection: InboxDecision? {
+        if laterProgress > progress, laterProgress > 0 { return .later }
+        if offset.width == 0 { return nil }
+        return offset.width > 0 ? .frank : .shelve
+    }
+
+    private var empty: some View {
+        VStack(spacing: Stitch.Space.s) {
+            Spacer()
+            Postmark(top: "IDEEN", bottom: laterIDs.isEmpty ? "LEER" : "OFFEN", color: Stitch.inkSoft, size: 96)
+                .padding(.bottom, Stitch.Space.s)
+            Text(laterIDs.isEmpty ? "Alles entschieden" : "Noch offen")
+                .font(Stitch.Face.title(28, relativeTo: .title)).foregroundStyle(Stitch.ink)
+            Text(laterIDs.isEmpty ? "Neue Links landen hier. Was ihr wollt, steht danach im Plan." : "Diese Ideen bleiben offen. Ihr könnt jederzeit neu entscheiden.")
+                .font(.body).multilineTextAlignment(.center).foregroundStyle(Stitch.inkSoft)
+            VStack(spacing: Stitch.Space.xs) {
+                if !laterIDs.isEmpty {
+                    Button("Weitersehen") { laterIDs.removeAll(); lastAction = nil }
+                        .buttonStyle(StitchButton(primary: true))
+                } else {
+                    Button(action: add) { Label("Idee einwerfen", systemImage: "plus") }
+                        .buttonStyle(StitchButton(primary: true))
+                }
+                if !store.deferred.isEmpty {
+                    Button(store.deferred.count == 1 ? "1 abgelehnte Idee zurückholen" : "\(store.deferred.count) abgelehnte Ideen zurückholen") {
+                        store.restoreDeferred()
+                    }
+                    .buttonStyle(TextActionButton())
+                }
+            }
+            .padding(.top, Stitch.Space.m).padding(.horizontal, Stitch.Space.l)
+            if let lastAction { undoButton(lastAction) }
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func undoButton(_ place: Place) -> some View {
+        Button {
+            if lastActionWasLater { laterIDs.remove(place.id) } else { store.upsert(place) }
+            lastAction = nil
+        } label: { Label("Rückgängig", systemImage: "arrow.uturn.backward") }
+        .buttonStyle(TextActionButton())
+        .accessibilityLabel("Letzte Entscheidung rückgängig")
+    }
+
+    /// Die hinteren Marken fächern kurz weiter auf und legen sich per Feder auf ihre Lage;
+    /// nur beim Erscheinen und wenn eine neue Marke oben liegt.
     private func spread() {
         guard !reduceMotion else { return }
         var instant = Transaction(animation: nil); instant.disablesAnimations = true
@@ -162,27 +185,36 @@ struct InboxView: View {
     private func dragGesture(for place: Place) -> some Gesture {
         DragGesture(minimumDistance: 8)
             .onChanged { value in
-                guard !committing, abs(value.translation.width) > abs(value.translation.height) else { return }
-                offset = rubberBanded(value.translation.width)
-                if !reduceMotion { hold(value) }
-                let armed = abs(offset) >= decisionThreshold
+                guard !committing else { return }
+                let t = value.translation
+                if abs(t.width) >= abs(t.height) {
+                    offset = CGSize(width: rubberBanded(t.width), height: 0)
+                    if !reduceMotion { hold(value) }
+                } else if t.height < 0 {
+                    offset = CGSize(width: 0, height: rubberBanded(t.height))
+                }
+                let armed = progress >= 1 || laterProgress >= 1
                 if armed && !thresholdArmed { thresholdFeedback += 1 }
                 thresholdArmed = armed
             }
             .onEnded { value in
                 release()
-                let projected = value.predictedEndTranslation.width
-                let decision = abs(projected) > abs(value.translation.width) ? projected : value.translation.width
                 thresholdArmed = false
-                if decision > decisionThreshold { act(place, frank: true) }
-                else if decision < -decisionThreshold { act(place, frank: false) }
+                let projected = value.predictedEndTranslation
+                if offset.height < 0 {
+                    if min(projected.height, value.translation.height) < -decisionThreshold { later(place) }
+                } else {
+                    let decision = abs(projected.width) > abs(value.translation.width) ? projected.width : value.translation.width
+                    if decision > decisionThreshold { act(place, frank: true) }
+                    else if decision < -decisionThreshold { act(place, frank: false) }
+                }
                 if !committing {
-                    withAnimation(reduceMotion ? nil : .spring(response: 0.36, dampingFraction: 0.78)) { offset = 0 }
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.36, dampingFraction: 0.78)) { offset = .zero }
                 }
             }
     }
 
-    /// Karte in der Hand: hebt sich an und neigt sich mit der Ziehgeschwindigkeit (geglättet, höchstens ±12°).
+    /// Marke in der Hand: hebt sich an und neigt sich mit der Ziehgeschwindigkeit (geglättet, höchstens ±12°).
     private func hold(_ value: DragGesture.Value) {
         if lift == 0 { withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) { lift = 1 } }
         if let last = lastSample {
@@ -195,7 +227,7 @@ struct InboxView: View {
         } else {
             lastSample = (value.translation.width, value.time)
         }
-        // Hält der Finger inne, richtet sich die Karte wieder auf.
+        // Hält der Finger inne, richtet sich die Marke wieder auf.
         tiltDecay?.cancel()
         tiltDecay = Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(300))
@@ -215,61 +247,68 @@ struct InboxView: View {
         return value.sign == .minus ? -limit - sqrt(abs(value) - limit) * 4 : limit + sqrt(value - limit) * 4
     }
 
-    private func leaveOpen(_ place: Place) {
+    /// Offen: Die Marke geht nur für diesen Durchgang aus dem Weg, ohne Stimme und ohne Abgleich.
+    private func later(_ place: Place) {
         guard !committing else { return }
         lastAction = place
-        lastActionWasOpen = true
-        openIDs.insert(place.id)
-        offset = 0
+        lastActionWasLater = true
         feedback += 1
+        if reduceMotion { laterIDs.insert(place.id); offset = .zero; return }
+        committing = true
+        withAnimation(.easeIn(duration: 0.24)) { offset = CGSize(width: 0, height: -700) } completion: {
+            laterIDs.insert(place.id)
+            offset = .zero
+            committing = false
+        }
     }
 
     private func act(_ place: Place, frank: Bool) {
-        guard !committing else { return }
         if frank && place.coordinate == nil { shouldFrank = true; editing = place; return }
+        guard !committing else { return }
         lastAction = place
-        lastActionWasOpen = false
+        lastActionWasLater = false
         let changed = store.decided(place, approve: frank)
         let bothAgree = frank && store.isShared(changed)
-        if reduceMotion { feedback += 1; if bothAgree { magnetTick += 1 }; store.upsert(changed); offset = 0; return }
+        if reduceMotion { feedback += 1; if bothAgree { magnetTick += 1 }; store.upsert(changed); offset = .zero; return }
         committing = true
         if frank {
-            // Das Entscheidungssiegel erscheint in zwei Schritten; gespeichert wird nach dem Abflug.
-            withAnimation(.easeOut(duration: 0.22)) { offset = 0; crossProgress = 0.5 } completion: {
-                stitchTick += 1
-                withAnimation(.easeOut(duration: 0.22)) { crossProgress = 1 } completion: {
-                    stitchTick += 1
-                    guard bothAgree else { fly(changed, to: 560); return }
-                    // Ihr seid beide dafür: Die Herzhälften schnappen zusammen, dann fliegt die Karte.
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.55)) { magnet = 1 } completion: {
-                        magnetTick += 1
-                        Task { @MainActor in
-                            try? await Task.sleep(for: .milliseconds(450))
-                            fly(changed, to: 560)
-                        }
+            // Frankieren: Der Poststempel wird mit Nachdruck aufs Foto gesetzt.
+            withAnimation(.easeOut(duration: 0.2)) { offset = .zero }
+            withAnimation(.spring(response: 0.26, dampingFraction: 0.55)) { stamp = 1 } completion: {
+                stampTick += 1
+                guard bothAgree else { fly(changed, to: 640); return }
+                // Ihr seid beide dafür: Die Herzhälften schnappen zusammen, dann fliegt die Marke.
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.55)) { magnet = 1 } completion: {
+                    magnetTick += 1
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(450))
+                        fly(changed, to: 640)
                     }
                 }
             }
         } else {
             feedback += 1
-            fly(changed, to: -560)
+            fly(changed, to: -640)
         }
     }
 
     private func fly(_ changed: Place, to target: CGFloat) {
-        withAnimation(.easeIn(duration: 0.26)) { offset = target } completion: {
-            store.upsert(changed)
-            offset = 0
-            crossProgress = 0
-            magnet = 0
-            committing = false
+        Task { @MainActor in
+            if target > 0 { try? await Task.sleep(for: .milliseconds(260)) }
+            withAnimation(.easeIn(duration: 0.26)) { offset = CGSize(width: target, height: 0) } completion: {
+                store.upsert(changed)
+                offset = .zero
+                stamp = 0
+                magnet = 0
+                committing = false
+            }
         }
     }
 }
 
-private enum InboxDecision { case shelve, frank }
+private enum InboxDecision { case shelve, frank, later }
 
-/// Zwei Herzhälften zeigen, dass ihr beide für den Ort seid.
+/// Zwei Herzhälften (Rot und Teal), die von links und rechts zusammenschnappen.
 private struct MagnetHearts: View {
     let progress: CGFloat
     var body: some View {
@@ -283,11 +322,9 @@ private struct MagnetHearts: View {
         .accessibilityHidden(true)
     }
     private func half(leading: Bool) -> some View {
-        Image(systemName: "heart.fill")
-            .font(.system(size: 80)).foregroundStyle(leading ? Stitch.red : Stitch.cobalt)
-            .frame(width: 22 * 4.4, height: 22 * 4.4)
+        Image(systemName: "heart.fill").font(.system(size: 96)).foregroundStyle(leading ? Stitch.red : Stitch.teal)
             .mask(alignment: leading ? .leading : .trailing) {
-                Rectangle().frame(width: 22 * 4.4 / 2 * 1.1)
+                Rectangle().frame(width: 53)
             }
             .stitchElevation(.pinned)
     }
@@ -299,32 +336,34 @@ private struct DecisionHint: View {
     let progress: CGFloat
     var body: some View {
         if let direction {
-            let frank = direction == .frank
             let armed = progress >= 1
-            let thread = frank ? Stitch.red : Stitch.cobalt
-            Text((frank ? "Ja" : "Nein") + (armed ? "" : "?"))
-                .font(.title2.weight(.heavy))
+            let ink = direction == .frank ? Stitch.redFill : direction == .shelve ? Stitch.ink : Stitch.teal
+            let word = direction == .frank ? "Ja" : direction == .shelve ? "Nein" : "Offen"
+            Text(word + (armed ? "" : "?"))
+                .font(Stitch.Face.title(24, relativeTo: .title2))
                 .contentTransition(.interpolate)
-                .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: armed)
-                .foregroundStyle(armed && frank ? Stitch.onAccent : Stitch.ink)
+                .foregroundStyle(armed ? Stitch.onAccent : ink)
                 .padding(.horizontal, Stitch.Space.m).padding(.vertical, Stitch.Space.xs)
                 .background {
-                    ZStack {
-                        Stitch.card
-                        thread.opacity(0.12 * progress)
-                        if frank { Stitch.redFill.opacity(armed ? 1 : 0) }
+                    // Stempelfarbe füllt die Pille mit dem Weg; an der Schwelle ist sie voll.
+                    GeometryReader { box in
+                        ZStack(alignment: direction == .shelve ? .trailing : .leading) {
+                            Stitch.card
+                            ink.frame(width: box.size.width * progress)
+                        }
                     }
-                    .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: armed)
                 }
                 .clipShape(Capsule())
-                .overlay(Capsule().strokeBorder(thread, lineWidth: armed && !frank ? 3 : 2))
-                .phaseAnimator([1.0, reduceMotion ? 1.0 : 1.06, 1.0], trigger: armed) { content, scale in
+                .overlay(Capsule().strokeBorder(ink, lineWidth: 2))
+                .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: armed)
+                .phaseAnimator([1.0, reduceMotion ? 1.0 : 1.08, 1.0], trigger: armed) { content, scale in
                     content.scaleEffect(scale)
                 } animation: { _ in .spring(response: 0.22, dampingFraction: 0.5) }
-                .rotationEffect(.degrees(reduceMotion ? 0 : frank ? -8 : 8))
+                .rotationEffect(.degrees(direction == .frank ? -8 : direction == .shelve ? 8 : 0))
                 .opacity(Double(min(progress * 4, 1)))
                 .scaleEffect(0.85 + 0.15 * progress)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: frank ? .topLeading : .topTrailing)
+                .frame(maxWidth: .infinity, maxHeight: .infinity,
+                       alignment: direction == .frank ? .topLeading : direction == .shelve ? .topTrailing : .bottom)
                 .padding(Stitch.Space.xl)
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
@@ -332,53 +371,56 @@ private struct DecisionHint: View {
     }
 }
 
-/// Eine Idee auf Papier mit einer Briefmarkenkante am Foto.
-struct IdeaPolaroid: View {
+/// Eine Idee als große Briefmarke: Foto im Pastellrand ihrer Kategorie, Name in Serif, Quelle darunter.
+/// `stamp` 0…1 setzt den Poststempel aufs Foto (frankiert).
+struct IdeaStamp: View {
     let place: Place
     let root: URL
-    var crossProgress: CGFloat = 0
+    var stamp: CGFloat = 0
     /// Tippen auf das Foto; liefert dessen Rahmen auf dem Bildschirm.
     var onPhotoTap: ((CGRect) -> Void)?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Stitch.Space.s) {
-            StampPhoto(asset: place.image, root: root)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .overlay {
-                    if let onPhotoTap {
-                        GeometryReader { photo in
-                            Color.clear.contentShape(Rectangle())
-                                .onTapGesture { onPhotoTap(photo.frame(in: .global)) }
+        GeometryReader { geo in
+            StampFrame(mat: place.mat, inset: 10, matWidth: 6) {
+                VStack(alignment: .leading, spacing: 0) {
+                    AlbumPhoto(asset: place.image, root: root)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: max(160, geo.size.height - 132))
+                        .clipped()
+                        .overlay {
+                            if let onPhotoTap {
+                                GeometryReader { photo in
+                                    Color.clear.contentShape(Rectangle())
+                                        .onTapGesture { onPhotoTap(photo.frame(in: .global)) }
+                                }
+                                .accessibilityElement().accessibilityLabel("Foto vergrößern").accessibilityAddTraits(.isButton)
+                            }
                         }
-                        .accessibilityElement().accessibilityLabel("Foto vergrößern").accessibilityAddTraits(.isButton)
+                        .overlay(alignment: .bottomTrailing) {
+                            Postmark(bottom: "FRANKIERT", size: 92)
+                                .scaleEffect(1.8 - 0.8 * stamp)
+                                .opacity(Double(stamp))
+                                .padding(Stitch.Space.s)
+                                .allowsHitTesting(false)
+                        }
+                    VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
+                        Text(place.title.isEmpty ? "Neue Idee" : place.title)
+                            .font(Stitch.Face.place(30, relativeTo: .title)).foregroundStyle(Stitch.ink).lineLimit(2)
+                            .minimumScaleFactor(0.8)
+                        HStack(spacing: Stitch.Space.xs) {
+                            Image(systemName: sourceIcon).font(.footnote.weight(.semibold))
+                            Text(place.sourceURL.isEmpty ? place.category : "\(place.sourceLabel) · \(place.category)")
+                                .font(.subheadline)
+                        }
+                        .foregroundStyle(Stitch.inkSoft)
                     }
+                    .padding(.horizontal, Stitch.Space.s).padding(.vertical, Stitch.Space.s)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .background(Stitch.card)
                 }
-                .overlay(alignment: .bottomTrailing) {
-                    Image(systemName: "checkmark.seal.fill")
-                        .font(.system(size: 48)).foregroundStyle(Stitch.red)
-                        .padding(Stitch.Space.s)
-                        .background(Stitch.card, in: Circle())
-                        .padding(Stitch.Space.s)
-                        .opacity(Double(crossProgress))
-                        .scaleEffect(0.9 + 0.1 * crossProgress)
-                        .allowsHitTesting(false).accessibilityHidden(true)
-                }
-            VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
-                Text(place.title.isEmpty ? "Neue Idee" : place.title)
-                    .font(.title2.weight(.bold)).foregroundStyle(Stitch.ink)
-                    .fixedSize(horizontal: false, vertical: true)
-                HStack(alignment: .firstTextBaseline, spacing: Stitch.Space.xs) {
-                    Image(systemName: sourceIcon).font(.footnote.weight(.semibold)).accessibilityHidden(true)
-                    Text(place.sourceURL.isEmpty ? place.category : "\(place.sourceLabel) · \(place.category)")
-                        .font(.subheadline)
-                }
-                .foregroundStyle(Stitch.inkSoft)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(Stitch.Space.s)
-        .background(Stitch.card, in: RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous).strokeBorder(Stitch.rule, lineWidth: 1))
     }
 
     private var sourceIcon: String {
@@ -391,19 +433,13 @@ struct IdeaPolaroid: View {
     }
 }
 
-private extension Comparable {
-    func clamped(to limits: ClosedRange<Self>) -> Self {
-        min(max(self, limits.lowerBound), limits.upperBound)
-    }
-}
-
 private struct PhotoViewerItem: Identifiable {
     let id = UUID()
     let place: Place
     let source: CGRect
 }
 
-/// Foto im Vollbild. Wächst aus dem Polaroid, nach unten ziehen schrumpft es zurück (halbe Geste = halbe Verkleinerung).
+/// Foto im Vollbild. Wächst aus der Marke, nach unten ziehen schrumpft es zurück (halbe Geste = halbe Verkleinerung).
 /// Mit `photo` zeigt es ein bestimmtes Foto des Ortes (Foto-Stapel), sonst das Hauptfoto.
 struct PhotoViewer: View {
     let place: Place
@@ -413,11 +449,11 @@ struct PhotoViewer: View {
     private var asset: PlaceImageAsset? { photo ?? place.image }
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    /// 0 = an der Stelle des Polaroids, 1 = groß.
+    /// 0 = an der Stelle der Marke, 1 = groß.
     @State private var open: CGFloat = 0
     @State private var pull: CGSize = .zero
     @State private var closing = false
-    /// 0…1 nach unten gezogen; 300 pt ziehen halbieren den Weg zurück zum Polaroid.
+    /// 0…1 nach unten gezogen; 300 pt ziehen halbieren den Weg zurück zur Marke.
     private var shrink: CGFloat { min(max(pull.height / 300, 0), 1) }
 
     var body: some View {
@@ -428,7 +464,7 @@ struct PhotoViewer: View {
                 let t = reduceMotion ? 1 : open * (1 - 0.5 * shrink)
                 let mix = { (a: CGFloat, b: CGFloat) in a + (b - a) * t }
                 ZStack {
-                    Stitch.opening.opacity(reduceMotion ? open : t)
+                    Stitch.scrim.opacity(reduceMotion ? open : t)
                     AlbumPhoto(asset: asset, root: root)
                         .frame(width: mix(source.width, full.width), height: mix(source.height, full.height))
                         .position(x: mix(source.midX, full.midX) + pull.width * open, y: mix(source.midY, full.midY) + pull.height * open)

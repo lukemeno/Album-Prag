@@ -1,141 +1,111 @@
 ---
 name: Album
-description: Gemeinsames Reisealbum · Papier & Marke
+description: Private Reise-App für zwei – Prag 2026, als Briefmarkenalbum.
+source: Figma „Album Foundations“ (BvFJ4PzwQXAxhPlrEw73rB) + Pastellränder je Kategorie
 colors:
-  linen: "#F5F2EC"
-  linen-night: "#1A1715"
-  card: "#FEFDFA"
-  card-night: "#262220"
-  rule: "#E1DBD0"
-  rule-night: "#3C3632"
-  ink: "#24211E"
-  ink-night: "#F3EFE8"
-  ink-soft: "#6B6459"
-  ink-soft-night: "#B0A79C"
-  thread-red: "#9F3438"
-  thread-red-night: "#E1898B"
-  red-fill: "#9F3438"
-  red-fill-night: "#8E3034"
-  cobalt: "#3B5574"
-  cobalt-night: "#9DB6D4"
-  on-accent: "#FBF7F1"
-  on-accent-night: "#FBF7F1"
+  paper: "#F4EFE4"
+  paper-night: "#1A1714"
+  paper-deep: "#E8DFD0"
+  paper-deep-night: "#2A2520"
+  card: "#FBF8F2"
+  card-night: "#25211D"
+  rule: "#DDD3C2"
+  rule-night: "#3E3831"
+  ink: "#1C1915"
+  ink-night: "#F2EDE3"
+  ink-soft: "#6B645C"
+  ink-soft-night: "#B5ACA0"
+  postmark: "#B64532"
+  postmark-night: "#EC8672"
+  postmark-fill-night: "#A63D2C"
+  teal: "#3D5C5A"
+  teal-night: "#8DB3AF"
+  gold: "#C4A574"
+  mat-rose: "#F0CEC6"
+  mat-sky: "#CBDDEB"
+  mat-butter: "#F2E3B2"
+  mat-mint: "#CFE3D1"
+  mat-lilac: "#DDD3EB"
+typography:
+  display: "Fraunces SemiBold (statische Instanz wght 600, opsz 48), Titel und große Zeiten"
+  place: "Instrument Serif Regular, Ortsnamen"
+  body: "SF Pro, Systemtextstile"
+  code: "SF Mono Medium, Flugnummern, Strecken, Buchungscodes"
+spacing: [4, 8, 12, 16, 24, 32, 48]
+page-margin: 20
 rounded:
-  thumb: "12pt"
-  card: "20pt"
-  floating: "28pt"
-spacing:
-  xxs: "4pt"
-  xs: "8pt"
-  s: "12pt"
-  m: "16pt"
-  l: "24pt"
-  xl: "32pt"
-  xxl: "48pt"
-  page: "20pt"
+  stamp: 4
+  thumb: 10
+  card: 18
+  floating: 26
 ---
 
-# Album · Papier & Marke
+# Album · Briefmarke
 
-Stand: 01.10.2026. SwiftUI-Implementierung: `Album/Stitch/Stitch.swift`.
+Stand: 01.10.2026, Claude-Design in den Hauptstand integriert. Code: `Album/Stitch/Stitch.swift` (der Namensraum heißt aus Verträglichkeit weiter `Stitch`).
 
-## Umsetzung und Richtung
+## Idee
 
-Album ist ein gemeinsames Reisealbum: warmes Papier, dunkle Tinte, Burgunder für Aktionen und sparsame Briefmarkenkanten an besonderen Fotos. Die Hauptansichten verwenden native Symbole und lesbare Systemschrift. Fotos, Orte und der Tagesplan stehen im Vordergrund.
+Die Reise ist ein Briefmarkenalbum: ruhiges Papier, dunkle Tinte, Poststempel-Rot nur für Aktionen. Jeder Ort ist eine Marke mit gezähntem Rand und einem Pastellrand, der seine Kategorie verrät. „Ja“ zu einer Idee heißt frankieren: Ein Poststempel landet auf dem Foto.
 
-Umgesetzt sind die gemeinsamen Farben, Flächen, Buttons und Symbole sowie Reise, Ideen, Kartenblatt, Ortsdetail, Fotostapel und Namenseingabe. Reise verwendet Tagesauswahl, Tagesplan, Unterkunft, Unterlagen und beschlossene Orte. Unterlagen verwenden die gemeinsame Abschnittsüberschrift; Teilen verwendet Ladezustände.
-
-Ideen zeigen ein aufrechtes Briefmarkenfoto auf einer Papierkarte. Ja und Nein sind gleich groß; Offen steht darunter als leise Textaktion. Das Kartenblatt verwendet einen Kapselgriff, Filter mit neutraler Haarlinie und kompakte Ortszeilen. Im Ortsdetail stehen Name, Kategorie und Adresse lesbar unter den aufrechten Fotos; Route ist die Hauptaktion, Besucht die Nebenaktion. Notizen und Bildnachweise sind eigene Gruppen. Die Namenseingabe verwendet ein natives TextField auf Papier.
+Verworfen (aus der Kritik vom 30.09.): Leinenmuster, Kreuzstich-Skyline und -Symbole, 3D-Glocke, Heftstiche, gedrehte Polaroids, mehrere Bildwelten gleichzeitig.
 
 ## Farben
 
-Farben werden als Hell/Dunkel-Paar angelegt und reagieren auf den Systemmodus.
+| Rolle | Swift | Hell | Dunkel | Regel |
+|---|---|---|---|---|
+| Seitengrund | `paper` | #F4EFE4 | #1A1714 | überall flach, kein Muster |
+| Vertieft | `paperDeep` | #E8DFD0 | #2A2520 | Ticketabschnitt, Platzhalter, schmale Tage |
+| Markenweiß | `card` | #FBF8F2 | #25211D | Karten, Marken, Felder |
+| Kontur | `rule` | #DDD3C2 | #3E3831 | 1 pt um flache Karten |
+| Text | `ink` | #1C1915 | #F2EDE3 | |
+| Nebentext | `inkSoft` | #6B645C | #B5ACA0 | 5,1:1 auf Papier |
+| Aktion | `red` / `redFill` | #B64532 | #EC8672 / #A63D2C | nur Aktionen und „heute“; 4,7:1 auf Papier, Weiß darauf 5,2:1 |
+| Zweite Tinte | `teal` | #3D5C5A | #8DB3AF | besucht, zweite Tagesroute |
+| Zierde | `gold` | #C4A574 | #D6BA8A | nie Schrift |
 
-| Bedeutung / Swift-Name | Hell | Dunkel |
-|---|---|---|
-| Seitengrund · `linen` | #F5F2EC | #1A1715 |
-| Karten und Felder · `card` | #FEFDFA | #262220 |
-| Konturen und Trenner · `rule` | #E1DBD0 | #3C3632 |
-| Text · `ink` | #24211E | #F3EFE8 |
-| Nebentext · `inkSoft` | #6B6459 | #B0A79C |
-| Links und Hinweise · `red` | #9F3438 | #E1898B |
-| Aktionsfläche · `redFill` | #9F3438 | #8E3034 |
-| Besucht / zweiter Kartenpfad · `cobalt` | #3B5574 | #9DB6D4 |
-| Text auf Aktionsfläche · `onAccent` | #FBF7F1 | #FBF7F1 |
-| Vollbildhintergrund · `scrim` | #141210 | #141210 |
+Pastellränder (`Stitch.Mat`) nur als Markenrand, nie für Schrift: Essen & Trinken Rosé, Sehenswert Himmel, Aussicht Butter, Unterkunft Flieder, Shopping Minze, sonst `paperDeep`.
 
-Burgunder als Text und als Fläche bleiben getrennte Tokens. Nebentext, Links und Hauptbutton erreichen in beiden Modi mindestens 4,5:1; gemessen sind 5,75/6,65 für Nebentext auf Karte, 6,83/6,12 für Links auf Karte und 6,51/7,50 für Hauptbuttons. Haarlinien trennen Flächen, sie ersetzen keine sichtbaren Beschriftungen.
+## Schrift
 
-## Rhythmus und Maße
+- **Fraunces SemiBold** (`Face.display`, `Face.title`): „Prag“, Abschnittsüberschriften, Bildschirmtitel, Uhrzeiten auf Tickets.
+- **Instrument Serif** (`Face.place`): jeder Ortsname.
+- **SF Pro**: alles Lesbare und Bedienbare.
+- **SF Mono** (`Face.ticket`, `Face.code`): Flugnummern, Strecken, Buchungscodes.
+- Alle Stile wachsen mit Dynamic Type (`relativeTo:`). Keine Dachzeilen über Überschriften; die Kategorie steht unter dem Namen.
+- Schriftdateien liegen in `Album/Fonts` mit OFL-Lizenz, registriert über `UIAppFonts` in `project.yml`.
 
-Alle Maße in Punkten. Abstandsskala: **4, 8, 12, 16, 24, 32, 48** (`Stitch.Space`). Der Seitenrand `page = 20` ist ein eigener Layoutwert.
+## Bausteine
 
-| Beziehung | Maß |
-|---|---:|
-| Titel → Untertitel | 4 |
-| Inhalt innerhalb einer Gruppe | 8–12 |
-| Überschrift → Inhalt | 12 |
-| Karte → Karte | 12 |
-| Abschnitte | 32 |
-| Karteninnenabstand | 16 |
-| Seitenrand | 20 |
-| Vorschaubild | 56 × 56 |
-| Button-Mindesthöhe | 52 |
-| Symbolbutton / Mindesttippziel | 44 × 44 |
+| Baustein | Wofür |
+|---|---|
+| `StampFrame` + `StampShape` | Foto als Briefmarke: gezähntes Markenweiß, Pastellrand, Bild |
+| `TicketShape` / `TicketRow` / `FlightTicket` | Flug und Hotel als Ticket mit Abschnitt; Flug wächst zur Bordkarte |
+| `Postmark` | runder Poststempel: Frankieren, Besucht, leere Zustände, Teilen |
+| `PerforationLine` | gepunktete Trennung in Tickets |
+| `StitchButton` | Pille 52 hoch; primär Poststempel, sekundär Markenweiß mit Kontur |
+| `HeaderIconButton` | runder Symbolknopf 44 |
+| `TextActionButton` | leise Textaktion („Tage planen“, „Alle“, „Offen“) |
+| `SectionTitle` | Fraunces-Überschrift mit optionaler Zahl oder Aktion rechts |
 
-Radien: **12** für Vorschaubilder und Tagesfelder, **20** für Karten und Buttons, **28** für Blätter. `floating` bleibt als Kompatibilitätsname für 28 erhalten.
+## Bedienung (jeder Knopf hat einen Grund)
 
-Höhenstufen: `flat` ohne Schatten; `pinned` Schwarz 7 %, Radius 4, Y 1; `floating` Schwarz 12 %, Radius 14, Y 5. Beim Ziehen darf die Tiefe dem Finger folgen. Ruhende Listenkarten erhalten eine Haarlinie statt eines eigenen Schattens.
-
-## Typografie
-
-SF Pro über SwiftUI-Textstile: `.headline` für Ortsnamen und Abschnittstitel; `.body` für Inhalte und Felder; `.subheadline` für zweite Zeilen und mit Semibold für Buttons; `.footnote`/`.caption` für Zähler und Bildnachweise. „Prag“ verwendet `.largeTitle` mit Systemserife. Alle Textstile folgen Dynamic Type.
-
-Beschriftungen flächiger Aktionsbuttons stehen horizontal und vertikal mittig. Die Standardschrift ist Subheadline Semibold (15 Punkt bei Standardgröße). Der Inhalt erhält 16 Punkte horizontal und 12 Punkte vertikal Innenabstand; Symbol oder Spinner und Text haben 8 Punkte Abstand. Mehrzeiliger Text ist zentriert und vergrößert den Button über seine Mindesthöhe von 52 hinaus. Keine feste Zeilenzahl oder automatische Verkleinerung. Nutzerpräferenz: ruhige Schriftgrößen, zentrierte Beschriftungen und ausreichend Luft zwischen Text, Symbolen und Rändern.
-
-Keine feste Schriftgröße für lesbaren Text. Zeichnungen und Symbole dürfen geometrische Größen haben. Texte müssen bei großen Schriftgrößen umbrechen; das Datum darf nicht hinter einer Aktion verschwinden. Die Tagesleiste und der Ideenstapel müssen gesondert bei Accessibility-Schriftgrößen geprüft werden.
-
-## Komponenten und Zustände
-
-| Baustein | Implementierung | Regeln |
-|---|---|---|
-| Seitengrund | `LinenBackground` | Flaches Papier, keine Gewebekachel |
-| Karte | `stitchCard()` | Papier, 16 innen, Radius 20, Haarlinie 1 |
-| Hauptbutton | `StitchButton(primary: true)` | Burgunderfläche, heller Text, volle Breite, mindestens 52 hoch |
-| Nebenbutton | `StitchButton()` | Papier, Tinte, neutrale Haarlinie; gleiche Form und Höhe |
-| Laden | `StitchButton(loading: true)` | Spinner vor der Beschriftung; Aufrufer sperrt Mehrfachauslösung |
-| Gesperrt | `.disabled(...)` | Deckkraft 40 %, nicht bedienbar; Beschriftung erklärt den Zustand |
-| Gedrückt | ButtonStyle | 98 % Größe; dezente Flächentönung |
-| Symbolbutton | `HeaderIconButton` | Kreis 44, native Symbolschrift, Haarlinie; Accessibility-Label am Aufrufer |
-| Textaktion | `albumTextAction()` | Burgunder, semibold, mindestens 44 hoch |
-| Abschnitt | `AlbumSectionHeader` | Headline, optional Heute-Hinweis und leiser Zähler; Header-Trait |
-| Ortszeile | `AlbumPlaceRow` | Foto 56, Name, Metadaten, optional Nummer und Besucht-Siegel; ganze Zeile bedienbar |
-| Foto | `PhotoCard` | Aufrecht, Radius 20; Verlauf nur bei Text auf dem Bild |
-| Briefmarkenfoto | `StampPhoto` / `StampBorder` | Kleine Kerben, auf ausgewählten Fotos; kein Schmuck an jedem Feld |
-| Reisetag | `DayStrip` | Gewählt burgundergefüllt; heute zusätzlicher Rahmen; Punkt bei vorhandenem Plan |
-| Namensfeld | `StitchTextField` | Natives TextField, Papier und Haarlinie; insgesamt mindestens 52 hoch, wächst mit Schrift; Fokus, Binding und Submit bleiben erhalten |
-| Formular | native `Form` | Papierzeilen, Systemfelder, sichtbare Fehler im Text |
-| Ideenkarte | `IdeaPolaroid` | API-Name bleibt; Papierkarte ohne Heftkreuze, Briefmarkenkante nur am Foto, Ja-Siegel |
-| Ideenaktionen | `InboxView` | Ja/Nein nebeneinander, gleiche Breite und 52 Mindesthöhe; Offen mittig mit 44 Mindesthöhe |
-| Kartenblatt | `PlacesDrawer` | Drei Höhen, Kapselgriff, native Filter; Auswahl mit Rahmen und Accessibility-Zustand |
-| Fotostapel | `PhotoStack` | Aufrecht in Ruhe; Ziehen darf neigen; Zähler und Vollbild ohne Geste erreichbar |
-| Besucht | `VisitedTrack` / `VisitedStamp` | Neutrale Nebenaktion, skalierende Höhe und umbrechbarer Text; Erfolg mit Cobalt-Siegel |
-| Navigation | native NavigationStack / TabView | Reise · Ideen · Karte; + oben, seltene Aktionen im Mehr-Menü |
-
-Chips tragen Auswahl zusätzlich zum Farbwechsel als Accessibility-Zustand; die ausgewählte Ortskarte hat einen durchgehenden Rahmen. Ortszeilen erhalten Kategorie, berechneten Zeitabschnitt und Öffnungszeit-Hinweis aus dem unveränderten Tagesplan. Route, Tageszuordnung, Umsortieren und Details bleiben erreichbar; bei Accessibility-Schriftgrößen wandern die Ortsaktionen in zwei Zeilen. Fehler bleiben lesbar und erneut versuchbar; Erfolg verwendet ein dezentes Siegel oder Häkchen. Bildnachweise, Lizenz- und Quelllinks bleiben im Ortsdetail und im Vollbildfoto erreichbar.
-
-Die bestehenden API-Namen `Stitch`, `LinenBackground` und `stitchCard` bleiben zur Kompatibilität erhalten. Sie beschreiben keine Stofftextur mehr. Einladung, Briefkasten und Bordkarte sind die ausdrückliche Ausnahme für bestehende Stick- und Schlitzrituale. Sie behalten ihre funktionierenden Zeichnungsprimitive und Bewegungsabläufe; Ideenkarte, Kartenblatt, Ortsdetail und Namensfeld verwenden keine Heftkreuze oder Stickunterlinien mehr.
+- **Toolbar überall:** nur „Idee einwerfen“ (+). Das frühere „Mehr“-Menü ist aufgelöst.
+- **Reise:** Kopf mit Personen-Knopf (Teilen), Tagesstreifen 4.–9.10. (gewählter Tag breit mit Foto), Plan des Tages, während der Reise „Als Nächstes“ mit Route, Unterlagen als Tickets („Alle“ öffnet die Unterlagen), Hinweis nur wenn Ideen warten.
+- **Ideen:** Nein / Ja, „Offen“ als Textaktion und als Wischen nach oben, Rückgängig. Abgelehnte holt ein Link im leeren Zustand zurück.
+- **Karte:** Briefmarken als Pins, eine durchgehende Route pro Tag, „Tage planen“ und „Ordnen“ beschriftet statt Symbol.
+- **Ortsdetail:** Route, Besucht (Wisch-Spur), Quelle. Zurücklegen und Löschen nur im Editor.
+- **Blätter:** links „Schließen“ (×), rechts die Aktion („Bearbeiten“ / „Speichern“).
+- **Teilen:** ein Knopf („Einladung erstellen“ → „Einladung senden“). Abgleich automatisch und per Herunterziehen.
 
 ## Bewegung
 
-`Stitch.Motion`: `quick = 0,18 s`, `settle = 0,28 s`; Federn `press = 0,22 / 0,78`, `snap = 0,30 / 0,80`, `sheet = 0,38 / 0,86` (response / dampingFraction). Neue Auswahl- und Buttonbewegungen verwenden diese Werte.
-
-„Bewegung reduzieren“ entfernt die neue Button-Skalierung und die animierte Tagesauswahl. Bestehende komplexe Rituale haben eigene Reduktionspfade; ihre Timingwerte sind noch nicht auf die neue Gruppe vereinheitlicht. Gesten dürfen nie für Speicherung notwendig sein. Ja/Nein/Offen, Rückgängig, Foto-Wechsel und Besucht bleiben per Tipp und VoiceOver erreichbar. Die Ideenkarte behält Auffächern, Gummiband, Geschwindigkeitsneigung und Abschluss-Callbacks; das neue Ja-Siegel verwendet denselben abgeschlossenen Commit-Pfad. Bei Bewegung reduzieren speichert Ja/Nein direkt, Fotos blättern durch Überblenden, Kartenpins springen ohne Neigung oder Fallschritt. Die Namenseingabe hat keine Nadel- oder Unterlinienanimation.
+Alle Muster aus dem Motion-Brief (A–F) bleiben und tragen jetzt das Briefmarken-Material: Schreibmaschinen-Schlitten im Namensfeld (A), Marken-Stapel (B), Briefkasten und Einladung mit Schlitz (C), Bordkarte (D), Stempelfarbe füllt Ja/Nein/Offen und die Besucht-Spur (E), Abgleich-Insel (F). Frankieren: Poststempel fällt mit Nachdruck aufs Foto (Feder, schwere Haptik). Bei „Bewegung reduzieren“ wird überblendet statt bewegt.
 
 ## Prüfung
 
-Screenshots mit einem Wegwerf-Album: Reise vor/unterwegs/nach der Reise, wechselnde Tage, Ideen, Karte und Liste, Ortsdetail, Editor, Tagesplanvorschlag, Unterlagen, Teilen. Zusätzlich Dunkelmodus und große Schrift.
+UI-Test `testScreenTour` (mit `TEST_RUNNER_ALBUM_PLAN_STORE=plan-demo`, `TEST_RUNNER_ALBUM_SHOT_DIR`) fährt alle Bildschirme über die neuen Knöpfe ab.
 
-Prüfpunkte: gleiche Seitenkanten und Abschnittsabstände; keine überdeckten Aktionen; verständliche leere Zustände; Bildnachweise erreichbar; Auswahl und Laden sichtbar; keine Änderung der Stimmen oder Persistenz. Build allein bestätigt die visuelle Hierarchie nicht.
+## Button-Typografie
 
-Geprüft am 01.10.2026 auf iPhone 17 Pro / iOS 26.5: Simulator-Build erfolgreich; 39 Unit-Tests mit einem vorgesehenen Skip und ohne Fehler. Neun unterschiedliche UI-Tests, elf Testausführungen inklusive Wiederholungen, ohne Fehler: Ideen anlegen und nach Neustart erhalten, Offen nach Neustart, Tagesauswahl, drei Kartenblatt-Höhen und Auswahl, Namenseingabe, Screen-Rundgang, Fotostapel, Besucht-Spur und Ideenstapel. Reise/Ideen/Karte zusätzlich im Dunkelmodus mit Accessibility-Medium-Schrift visuell geprüft. Das Namensfeld wurde nach Screenshotbefund auf die gemeinsame Gesamthöhe korrigiert und erneut geprüft. Screenshots stammen aus XCTest im Simulator; die Computer-Verbindung zum Device Hub war nicht erreichbar. Modelle, Speicherung und Backend sind unverändert.
+Nutzerpräferenz: zentrierte Beschriftungen, ruhige Schriftgrößen und ausreichend Luft. Flächige Buttons verwenden Subheadline Semibold (15 Punkte Standard), 16 Punkte seitlichen und 12 Punkte vertikalen Innenabstand, mindestens 52 Punkte Höhe. Mehrzeiliger Text ist zentriert und darf den Button vergrößern. Dynamic Type bleibt aktiv. Die Besucht-Spur wächst mit der Schriftgröße und kürzt ihren Text nicht.

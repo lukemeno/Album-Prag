@@ -37,41 +37,32 @@ struct AlbumPhoto: View {
     }
     var empty: some View {
         ZStack {
-            Stitch.linen
-            Image(systemName: "photo")
-                .font(.system(size: 28, weight: .light))
-                .foregroundStyle(Stitch.inkSoft.opacity(0.5))
+            Stitch.paperDeep
+            Image(systemName: "photo").font(.title2).foregroundStyle(Stitch.inkSoft.opacity(0.7))
                 .accessibilityHidden(true)
         }
     }
 }
 
-/// Ein Foto als Fläche mit Radius. Beschriftung nur, wenn sie wirklich auf dem Bild stehen soll:
-/// Im Ortsdetail stehen Name und Art darunter, damit sie lesbar bleiben.
 struct PhotoCard: View {
     var asset: PlaceImageAsset?
     var root: URL? = nil
-    var title: String = ""
-    var subtitle: String = ""
+    var title: String
+    var subtitle: String
     var detail: String = ""
     var display = false
     /// Kleinere Fassung laden (nur Wikimedia bietet Breiten an); nil: wie geliefert.
     var thumbnailWidth: Int? = nil
-    private var hasCaption: Bool { !title.isEmpty || !subtitle.isEmpty }
     var body: some View {
         ZStack(alignment: .bottomLeading) {
             AlbumPhoto(asset: asset, root: root, thumbnailWidth: thumbnailWidth)
-            if hasCaption {
-                LinearGradient(colors: [.clear, .black.opacity(0.06), .black.opacity(0.7)], startPoint: .center, endPoint: .bottom)
-                VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
-                    if !title.isEmpty { Text(title).font(display ? .largeTitle.weight(.bold) : .title2.weight(.bold)) }
-                    if !subtitle.isEmpty { Text(subtitle).font(.subheadline) }
-                    if !detail.isEmpty { Text(detail).font(.footnote) }
-                }.foregroundStyle(.white).padding(Stitch.Space.m)
-            }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous).strokeBorder(Stitch.rule, lineWidth: 1))
+            LinearGradient(colors: [.clear, .black.opacity(0.06), .black.opacity(0.7)], startPoint: .center, endPoint: .bottom)
+            VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
+                Text(title).font(display ? Stitch.Face.place(40, relativeTo: .largeTitle) : Stitch.Face.place(32, relativeTo: .title))
+                Text(subtitle).font(.subheadline.weight(.medium))
+                if !detail.isEmpty { Text(detail).font(.footnote) }
+            }.foregroundStyle(.white).padding(Stitch.Space.m)
+        }.clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
     }
 }
 

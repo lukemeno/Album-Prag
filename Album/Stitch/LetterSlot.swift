@@ -66,11 +66,12 @@ struct SlotScene<Card: View, Receipt: View>: View {
                 let travel = rest - (slotY - 150)
                 let shrink = min(progress / 0.5, 1)
                 ZStack(alignment: .top) {
-                    LinenBackground()
+                    PaperBackground()
 
                     VStack(spacing: Stitch.Space.xs) {
                         ZStack(alignment: .top) {
-                            Capsule().fill(Color.black.opacity(0.85)).frame(width: 220, height: 20)
+                            Capsule().fill(Stitch.ink.opacity(0.78)).frame(width: 220, height: 14)
+                                .overlay(Capsule().strokeBorder(Stitch.paperDeep, lineWidth: 3))
                                 .overlay(SeamRing(closed: seam).fill(Stitch.red).padding(-6))
                             // Klappe
                             RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous).fill(Stitch.redFill)
@@ -273,34 +274,32 @@ struct LetterSlotDrop: View {
     }
 
     private var card: some View {
-        VStack(alignment: .leading, spacing: Stitch.Space.s) {
-            AlbumPhoto(asset: place.image, root: root).frame(width: 236, height: 200)
-            Text(place.title).font(.title3.weight(.bold)).foregroundStyle(Stitch.ink).lineLimit(2)
-                .frame(width: 236, alignment: .leading)
+        StampFrame(mat: place.mat, inset: 9, matWidth: 5, elevation: .floating) {
+            VStack(alignment: .leading, spacing: Stitch.Space.xs) {
+                AlbumPhoto(asset: place.image, root: root).frame(width: 220, height: 190)
+                Text(place.title.isEmpty ? "Neue Idee" : place.title).font(Stitch.Face.place(24, relativeTo: .title3))
+                    .foregroundStyle(Stitch.ink).lineLimit(2)
+                    .frame(width: 220, alignment: .leading)
+                    .padding(.horizontal, Stitch.Space.xxs).padding(.bottom, Stitch.Space.xxs)
+            }
+            .background(Stitch.card)
         }
-        .padding(Stitch.Space.s)
-        .background(Stitch.card)
-        .overlay(alignment: .topLeading) { TackStitch().offset(x: Stitch.Space.xs, y: Stitch.Space.xs) }
-        .overlay(alignment: .topTrailing) { TackStitch().offset(x: -Stitch.Space.xs, y: Stitch.Space.xs) }
-        .stitchElevation(.floating)
     }
 
     /// Kleiner Zettel, der nach dem Einwurf aus dem Schlitz kommt.
     private var receipt: some View {
         VStack(spacing: Stitch.Space.xxs) {
-            Text("Liegt bei Ideen").font(.headline).foregroundStyle(Stitch.ink)
+            Text("Liegt bei Ideen").font(Stitch.Face.place(22, relativeTo: .headline)).foregroundStyle(Stitch.ink)
             if let partner {
                 Text("\(partner) sieht sie beim nächsten Abgleich")
                     .font(.footnote).foregroundStyle(Stitch.inkSoft).multilineTextAlignment(.center)
             }
         }
         .padding(.horizontal, Stitch.Space.l).padding(.vertical, Stitch.Space.m)
-        .frame(width: 212)
-        .background(Stitch.card)
-        .overlay(alignment: .topLeading) { TackStitch().offset(x: Stitch.Space.xs, y: Stitch.Space.xs) }
-        .overlay(alignment: .topTrailing) { TackStitch().offset(x: -Stitch.Space.xs, y: Stitch.Space.xs) }
+        .frame(width: 228)
+        .background(Stitch.card, in: RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
+        .overlay(alignment: .topTrailing) { Postmark(bottom: "IDEEN", size: 48).offset(x: 14, y: -18) }
         .stitchElevation(.pinned)
-        .rotationEffect(.degrees(-1.5))
         .accessibilityElement(children: .combine)
     }
 
