@@ -1,6 +1,13 @@
 import { clients, jsonHeaders, respond } from "../_shared/album.ts";
 import { choosePlace, firstArray, validCoordinate, type PlaceCandidate } from "../_shared/place_photo.ts";
-import { resolveWikimedia } from "../_shared/wikimedia_photos.ts";
+import { resolveWikimedia, WikimediaUnavailable } from "../_shared/wikimedia_photos.ts";
+
+import { createPhotoCache } from "../_shared/place_photo_cache.ts";
+
+const cachedWikimedia = createPhotoCache(async key => {
+  const [title, category, latitude, longitude, address] = JSON.parse(key);
+  return await resolveWikimedia(title, category, latitude, longitude, address);
+});
 
 Deno.serve(async request => {
   if (request.method !== "POST") return new Response(null, { status: 405 });
@@ -14,7 +21,7 @@ Deno.serve(async request => {
     const longitude = Number(body.longitude);
     if (!title || !validCoordinate(latitude, longitude)) return json({ error: "Ort oder Koordinaten fehlen" }, 400);
 
-    const photos = await resolveWikimedia(title, category, latitude, longitude, address);
+    const photos = await cachedWikimedia(JSON.stringify([title, category, latitude, longitude, address]));
     const candidates = body.selection_version >= 3 ? photos : photos.filter(photo => photo.confidence === "verified");
     const image = photos.find(photo => photo.confidence === "verified");
     if (image) return json({ image, candidates, selection_version: 3 });
@@ -26,7 +33,15 @@ Deno.serve(async request => {
       if (tripadvisor && body.selection_version >= 3) return json({ image: null, candidates: [{ ...tripadvisor, confidence: "suggested" }, ...photos], selection_version: 3 });
     }
     return json({ image: null, candidates, selection_version: 3 });
-  } catch (error) { return respond(error); }
+  } catch (error) {
+    if (error instanceof WikimediaUnavailable) {
+      console.warn("Place photo source unavailable", error.host, error.operation, error.reason);
+      return new Response(JSON.stringify({ error: "Die Bildquelle ist vorübergehend nicht verfügbar. Bitte später erneut versuchen.", code: "image_source_unavailable" }), {
+        status: 503, headers: { ...jsonHeaders, "Retry-After": String(error.retryAfter) },
+      });
+    }
+    return respond(error);
+  }
 });
 
 async function resolveTripadvisor(title: string, address: string, category: string, latitude: number, longitude: number, key: string) {

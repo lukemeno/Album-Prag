@@ -44,7 +44,9 @@ Der Publishable- beziehungsweise Anon-Key darf in einer Client-App enthalten sei
 
 ## Ortsbilder
 
-Album sucht den konkreten Ort anhand von Namen und mehrsprachigen Aliasen, Koordinaten und vorhandener Adresse bei Wikidata. Widersprüchliche Hausnummern und mehrdeutige Treffer werden verworfen. Wikimedia-Fotos werden getrennt nach Ortsbezug und Motivqualität bewertet: Nur hinreichend zugeordnete Fotos werden automatisch übernommen, unsichere Kandidaten erscheinen unter **Bild wählen** zur manuellen Prüfung samt Urheber und Quelle. Eine manuelle Auswahl und eigene Fotos haben Vorrang. Fehlt ein geeignetes Foto, dient Apple Look Around an der Koordinate als Rückfall; bei Netzwerkfehlern bleibt das bestehende Bild erhalten. Änderungen an Ort, Adresse oder Kategorie verwerfen verspätete Suchergebnisse. Ältere automatische Auswahl wird mit Auswahlversion 3 neu geprüft; ältere Serverantworten dürfen keine automatische Auswahl auslösen. Eigene Fotos werden ohne EXIF-Daten, mit maximal 2.048 Pixeln Kantenlänge und höchstens 5 MB im privaten Bucket `trip-images` gespeichert.
+Album sucht den konkreten Ort anhand von Namen und mehrsprachigen Aliasen, Koordinaten und vorhandener Adresse bei Wikidata. Widersprüchliche Hausnummern und mehrdeutige Treffer werden verworfen; Stadtteilnummern wie „Praha 1“ zählen nicht als Hausnummer. Die erste eindeutige Wikidata-Zuordnung beendet weitere Sprachabfragen. Ohne passenden Wikidata-Treffer prüft Album koordinatennahe Wikipedia-Artikel anhand desselben Namens-/Distanzmaßstabs und lädt ihre Commons-Bilder samt Urheber/Lizenz. Wikimedia-Fotos werden getrennt nach Ortsbezug und Motivqualität bewertet: Nur hinreichend zugeordnete Fotos werden automatisch übernommen, unsichere Kandidaten erscheinen unter **Bild wählen** zur manuellen Prüfung samt Urheber und Quelle. Eine manuelle Auswahl und eigene Fotos haben Vorrang. Fehlt ein geeignetes Foto, dient Apple Look Around an der Koordinate als Rückfall; bei Netzwerkfehlern bleibt das bestehende Bild erhalten. Änderungen an Ort, Adresse oder Kategorie verwerfen verspätete Suchergebnisse. Ältere automatische Auswahl wird mit Auswahlversion 3 neu geprüft; ältere Serverantworten dürfen keine automatische Auswahl auslösen. Eigene Fotos werden ohne EXIF-Daten, mit maximal 2.048 Pixeln Kantenlänge und höchstens 5 MB im privaten Bucket `trip-images` gespeichert.
+
+Das Hauptfoto wird vor ergänzenden Fotodaten geladen. Fehler in Zusatzdaten verwerfen bereits gefundene Bilder nicht. Kategorien/Umgebung sind auf je 20 Dateien begrenzt; zusätzliche Dateimetadaten werden in einer Abfrage geladen. Erfolgreiche Ergebnisse werden je Serverprozess eine Stunde, leere Treffer eine Minute zwischengespeichert; parallele identische Suchen teilen eine Anfrage. Vollständige Quellenausfälle liefern HTTP 503 mit Retry-After statt eines allgemeinen HTTP 500.
 
 Für Wikimedia kann optional ein eigener, gut erkennbarer User-Agent gesetzt werden:
 
@@ -81,7 +83,7 @@ Hinweis zum Abgleich: Builds mit `CODE_SIGNING_ALLOWED=NO` dürfen den Schlüsse
 
 ```sh
 xcodebuild -project Album.xcodeproj -scheme Album -destination 'platform=iOS Simulator,name=iPhone 17 Pro' CODE_SIGNING_ALLOWED=NO test
-deno test --allow-env supabase/functions/_shared/album_test.ts supabase/functions/_shared/place_photo_test.ts supabase/functions/_shared/wikimedia_photos_test.ts
+deno test --allow-env supabase/functions/_shared/album_test.ts supabase/functions/_shared/place_photo_test.ts supabase/functions/_shared/wikimedia_photos_test.ts supabase/functions/_shared/place_photo_cache_test.ts
 ```
 
 Vor der Reise auf zwei echten Geräten prüfen: Einladungslink öffnen, Ideen in beide Richtungen bearbeiten, offline ändern und später abgleichen sowie ein echtes PDF hochladen und auf dem zweiten Gerät öffnen.

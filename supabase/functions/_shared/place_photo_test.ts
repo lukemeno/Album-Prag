@@ -127,3 +127,9 @@ Deno.test("a nearby name match stays a suggestion without entity evidence", () =
 Deno.test("low quality leftovers are not selected", () => {
   assertEquals(rankPhotos([photo("File:Charles Bridge.jpg", { width: 400, height: 800 })], "Charles Bridge", "Sehenswert"), []);
 });
+
+Deno.test('Prague district number does not replace the street house number', () => {
+  const place = { id: 'Q12879009', name: 'Café Louvre', latitude: 50.082014, longitude: 14.418599, address: 'Praha 1-Nové Město, Národní 1987/22' };
+  assertEquals(choosePlace([place], 'Café Louvre', 50.08199, 14.41944, 'Národní 22, Praha'), place);
+  assertEquals(choosePlace([place], 'Café Louvre', 50.08199, 14.41944, 'Národní 24, Praha'), undefined);
+});

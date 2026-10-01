@@ -4,30 +4,55 @@ const wikimediaHeaders = { "User-Agent": Deno.env.get("WIKIMEDIA_USER_AGENT") ||
 
 /// Sammelt Fotos aus drei Quellen (Hauptbild, Commons-Kategorie, Umgebung) und gibt die typischsten zuerst zurück.
 export async function resolveWikimedia(title: string, category: string, latitude: number, longitude: number, address = "") {
-  // Nacheinander statt gleichzeitig: Wikimedia drosselt Schwälle von Anfragen (HTTP 429).
-  const searches = [];
-  for (const language of ["cs", "de", "en"]) searches.push(await wikidataSearch(title, language));
-  const ids = [...new Set(searches.flat().map(item => item.id).filter(Boolean))].slice(0, 12);
-  const entities = await wikidataEntities(ids);
-  const place = choosePlace(entities.flatMap(entityCandidate), title, latitude, longitude, address);
-
-  const members = place?.commonsCategory ? await categoryFiles(place.commonsCategory) : [];
-  const nearby = await nearbyFiles(latitude, longitude);
-  const sources = new Map<string, Pick<PhotoCandidate, "source" | "meters">>();
-  for (const file of nearby) sources.set(file.title, { source: "nearby", meters: file.meters });
-  for (const file of members) sources.set(file, { source: "category" });
-  if (place?.image) sources.set(`File:${place.image}`, { source: "main" });
-
-  const infos = await fileInfos([...sources.keys()]);
-  // Alle Namen des Orts, damit auch „Karlův most“ und „Charles Bridge“ im Dateinamen zählen.
-  const names = [title, ...entities.filter(entity => entity.id === place?.id)
+  let failure: unknown;
+  const entities: Array<{ id: string; value: any }> = [];
+  let place: PlaceCandidate | undefined;
+  for (const language of ["de", "cs", "en"]) {
+    try {
+      const matches = await wikidataSearch(title, language);
+      const ids = matches.map(item => item.id).filter(id => !entities.some(entity => entity.id === id)).slice(0, 12);
+      entities.push(...await wikidataEntities(ids));
+      place = choosePlace(entities.flatMap(entityCandidate), title, latitude, longitude, address);
+      if (place) break;
+    } catch (error) { failure = error; break; }
+  }
+  if (!place) {
+    for (const language of ["cs", "en"] as const) {
+      try {
+        place = choosePlace(await wikipediaPlaces(language, latitude, longitude), title, latitude, longitude, address);
+        if (place) break;
+      } catch (error) { failure = error; }
+    }
+  }
+  const names = [title, place?.name ?? title, ...entities.filter(entity => entity.id === place?.id)
     .flatMap(entity => [...Object.values(entity.value?.labels ?? {}), ...Object.values(entity.value?.aliases ?? {}).flat()].map((label: any) => label?.value))
     .filter((value): value is string => typeof value === "string")];
-  const mediaIDs = infos.map(info => `M${info.pageID}`);
+  const sources = new Map<string, Pick<PhotoCandidate, "source" | "meters">>();
+  let infos: Awaited<ReturnType<typeof fileInfos>> = [];
+  if (place?.image) {
+    sources.set(`File:${place.image}`, { source: "main" });
+    try { infos = await fileInfos([...sources.keys()]); } catch (error) { failure = error; }
+  }
+  async function optional<T>(load: () => Promise<T>, empty: T): Promise<T> {
+    try { return await load(); } catch (error) {
+      failure = error;
+      console.warn("Optional place photo data unavailable", String(error));
+      return empty;
+    }
+  }
+  const members = place?.commonsCategory ? await optional(() => categoryFiles(place!.commonsCategory!), []) : [];
+  for (const file of members) if (!sources.has(file)) sources.set(file, { source: "category" });
+  if (!infos.length && !members.length) {
+    const nearby = await optional(() => nearbyFiles(latitude, longitude), []);
+    for (const file of nearby) if (!sources.has(file.title)) sources.set(file.title, { source: "nearby", meters: file.meters });
+  }
+  const extraTitles = [...sources.keys()].filter(title => !infos.some(info => info.candidate.title === title)).slice(0, 24);
+  if (extraTitles.length) infos.push(...await optional(() => fileInfos(extraTitles), []));
+  const mediaIDs = infos.filter(info => sources.get(info.candidate.title)?.source === "nearby").map(info => `M${info.pageID}`);
   const depicted = new Set<number>();
   if (place) {
     for (let index = 0; index < mediaIDs.length; index += 50) {
-      const payload = await commons({ action: "wbgetentities", ids: mediaIDs.slice(index, index + 50).join("|"), props: "claims" });
+      const payload = await optional(() => commons({ action: "wbgetentities", ids: mediaIDs.slice(index, index + 50).join("|"), props: "claims" }), null);
       for (const [id, entity] of Object.entries(payload?.entities ?? {}) as Array<[string, any]>) {
         const statements = entity.statements ?? entity.claims;
         if (statements?.P180?.some((claim: any) => claim.rank !== "deprecated" && claim.mainsnak?.datavalue?.value?.id === place.id)) depicted.add(Number(id.slice(1)));
@@ -35,6 +60,7 @@ export async function resolveWikimedia(title: string, category: string, latitude
     }
   }
   const ranked = rankPhotos(infos.map(info => ({ ...info.candidate, ...sources.get(info.candidate.title)!, depictsPlace: depicted.has(info.pageID) })), [...new Set(names)], category);
+  if (!ranked.length && failure) throw failure;
   return ranked.map(({ photo, confidence }) => {
     const info = infos.find(value => value.candidate.title === photo.title)!;
     return {
@@ -53,19 +79,28 @@ export async function resolveWikimedia(title: string, category: string, latitude
 
 /// Eine Anfrage an Wikidata oder Commons. Bei 429 (zu viele Anfragen) einmal kurz warten, dann ehrlich scheitern,
 /// statt still „kein Bild“ zu melden.
-async function wikimedia(host: "www.wikidata.org" | "commons.wikimedia.org", params: Record<string, string>) {
+export class WikimediaUnavailable extends Error {
+  constructor(readonly host: string, readonly operation: string, readonly reason: string, readonly retryAfter = 30) {
+    super(`Wikimedia ${host}/${operation}: ${reason}`);
+  }
+}
+
+async function wikimedia(host: "www.wikidata.org" | "commons.wikimedia.org" | "cs.wikipedia.org" | "en.wikipedia.org", params: Record<string, string>) {
   const url = new URL(`https://${host}/w/api.php`);
   Object.entries({ format: "json", ...params }).forEach(([key, value]) => url.searchParams.set(key, value));
   for (let attempt = 0; attempt < 2; attempt++) {
-    const response = await fetch(url, { headers: wikimediaHeaders });
+    const operation = params.list ?? params.action;
+    let response: Response;
+    try { response = await fetch(url, { headers: wikimediaHeaders, signal: AbortSignal.timeout(8000) }); }
+    catch { throw new WikimediaUnavailable(host, operation, "timeout_or_network"); }
     if (response.ok) {
       const payload = await response.json();
-      if (payload.error) throw new Error(`Wikimedia: ${payload.error.code}`);
+      if (payload.error) throw new WikimediaUnavailable(host, operation, String(payload.error.code));
       return payload;
     }
-    if (response.status !== 429 || attempt === 1) throw new Error(`Wikimedia antwortet mit ${response.status}`);
+    const wait = Math.max(Number(response.headers.get("retry-after")) || 2, 1);
     await response.body?.cancel();
-    const wait = Math.min(Number(response.headers.get("retry-after")) || 2, 5);
+    if (response.status !== 429 || attempt === 1 || wait > 2) throw new WikimediaUnavailable(host, operation, `HTTP ${response.status}`, wait);
     await new Promise(resolve => setTimeout(resolve, wait * 1000));
   }
 }
@@ -73,13 +108,13 @@ async function wikimedia(host: "www.wikidata.org" | "commons.wikimedia.org", par
 const commons = (params: Record<string, string>) => wikimedia("commons.wikimedia.org", params);
 
 async function categoryFiles(category: string): Promise<string[]> {
-  const payload = await commons({ action: "query", list: "categorymembers", cmtitle: `Category:${category}`, cmtype: "file", cmlimit: "50" });
+  const payload = await commons({ action: "query", list: "categorymembers", cmtitle: `Category:${category}`, cmtype: "file", cmlimit: "20" });
   return (payload?.query?.categorymembers ?? []).map((member: any) => member.title);
 }
 
 /// Fotos, die im Umkreis von 400 m aufgenommen wurden.
 async function nearbyFiles(latitude: number, longitude: number): Promise<Array<{ title: string; meters: number }>> {
-  const payload = await commons({ action: "query", list: "geosearch", gscoord: `${latitude}|${longitude}`, gsradius: "400", gsnamespace: "6", gslimit: "50" });
+  const payload = await commons({ action: "query", list: "geosearch", gscoord: `${latitude}|${longitude}`, gsradius: "400", gsnamespace: "6", gslimit: "20" });
   return (payload?.query?.geosearch ?? []).map((item: any) => ({
     title: item.title,
     meters: typeof item.dist === "number" ? item.dist : distanceMeters(item.lat, item.lon, latitude, longitude),
@@ -95,7 +130,7 @@ async function fileInfos(titles: string[]) {
     action: "query", titles: batch.join("|"), prop: "imageinfo|globalusage",
     iiprop: "url|size|extmetadata", iiurlwidth: "1600",
     iiextmetadatafilter: "Artist|Credit|LicenseShortName|LicenseUrl|Assessments",
-    gulimit: "500", gunamespace: "0",
+    gulimit: "50", gunamespace: "0",
   }));
   const pages = payloads.flatMap(payload => Object.values(payload?.query?.pages ?? {})) as any[];
   return pages.flatMap(page => {
@@ -140,4 +175,18 @@ function entityCandidate(entity: { id: string; value: any } | null): PlaceCandid
   return [...new Set(labels)].map(name => ({ id: entity.id, name, latitude: Number(coordinate.latitude), longitude: Number(coordinate.longitude),
     address: typeof address === "string" ? address : undefined,
     image: typeof image === "string" ? image : undefined, commonsCategory: typeof commonsCategory === "string" ? commonsCategory : undefined }));
+}
+
+async function wikipediaPlaces(language: "cs" | "en", latitude: number, longitude: number): Promise<PlaceCandidate[]> {
+  const payload = await wikimedia(`${language}.wikipedia.org`, {
+    action: "query", generator: "geosearch", ggscoord: `${latitude}|${longitude}`,
+    ggsradius: "350", ggsnamespace: "0", ggslimit: "10",
+    prop: "coordinates|pageimages|pageprops", piprop: "name", ppprop: "wikibase_item", colimit: "1",
+  });
+  return Object.values(payload?.query?.pages ?? {}).flatMap((page: any) => {
+    const coordinate = page.coordinates?.[0];
+    if (!coordinate || !page.pageimage) return [];
+    return [{ id: page.pageprops?.wikibase_item ?? `${language}wiki:${page.pageid}`, name: page.title,
+      latitude: coordinate.lat, longitude: coordinate.lon, image: page.pageimage }];
+  });
 }

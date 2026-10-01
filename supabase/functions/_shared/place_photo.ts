@@ -47,8 +47,11 @@ export function rankCandidate(candidate: PlaceCandidate, title: string, latitude
 }
 
 function houseNumbers(address: string): string[] {
-  const street = address.split(",").find(part => /\d/.test(part)) ?? "";
-  return street.match(/\b\d{1,4}[a-z]?\b/gi)?.slice(-2).map(number => number.toLowerCase()) ?? [];
+  const street = address.split(",").map(part => part.trim()).find(part =>
+    !/^(?:praha|prague|prag)\s+\d/i.test(part) && !/^\d{5}\b/.test(part) && /\d{1,4}[a-z]?\s*$/.test(part)
+  ) ?? "";
+  const number = street.match(/\b(\d{1,4}[a-z]?)(?:\s*\/\s*(\d{1,4}[a-z]?))?\s*$/i);
+  return number?.slice(1).filter(Boolean).map(value => value.toLowerCase()) ?? [];
 }
 
 export function normalize(value: string) {
