@@ -114,3 +114,8 @@ Nutzerpräferenz: zentrierte Beschriftungen, ruhige Schriftgrößen und ausreich
 ## Bildauswahl
 
 „Bild wählen“ öffnet ein natives Blatt mit den gemeinsamen Papierfarben, Kartenradien und Abstandstokens. Jede Karte zeigt Foto, zentrierten Subheadline-Titel, optional den Hinweis „Ortszuordnung bitte prüfen“, Urheber und Quelle. Karten verwenden 16 Punkte Innenabstand, die Liste 24 Punkte Abstand; die Quellenaktion hat mindestens 44 Punkte Höhe. „Straßenansicht“ verwendet den gemeinsamen Buttonstil. Die Auswahl wird explizit gespeichert und nach Neustart erhalten.
+
+
+## UX-Leitlinie des Nutzers
+
+Vollständige zusammenhängende Abläufe entwerfen und prüfen: Auswahl, sichtbarer Inhalt, Navigation und Rückweg bleiben konsistent. Für Karte und Liste gilt: Ein ausgewählter Pin zeigt den zugehörigen Eintrag; die Liste kann vollständig geschlossen und per Geste bewegt werden, damit die Karte frei nutzbar ist. Auswahl und Kontext bleiben beim Wiederöffnen und bei der Rückkehr aus Details erhalten. Einfach, ästhetisch und durchdacht; vertraute Apple-Interaktionen, unmittelbares Feedback, unterbrechbare Bewegungen und Systemkomponenten bevorzugen. Alle Orientierungen, Dynamic Type und reduzierte Bewegung berücksichtigen. Gestaltungsmarke und UI-Verhalten gemeinsam beurteilen.
