@@ -3,6 +3,6 @@
 xcuserdata/
 *.xcuserstate
 supabase/.temp/
-.omc/
+**/.omc/
 .impeccable/questions/
 Design/rive/*/build/

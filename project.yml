@@ -16,7 +16,9 @@ targets:
   Album:
     type: application
     platform: iOS
-    sources: [Album]
+    sources:
+      - path: Album
+        excludes: ["**/.omc/**"]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: de.privatealbum.prague

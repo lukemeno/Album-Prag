@@ -9,12 +9,10 @@
 /* Begin PBXBuildFile section */
 		07D3335CE6C80C81552F4376 /* PlaceImageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FF7715850FEE1E6DE0A245A /* PlaceImageService.swift */; };
 		0B98FD5375014B3A66BFBE8E /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = E726CEE21D6684745507C0D6 /* PrivacyInfo.xcprivacy */; };
-		0BB85C306E6FD2314933EAD1 /* subagent-tracking.json in Resources */ = {isa = PBXBuildFile; fileRef = A3D8AFCE7A261032C18D04B6 /* subagent-tracking.json */; };
 		1973DFF7FAD7ED74A0FB2BF9 /* PlacesDrawer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29B155850EE9EE7A6618C1C4 /* PlacesDrawer.swift */; };
 		2435F00F89D4BCE5208426E3 /* InvitationMoment.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7A97F1143D53ACAA53B2877 /* InvitationMoment.swift */; };
 		2D52439BB4B470948D57A8BF /* TripDataViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E474EB9D9CCF8084253023D /* TripDataViews.swift */; };
 		2D6DB86157ACB391484154E7 /* AlbumRoot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 328C91DA0E5D75DF6C20603C /* AlbumRoot.swift */; };
-		32628C0C8C94A89AF9613AF3 /* agent-replay-715c1651-82ea-4392-bcf6-bd65fd3c1706.jsonl in Resources */ = {isa = PBXBuildFile; fileRef = A646FBDE04642C3C69F30D61 /* agent-replay-715c1651-82ea-4392-bcf6-bd65fd3c1706.jsonl */; };
 		337A11077066B4212FCB497C /* Design.swift in Sources */ = {isa = PBXBuildFile; fileRef = 570F4FCF87803AE047C0D2A1 /* Design.swift */; };
 		44B7AB72701D03DF20EFB2A1 /* TripDocumentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C0B3187913E40C0E7F6AF2F /* TripDocumentsView.swift */; };
 		472068944BC73AA524D004F3 /* AlbumTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E362E480309CBF88A1A449 /* AlbumTests.swift */; };
@@ -29,10 +27,8 @@
 		6CC7A2913C2117C4B6772399 /* IBMPlexSans-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = B5087B9A07A8429684CC0D9C /* IBMPlexSans-OFL.txt */; };
 		6CE226A25567DD39D8B1B669 /* ReiseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D65E5CE134035E1E79693B07 /* ReiseView.swift */; };
 		71CCB29D97812AF1824E5BCC /* InstrumentSerif.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C4C6D8A6AB41421423966DE5 /* InstrumentSerif.ttf */; };
-		72B947044B080F06C425979C /* idle-notif-cooldown.json in Resources */ = {isa = PBXBuildFile; fileRef = D13143BECDF867690F9A2C0B /* idle-notif-cooldown.json */; };
 		73F323DDE803430E6089C724 /* SyncIsland.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDF5B5A216983D29274750D0 /* SyncIsland.swift */; };
 		82B985A9E054F2306C718B8C /* AlbumMotionUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF18804D14A00730CE4A1FE6 /* AlbumMotionUITests.swift */; };
-		84BEFEC7B0E0A8D41CF4E49D /* mission-state.json in Resources */ = {isa = PBXBuildFile; fileRef = 15A3BCD1A66E051706063D5D /* mission-state.json */; };
 		861C66CA273B9FCF131CC452 /* AlbumSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = F288A095809BE84F03E8D0A2 /* AlbumSettings.swift */; };
 		8A3A0243BFBCE279E3311BE4 /* Stitch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 305FA30E10D7BF85DFC620CA /* Stitch.swift */; };
 		8F1CAD7C68BEE49F7CA637E5 /* DayPlanPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF8A0D16E13AAE7ADD7C5597 /* DayPlanPreview.swift */; };
@@ -79,7 +75,6 @@
 		06A75D0308122C5E24CF0D0A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		0EE81B08538B28F243EE0E24 /* DayPlanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayPlanTests.swift; sourceTree = "<group>"; };
 		139C0D38782377B4C88555E6 /* BoardingPass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardingPass.swift; sourceTree = "<group>"; };
-		15A3BCD1A66E051706063D5D /* mission-state.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "mission-state.json"; sourceTree = "<group>"; };
 		1A5DAE9BEB54432B2DFB5B3C /* OpeningHours.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpeningHours.swift; sourceTree = "<group>"; };
 		1C0B3187913E40C0E7F6AF2F /* TripDocumentsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripDocumentsView.swift; sourceTree = "<group>"; };
 		1E474EB9D9CCF8084253023D /* TripDataViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripDataViews.swift; sourceTree = "<group>"; };
@@ -103,8 +98,6 @@
 		88448A04E96CFF5D69BA1DA3 /* PhotoStack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoStack.swift; sourceTree = "<group>"; };
 		90556A3399AE23586611E4ED /* InstrumentSerif-OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "InstrumentSerif-OFL.txt"; sourceTree = "<group>"; };
 		909038016280D53202280AA9 /* TripMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripMapView.swift; sourceTree = "<group>"; };
-		A3D8AFCE7A261032C18D04B6 /* subagent-tracking.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "subagent-tracking.json"; sourceTree = "<group>"; };
-		A646FBDE04642C3C69F30D61 /* agent-replay-715c1651-82ea-4392-bcf6-bd65fd3c1706.jsonl */ = {isa = PBXFileReference; path = "agent-replay-715c1651-82ea-4392-bcf6-bd65fd3c1706.jsonl"; sourceTree = "<group>"; };
 		A7A97F1143D53ACAA53B2877 /* InvitationMoment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InvitationMoment.swift; sourceTree = "<group>"; };
 		A7B977925593DCCEC83C49E6 /* AlbumUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumUITests.swift; sourceTree = "<group>"; };
 		AF18804D14A00730CE4A1FE6 /* AlbumMotionUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumMotionUITests.swift; sourceTree = "<group>"; };
@@ -115,7 +108,6 @@
 		C01719B12F0C4B781136BCDE /* AlbumApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumApp.swift; sourceTree = "<group>"; };
 		C4C6D8A6AB41421423966DE5 /* InstrumentSerif.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = InstrumentSerif.ttf; sourceTree = "<group>"; };
 		CF8A0D16E13AAE7ADD7C5597 /* DayPlanPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayPlanPreview.swift; sourceTree = "<group>"; };
-		D13143BECDF867690F9A2C0B /* idle-notif-cooldown.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "idle-notif-cooldown.json"; sourceTree = "<group>"; };
 		D2E1F3DD70F74660FD65787B /* tram-bell.riv */ = {isa = PBXFileReference; path = "tram-bell.riv"; sourceTree = "<group>"; };
 		D48710D3053AD6A54DD19DDC /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		D65E5CE134035E1E79693B07 /* ReiseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReiseView.swift; sourceTree = "<group>"; };
@@ -142,14 +134,6 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		213F7139AA9EA92807ABF3B3 /* .omc */ = {
-			isa = PBXGroup;
-			children = (
-				F6C610B9986F301C8FFDFCBC /* state */,
-			);
-			path = .omc;
-			sourceTree = "<group>";
-		};
 		429D89831920C8C462167266 /* AlbumUITests */ = {
 			isa = PBXGroup;
 			children = (
@@ -219,7 +203,6 @@
 				4EE8715D31A985E46FC63F02 /* TripDocumentParser.swift */,
 				1C0B3187913E40C0E7F6AF2F /* TripDocumentsView.swift */,
 				909038016280D53202280AA9 /* TripMapView.swift */,
-				213F7139AA9EA92807ABF3B3 /* .omc */,
 				FA7DC762B2E604033DBC1D4D /* Resources */,
 				AC51AD933C9A85FF5345F40D /* Stitch */,
 			);
@@ -234,17 +217,6 @@
 				E4CB9566B5C99924A3FCEF35 /* AlbumUITests.xctest */,
 			);
 			name = Products;
-			sourceTree = "<group>";
-		};
-		F6C610B9986F301C8FFDFCBC /* state */ = {
-			isa = PBXGroup;
-			children = (
-				A646FBDE04642C3C69F30D61 /* agent-replay-715c1651-82ea-4392-bcf6-bd65fd3c1706.jsonl */,
-				D13143BECDF867690F9A2C0B /* idle-notif-cooldown.json */,
-				15A3BCD1A66E051706063D5D /* mission-state.json */,
-				A3D8AFCE7A261032C18D04B6 /* subagent-tracking.json */,
-			);
-			path = state;
 			sourceTree = "<group>";
 		};
 		FA7DC762B2E604033DBC1D4D /* Resources */ = {
@@ -387,10 +359,6 @@
 				D86FF2380B64141D4CEA8D7D /* InstrumentSerif-OFL.txt in Resources */,
 				71CCB29D97812AF1824E5BCC /* InstrumentSerif.ttf in Resources */,
 				0B98FD5375014B3A66BFBE8E /* PrivacyInfo.xcprivacy in Resources */,
-				32628C0C8C94A89AF9613AF3 /* agent-replay-715c1651-82ea-4392-bcf6-bd65fd3c1706.jsonl in Resources */,
-				72B947044B080F06C425979C /* idle-notif-cooldown.json in Resources */,
-				84BEFEC7B0E0A8D41CF4E49D /* mission-state.json in Resources */,
-				0BB85C306E6FD2314933EAD1 /* subagent-tracking.json in Resources */,
 				DE8CBE823321AED9D78F0D9B /* tram-bell.riv in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
