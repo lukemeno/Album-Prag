@@ -185,13 +185,29 @@ struct PlaceDetail: View {
     var placeID: String
     @State private var editing = false
     @State private var confirmDelete = false
+    @State private var viewing: PhotoView?
     var place: Place? { store.places.first { $0.id == placeID } }
+
+    /// Ein Foto des Stapels im Vollbild, mit dem Rahmen, aus dem es wächst.
+    private struct PhotoView: Identifiable {
+        let id = UUID()
+        let photo: PlaceImageAsset
+        let source: CGRect
+    }
     var body: some View {
         NavigationStack {
             if let place {
                 ScrollView {
                     VStack(alignment: .leading, spacing: Stitch.Space.l) {
-                        PhotoCard(asset: place.image, root: store.root, title: place.title, subtitle: place.category).frame(height: 320)
+                        if place.photoAssets.count > 1 {
+                            PhotoStack(photos: place.photoAssets, root: store.root, title: place.title, subtitle: place.category) { photo, source in
+                                var instant = Transaction(animation: nil); instant.disablesAnimations = true
+                                withTransaction(instant) { viewing = PhotoView(photo: photo, source: source) }
+                            }
+                            .frame(height: 320)
+                        } else {
+                            PhotoCard(asset: place.image, root: store.root, title: place.title, subtitle: place.category).frame(height: 320)
+                        }
 
                         VStack(alignment: .leading, spacing: Stitch.Space.xs) {
                             if !place.address.isEmpty {
@@ -263,6 +279,7 @@ struct PlaceDetail: View {
                     ToolbarItem(placement: .primaryAction) { Button("Bearbeiten") { editing = true } }
                 }
                 .sheet(isPresented: $editing) { PlaceEditor(place: place) }
+                .fullScreenCover(item: $viewing) { PhotoViewer(place: place, root: store.root, source: $0.source, photo: $0.photo) }
                 .confirmationDialog("Diesen Ort löschen?", isPresented: $confirmDelete, titleVisibility: .visible) {
                     Button("Löschen", role: .destructive) { var p = place; p.deleted = true; store.upsert(p); dismiss() }
                 }

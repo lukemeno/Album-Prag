@@ -95,3 +95,13 @@ Die Schlitz-Mechanik liegt als `SlotScene` in `Stitch/LetterSlot.swift` und wird
 | Zuklappen | Nach 5 s oder per Tipp: erst Text weg, dann schrumpft die Hülle; jederzeit unterbrechbar, auch von einer neuen Meldung |
 | Tipp | Gleichwertig zur Geste gibt es keine: die Insel hat keine Geste, nur Tipp zum Schließen und eine VoiceOver-Ansage |
 | Bewegung reduzieren | Kein Pulsieren, Hülle springt, Text blendet |
+
+## Stand 01.10.2026 – Foto-Stapel (`Stitch/PhotoStack.swift`)
+
+| Baustein | Verhalten |
+|---|---|
+| Stapel | Mehrere Fotos eines Ortes liegen mit ±2,5° Neigung und wenigen Punkten Versatz hintereinander; ein einzelnes Foto bleibt wie bisher |
+| Wischen | Waagrecht, die Karte folgt dem Finger und neigt sich, die hinteren rücken anteilig nach; Schwelle 80 pt oder vorhergesagtes Ende, sonst Feder zurück; die Karte gleitet hinten wieder ein (zyklisch) |
+| Tippen | Öffnet das Foto groß (`PhotoViewer`) mit Bildnachweis; Schließen wie bei den Ideen |
+| Zähler | „1 / 3“ blättert ohne Geste, VoiceOver „Nächstes Foto“ |
+| Bewegung reduzieren | Nur die vorderste Karte, Überblenden statt Fliegen |

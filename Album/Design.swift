@@ -51,9 +51,11 @@ struct PhotoCard: View {
     var subtitle: String
     var detail: String = ""
     var display = false
+    /// Kleinere Fassung laden (nur Wikimedia bietet Breiten an); nil: wie geliefert.
+    var thumbnailWidth: Int? = nil
     var body: some View {
         ZStack(alignment: .bottomLeading) {
-            AlbumPhoto(asset: asset, root: root)
+            AlbumPhoto(asset: asset, root: root, thumbnailWidth: thumbnailWidth)
             LinearGradient(colors: [.clear, .black.opacity(0.06), .black.opacity(0.7)], startPoint: .center, endPoint: .bottom)
             VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
                 Text(title).font(display ? .largeTitle.weight(.bold) : .title.weight(.bold))

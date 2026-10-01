@@ -423,10 +423,13 @@ private struct PhotoViewerItem: Identifiable {
 }
 
 /// Foto im Vollbild. Wächst aus dem Polaroid, nach unten ziehen schrumpft es zurück (halbe Geste = halbe Verkleinerung).
-private struct PhotoViewer: View {
+/// Mit `photo` zeigt es ein bestimmtes Foto des Ortes (Foto-Stapel), sonst das Hauptfoto.
+struct PhotoViewer: View {
     let place: Place
     let root: URL
     let source: CGRect
+    var photo: PlaceImageAsset?
+    private var asset: PlaceImageAsset? { photo ?? place.image }
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// 0 = an der Stelle des Polaroids, 1 = groß.
@@ -445,7 +448,7 @@ private struct PhotoViewer: View {
                 let mix = { (a: CGFloat, b: CGFloat) in a + (b - a) * t }
                 ZStack {
                     Stitch.opening.opacity(reduceMotion ? open : t)
-                    AlbumPhoto(asset: place.image, root: root)
+                    AlbumPhoto(asset: asset, root: root)
                         .frame(width: mix(source.width, full.width), height: mix(source.height, full.height))
                         .position(x: mix(source.midX, full.midX) + pull.width * open, y: mix(source.midY, full.midY) + pull.height * open)
                         .opacity(reduceMotion ? open : 1)
@@ -463,7 +466,7 @@ private struct PhotoViewer: View {
                         .accessibilityLabel("Foto schließen")
                 }
                 Spacer()
-                if case .external(let image) = place.image {
+                if case .external(let image) = asset {
                     Text("Foto: \(image.credit)\(image.licenseName.map { " · \($0)" } ?? "")")
                         .font(.caption).foregroundStyle(Stitch.onAccent.opacity(0.85)).multilineTextAlignment(.center)
                 }

@@ -96,3 +96,11 @@
 - Bewegung reduzieren: kein Pulsieren, Hülle springt, Text blendet ein.
 - Debug: `ALBUM_DEMO_SYNC=1|none` simuliert Abgleich mit/ohne Neuigkeiten, schreibt nichts. UI-Test `testSyncIsland` (`AlbumMotionUITests.swift`).
 - Bekannt: Bei sehr schmalen iPhones oder großer Schrift schrumpft der Text bis 80 %, danach wird er gekürzt.
+
+## 01.10.2026 – Foto-Stapel im Ortsdetail (impeccable animate)
+- `Stitch/PhotoStack.swift`: Hat ein Ort mehrere Fotos (Hauptfoto + `gallery`), liegen sie im Ortsdetail (`TripMapView.swift`, `PlaceDetail`) als kleiner Stapel: die hinteren leicht versetzt und gedreht (±2,5°). Horizontal wischen blättert zyklisch; die oberste Karte folgt dem Finger (Neigung mit dem Weg), die hinteren rücken anteilig nach vorn (halbe Geste = halbe Bewegung). Ab 80 pt oder vorhergesagtem Ende fliegt sie seitlich weg und gleitet von hinten wieder in den Stapel; zu früh losgelassen federt zurück. Senkrechtes Wischen scrollt weiter die Seite.
+- Gleichwertig ohne Geste: Zähler „1 / 3“ oben rechts (44 × 44 Tippfläche) blättert weiter, VoiceOver hat „Nächstes Foto“ und „Foto vergrößern“. Tippen aufs Foto öffnet `PhotoViewer` (aus `InboxView.swift`, jetzt nicht mehr privat, mit optionalem `photo`) mit dem Bildnachweis des gewählten Fotos.
+- Ein einziges Foto: unverändert `PhotoCard`, kein Stapel. Bewegung reduzieren: nur die vorderste Karte, Blättern per Wisch oder Zähler überblendet.
+- `PhotoCard` bekam `thumbnailWidth` (der Stapel lädt vorn 960 pt breit wie die Liste, sonst luden Galerie-Fotos nicht).
+- UI-Test `testPhotoStack` (`AlbumMotionUITests.swift`, Café Savoy im Demo-Store).
+- Ungeprüft: Das Standbild mitten im Zug zeigt wegen langsamer Wikimedia-Antwort einen Platzhalter; die Bewegung selbst sah ich nur an Standbildern vorher/nachher und am Zählerstand.

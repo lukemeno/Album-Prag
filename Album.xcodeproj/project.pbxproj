@@ -53,6 +53,7 @@
 		E9373547FE99724326F54F60 /* OpeningHours.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A5DAE9BEB54432B2DFB5B3C /* OpeningHours.swift */; };
 		F10BF00CF1019633DB7F7F1A /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = D48710D3053AD6A54DD19DDC /* Models.swift */; };
 		F897B7CB54B3AE251A159BE2 /* IBMPlexMono.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 531AAC118D595F7C5919B514 /* IBMPlexMono.ttf */; };
+		FCA136FBC3036EBCCBE9AF4C /* PhotoStack.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88448A04E96CFF5D69BA1DA3 /* PhotoStack.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -96,6 +97,7 @@
 		698FD5EFCD8113A93B0565ED /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		77AD0E6783FBAB9D06D1ED1F /* ReiseExtras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReiseExtras.swift; sourceTree = "<group>"; };
 		7EAD06B7A23FF1CAAC9724F8 /* InboxView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxView.swift; sourceTree = "<group>"; };
+		88448A04E96CFF5D69BA1DA3 /* PhotoStack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoStack.swift; sourceTree = "<group>"; };
 		90556A3399AE23586611E4ED /* InstrumentSerif-OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "InstrumentSerif-OFL.txt"; sourceTree = "<group>"; };
 		909038016280D53202280AA9 /* TripMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripMapView.swift; sourceTree = "<group>"; };
 		A3D8AFCE7A261032C18D04B6 /* subagent-tracking.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "subagent-tracking.json"; sourceTree = "<group>"; };
@@ -177,6 +179,7 @@
 			children = (
 				A7A97F1143D53ACAA53B2877 /* InvitationMoment.swift */,
 				4839CDE88E799887C93A63C1 /* LetterSlot.swift */,
+				88448A04E96CFF5D69BA1DA3 /* PhotoStack.swift */,
 				77AD0E6783FBAB9D06D1ED1F /* ReiseExtras.swift */,
 				D65E5CE134035E1E79693B07 /* ReiseView.swift */,
 				305FA30E10D7BF85DFC620CA /* Stitch.swift */,
@@ -414,6 +417,7 @@
 				A2AB06E29C77A1E4F3D1F9AB /* LetterSlot.swift in Sources */,
 				F10BF00CF1019633DB7F7F1A /* Models.swift in Sources */,
 				E9373547FE99724326F54F60 /* OpeningHours.swift in Sources */,
+				FCA136FBC3036EBCCBE9AF4C /* PhotoStack.swift in Sources */,
 				60451787C4910C452533C46D /* PlaceEditor.swift in Sources */,
 				07D3335CE6C80C81552F4376 /* PlaceImageService.swift in Sources */,
 				9DD2E99A6DA024B10EB20B63 /* PlaceImageStorage.swift in Sources */,
