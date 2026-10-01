@@ -105,3 +105,13 @@ Die Schlitz-Mechanik liegt als `SlotScene` in `Stitch/LetterSlot.swift` und wird
 | Tippen | Öffnet das Foto groß (`PhotoViewer`) mit Bildnachweis; Schließen wie bei den Ideen |
 | Zähler | „1 / 3“ blättert ohne Geste, VoiceOver „Nächstes Foto“ |
 | Bewegung reduzieren | Nur die vorderste Karte, Überblenden statt Fliegen |
+
+## Stand 01.10.2026 – Bordkarte (`Stitch/BoardingPass.swift`) und Besucht-Spur (`Stitch/VisitedTrack.swift`)
+
+| Baustein | Verhalten |
+|---|---|
+| Bordkarte | Tippen auf das angeheftete Flug-Ticket: Hülle wächst mit weichem Überschwingen, nach 150 ms blendet der Inhalt ein (Zeiten, Route, Flugnummer, Datum); Schließen kehrt um, unterbrechbar; „Reiseunterlagen“ bleibt als Knopf in der Karte |
+| Besucht-Spur | Daumen nach rechts, Garn füllt die Spur, ab 85 % rastet „Loslassen“ ein (Selection-Haptik), Loslassen setzt „Besucht ✓“ (gesperrt); zu früh federt zurück |
+| Gleichwertig | Tippen füllt die Spur von selbst; VoiceOver aktiviert sie; Bordkarte öffnet und schließt per Tipp |
+| Stempel | Gestickter Stempel landet mit Feder auf dem Foto |
+| Bewegung reduzieren | Bordkarte und Spur springen bzw. blenden über, Stempel blendet ein |

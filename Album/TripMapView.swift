@@ -186,6 +186,7 @@ struct PlaceDetail: View {
     @State private var editing = false
     @State private var confirmDelete = false
     @State private var viewing: PhotoView?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var place: Place? { store.places.first { $0.id == placeID } }
 
     /// Ein Foto des Stapels im Vollbild, mit dem Rahmen, aus dem es wächst.
@@ -199,15 +200,24 @@ struct PlaceDetail: View {
             if let place {
                 ScrollView {
                     VStack(alignment: .leading, spacing: Stitch.Space.l) {
-                        if place.photoAssets.count > 1 {
-                            PhotoStack(photos: place.photoAssets, root: store.root, title: place.title, subtitle: place.category) { photo, source in
-                                var instant = Transaction(animation: nil); instant.disablesAnimations = true
-                                withTransaction(instant) { viewing = PhotoView(photo: photo, source: source) }
+                        Group {
+                            if place.photoAssets.count > 1 {
+                                PhotoStack(photos: place.photoAssets, root: store.root, title: place.title, subtitle: place.category) { photo, source in
+                                    var instant = Transaction(animation: nil); instant.disablesAnimations = true
+                                    withTransaction(instant) { viewing = PhotoView(photo: photo, source: source) }
+                                }
+                                .frame(height: 320)
+                            } else {
+                                PhotoCard(asset: place.image, root: store.root, title: place.title, subtitle: place.category).frame(height: 320)
                             }
-                            .frame(height: 320)
-                        } else {
-                            PhotoCard(asset: place.image, root: store.root, title: place.title, subtitle: place.category).frame(height: 320)
                         }
+                        .overlay(alignment: .topLeading) {
+                            if place.visited {
+                                VisitedStamp().padding(Stitch.Space.m)
+                                    .transition(reduceMotion ? .opacity : .scale(scale: 1.8).combined(with: .opacity))
+                            }
+                        }
+                        .animation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.34, dampingFraction: 0.55), value: place.visited)
 
                         VStack(alignment: .leading, spacing: Stitch.Space.xs) {
                             if !place.address.isEmpty {
@@ -226,10 +236,7 @@ struct PlaceDetail: View {
                                 Button { openWalkingRoute(to: place) } label: { Label("Route", systemImage: "figure.walk") }
                                     .buttonStyle(StitchButton(primary: true))
                             }
-                            Button(place.visited ? "Doch noch nicht besucht" : "Als besucht markieren") {
-                                var p = place; p.visited.toggle(); store.upsert(p)
-                            }
-                            .buttonStyle(StitchButton())
+                            VisitedTrack(visited: place.visited) { var p = place; p.visited = true; store.upsert(p) }
                             if let url = LinkValidation.url(place.sourceURL) {
                                 Link(destination: url) { Label("Bei \(place.sourceLabel) ansehen", systemImage: "arrow.up.right") }
                                     .buttonStyle(StitchButton())

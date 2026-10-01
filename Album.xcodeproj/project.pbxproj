@@ -51,6 +51,7 @@
 		D86FF2380B64141D4CEA8D7D /* InstrumentSerif-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = 90556A3399AE23586611E4ED /* InstrumentSerif-OFL.txt */; };
 		DE8CBE823321AED9D78F0D9B /* tram-bell.riv in Resources */ = {isa = PBXBuildFile; fileRef = D2E1F3DD70F74660FD65787B /* tram-bell.riv */; };
 		DFC037489CCDBE20E9BB2D39 /* Fraunces.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F32482DDE0694185576CB152 /* Fraunces.ttf */; };
+		E4FA5C4262F2BFF6D61756E1 /* VisitedTrack.swift in Sources */ = {isa = PBXBuildFile; fileRef = E13D0031DC87CF8BD2024A77 /* VisitedTrack.swift */; };
 		E9373547FE99724326F54F60 /* OpeningHours.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A5DAE9BEB54432B2DFB5B3C /* OpeningHours.swift */; };
 		F10BF00CF1019633DB7F7F1A /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = D48710D3053AD6A54DD19DDC /* Models.swift */; };
 		F897B7CB54B3AE251A159BE2 /* IBMPlexMono.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 531AAC118D595F7C5919B514 /* IBMPlexMono.ttf */; };
@@ -119,6 +120,7 @@
 		D48710D3053AD6A54DD19DDC /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		D65E5CE134035E1E79693B07 /* ReiseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReiseView.swift; sourceTree = "<group>"; };
 		DDF5B5A216983D29274750D0 /* SyncIsland.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncIsland.swift; sourceTree = "<group>"; };
+		E13D0031DC87CF8BD2024A77 /* VisitedTrack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisitedTrack.swift; sourceTree = "<group>"; };
 		E4CB9566B5C99924A3FCEF35 /* AlbumUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = AlbumUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E726CEE21D6684745507C0D6 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		EADF5566061B2E2A123B8884 /* PlaceEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceEditor.swift; sourceTree = "<group>"; };
@@ -188,6 +190,7 @@
 				305FA30E10D7BF85DFC620CA /* Stitch.swift */,
 				DDF5B5A216983D29274750D0 /* SyncIsland.swift */,
 				1E474EB9D9CCF8084253023D /* TripDataViews.swift */,
+				E13D0031DC87CF8BD2024A77 /* VisitedTrack.swift */,
 			);
 			path = Stitch;
 			sourceTree = "<group>";
@@ -435,6 +438,7 @@
 				601AFE907AFB6E28C12E4A80 /* TripDocumentParser.swift in Sources */,
 				44B7AB72701D03DF20EFB2A1 /* TripDocumentsView.swift in Sources */,
 				988DEC3E61CA9C625448E6F4 /* TripMapView.swift in Sources */,
+				E4FA5C4262F2BFF6D61756E1 /* VisitedTrack.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

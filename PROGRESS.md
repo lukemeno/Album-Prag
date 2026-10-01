@@ -104,3 +104,13 @@
 - `PhotoCard` bekam `thumbnailWidth` (der Stapel lädt vorn 960 pt breit wie die Liste, sonst luden Galerie-Fotos nicht).
 - UI-Test `testPhotoStack` (`AlbumMotionUITests.swift`, Café Savoy im Demo-Store).
 - Ungeprüft: Das Standbild mitten im Zug zeigt wegen langsamer Wikimedia-Antwort einen Platzhalter; die Bewegung selbst sah ich nur an Standbildern vorher/nachher und am Zählerstand.
+
+## 01.10.2026 – Flug wird Bordkarte (impeccable animate)
+- `Stitch/BoardingPass.swift` (`FlightTicket`): Das angeheftete Anreise-Ticket unter „Angeheftet“ (bisher `PinnedTicket`, das nur zu den Unterlagen führte) wächst bei Tippen an Ort und Stelle zur Bordkarte (Hülle mit weichem Überschwingen, response 0,5 / damping 0,72; nach 150 ms blendet der Inhalt ein): Abflug- und Ankunftszeit, Route, Flugnummer, Datum, „Am Flughafen“, Rückflug in einer Zeile. Schließen (Knopf oder Tippen) kehrt um und ist jederzeit unterbrechbar. Der Weg zu den Unterlagen bleibt: Knopf „Reiseunterlagen“ in der offenen Karte. Ohne Flugdaten führt das Tippen wie vorher direkt zu den Unterlagen.
+- Beim Aufwachsen rollt die Reise-Seite so weit, dass die Karte über der Tab-Leiste steht (`ScrollViewReader` in `ReiseView`). `PinnedTicket` hat dafür `chrome: false` (nur Inhalt).
+- Bewegung reduzieren: Hülle springt, Inhalt blendet über. UI-Test `testBoardingPass`.
+
+## 01.10.2026 – Als besucht markieren per Wisch-Spur (impeccable animate)
+- `Stitch/VisitedTrack.swift`: Im Ortsdetail ersetzt die Spur den Knopf „Als besucht markieren“. Daumen nach rechts, Garn füllt die Spur, Label „Als besucht markieren“ → „Loslassen“ (ab 85 %, Selection-Haptik) → „Besucht ✓“ (gesperrt). Zu früh losgelassen federt zurück. Tippen füllt die Spur von selbst, VoiceOver aktiviert sie. Erfolg setzt `visited = true` per `store.upsert`; ist der Ort schon besucht, steht sie eingerastet da. Rückgängig weiter über „Schon besucht“ im Editor.
+- Gestickter Stempel (`VisitedStamp`) landet mit Feder auf dem Foto (oben links); bei „Bewegung reduzieren“ blendet er nur ein.
+- UI-Test `testVisitedTrack` auf einer Wegwerf-Kopie.
