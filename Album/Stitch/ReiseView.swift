@@ -13,6 +13,8 @@ struct ReiseView: View {
     @State private var bellRings = 0
     /// Solange das Herunterziehen abgleicht, gibt die Klingel die Rückmeldung; die Abgleich-Insel wartet.
     @State private var refreshing = false
+    /// Zählt hoch, wenn die Bordkarte aufwächst: Die Seite rollt dann, bis sie über der Tab-Leiste steht.
+    @State private var ticketRequests = 0
 
     private let motif = StitchGrid(pattern: CharlesBridgeMotif.rows)
     private var decided: Int { store.franked.count }
@@ -24,6 +26,7 @@ struct ReiseView: View {
     private var tripDay: Int? { TripDates.tripDay() }
 
     var body: some View {
+        ScrollViewReader { proxy in
         ScrollView {
             VStack(spacing: 0) {
                 VStack(spacing: Stitch.Space.xs) {
@@ -53,7 +56,7 @@ struct ReiseView: View {
                     .padding(.top, Stitch.Space.l)
                 }
 
-                pinned.padding(.top, Stitch.Space.xl)
+                pinned.padding(.top, Stitch.Space.xl).id("pinned")
             }
             .padding(.horizontal, Stitch.Space.page).padding(.bottom, Stitch.Space.xl)
         }
@@ -74,6 +77,13 @@ struct ReiseView: View {
         .onChange(of: targetStitches) { _, _ in stitchToTarget() }
         .sensoryFeedback(.impact(weight: .light), trigger: finished)
         .sheet(item: $selected) { PlaceDetail(placeID: $0.id) }
+        .onChange(of: ticketRequests) { _, _ in
+            Task {
+                try? await Task.sleep(for: .milliseconds(250))
+                withAnimation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.9)) { proxy.scrollTo("pinned", anchor: .bottom) }
+            }
+        }
+        }
     }
 
     /// Die Insel sitzt links in der Leiste, wo sonst nichts steht; ohne eigene Glasfläche des Systems.
@@ -144,7 +154,7 @@ struct ReiseView: View {
             Text("Angeheftet").font(.title3.weight(.bold)).foregroundStyle(Stitch.ink)
             ScrollView(.horizontal) {
                 HStack(alignment: .top, spacing: Stitch.Space.m) {
-                    Button(action: openDocuments) { PinnedTicket(trip: store.data.trip) }.buttonStyle(.plain)
+                    FlightTicket(trip: store.data.trip, openDocuments: openDocuments, onOpen: { ticketRequests += 1 })
                     ForEach(store.franked) { place in
                         Button { selected = place } label: { PinnedPolaroid(place: place, root: store.root) }
                             .buttonStyle(.plain)
@@ -196,9 +206,28 @@ struct PinnedPolaroid: View {
 /// Die Anreise als angehefteter Ticket-Abschnitt; öffnet die Reiseunterlagen.
 struct PinnedTicket: View {
     let trip: TripInfo
+    /// Ohne Rahmen nur der Inhalt, damit `FlightTicket` die Hülle selbst wachsen lässt.
+    var chrome = true
     @ScaledMetric(relativeTo: .footnote) private var width: CGFloat = 152
     private var flight: FlightLeg? { trip.flights?.first { $0.direction == .outbound } }
     var body: some View {
+        if chrome {
+            content
+                .padding(Stitch.Space.s)
+                .frame(width: width, alignment: .topLeading)
+                .frame(minHeight: width, alignment: .topLeading)
+                .background(Stitch.card)
+                .stitchElevation(.pinned)
+                .overlay(alignment: .top) { TackStitch(color: Stitch.cobalt).offset(y: -Stitch.Space.xxs) }
+                .rotationEffect(.degrees(2))
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(flight.map { "Anreise \($0.number), \($0.from) nach \($0.to)" } ?? "Reiseunterlagen öffnen")
+        } else {
+            content
+        }
+    }
+
+    private var content: some View {
         VStack(alignment: .leading, spacing: Stitch.Space.xs) {
             Image(systemName: "airplane").font(.title3.weight(.semibold)).foregroundStyle(Stitch.ink)
             PerforationLine()
@@ -215,15 +244,6 @@ struct PinnedTicket: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(Stitch.Space.s)
-        .frame(width: width, alignment: .topLeading)
-        .frame(minHeight: width, alignment: .topLeading)
-        .background(Stitch.card)
-        .stitchElevation(.pinned)
-        .overlay(alignment: .top) { TackStitch(color: Stitch.cobalt).offset(y: -Stitch.Space.xxs) }
-        .rotationEffect(.degrees(2))
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(flight.map { "Anreise \($0.number), \($0.from) nach \($0.to)" } ?? "Reiseunterlagen öffnen")
     }
 }
 

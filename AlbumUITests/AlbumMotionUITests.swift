@@ -113,5 +113,52 @@ final class AlbumMotionUITests: XCTestCase {
         app.buttons["Foto schließen"].tap()
         XCTAssertTrue(counter.waitForExistence(timeout: 5))
     }
+
+    /// D · Flug wird Bordkarte: Tippen lässt das angeheftete Ticket aufwachsen, Schließen kehrt um.
+    func testBoardingPass() throws {
+        let (app, shot) = try launch()
+        XCTAssertTrue(app.buttons["Mehr"].waitForExistence(timeout: 15))
+        sleep(4)
+        app.swipeUp(); sleep(1)
+        let ticket = app.descendants(matching: .any).matching(identifier: "Flug-Ticket").firstMatch
+        XCTAssertTrue(ticket.waitForExistence(timeout: 5))
+        shot("D-1-ticket")
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.12) { shot("D-2-waechst") }
+        ticket.tap()
+        let close = app.buttons["Bordkarte schließen"]
+        XCTAssertTrue(close.waitForExistence(timeout: 3))
+        sleep(2); shot("D-3-bordkarte")
+        XCTAssertTrue(app.staticTexts["EW4241"].exists || app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'EW4241'")).firstMatch.exists)
+        XCTAssertTrue(app.buttons["Reiseunterlagen"].exists)
+        close.tap(); sleep(2)
+        XCTAssertFalse(close.exists)
+        shot("D-4-zu")
+    }
+
+    /// E · Als besucht markieren: zu früh losgelassen federt zurück, über der Schwelle rastet es ein, der Stempel landet.
+    func testVisitedTrack() throws {
+        let (app, shot) = try launch(["ALBUM_START_TAB": "Karte"])
+        let grabber = app.buttons["Liste ausklappen"]
+        XCTAssertTrue(grabber.waitForExistence(timeout: 15))
+        grabber.tap()
+        let savoy = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Details zu' AND label CONTAINS 'Savoy'")).firstMatch
+        XCTAssertTrue(savoy.waitForExistence(timeout: 8))
+        savoy.tap()
+        let track = app.descendants(matching: .any).matching(identifier: "Besucht-Spur").firstMatch
+        XCTAssertTrue(track.waitForExistence(timeout: 8))
+        sleep(2); shot("E-1-spur")
+        let start = track.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5))
+        // Zu früh losgelassen: federt zurück, nichts ist besucht.
+        DispatchQueue.global().asyncAfter(deadline: .now() + 1.4) { shot("E-2-halb") }
+        start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 120, dy: 0)), withVelocity: .slow, thenHoldForDuration: 2.5)
+        sleep(1)
+        XCTAssertEqual(track.label, "Als besucht markieren")
+        // Über der Schwelle: das Label rastet ein, beim Loslassen ist der Ort besucht.
+        DispatchQueue.global().asyncAfter(deadline: .now() + 1.6) { shot("E-3-eingerastet") }
+        start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 330, dy: 0)), withVelocity: .slow, thenHoldForDuration: 2.5)
+        let done = expectation(for: NSPredicate(format: "label == 'Besucht'"), evaluatedWith: track)
+        wait(for: [done], timeout: 5)
+        sleep(2); shot("E-4-besucht")
+    }
 }
 
