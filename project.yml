@@ -31,6 +31,7 @@ targets:
         CFBundleLocalizations: [de]
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIRequiresFullScreen: true
         UIFileSharingEnabled: false
         LSSupportsOpeningDocumentsInPlace: true
         SupabaseURL: $(SUPABASE_URL)

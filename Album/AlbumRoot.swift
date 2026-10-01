@@ -97,12 +97,11 @@ struct AlbumRoot: View {
         let board = UIPasteboard.general
         guard board.changeCount != offeredChangeCount, board.hasURLs || board.hasStrings else { return }
         let changeCount = board.changeCount
-        board.detectPatterns(for: [.probableWebURL]) { result in
-            guard case .success(let patterns) = result, patterns.contains(.probableWebURL) else { return }
-            Task { @MainActor in
-                offeredChangeCount = changeCount
-                withAnimation(reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.8)) { clipboardOffer = true }
-            }
+        Task {
+            guard let patterns = try? await board.detectedPatterns(for: [\.probableWebURL]),
+                  patterns.contains(\.probableWebURL) else { return }
+            offeredChangeCount = changeCount
+            withAnimation(reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.8)) { clipboardOffer = true }
         }
     }
 }
