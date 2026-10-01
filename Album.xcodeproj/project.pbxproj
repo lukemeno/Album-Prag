@@ -9,10 +9,13 @@
 /* Begin PBXBuildFile section */
 		07D3335CE6C80C81552F4376 /* PlaceImageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FF7715850FEE1E6DE0A245A /* PlaceImageService.swift */; };
 		0B98FD5375014B3A66BFBE8E /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = E726CEE21D6684745507C0D6 /* PrivacyInfo.xcprivacy */; };
+		0FE3831824BD2552177399AC /* OFL-InstrumentSerif.txt in Resources */ = {isa = PBXBuildFile; fileRef = 977DF99758AC130EC9814CDB /* OFL-InstrumentSerif.txt */; };
 		1973DFF7FAD7ED74A0FB2BF9 /* PlacesDrawer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29B155850EE9EE7A6618C1C4 /* PlacesDrawer.swift */; };
+		1C629E0488E90C564F7CB538 /* OFL-Fraunces.txt in Resources */ = {isa = PBXBuildFile; fileRef = 615ED079C1A91AA1900B3238 /* OFL-Fraunces.txt */; };
 		2435F00F89D4BCE5208426E3 /* InvitationMoment.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7A97F1143D53ACAA53B2877 /* InvitationMoment.swift */; };
 		2D52439BB4B470948D57A8BF /* TripDataViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E474EB9D9CCF8084253023D /* TripDataViews.swift */; };
 		2D6DB86157ACB391484154E7 /* AlbumRoot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 328C91DA0E5D75DF6C20603C /* AlbumRoot.swift */; };
+		308DAC54A75F4280E0AD773E /* Fraunces-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AEC24A4581CD5BC28059A608 /* Fraunces-SemiBold.ttf */; };
 		337A11077066B4212FCB497C /* Design.swift in Sources */ = {isa = PBXBuildFile; fileRef = 570F4FCF87803AE047C0D2A1 /* Design.swift */; };
 		44B7AB72701D03DF20EFB2A1 /* TripDocumentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C0B3187913E40C0E7F6AF2F /* TripDocumentsView.swift */; };
 		472068944BC73AA524D004F3 /* AlbumTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E362E480309CBF88A1A449 /* AlbumTests.swift */; };
@@ -32,6 +35,7 @@
 		861C66CA273B9FCF131CC452 /* AlbumSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = F288A095809BE84F03E8D0A2 /* AlbumSettings.swift */; };
 		8A3A0243BFBCE279E3311BE4 /* Stitch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 305FA30E10D7BF85DFC620CA /* Stitch.swift */; };
 		8F1CAD7C68BEE49F7CA637E5 /* DayPlanPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF8A0D16E13AAE7ADD7C5597 /* DayPlanPreview.swift */; };
+		984122600B0730F457AFDCFB /* InstrumentSerif-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 822E73976A46E18D0DDB303D /* InstrumentSerif-Regular.ttf */; };
 		988DEC3E61CA9C625448E6F4 /* TripMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 909038016280D53202280AA9 /* TripMapView.swift */; };
 		9DD2E99A6DA024B10EB20B63 /* PlaceImageStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 342E82A238D83AEF9ACE760D /* PlaceImageStorage.swift */; };
 		A2AB06E29C77A1E4F3D1F9AB /* LetterSlot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4839CDE88E799887C93A63C1 /* LetterSlot.swift */; };
@@ -92,14 +96,18 @@
 		5463C055190AAC2449152828 /* Fraunces-OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Fraunces-OFL.txt"; sourceTree = "<group>"; };
 		570F4FCF87803AE047C0D2A1 /* Design.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Design.swift; sourceTree = "<group>"; };
 		5AEC4D2DA5E025826995EB60 /* AlbumStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumStore.swift; sourceTree = "<group>"; };
+		615ED079C1A91AA1900B3238 /* OFL-Fraunces.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "OFL-Fraunces.txt"; sourceTree = "<group>"; };
 		698FD5EFCD8113A93B0565ED /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		77AD0E6783FBAB9D06D1ED1F /* ReiseExtras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReiseExtras.swift; sourceTree = "<group>"; };
 		7EAD06B7A23FF1CAAC9724F8 /* InboxView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxView.swift; sourceTree = "<group>"; };
+		822E73976A46E18D0DDB303D /* InstrumentSerif-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "InstrumentSerif-Regular.ttf"; sourceTree = "<group>"; };
 		88448A04E96CFF5D69BA1DA3 /* PhotoStack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoStack.swift; sourceTree = "<group>"; };
 		90556A3399AE23586611E4ED /* InstrumentSerif-OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "InstrumentSerif-OFL.txt"; sourceTree = "<group>"; };
 		909038016280D53202280AA9 /* TripMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripMapView.swift; sourceTree = "<group>"; };
+		977DF99758AC130EC9814CDB /* OFL-InstrumentSerif.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "OFL-InstrumentSerif.txt"; sourceTree = "<group>"; };
 		A7A97F1143D53ACAA53B2877 /* InvitationMoment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InvitationMoment.swift; sourceTree = "<group>"; };
 		A7B977925593DCCEC83C49E6 /* AlbumUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumUITests.swift; sourceTree = "<group>"; };
+		AEC24A4581CD5BC28059A608 /* Fraunces-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fraunces-SemiBold.ttf"; sourceTree = "<group>"; };
 		AF18804D14A00730CE4A1FE6 /* AlbumMotionUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumMotionUITests.swift; sourceTree = "<group>"; };
 		B5087B9A07A8429684CC0D9C /* IBMPlexSans-OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "IBMPlexSans-OFL.txt"; sourceTree = "<group>"; };
 		B94DDFBE5E857BDD53D02A27 /* IBMPlexMono-OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "IBMPlexMono-OFL.txt"; sourceTree = "<group>"; };
@@ -134,6 +142,17 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		0C887ACDA6E271F4A50371A4 /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				AEC24A4581CD5BC28059A608 /* Fraunces-SemiBold.ttf */,
+				822E73976A46E18D0DDB303D /* InstrumentSerif-Regular.ttf */,
+				615ED079C1A91AA1900B3238 /* OFL-Fraunces.txt */,
+				977DF99758AC130EC9814CDB /* OFL-InstrumentSerif.txt */,
+			);
+			path = Fonts;
+			sourceTree = "<group>";
+		};
 		429D89831920C8C462167266 /* AlbumUITests */ = {
 			isa = PBXGroup;
 			children = (
@@ -203,6 +222,7 @@
 				4EE8715D31A985E46FC63F02 /* TripDocumentParser.swift */,
 				1C0B3187913E40C0E7F6AF2F /* TripDocumentsView.swift */,
 				909038016280D53202280AA9 /* TripMapView.swift */,
+				0C887ACDA6E271F4A50371A4 /* Fonts */,
 				FA7DC762B2E604033DBC1D4D /* Resources */,
 				AC51AD933C9A85FF5345F40D /* Stitch */,
 			);
@@ -351,13 +371,17 @@
 			files = (
 				AC6404650055536371E3B44A /* Assets.xcassets in Resources */,
 				CBCA254E06A4AEECE13DC690 /* Fraunces-OFL.txt in Resources */,
+				308DAC54A75F4280E0AD773E /* Fraunces-SemiBold.ttf in Resources */,
 				DFC037489CCDBE20E9BB2D39 /* Fraunces.ttf in Resources */,
 				D0FDC746138CA4E1834588DA /* IBMPlexMono-OFL.txt in Resources */,
 				F897B7CB54B3AE251A159BE2 /* IBMPlexMono.ttf in Resources */,
 				6CC7A2913C2117C4B6772399 /* IBMPlexSans-OFL.txt in Resources */,
 				5E8AA213992CF85ECAB69AAE /* IBMPlexSans.ttf in Resources */,
 				D86FF2380B64141D4CEA8D7D /* InstrumentSerif-OFL.txt in Resources */,
+				984122600B0730F457AFDCFB /* InstrumentSerif-Regular.ttf in Resources */,
 				71CCB29D97812AF1824E5BCC /* InstrumentSerif.ttf in Resources */,
+				1C629E0488E90C564F7CB538 /* OFL-Fraunces.txt in Resources */,
+				0FE3831824BD2552177399AC /* OFL-InstrumentSerif.txt in Resources */,
 				0B98FD5375014B3A66BFBE8E /* PrivacyInfo.xcprivacy in Resources */,
 				DE8CBE823321AED9D78F0D9B /* tram-bell.riv in Resources */,
 			);

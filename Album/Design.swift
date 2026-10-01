@@ -37,8 +37,8 @@ struct AlbumPhoto: View {
     }
     var empty: some View {
         ZStack {
-            Stitch.linen
-            StitchedSymbol(name: "photo", rows: 14, cell: 3, color: Stitch.inkSoft.opacity(0.6))
+            Stitch.paperDeep
+            Image(systemName: "photo").font(.title2).foregroundStyle(Stitch.inkSoft.opacity(0.7))
                 .accessibilityHidden(true)
         }
     }
@@ -58,8 +58,8 @@ struct PhotoCard: View {
             AlbumPhoto(asset: asset, root: root, thumbnailWidth: thumbnailWidth)
             LinearGradient(colors: [.clear, .black.opacity(0.06), .black.opacity(0.7)], startPoint: .center, endPoint: .bottom)
             VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
-                Text(title).font(display ? .largeTitle.weight(.bold) : .title.weight(.bold))
-                Text(subtitle).font(.subheadline)
+                Text(title).font(display ? Stitch.Face.place(40, relativeTo: .largeTitle) : Stitch.Face.place(32, relativeTo: .title))
+                Text(subtitle).font(.subheadline.weight(.medium))
                 if !detail.isEmpty { Text(detail).font(.footnote) }
             }.foregroundStyle(.white).padding(Stitch.Space.m)
         }.clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))

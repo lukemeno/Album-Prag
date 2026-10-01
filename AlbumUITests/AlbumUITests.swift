@@ -234,16 +234,14 @@ final class AlbumUITests: XCTestCase {
             sleep(2)
             try? XCUIScreen.main.screenshot().pngRepresentation.write(to: URL(fileURLWithPath: dir).appendingPathComponent("\(prefix)\(name).png"))
         }
-        func openMenu(_ item: String) {
-            app.buttons["Mehr"].tap()
-            let entry = app.buttons[item]
-            XCTAssertTrue(entry.waitForExistence(timeout: 5))
-            entry.tap()
-        }
-        XCTAssertTrue(app.buttons["Mehr"].waitForExistence(timeout: 15))
-        sleep(6)
+        let close = app.buttons["Schließen"].firstMatch
+        XCTAssertTrue(app.buttons["Idee einwerfen"].firstMatch.waitForExistence(timeout: 15))
+        sleep(4)
         shot("01-reise")
         app.swipeUp(); shot("02-reise-unten")
+        let ticket = app.buttons["Flug-Ticket"].firstMatch
+        if ticket.exists { ticket.tap(); shot("02b-bordkarte"); ticket.tap() }
+        app.swipeDown(); app.swipeDown()
 
         app.tabBars.buttons["Ideen"].tap(); shot("03-ideen")
 
@@ -253,22 +251,27 @@ final class AlbumUITests: XCTestCase {
             details.tap(); shot("05-ortsdetail")
             app.swipeUp(); shot("06-ortsdetail-unten")
             app.buttons["Bearbeiten"].firstMatch.tap(); shot("07-editor-ort")
+            app.swipeUp(); shot("07b-editor-unten")
             app.buttons["Abbrechen"].tap()
-            app.buttons["Fertig"].firstMatch.tap()
+            close.tap()
         }
-        app.buttons["Automatisch planen"].tap()
+        app.buttons["Tage planen"].firstMatch.tap()
         XCTAssertTrue(app.buttons["Übernehmen"].waitForExistence(timeout: 5))
         sleep(4); shot("08-vorschlag")
         app.buttons["Abbrechen"].tap()
 
-        app.buttons["Idee hinzufügen"].tap(); shot("09-editor-neu")
+        app.buttons["Idee einwerfen"].firstMatch.tap(); shot("09-editor-neu")
         app.buttons["Abbrechen"].tap()
 
-        openMenu("Reiseunterlagen"); shot("10-unterlagen")
+        app.tabBars.buttons["Reise"].tap()
+        app.swipeUp()
+        app.buttons["Alle Reiseunterlagen"].firstMatch.tap(); shot("10-unterlagen")
         app.swipeUp(); shot("11-unterlagen-unten")
-        app.buttons["Fertig"].firstMatch.tap()
+        close.tap()
+        app.swipeDown(); app.swipeDown()
 
-        openMenu("Album teilen"); shot("12-teilen")
-        app.buttons["Fertig"].firstMatch.tap()
+        let share = app.buttons["Jemanden einladen"].exists ? app.buttons["Jemanden einladen"] : app.buttons["Gemeinsames Album"]
+        share.firstMatch.tap(); shot("12-teilen")
+        close.tap()
     }
 }

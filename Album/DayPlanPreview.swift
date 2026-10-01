@@ -56,7 +56,7 @@ struct DayPlanPreview: View {
                 }
             }
             .scrollContentBackground(.hidden)
-            .background(LinenBackground())
+            .background(PaperBackground())
             .navigationTitle("Vorschlag").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }

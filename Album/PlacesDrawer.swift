@@ -4,7 +4,7 @@ import MapKit
 /// Die drei Höhen des Blatts über der Karte.
 enum DrawerDetent: CaseIterable { case collapsed, half, full }
 
-/// Ein Stück Leinen über der Karte: alle beschlossenen Orte nach Tagen, mit Fotos, Route und Tag.
+/// Ein Blatt Papier über der Karte: alle beschlossenen Orte nach Tagen, mit Fotos, Route und Tag.
 /// Ersetzt das frühere Tagesplan-Blatt; Planen und Umsortieren passieren hier.
 /// Bewusst Teil der Karten-Ansicht statt eines Systemblatts, damit die Tab-Leiste erreichbar bleibt.
 struct PlacesDrawer: View {
@@ -38,8 +38,8 @@ struct PlacesDrawer: View {
         .frame(maxWidth: .infinity)
         .frame(height: currentHeight, alignment: .top)
         .background(alignment: .top) {
-            // Das Leinen reicht unter die Tab-Leiste, der Inhalt endet über ihr.
-            LinenBackground()
+            // Das Papier reicht unter die Tab-Leiste, der Inhalt endet über ihr.
+            PaperBackground()
                 .clipShape(UnevenRoundedRectangle(topLeadingRadius: Stitch.Radius.floating, topTrailingRadius: Stitch.Radius.floating, style: .continuous))
                 .stitchElevation(.floating)
                 .ignoresSafeArea(edges: .bottom)
@@ -93,18 +93,18 @@ struct PlacesDrawer: View {
             grabber
             HStack(alignment: .center, spacing: Stitch.Space.s) {
                 VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
-                    Text(title).font(.title3.weight(.bold)).foregroundStyle(Stitch.ink)
+                    Text(title).font(Stitch.Face.title(24, relativeTo: .title3)).foregroundStyle(Stitch.ink)
                     Text(subtitle).font(.footnote).foregroundStyle(Stitch.inkSoft)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
                 if !planned.isEmpty {
-                    Button { proposing = true } label: { Image(systemName: "wand.and.stars") }
-                        .buttonStyle(HeaderIconButton())
-                        .accessibilityLabel("Automatisch planen")
-                    Button(editing ? "Fertig" : "Bearbeiten") { editing.toggle() }
-                        .font(.body.weight(.semibold)).foregroundStyle(Stitch.red)
-                        .frame(minHeight: Stitch.Size.touch)
+                    if !editing {
+                        Button("Tage planen") { proposing = true }.buttonStyle(TextActionButton())
+                            .accessibilityHint("Schlägt für jeden Tag eine Runde vor")
+                    }
+                    Button(editing ? "Fertig" : "Ordnen") { editing.toggle() }.buttonStyle(TextActionButton(tint: Stitch.ink))
+                        .accessibilityHint(editing ? "" : "Tage und Reihenfolge von Hand ändern")
                 }
             }
             .padding(.horizontal, Stitch.Space.page)
@@ -132,20 +132,13 @@ struct PlacesDrawer: View {
         return parts.joined(separator: " · ")
     }
 
-    /// Griff als kurzer Vorstich auf einer Saumlinie: Ziehen oder Tippen ändert die Höhe.
+    /// Griff: Ziehen oder Tippen ändert die Höhe.
     private var grabber: some View {
         Button {
             move(to: detent == .half ? .full : .half)
         } label: {
-            // Saumlinie links und rechts, in der Mitte der kräftigere Stich als Griff.
-            HStack(spacing: Stitch.Space.xs) {
-                seam
-                StitchLine().stroke(Stitch.inkSoft, style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [6, 4]))
-                    .frame(width: 44, height: 3)
-                seam
-            }
-            .padding(.horizontal, Stitch.Space.l)
-            .frame(maxWidth: .infinity, minHeight: Stitch.Size.touch)
+            Capsule().fill(Stitch.inkSoft.opacity(0.4)).frame(width: 40, height: 5)
+                .frame(maxWidth: .infinity, minHeight: 36)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -161,11 +154,6 @@ struct PlacesDrawer: View {
         }
     }
 
-    private var seam: some View {
-        StitchLine().stroke(Stitch.inkSoft.opacity(0.25), style: StrokeStyle(lineWidth: 1, lineCap: .round, dash: [3, 5]))
-            .frame(height: 1)
-    }
-
     private var filterChips: some View {
         ScrollView(.horizontal) {
             HStack(spacing: Stitch.Space.xs) {
@@ -173,14 +161,14 @@ struct PlacesDrawer: View {
                     Button { withAnimation(reduceMotion ? nil : .snappy) { filter = item } } label: {
                         HStack(spacing: Stitch.Space.xs) {
                             if let symbol = item.symbol {
-                                StitchedSymbol(name: symbol, rows: 9, cell: 2, color: filter == item ? Stitch.onAccent : item.thread)
+                                Image(systemName: symbol).font(.footnote.weight(.semibold))
                             }
                             Text(item.title).font(.subheadline.weight(.semibold))
                         }
                         .padding(.horizontal, Stitch.Space.m).frame(minHeight: Stitch.Size.touch)
-                        .foregroundStyle(filter == item ? Stitch.onAccent : Stitch.ink)
-                        .background(filter == item ? Stitch.redFill : Stitch.card, in: Capsule())
-                        .overlay(Capsule().strokeBorder(Stitch.ink.opacity(filter == item ? 0 : 0.12), style: StrokeStyle(lineWidth: 1, dash: [3, 2])))
+                        .foregroundStyle(filter == item ? Stitch.paper : Stitch.ink)
+                        .background(filter == item ? Stitch.ink : Stitch.card, in: Capsule())
+                        .overlay(Capsule().strokeBorder(Stitch.rule, lineWidth: filter == item ? 0 : 1))
                     }
                     .buttonStyle(.plain)
                     .accessibilityAddTraits(filter == item ? .isSelected : [])
@@ -265,8 +253,8 @@ struct PlacesDrawer: View {
 
     private func sectionHeader(_ section: Section) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: Stitch.Space.xs) {
-            if section.isToday { Text("Heute").font(.headline).foregroundStyle(Stitch.red) }
-            Text(section.title).font(.headline).foregroundStyle(Stitch.ink)
+            if section.isToday { Text("Heute").font(Stitch.Face.title(19, relativeTo: .headline)).foregroundStyle(Stitch.red) }
+            Text(section.title).font(Stitch.Face.title(19, relativeTo: .headline)).foregroundStyle(Stitch.ink)
             Spacer(minLength: 0)
             if !section.stops.isEmpty {
                 Text(section.stops.count == 1 ? "1 Ort" : "\(section.stops.count) Orte")
@@ -316,7 +304,8 @@ struct PlacesDrawer: View {
     }
 }
 
-/// Ein Ort als Stoffkarte: Name, Art, Tageszeit, Fotos und die zwei Wege, die man unterwegs braucht.
+/// Ein Ort als Zeile: kleine Marke, Name in Serif, Art und Tageszeit; darunter Route und Tag.
+/// Tippen zeigt ihn auf der Karte, der Pfeil öffnet das Detail.
 private struct PlaceRow: View {
     let stop: PlanStop
     let root: URL
@@ -326,54 +315,51 @@ private struct PlaceRow: View {
     private var place: Place { stop.place }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Stitch.Space.s) {
-            Button(action: onShow) {
-                VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
-                    HStack(alignment: .firstTextBaseline, spacing: Stitch.Space.xs) {
-                        Text(place.title).font(.headline).foregroundStyle(Stitch.ink).multilineTextAlignment(.leading)
-                        Spacer(minLength: 0)
-                        if place.visited {
-                            Image(systemName: "checkmark.seal.fill").foregroundStyle(Stitch.cobalt).accessibilityLabel("Besucht")
+        VStack(alignment: .leading, spacing: Stitch.Space.xs) {
+            HStack(spacing: Stitch.Space.s) {
+                Button(action: onShow) {
+                    HStack(spacing: Stitch.Space.s) {
+                        StampFrame(mat: place.mat, inset: 4, matWidth: 2, elevation: .flat) {
+                            AlbumPhoto(asset: place.image, root: root, thumbnailWidth: 160).frame(width: 48, height: 56)
                         }
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: Stitch.Space.xs) {
+                                Text(place.title).font(Stitch.Face.place(21, relativeTo: .headline)).foregroundStyle(Stitch.ink)
+                                    .multilineTextAlignment(.leading).lineLimit(2)
+                                if place.visited {
+                                    Image(systemName: "checkmark.seal.fill").foregroundStyle(Stitch.teal).accessibilityLabel("Besucht")
+                                }
+                            }
+                            Text(meta).font(.footnote).foregroundStyle(stop.note == nil ? Stitch.inkSoft : Stitch.red)
+                        }
+                        Spacer(minLength: 0)
                     }
-                    HStack(spacing: Stitch.Space.xs) {
-                        StitchedSymbol(name: place.stitchSymbol, rows: 9, cell: 1.9, color: place.stitchThread)
-                            .accessibilityHidden(true)
-                        Text(meta).font(.subheadline).foregroundStyle(stop.note == nil ? Stitch.inkSoft : Stitch.red)
-                    }
-                    if !place.note.isEmpty {
-                        Text(place.note).font(.footnote).foregroundStyle(Stitch.inkSoft).lineLimit(1)
-                    }
+                    .contentShape(Rectangle())
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
+                .buttonStyle(.plain)
+                .accessibilityHint("Zeigt den Ort auf der Karte")
+                .accessibilityIdentifier("place-row-\(place.id)")
+                Button(action: onDetails) { Image(systemName: "chevron.right") }
+                    .font(.footnote.weight(.semibold)).foregroundStyle(Stitch.inkSoft)
+                    .frame(width: Stitch.Size.touch, height: Stitch.Size.touch)
+                    .accessibilityLabel("Details zu \(place.title)")
             }
-            .buttonStyle(.plain)
-            .accessibilityHint("Zeigt den Ort auf der Karte")
-            .accessibilityIdentifier("place-row-\(place.id)")
-
-            if !photos.isEmpty { photoStrip }
-
             HStack(spacing: Stitch.Space.l) {
                 if place.coordinate != nil {
                     Button { openWalkingRoute(to: place) } label: { Label("Route", systemImage: "figure.walk") }
-                        .font(.subheadline.weight(.semibold)).foregroundStyle(Stitch.red).frame(minHeight: Stitch.Size.touch)
+                        .buttonStyle(TextActionButton())
                 }
                 if place.category != "Unterkunft" { DayMenu(place: place) }
                 Spacer(minLength: 0)
-                Button(action: onDetails) { Image(systemName: "info.circle").font(.title3) }
-                    .foregroundStyle(Stitch.inkSoft).frame(width: Stitch.Size.touch, height: Stitch.Size.touch)
-                    .accessibilityLabel("Details zu \(place.title)")
             }
+            .padding(.leading, 56 + Stitch.Space.s)
         }
-        .stitchCard()
+        .padding(Stitch.Space.s)
+        .background(Stitch.card, in: RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
         .overlay {
-            if selected {
-                RoundedRectangle(cornerRadius: Stitch.Radius.card - Stitch.Space.xxs, style: .continuous)
-                    .strokeBorder(Stitch.red, style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
-                    .padding(Stitch.Space.xxs)
-                    .allowsHitTesting(false)
-            }
+            RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous)
+                .strokeBorder(selected ? Stitch.red : Stitch.rule, lineWidth: selected ? 2 : 1)
+                .allowsHitTesting(false)
         }
         .accessibilityElement(children: .contain)
         .accessibilityAddTraits(selected ? .isSelected : [])
@@ -393,38 +379,6 @@ private struct PlaceRow: View {
         guard let last = ranges.last, !(last.lowerBound == 0 && last.upperBound >= 1440) else { return nil }
         return "bis \(OpeningHours.clock(last.upperBound))"
     }
-
-    private var photos: [PlaceImageAsset] {
-        guard let main = place.image else { return [] }
-        return [main] + (place.gallery ?? []).map(PlaceImageAsset.external)
-    }
-
-    private var photoStrip: some View {
-        Group {
-            if photos.count == 1 {
-                photo(photos[0]).frame(maxWidth: .infinity).frame(height: 150)
-            } else {
-                ScrollView(.horizontal) {
-                    HStack(spacing: Stitch.Space.xs) {
-                        ForEach(Array(photos.enumerated()), id: \.offset) { _, asset in
-                            photo(asset).frame(width: 164, height: 124)
-                        }
-                    }
-                }
-                .scrollIndicators(.hidden)
-                .scrollClipDisabled()
-            }
-        }
-        .accessibilityHidden(true)
-    }
-
-    private func photo(_ asset: PlaceImageAsset) -> some View {
-        Button(action: onDetails) {
-            AlbumPhoto(asset: asset, root: root, thumbnailWidth: 480)
-                .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
-        }
-        .buttonStyle(.plain)
-    }
 }
 
 /// Tag eines Ortes wählen; der Ort kommt ans Ende des Tages.
@@ -438,18 +392,11 @@ struct DayMenu: View {
                 ForEach(DayPlanGenerator.days, id: \.self) { Text(TripDates.dayTitle($0)).tag(Optional($0)) }
             }
         } label: {
-            Label(place.day == nil ? "Tag festlegen" : "Tag ändern", systemImage: "calendar")
+            Label(place.day.map { "\($0). Okt" } ?? "Tag festlegen", systemImage: "calendar")
                 .font(.subheadline.weight(.semibold)).foregroundStyle(Stitch.red)
                 .frame(minHeight: Stitch.Size.touch)
         }
         .accessibilityLabel(place.day.map { "Tag ändern, jetzt \(TripDates.dayTitle($0))" } ?? "Tag festlegen")
-    }
-}
-
-/// Gerade Linie für gestrichelte Stiche.
-private struct StitchLine: Shape {
-    func path(in rect: CGRect) -> Path {
-        Path { $0.move(to: CGPoint(x: rect.minX, y: rect.midY)); $0.addLine(to: CGPoint(x: rect.maxX, y: rect.midY)) }
     }
 }
 

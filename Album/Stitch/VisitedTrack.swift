@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Wisch-Spur „Als besucht markieren“: Der Daumen zieht nach rechts, Garn füllt die Spur, an der Schwelle rastet das Label
+/// Wisch-Spur „Als besucht markieren“: Der Daumen zieht nach rechts, Stempelfarbe füllt die Spur, an der Schwelle rastet das Label
 /// ein („Loslassen“), danach steht dort „Besucht“ (gesperrt). Zu früh losgelassen federt zurück. Tippen füllt die Spur
 /// von selbst (gleichwertige Schaltfläche), VoiceOver aktiviert sie ebenso. Rückgängig geht über „Schon besucht“ im Editor.
 struct VisitedTrack: View {
@@ -20,10 +20,10 @@ struct VisitedTrack: View {
         GeometryReader { geo in
             let travel = max(geo.size.width - knob - inset * 2, 1)
             let p: CGFloat = visited ? 1 : min(max(dx / travel, 0), 1)
-            let shape = RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous)
+            let shape = Capsule()
             ZStack(alignment: .leading) {
                 shape.fill(Stitch.card)
-                // Das Garn füllt die Spur bis unter den Knopf.
+                // Stempelfarbe füllt die Spur bis unter den Knopf.
                 shape.fill(Stitch.redFill).frame(width: inset + knob + travel * p).opacity(p > 0 ? 1 : 0)
                 label(p: p)
                     .frame(maxWidth: .infinity)
@@ -35,7 +35,7 @@ struct VisitedTrack: View {
                     .offset(x: inset + travel * p)
             }
             .clipShape(shape)
-            .overlay(shape.strokeBorder(Stitch.red, style: StrokeStyle(lineWidth: 1.5, dash: [6, 4])))
+            .overlay(shape.strokeBorder(Stitch.rule, lineWidth: 1))
             .contentShape(shape)
             .gesture(reduceMotion || visited ? nil : drag(travel: travel))
             .onTapGesture { fill(travel: travel) }
@@ -90,16 +90,11 @@ struct VisitedTrack: View {
     }
 }
 
-/// Kleiner gestickter Stempel, der auf dem Foto landet, wenn der Ort besucht ist.
+/// Poststempel „BESUCHT“, der auf dem Foto landet, wenn der Ort besucht ist.
 struct VisitedStamp: View {
     var body: some View {
-        StitchedSymbol(name: "checkmark", rows: 12, cell: 3, color: Stitch.red)
-            .frame(width: 56, height: 56)
-            .background(Stitch.card, in: Circle())
-            .overlay(Circle().strokeBorder(Stitch.red, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])).padding(Stitch.Space.xxs))
-            .stitchElevation(.pinned)
-            .rotationEffect(.degrees(-12))
+        Postmark(top: "PRAHA", bottom: "BESUCHT", color: Stitch.onAccent, size: 84)
+            .background(Stitch.redFill.opacity(0.88), in: Circle())
             .allowsHitTesting(false)
-            .accessibilityHidden(true)
     }
 }

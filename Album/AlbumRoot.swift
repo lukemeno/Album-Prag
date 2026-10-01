@@ -2,29 +2,12 @@ import SwiftUI
 
 enum AlbumTab: String, CaseIterable { case reise = "Reise", ideen = "Ideen", karte = "Karte" }
 
-/// Aktionen, die jede Tab-Toolbar gleich anbietet.
-struct AlbumActions {
-    var add: () -> Void
-    var documents: () -> Void
-    var planner: () -> Void
-    var share: () -> Void
-}
-
 extension View {
-    /// Einheitliche Toolbar: genau eine Hauptaktion („+“), alles Seltene beschriftet im „Mehr“-Menü.
-    func albumToolbar(_ actions: AlbumActions) -> some View {
+    /// Einheitliche Toolbar: genau eine Aktion, „Idee einwerfen“. Alles andere hat einen festen Platz in den Ansichten.
+    func albumToolbar(add: @escaping () -> Void) -> some View {
         toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button("Reiseunterlagen", systemImage: "doc.text", action: actions.documents)
-                    Button("Tagesplan", systemImage: "calendar", action: actions.planner)
-                    Button("Album teilen", systemImage: "person.2", action: actions.share)
-                } label: {
-                    Label("Mehr", systemImage: "ellipsis")
-                }
-            }
             ToolbarItem(placement: .primaryAction) {
-                Button("Idee hinzufügen", systemImage: "plus", action: actions.add)
+                Button("Idee einwerfen", systemImage: "plus", action: add)
             }
         }
     }
@@ -36,10 +19,8 @@ struct AlbumRoot: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var tab: AlbumTab = .reise
     @State private var adding: Place?
-    @State private var settings = false
+    @State private var sharing = false
     @State private var documents = false
-    /// „Tagesplan“ öffnet die Karte mit ganz ausgeklappter Liste; jede Wahl zählt hoch.
-    @State private var plannerRequest = 0
     @State private var clipboardOffer = false
     @State private var askName = false
     @AppStorage("album.offeredPasteboard") private var offeredChangeCount = -1
@@ -52,18 +33,18 @@ struct AlbumRoot: View {
         #endif
     }
 
-    private var actions: AlbumActions {
-        AlbumActions(add: add, documents: { documents = true }, planner: { tab = .karte; plannerRequest += 1 }, share: { settings = true })
-    }
-
     var body: some View {
         TabView(selection: $tab) {
-            NavigationStack { ReiseView(openIdeas: { tab = .ideen }, openDocuments: { documents = true }).albumToolbar(actions) }
-                .tabItem { Label("Reise", systemImage: "suitcase") }.tag(AlbumTab.reise)
-            NavigationStack { InboxView().albumToolbar(actions) }
-                .tabItem { Label("Ideen", systemImage: "lightbulb") }.tag(AlbumTab.ideen)
-                .badge(store.newFromOthers)
-            NavigationStack { TripMapView(expandRequest: plannerRequest).albumToolbar(actions) }
+            NavigationStack {
+                ReiseView(openIdeas: { tab = .ideen }, openMap: { tab = .karte },
+                          openDocuments: { documents = true }, openSharing: { sharing = true })
+                    .albumToolbar(add: add)
+            }
+            .tabItem { Label("Reise", systemImage: "suitcase") }.tag(AlbumTab.reise)
+            NavigationStack { InboxView(add: add).albumToolbar(add: add) }
+                .tabItem { Label("Ideen", systemImage: "tray") }.tag(AlbumTab.ideen)
+                .badge(store.inbox.count)
+            NavigationStack { TripMapView().albumToolbar(add: add) }
                 .tabItem { Label("Karte", systemImage: "map") }.tag(AlbumTab.karte)
         }
         .tint(Stitch.red)
@@ -73,13 +54,13 @@ struct AlbumRoot: View {
                     clipboardOffer = false
                     adding = Place(title: "", sourceURL: url.absoluteString, author: store.me)
                 }, onDismiss: { withAnimation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.85)) { clipboardOffer = false } })
-                // Unter der Toolbar (44) mit 8 Luft, damit „+“ und „Mehr“ erreichbar bleiben.
+                // Unter der Toolbar (44) mit 8 Luft, damit „+“ erreichbar bleibt.
                 .padding(.top, Stitch.Size.touch + Stitch.Space.xs)
                 .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
             }
         }
         .sheet(item: $adding) { PlaceEditor(place: $0) }
-        .sheet(isPresented: $settings) { AlbumSettings() }
+        .sheet(isPresented: $sharing) { AlbumSettings() }
         .sheet(isPresented: $documents) { TripDocumentsView() }
         .sheet(isPresented: $askName) { NamePrompt() }
         .sheet(item: Binding(get: { store.pendingExtraction }, set: { store.pendingExtraction = $0 })) { ExtractedTripSheet(extracted: $0) }
@@ -111,28 +92,29 @@ struct NamePrompt: View {
     @Environment(AlbumStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
-    @State private var waveTick = 0
+    @State private var stampTick = 0
     @FocusState private var focused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         VStack(alignment: .leading, spacing: Stitch.Space.m) {
-            StitchedSymbol(name: "hand.wave.fill", rows: 18, cell: 3.6, color: Stitch.red)
-                // Beim ersten Buchstaben ploppt die Hand einmal auf.
-                .phaseAnimator([1.0, reduceMotion ? 1.0 : 1.07, 1.0], trigger: waveTick) { content, scale in
-                    content.scaleEffect(scale, anchor: .bottomLeading)
-                } animation: { _ in .spring(response: 0.22, dampingFraction: 0.75) }
-            Text("Wie heißt du?").font(.largeTitle.weight(.bold)).foregroundStyle(Stitch.ink)
-            Text("Dein Name steht an den Ideen, die du sammelst.")
+            Postmark(bottom: "4.–9.10.", size: 84)
+                // Beim ersten Buchstaben drückt der Stempel einmal nach.
+                .phaseAnimator([1.0, reduceMotion ? 1.0 : 1.08, 1.0], trigger: stampTick) { content, scale in
+                    content.scaleEffect(scale)
+                } animation: { _ in .spring(response: 0.22, dampingFraction: 0.6) }
+                .padding(.bottom, Stitch.Space.xs)
+            Text("Wie heißt du?").font(Stitch.Face.display()).foregroundStyle(Stitch.ink)
+            Text("Dein Name steht an den Ideen, die du einwirfst.")
                 .font(.body).foregroundStyle(Stitch.inkSoft)
             StitchTextField(placeholder: "Vorname", text: $name, focused: $focused, onSubmit: save)
                 .textContentType(.givenName)
-                .onChange(of: name) { old, new in if old.isEmpty && !new.isEmpty { waveTick += 1 } }
+                .onChange(of: name) { old, new in if old.isEmpty && !new.isEmpty { stampTick += 1 } }
             Button("Los geht’s", action: save).buttonStyle(StitchButton(primary: true))
                 .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
             Spacer()
         }
         .padding(Stitch.Space.page).padding(.top, Stitch.Space.xl)
-        .background(LinenBackground())
+        .background(PaperBackground())
         .interactiveDismissDisabled()
         .presentationDragIndicator(.hidden)
         .task {
@@ -150,8 +132,8 @@ struct NamePrompt: View {
     }
 }
 
-/// Einzeiliges Eingabefeld im Stil der Karten. Die ganze Fläche ist antippbar.
-/// Unter dem Text wächst ein Vorstich; eine Nadel am Ende folgt jedem Anschlag mit kleiner Verzögerung.
+/// Einzeiliges Eingabefeld als Schreibmaschine: eine feine Schiene unter dem Text, darauf ein kleiner Schlitten,
+/// der dem Text mit leicht unregelmäßigem Anschlag folgt. Der Text selbst steht sofort.
 struct StitchTextField: View {
     let placeholder: String
     @Binding var text: String
@@ -159,8 +141,8 @@ struct StitchTextField: View {
     var onSubmit: () -> Void = {}
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var textWidth: CGFloat = 0
-    /// Bis hierhin ist schon gestickt; die Nadel steckt am Ende.
-    @State private var sewn: CGFloat = 0
+    /// Wo der Schlitten gerade steht.
+    @State private var carriage: CGFloat = 0
     @State private var follow: Task<Void, Never>?
     var body: some View {
         TextField(placeholder, text: $text)
@@ -170,31 +152,31 @@ struct StitchTextField: View {
             // Unsichtbarer Text in gleicher Schrift misst die Breite; das Feld selbst bleibt unberührt.
             .background(alignment: .leading) {
                 Text(text).font(.body).fixedSize().hidden()
-                    .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { moveNeedle(to: $0) }
+                    .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { moveCarriage(to: $0) }
             }
+            .padding(.bottom, Stitch.Space.s)
             .overlay(alignment: .bottomLeading) {
                 GeometryReader { box in
-                    let x = min(reduceMotion ? textWidth : sewn, box.size.width)
+                    let x = min(reduceMotion ? textWidth : carriage, box.size.width)
                     ZStack(alignment: .leading) {
-                        Path { path in path.move(to: CGPoint(x: 0, y: 0)); path.addLine(to: CGPoint(x: x, y: 0)) }
-                            .stroke(Stitch.red, style: StrokeStyle(lineWidth: 1.5, dash: [5, 3]))
-                        if !reduceMotion && x > 0 {
-                            Capsule().fill(Stitch.inkSoft).frame(width: 2, height: 12)
-                                .rotationEffect(.degrees(25)).offset(x: x - 1, y: -4)
+                        Rectangle().fill(focused.wrappedValue ? Stitch.ink.opacity(0.35) : Stitch.rule).frame(height: 1)
+                        if !reduceMotion && focused.wrappedValue {
+                            Capsule().fill(Stitch.red).frame(width: 14, height: 5)
+                                .offset(x: max(0, x - 2))
                         }
                     }
-                    .frame(height: 1.5).offset(y: 6)
+                    .frame(height: 5)
                     .allowsHitTesting(false).accessibilityHidden(true)
                 }
-                .frame(height: 1.5).offset(y: 6)
+                .frame(height: 5)
             }
             .stitchCard()
             .contentShape(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
             .onTapGesture { focused.wrappedValue = true }
     }
 
-    /// Der Text steht sofort; nur die Nadel kommt mit 40–90 ms Verzögerung nach (aus der Textlänge, kein Zufall).
-    private func moveNeedle(to width: CGFloat) {
+    /// Der Schlitten folgt mit 40–90 ms Verzögerung, abgeleitet aus der Textlänge (kein Zufall, aber ungleichmäßig).
+    private func moveCarriage(to width: CGFloat) {
         textWidth = width
         guard !reduceMotion else { return }
         let delay = 40 + (text.count * 37) % 51
@@ -202,12 +184,12 @@ struct StitchTextField: View {
         follow = Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(delay))
             guard !Task.isCancelled else { return }
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) { sewn = width }
+            withAnimation(.spring(response: 0.22, dampingFraction: 0.62)) { carriage = width }
         }
     }
 }
 
-/// Ein Zettel, der aus der Tasche lugt: Link in der Zwischenablage erkannt.
+/// Ein Zettel unter der Toolbar: Link in der Zwischenablage erkannt.
 /// Einfügen übernimmt ihn als neue Idee, nach oben wischen legt ihn weg, nach 6 Sekunden geht er von selbst.
 struct ClipboardNote: View {
     var onPaste: (URL) -> Void
@@ -218,10 +200,11 @@ struct ClipboardNote: View {
 
     var body: some View {
         HStack(spacing: Stitch.Space.s) {
-            StitchedSymbol(name: "link", rows: 10, cell: 2.4, color: Stitch.red)
-            VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
-                Text("Link kopiert").font(.subheadline.weight(.bold)).foregroundStyle(Stitch.ink)
-                Text("Als Idee sichern?").font(.footnote).foregroundStyle(Stitch.inkSoft)
+            Image(systemName: "link").font(.body.weight(.semibold)).foregroundStyle(Stitch.red)
+                .frame(width: 36, height: 36).background(Stitch.paperDeep, in: Circle())
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Link kopiert").font(.subheadline.weight(.semibold)).foregroundStyle(Stitch.ink)
+                Text("Als Idee einwerfen?").font(.footnote).foregroundStyle(Stitch.inkSoft)
             }
             Spacer(minLength: Stitch.Space.xs)
             PasteButton(payloadType: URL.self) { urls in
@@ -232,16 +215,12 @@ struct ClipboardNote: View {
             .labelStyle(.titleOnly)
             .tint(Stitch.redFill)
         }
-        .padding(.leading, Stitch.Space.m).padding(.trailing, Stitch.Space.s).padding(.vertical, Stitch.Space.s)
-        .background {
-            UnevenRoundedRectangle(topLeadingRadius: Stitch.Radius.card, bottomLeadingRadius: 4, bottomTrailingRadius: 4, topTrailingRadius: Stitch.Radius.card, style: .continuous)
-                .fill(Stitch.card)
-                .overlay(alignment: .bottom) { TornEdge().fill(Stitch.card).frame(height: 6).rotationEffect(.degrees(180)).offset(y: 5) }
-                .stitchElevation(.floating)
-        }
-        .overlay(alignment: .top) { TackStitch(color: Stitch.cobalt).offset(y: -4) }
-        .rotationEffect(.degrees(reduceMotion ? 0 : (appeared ? 1.5 : 6)), anchor: .topLeading)
+        .padding(.leading, Stitch.Space.s).padding(.trailing, Stitch.Space.s).padding(.vertical, Stitch.Space.s)
+        .background(Stitch.card, in: RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous).strokeBorder(Stitch.rule, lineWidth: 1))
+        .stitchElevation(.floating)
         .padding(.horizontal, Stitch.Space.page)
+        .scaleEffect(reduceMotion || appeared ? 1 : 0.96, anchor: .top)
         .offset(y: min(0, drag))
         .gesture(DragGesture()
             .onChanged { drag = $0.translation.height }
@@ -251,29 +230,12 @@ struct ClipboardNote: View {
             })
         .sensoryFeedback(.impact(flexibility: .soft), trigger: appeared)
         .task {
-            withAnimation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.6)) { appeared = true }
+            withAnimation(reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.7)) { appeared = true }
             try? await Task.sleep(for: .seconds(6))
             onDismiss()
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Link in der Zwischenablage")
         .accessibilityAction(named: "Schließen", onDismiss)
-    }
-}
-
-/// Abgerissene Papierkante.
-struct TornEdge: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.move(to: CGPoint(x: 0, y: rect.maxY))
-        var x: CGFloat = 0
-        var random = SeededRandom(seed: 11)
-        while x < rect.width {
-            path.addLine(to: CGPoint(x: x, y: random.next(in: 0...Double(rect.height))))
-            x += CGFloat(random.next(in: 5...11))
-        }
-        path.addLine(to: CGPoint(x: rect.width, y: rect.maxY))
-        path.closeSubpath()
-        return path
     }
 }

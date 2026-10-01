@@ -21,7 +21,7 @@ struct InvitationRequest: Identifiable {
     #endif
 }
 
-/// Vollbild-Moment beim Einlösen: Eine gestickte Fahrkarte wird nach oben in den Schlitz gezogen (oder der Knopf getippt).
+/// Vollbild-Moment beim Einlösen: Eine Fahrkarte als Briefmarke wird nach oben in den Schlitz gezogen (oder der Knopf getippt).
 /// Erst ab der Schwelle beginnt der Beitritt; danach druckt der Schlitz einen Zettel mit dem Ergebnis.
 struct InvitationMoment: View {
     let request: InvitationRequest
@@ -69,43 +69,36 @@ struct InvitationMoment: View {
 
     private var receipt: some View {
         VStack(spacing: Stitch.Space.xxs) {
-            Text("Album geöffnet").font(.headline).foregroundStyle(Stitch.ink)
+            Text("Album geöffnet").font(Stitch.Face.place(22, relativeTo: .headline)).foregroundStyle(Stitch.ink)
             Text(summary).font(.subheadline.monospacedDigit()).foregroundStyle(Stitch.inkSoft)
         }
         .padding(.horizontal, Stitch.Space.l).padding(.vertical, Stitch.Space.m)
-        .frame(width: 212)
-        .background(Stitch.card)
-        .overlay(alignment: .topLeading) { TackStitch().offset(x: Stitch.Space.xs, y: Stitch.Space.xs) }
-        .overlay(alignment: .topTrailing) { TackStitch().offset(x: -Stitch.Space.xs, y: Stitch.Space.xs) }
+        .frame(width: 228)
+        .background(Stitch.card, in: RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
+        .overlay(alignment: .topTrailing) { Postmark(bottom: "4.–9.10.", size: 48).offset(x: 14, y: -18) }
         .stitchElevation(.pinned)
-        .rotationEffect(.degrees(-1.5))
         .accessibilityElement(children: .combine)
     }
 }
 
-/// Die Fahrkarte: gesticktes „Prag“, Reisedaten, Perforation. Papier ist eckig und mit einem Heftstich am Stoff.
+/// Die Fahrkarte als Briefmarke: „Prag“ in Fraunces, Reisedaten, Perforation, Poststempel.
 struct InvitationTicket: View {
     var sender: String?
     var body: some View {
-        VStack(alignment: .leading, spacing: Stitch.Space.s) {
-            HStack {
-                Text("Einladung").font(.footnote.weight(.bold)).foregroundStyle(Stitch.red)
-                Spacer()
+        StampFrame(mat: Stitch.Mat.sky, inset: 9, matWidth: 5, elevation: .floating) {
+            VStack(alignment: .leading, spacing: Stitch.Space.s) {
                 Image(systemName: "airplane").font(.body.weight(.semibold)).foregroundStyle(Stitch.red)
-            }
-            StitchedText(text: "Prag", rows: 22, cell: 3)
-            PerforationLine()
-            VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
-                Text("Prag · 4.–9. Oktober").font(.headline).foregroundStyle(Stitch.ink)
-                if let sender {
-                    Text("Von \(sender)").font(.footnote).foregroundStyle(Stitch.inkSoft)
+                Text("Prag").font(Stitch.Face.display(52, relativeTo: .largeTitle)).foregroundStyle(Stitch.ink)
+                PerforationLine()
+                VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
+                    Text("4.–9. Oktober").font(Stitch.Face.place(22, relativeTo: .headline)).foregroundStyle(Stitch.ink)
+                    Text(sender.map { "Einladung von \($0)" } ?? "Einladung").font(.footnote).foregroundStyle(Stitch.inkSoft)
                 }
             }
+            .padding(Stitch.Space.m)
+            .frame(width: 220, alignment: .leading)
+            .background(Stitch.card)
+            .overlay(alignment: .topTrailing) { Postmark(bottom: "2026", size: 56).padding(Stitch.Space.s) }
         }
-        .padding(Stitch.Space.m)
-        .frame(width: 236, alignment: .leading)
-        .background(Stitch.card)
-        .overlay(alignment: .top) { TackStitch(color: Stitch.cobalt).offset(y: -Stitch.Space.xxs) }
-        .stitchElevation(.floating)
     }
 }

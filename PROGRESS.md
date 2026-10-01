@@ -114,3 +114,10 @@
 - `Stitch/VisitedTrack.swift`: Im Ortsdetail ersetzt die Spur den Knopf „Als besucht markieren“. Daumen nach rechts, Garn füllt die Spur, Label „Als besucht markieren“ → „Loslassen“ (ab 85 %, Selection-Haptik) → „Besucht ✓“ (gesperrt). Zu früh losgelassen federt zurück. Tippen füllt die Spur von selbst, VoiceOver aktiviert sie. Erfolg setzt `visited = true` per `store.upsert`; ist der Ort schon besucht, steht sie eingerastet da. Rückgängig weiter über „Schon besucht“ im Editor.
 - Gestickter Stempel (`VisitedStamp`) landet mit Feder auf dem Foto (oben links); bei „Bewegung reduzieren“ blendet er nur ein.
 - UI-Test `testVisitedTrack` auf einer Wegwerf-Kopie.
+
+## 01.10.2026 – Redesign „Briefmarke“ (Claude-Fassung, Branch `redesign/claude`)
+- Unabhängig von der Codex-Fassung auf `main`, Basis 300f18f. Grundlage Figma „Album Foundations“ plus Pastellränder je Kategorie; Details in `DESIGN.md`.
+- Material: Papier statt Leinen, Fraunces (Titel) und Instrument Serif (Ortsnamen) als eingebundene Schriften (OFL, `Album/Fonts`), SF für Text, SF Mono für Codes. Kreuzstich-Muster, Glocke (Rive), Abreißkalender, Heftstiche und gedrehte Polaroids entfernt.
+- Funktionen: „Mehr“-Menü aufgelöst (nur noch „Idee einwerfen“), Teilen über Personen-Knopf auf „Reise“ mit einem einzigen Knopf, Reise mit Tagesstreifen 4.–9.10., Tagesplan, „Als Nächstes“ während der Reise und Tickets; Ideen Ja/Nein + „Später entscheiden“ (Textaktion und Wischen nach oben); Ortsdetail ohne Löschen (jetzt im Editor); Karte mit Briefmarken-Pins und beschrifteten Aktionen „Tage planen“ / „Ordnen“; einheitliche Blatt-Kopfzeile (× links, Aktion rechts).
+- Bewegungsmuster A–F im neuen Material: Schreibmaschinen-Schlitten, Frankier-Stempel bei „Ja“, Stempelfarbe in Schild und Besucht-Spur, Briefkasten-Schlitz als Papierrille (kein schwarzer Balken mehr).
+- Prüfung: Simulator-Build grün, 38 Unit-Tests (1 übersprungen), `testScreenTour` auf die neuen Knöpfe umgestellt und grün; Sichtprüfung inkl. Reisetag (ALBUM_TODAY=2026-10-06), offene Ideen und Dunkelmodus. Ungeprüft: Gerät (Haptik, Tempo), VoiceOver, größte Schriftgrößen.

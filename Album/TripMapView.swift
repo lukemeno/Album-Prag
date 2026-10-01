@@ -4,8 +4,6 @@ import MapKit
 struct TripMapView: View {
     @Environment(AlbumStore.self) private var store
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    /// Zählt hoch, wenn „Tagesplan“ im Mehr-Menü gewählt wird: Dann klappt die Liste ganz auf.
-    var expandRequest = 0
     @State private var camera: MapCameraPosition = .region(.init(center: .init(latitude: 50.087, longitude: 14.423), span: .init(latitudeDelta: 0.035, longitudeDelta: 0.035)))
     @State private var selectedID: String?
     @State private var detail: Place?
@@ -39,23 +37,20 @@ struct TripMapView: View {
         .navigationTitle("Karte")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $detail) { PlaceDetail(placeID: $0.id) }
-        .onChange(of: expandRequest) { _, _ in
-            withAnimation(reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.86)) { detent = .full }
-        }
     }
 
     private var map: some View {
         Map(position: $camera) {
             ForEach(dayThreads, id: \.day) { thread in
                 MapPolyline(coordinates: thread.coordinates)
-                    .stroke(thread.day % 2 == 0 ? Stitch.cobalt : Stitch.red,
-                            style: StrokeStyle(lineWidth: 3.5, lineCap: .round, dash: [8, 7]))
+                    .stroke(thread.day % 2 == 0 ? Stitch.teal : Stitch.red,
+                            style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
             }
             ForEach(visible) { place in
                 if let coordinate = place.coordinate {
                     Annotation(place.title, coordinate: coordinate, anchor: .bottom) {
                         Button { select(place) } label: {
-                            StitchPin(place: place, selected: selectedID == place.id,
+                            StampPin(place: place, root: store.root, selected: selectedID == place.id,
                                       drops: !landed.contains(place.id) && !reduceMotion) {
                                 markLanded(place.id)
                             }
@@ -100,8 +95,7 @@ enum MapFilter: String, CaseIterable, Identifiable {
     case all, food, sights, view
     var id: String { rawValue }
     var title: String { switch self { case .all: "Alle"; case .food: "Essen"; case .sights: "Sehenswert"; case .view: "Aussicht" } }
-    var symbol: String? { switch self { case .all: nil; case .food: "fork.knife"; case .sights: "building.columns.fill"; case .view: "sunrise.fill" } }
-    var thread: Color { switch self { case .sights: Stitch.cobalt; default: Stitch.red } }
+    var symbol: String? { switch self { case .all: nil; case .food: "fork.knife"; case .sights: "building.columns"; case .view: "binoculars" } }
     func matches(_ category: String) -> Bool {
         switch self {
         case .all: true
@@ -112,24 +106,10 @@ enum MapFilter: String, CaseIterable, Identifiable {
     }
 }
 
-extension Place {
-    /// Gesticktes Symbol und Garnfarbe je Kategorie.
-    var stitchSymbol: String {
-        switch category {
-        case "Essen & Trinken": "fork.knife"
-        case "Sehenswert": "building.columns.fill"
-        case "Aussicht": "sunrise.fill"
-        case "Unterkunft": "bed.double.fill"
-        case "Shopping": "bag.fill"
-        default: "heart.fill"
-        }
-    }
-    var stitchThread: Color { category == "Sehenswert" || category == "Unterkunft" ? Stitch.cobalt : Stitch.red }
-}
-
-/// Runder Stoff-Pin. Neue Orte fallen als Stecknadel auf die Karte und drücken eine kleine Delle in den Plan.
-struct StitchPin: View {
+/// Ein Ort auf der Karte als kleine Briefmarke mit Foto. Neue Orte fallen auf die Karte und drücken eine kleine Delle in den Plan.
+struct StampPin: View {
     let place: Place
+    let root: URL
     let selected: Bool
     let drops: Bool
     var onLanded: () -> Void = {}
@@ -138,20 +118,19 @@ struct StitchPin: View {
     @State private var landedTick = 0
 
     var body: some View {
-        let size: CGFloat = selected ? 58 : 46
-        VStack(spacing: 0) {
-            ZStack {
-                LinenBackground()
-                    .frame(width: size, height: size).clipShape(Circle())
-                Circle().strokeBorder(place.stitchThread, style: StrokeStyle(lineWidth: selected ? 3 : 1.6, dash: selected ? [] : [4, 3]))
-                    .padding(3)
-                StitchedSymbol(name: place.stitchSymbol, rows: 11, cell: selected ? 2.6 : 2.1, color: place.stitchThread)
+        let width: CGFloat = selected ? 52 : 38
+        VStack(spacing: 2) {
+            StampFrame(mat: place.mat, inset: 3, matWidth: 2) {
+                AlbumPhoto(asset: place.image, root: root, thumbnailWidth: 120)
+                    .frame(width: width, height: width * 1.18)
+                    .overlay {
+                        if place.image == nil {
+                            Image(systemName: place.symbol).font(.footnote.weight(.semibold)).foregroundStyle(Stitch.ink)
+                        }
+                    }
             }
-            .frame(width: size, height: size)
-            .stitchElevation(.pinned)
-            Circle().fill(place.stitchThread).frame(width: 9, height: 9)
-                .overlay(Circle().strokeBorder(Stitch.card, lineWidth: 2))
-                .offset(y: -3)
+            Circle().fill(Stitch.red).frame(width: 7, height: 7)
+                .overlay(Circle().strokeBorder(Stitch.card, lineWidth: 1.5))
         }
         .background(alignment: .bottom) {
             Ellipse().fill(.black.opacity(dent ? 0.28 : 0))
@@ -165,7 +144,7 @@ struct StitchPin: View {
         .sensoryFeedback(.impact(weight: .light, intensity: 0.9), trigger: landedTick)
         .onAppear {
             guard drops else { return }
-            // Erst fallen, wenn die Karte steht; mehrere Nadeln leicht nacheinander.
+            // Erst fallen, wenn die Karte steht; mehrere Marken leicht nacheinander.
             let delay = 0.8 + (place.id.stableTilt + 1) * 0.22
             withAnimation(.easeIn(duration: 0.34).delay(delay)) { fallen = true } completion: {
                 landedTick += 1
@@ -184,7 +163,6 @@ struct PlaceDetail: View {
     @Environment(\.dismiss) private var dismiss
     var placeID: String
     @State private var editing = false
-    @State private var confirmDelete = false
     @State private var viewing: PhotoView?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var place: Place? { store.places.first { $0.id == placeID } }
@@ -200,34 +178,16 @@ struct PlaceDetail: View {
             if let place {
                 ScrollView {
                     VStack(alignment: .leading, spacing: Stitch.Space.l) {
-                        Group {
-                            if place.photoAssets.count > 1 {
-                                PhotoStack(photos: place.photoAssets, root: store.root, title: place.title, subtitle: place.category) { photo, source in
-                                    var instant = Transaction(animation: nil); instant.disablesAnimations = true
-                                    withTransaction(instant) { viewing = PhotoView(photo: photo, source: source) }
-                                }
-                                .frame(height: 320)
-                            } else {
-                                PhotoCard(asset: place.image, root: store.root, title: place.title, subtitle: place.category).frame(height: 320)
-                            }
-                        }
-                        .overlay(alignment: .topLeading) {
-                            if place.visited {
-                                VisitedStamp().padding(Stitch.Space.m)
-                                    .transition(reduceMotion ? .opacity : .scale(scale: 1.8).combined(with: .opacity))
-                            }
-                        }
-                        .animation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.34, dampingFraction: 0.55), value: place.visited)
+                        hero(place)
 
-                        VStack(alignment: .leading, spacing: Stitch.Space.xs) {
-                            if !place.address.isEmpty {
-                                Text(place.address).font(.subheadline).foregroundStyle(Stitch.inkSoft)
-                            }
-                            if !place.note.isEmpty {
-                                Text(place.note).font(.body).foregroundStyle(Stitch.ink)
-                            }
-                            if let from = authorLine(place) {
-                                Text(from).font(.footnote.weight(.semibold)).foregroundStyle(Stitch.red)
+                        if !facts(place).isEmpty || !place.note.isEmpty {
+                            VStack(alignment: .leading, spacing: Stitch.Space.xs) {
+                                if !place.note.isEmpty {
+                                    Text(place.note).font(.body).foregroundStyle(Stitch.ink)
+                                }
+                                ForEach(facts(place), id: \.self) { line in
+                                    Text(line).font(.subheadline).foregroundStyle(Stitch.inkSoft)
+                                }
                             }
                         }
 
@@ -236,70 +196,84 @@ struct PlaceDetail: View {
                                 Button { openWalkingRoute(to: place) } label: { Label("Route", systemImage: "figure.walk") }
                                     .buttonStyle(StitchButton(primary: true))
                             }
-                            VisitedTrack(visited: place.visited) { var p = place; p.visited = true; store.upsert(p) }
+                            if place.franked {
+                                VisitedTrack(visited: place.visited) { var p = place; p.visited = true; store.upsert(p) }
+                            }
                             if let url = LinkValidation.url(place.sourceURL) {
                                 Link(destination: url) { Label("Bei \(place.sourceLabel) ansehen", systemImage: "arrow.up.right") }
                                     .buttonStyle(StitchButton())
                             }
                         }
 
-                        // Nur wenn es etwas zu nennen gibt: Ein leerer Block würde den Abstand verdoppeln.
-                        if hasCredits(place) {
-                            VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
-                                if let source = place.image?.sourceURL, let url = URL(string: source) {
-                                    Link("Foto: \(place.image?.credit ?? "Quelle")", destination: url)
-                                }
-                                if case .external(let image) = place.image, let license = image.licenseName {
-                                    if let rawURL = image.licenseURL, let url = URL(string: rawURL) {
-                                        Link("Lizenz: \(license)", destination: url)
-                                    } else {
-                                        Text("Lizenz: \(license)")
-                                    }
-                                }
-                                // Weitere Fotos aus dem Foto-Streifen: Wikimedia verlangt die Nennung jeder Urheberin.
-                                ForEach(place.gallery ?? [], id: \.imageURL) { image in
-                                    if let url = URL(string: image.sourceURL) {
-                                        Link("Foto: \(image.credit)\(image.licenseName.map { " · \($0)" } ?? "")", destination: url)
-                                    }
-                                }
-                            }
-                            .font(.caption).foregroundStyle(Stitch.inkSoft).tint(Stitch.inkSoft)
-                        }
-
-                        VStack(alignment: .leading, spacing: 0) {
-                            Button("Zurück zu den Ideen") {
-                                var p = place; p.franked = false; p.deferred = false; p.approvals = []; p.passedBy = []; p.day = nil; p.dayOrder = nil
-                                store.upsert(p); dismiss()
-                            }
-                            .frame(minHeight: Stitch.Size.touch)
-                            Button("Ort löschen", role: .destructive) { confirmDelete = true }
-                                .frame(minHeight: Stitch.Size.touch)
-                        }
-                        .font(.body)
+                        // Wikimedia verlangt die Nennung jeder Urheberin; leise ganz unten.
+                        if hasCredits(place) { credits(place) }
                     }
                     .padding(Stitch.Space.page)
                 }
-                .background(LinenBackground())
+                .background(PaperBackground())
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .cancellationAction) { Button("Fertig") { dismiss() } }
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Schließen", systemImage: "xmark") { dismiss() }
+                    }
                     ToolbarItem(placement: .primaryAction) { Button("Bearbeiten") { editing = true } }
                 }
                 .sheet(isPresented: $editing) { PlaceEditor(place: place) }
                 .fullScreenCover(item: $viewing) { PhotoViewer(place: place, root: store.root, source: $0.source, photo: $0.photo) }
-                .confirmationDialog("Diesen Ort löschen?", isPresented: $confirmDelete, titleVisibility: .visible) {
-                    Button("Löschen", role: .destructive) { var p = place; p.deleted = true; store.upsert(p); dismiss() }
-                }
             }
         }
+        // Gelöscht (im Editor): Das Detail hat nichts mehr zu zeigen.
+        .onChange(of: place == nil) { _, gone in if gone { dismiss() } }
+    }
+
+    private func hero(_ place: Place) -> some View {
+        Group {
+            if place.photoAssets.count > 1 {
+                PhotoStack(photos: place.photoAssets, root: store.root, title: place.title, subtitle: place.category) { photo, source in
+                    var instant = Transaction(animation: nil); instant.disablesAnimations = true
+                    withTransaction(instant) { viewing = PhotoView(photo: photo, source: source) }
+                }
+                .frame(height: 340)
+            } else {
+                PhotoCard(asset: place.image, root: store.root, title: place.title, subtitle: place.category).frame(height: 340)
+            }
+        }
+        .overlay(alignment: .topLeading) {
+            if place.visited {
+                VisitedStamp().padding(Stitch.Space.m)
+                    .transition(reduceMotion ? .opacity : .scale(scale: 1.8).combined(with: .opacity))
+            }
+        }
+        .animation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.34, dampingFraction: 0.55), value: place.visited)
+    }
+
+    /// Adresse, Tag, Herkunft – nur was stimmt.
+    private func facts(_ place: Place) -> [String] {
+        var lines: [String] = []
+        if !place.address.isEmpty { lines.append(place.address) }
+        if let day = place.day { lines.append(TripDates.dayTitle(day)) }
+        if place.author != store.me, place.author.localizedCaseInsensitiveCompare("Wir") != .orderedSame {
+            lines.append("Von \(place.author) eingeworfen")
+        }
+        return lines
     }
 
     private func hasCredits(_ place: Place) -> Bool {
         place.image?.sourceURL.flatMap(URL.init(string:)) != nil || !(place.gallery ?? []).isEmpty
     }
 
-    private func authorLine(_ place: Place) -> String? {
-        guard place.author != store.me, place.author.localizedCaseInsensitiveCompare("Wir") != .orderedSame else { return nil }
-        return "Von \(place.author) gesammelt"
+    private func credits(_ place: Place) -> some View {
+        VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
+            if let source = place.image?.sourceURL, let url = URL(string: source) {
+                let license: String? = if case .external(let image) = place.image { image.licenseName } else { nil }
+                Link("Foto: \(place.image?.credit ?? "Quelle")\(license.map { " · \($0)" } ?? "")", destination: url)
+            }
+            ForEach(place.gallery ?? [], id: \.imageURL) { image in
+                if let url = URL(string: image.sourceURL) {
+                    Link("Foto: \(image.credit)\(image.licenseName.map { " · \($0)" } ?? "")", destination: url)
+                }
+            }
+        }
+        .font(.caption).foregroundStyle(Stitch.inkSoft).tint(Stitch.inkSoft)
     }
 }

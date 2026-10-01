@@ -32,6 +32,7 @@ targets:
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UIRequiresFullScreen: true
+        UIAppFonts: [Fraunces-SemiBold.ttf, InstrumentSerif-Regular.ttf]
         UIFileSharingEnabled: false
         LSSupportsOpeningDocumentsInPlace: true
         SupabaseURL: $(SUPABASE_URL)
