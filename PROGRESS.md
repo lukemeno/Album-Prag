@@ -74,3 +74,10 @@
 ## 30.09.2026 – Eingabefeld mit Vorstich und Nadel
 - `StitchTextField` (Namensabfrage und Einstellungen): Vorstich unter dem Text, Nadel folgt mit kleiner Verzögerung; die Breite misst ein unsichtbarer Text in gleicher Schrift (`onGeometryChange`). `NamePrompt`: Hand-Plopp beim ersten Buchstaben.
 - UI-Test `testNamePromptStitch` (nur mit `TEST_RUNNER_ALBUM_SHOT_DIR`) startet die App mit `-album.myName ""`, tippt nie „Los geht’s“, damit der echte Name im Simulator unberührt bleibt.
+
+## 01.10.2026 – Ja, Nein, Offen
+- Ideen: rechts „Ja“, links „Nein“, eigener Knopf „Offen“; VoiceOver bietet alle drei Aktionen.
+- „Nein“ ist eine persönliche Stimme (`passedBy`), keine globale Zurückstellung. Andere Personen können weiterhin entscheiden.
+- „Offen“ stellt die Idee nur für den aktuellen Durchgang zurück, ohne Speicherung oder Synchronisierung einer Stimme. „Offene Ideen ansehen“ holt sie zurück; Rückgängig funktioniert auch hier.
+- Bestehende Aufnahme auf die Karte bei einer Ja-Stimme bleibt unverändert.
+- Prüfung: Simulator-Build erfolgreich; 39 Unit-Tests (1 übersprungen) und 1 UI-Test ohne Fehler.

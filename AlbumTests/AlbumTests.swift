@@ -220,6 +220,22 @@ final class AlbumTests: XCTestCase {
         XCTAssertTrue(store.deferred.contains { $0.id == other.id })
     }
 
+    @MainActor func testNoVoteLeavesIdeaOpenForOtherPerson() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = AlbumStore(root: directory)
+        store.myName = "Luke"
+        let place = try XCTUnwrap(store.inbox.first)
+        store.upsert(store.decided(place, approve: false))
+        XCTAssertFalse(store.inbox.contains { $0.id == place.id })
+        XCTAssertTrue(store.deferred.contains { $0.id == place.id })
+        store.myName = "Mia"
+        XCTAssertTrue(store.inbox.contains { $0.id == place.id })
+        let saved = try XCTUnwrap(store.places.first { $0.id == place.id })
+        XCTAssertEqual(saved.passedBy, ["Luke"])
+        XCTAssertFalse(saved.deferred)
+    }
+
     func testMergeKeepsVotesFromBothPhones() {
         var local = Place(id: "p", title: "Letná", approvals: ["Luke"], updatedAt: Date(timeIntervalSince1970: 10))
         local.franked = true

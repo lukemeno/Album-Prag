@@ -16,16 +16,20 @@ final class AlbumUITests: XCTestCase {
         app.buttons["Speichern"].tap()
         app.terminate(); app.launch()
         app.buttons["Ideen"].tap()
-        XCTAssertTrue(app.buttons["Später"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Nein"].waitForExistence(timeout: 5))
         let ticket = app.otherElements["Inbox-Ticket"]
         XCTAssertTrue(ticket.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Offen"].exists)
+        app.buttons["Offen"].tap()
+        XCTAssertTrue(app.buttons["Letzte Entscheidung rückgängig"].waitForExistence(timeout: 5))
+        app.buttons["Letzte Entscheidung rückgängig"].tap()
         ticket.swipeLeft()
         XCTAssertTrue(app.buttons["Letzte Entscheidung rückgängig"].waitForExistence(timeout: 5))
-        for _ in 0..<2 { app.buttons["Später"].tap() }
+        for _ in 0..<2 { app.buttons["Nein"].tap() }
         XCTAssertTrue(app.buttons["Idee bearbeiten"].waitForExistence(timeout: 5))
         app.terminate(); app.launch(); app.buttons["Ideen"].tap()
         XCTAssertTrue(app.buttons["Idee bearbeiten"].waitForExistence(timeout: 5))
-        app.buttons["Später"].tap()
+        app.buttons["Nein"].tap()
         XCTAssertTrue(app.buttons["Letzte Entscheidung rückgängig"].exists)
         app.buttons["Letzte Entscheidung rückgängig"].tap()
         app.buttons["Karte"].tap()
@@ -132,8 +136,7 @@ final class AlbumUITests: XCTestCase {
         start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 140, dy: 0)), withVelocity: 900, thenHoldForDuration: 1.5)
         XCTAssertTrue(app.buttons["Letzte Entscheidung rückgängig"].waitForExistence(timeout: 5))
         sleep(2); shot("B-6-nach-entscheid")
-        // Später per Knopf bleibt gleichwertig.
-        app.buttons["Später"].tap()
+        app.buttons["Nein"].tap()
         XCTAssertTrue(app.buttons["Letzte Entscheidung rückgängig"].waitForExistence(timeout: 5))
     }
 

@@ -7,11 +7,12 @@ struct InboxView: View {
     @State private var editing: Place?
     @State private var shouldFrank = false
     @State private var lastAction: Place?
+    @State private var lastActionWasOpen = false
+    @State private var openIDs: Set<String> = []
     @State private var feedback = 0
     @State private var thresholdFeedback = 0
     @State private var thresholdArmed = false
     @State private var committing = false
-    /// 0…1: das Kreuz, das sich bei „Dafür“ auf das Foto stickt.
     @State private var crossProgress: CGFloat = 0
     @State private var stitchTick = 0
     /// Magnet-Klick: zwei Herzhälften schnappen zusammen, wenn beide dafür sind.
@@ -30,12 +31,14 @@ struct InboxView: View {
     private let decisionThreshold: CGFloat = 96
     private var progress: CGFloat { min(abs(offset) / decisionThreshold, 1) }
 
+    private var undecided: [Place] { store.inbox.filter { !openIDs.contains($0.id) } }
+
     var body: some View {
         VStack(spacing: Stitch.Space.m) {
-            if let place = store.inbox.first {
+            if let place = undecided.first {
                 GeometryReader { geo in
                     ZStack {
-                        ForEach(Array(store.inbox.dropFirst().prefix(2).enumerated()), id: \.element.id) { index, next in
+                        ForEach(Array(undecided.dropFirst().prefix(2).enumerated()), id: \.element.id) { index, next in
                             let spread = reduceMotion ? 0 : fan
                             IdeaPolaroid(place: next, root: store.root, tackColor: Stitch.cobalt)
                                 .rotationEffect(.degrees((index == 0 ? -4 : 5) + (index == 0 ? -6 : 6) * spread))
@@ -65,8 +68,9 @@ struct InboxView: View {
                             .gesture(dragGesture(for: place))
                             .accessibilityElement(children: .contain)
                             .accessibilityIdentifier("Inbox-Ticket")
-                            .accessibilityAction(named: "Dafür") { act(place, frank: true) }
-                            .accessibilityAction(named: "Später") { act(place, frank: false) }
+                            .accessibilityAction(named: "Ja") { act(place, frank: true) }
+                            .accessibilityAction(named: "Nein") { act(place, frank: false) }
+                            .accessibilityAction(named: "Offen") { leaveOpen(place) }
                     }
                     .frame(width: geo.size.width, height: geo.size.height)
                 }
@@ -76,23 +80,35 @@ struct InboxView: View {
                 }
 
                 HStack(spacing: Stitch.Space.s) {
-                    Button("Später") { act(place, frank: false) }.buttonStyle(StitchButton())
-                    Button("Dafür") { act(place, frank: true) }.buttonStyle(StitchButton(primary: true))
+                    Button("Nein") { act(place, frank: false) }.buttonStyle(StitchButton())
+                    Button("Offen") { leaveOpen(place) }.buttonStyle(StitchButton())
+                    Button("Ja") { act(place, frank: true) }.buttonStyle(StitchButton(primary: true))
                 }
             } else {
                 Spacer()
                 StitchedSymbol(name: "heart.fill", rows: 16, cell: 5, color: Stitch.red)
-                Text("Alles entschieden").font(.title2.weight(.bold)).foregroundStyle(Stitch.ink).padding(.top, Stitch.Space.xs)
+                Text(openIDs.isEmpty ? "Alles entschieden" : "Noch offen").font(.title2.weight(.bold)).foregroundStyle(Stitch.ink).padding(.top, Stitch.Space.xs)
                 Text("Neue Links landen hier.\nBeschlossene Orte findest du auf der Karte.")
                     .font(.body).multilineTextAlignment(.center).foregroundStyle(Stitch.inkSoft)
+                if !openIDs.isEmpty {
+                    Button("Offene Ideen ansehen") { openIDs.removeAll(); lastAction = nil }
+                        .buttonStyle(StitchButton()).padding(.top, Stitch.Space.xs).padding(.horizontal, Stitch.Space.xl)
+                }
                 if !store.deferred.isEmpty {
-                    Button("\(store.deferred.count) für später ansehen") { store.restoreDeferred() }
+                    Button("\(store.deferred.count) abgelehnte Ideen ansehen") { store.restoreDeferred() }
                         .buttonStyle(StitchButton()).padding(.top, Stitch.Space.xs).padding(.horizontal, Stitch.Space.xl)
                 }
                 Spacer()
             }
             if let lastAction {
-                Button("Rückgängig", systemImage: "arrow.uturn.backward") { store.upsert(lastAction); self.lastAction = nil }
+                Button("Rückgängig", systemImage: "arrow.uturn.backward") {
+                    if lastActionWasOpen {
+                        openIDs.remove(lastAction.id)
+                    } else {
+                        store.upsert(lastAction)
+                    }
+                    self.lastAction = nil
+                }
                     .font(.subheadline.weight(.semibold)).foregroundStyle(Stitch.red).frame(minHeight: Stitch.Size.touch)
                     .accessibilityLabel("Letzte Entscheidung rückgängig")
             }
@@ -107,7 +123,7 @@ struct InboxView: View {
         .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.8), trigger: stitchTick)
         .sensoryFeedback(.success, trigger: magnetTick)
         .onAppear { spread() }
-        .onChange(of: store.inbox.first?.id) { spread() }
+        .onChange(of: undecided.first?.id) { spread() }
         .fullScreenCover(item: $viewer) { PhotoViewer(place: $0.place, root: store.root, source: $0.source) }
     }
 
@@ -195,10 +211,19 @@ struct InboxView: View {
         return value.sign == .minus ? -limit - sqrt(abs(value) - limit) * 4 : limit + sqrt(value - limit) * 4
     }
 
+    private func leaveOpen(_ place: Place) {
+        lastAction = place
+        lastActionWasOpen = true
+        openIDs.insert(place.id)
+        offset = 0
+        feedback += 1
+    }
+
     private func act(_ place: Place, frank: Bool) {
         if frank && place.coordinate == nil { shouldFrank = true; editing = place; return }
         guard !committing else { return }
         lastAction = place
+        lastActionWasOpen = false
         let changed = store.decided(place, approve: frank)
         let bothAgree = frank && store.isShared(changed)
         if reduceMotion { feedback += 1; if bothAgree { magnetTick += 1 }; store.upsert(changed); offset = 0; return }
@@ -261,7 +286,6 @@ private struct MagnetHearts: View {
     }
 }
 
-/// Während des Ziehens: Garn füllt das Schild, „Dafür?“ / „Später?“ rastet an der Schwelle zu „Dafür“ / „Später“ ein.
 private struct DecisionHint: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let direction: InboxDecision?
@@ -271,7 +295,7 @@ private struct DecisionHint: View {
             let frank = direction == .frank
             let armed = progress >= 1
             let thread = frank ? Stitch.red : Stitch.cobalt
-            Text((frank ? "Dafür" : "Später") + (armed ? "" : "?"))
+            Text((frank ? "Ja" : "Nein") + (armed ? "" : "?"))
                 .font(.title2.weight(.heavy))
                 .contentTransition(.interpolate)
                 .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: armed)
@@ -281,7 +305,6 @@ private struct DecisionHint: View {
                     ZStack {
                         Stitch.card
                         ThreadFill(color: thread, progress: progress, fromTrailing: !frank)
-                        // „Dafür“ rastet als Knopffläche ein, „Später“ mit dickerer Kante.
                         if frank { Stitch.redFill.opacity(armed ? 1 : 0) }
                     }
                     .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: armed)

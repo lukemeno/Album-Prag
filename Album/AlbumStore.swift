@@ -14,12 +14,11 @@ import CoreLocation
     var places: [Place] { data.places.filter { !$0.deleted } }
     /// Was auf diesem iPhone noch zu entscheiden ist, auch Vorschläge, für die nur die andere Person schon ist.
     var inbox: [Place] { places.filter(isOpenForMe) }
-    var deferred: [Place] { places.filter { ($0.deferred && !$0.franked) || ($0.franked && $0.passedBy.contains(me)) } }
+    var deferred: [Place] { places.filter { ($0.deferred && !$0.franked) || $0.passedBy.contains(me) } }
     var franked: [Place] { places.filter(\.franked) }
     /// Offene Ideen, die jemand anderes gesammelt hat – für das Zeichen am Tab.
     var newFromOthers: Int { inbox.filter { $0.author != me && $0.author.localizedCaseInsensitiveCompare("Wir") != .orderedSame }.count }
 
-    /// Name dieser Person; bestimmt, wessen Stimme „Dafür“ oder „Später“ ist.
     var myName: String { didSet { UserDefaults.standard.set(myName, forKey: "album.myName") } }
     var me: String {
         let name = myName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -27,8 +26,9 @@ import CoreLocation
     }
 
     func isOpenForMe(_ place: Place) -> Bool {
+        if place.approvals.contains(me) || place.passedBy.contains(me) { return false }
         if place.franked {
-            return !place.approvals.isEmpty && !place.approvals.contains(me) && !place.passedBy.contains(me)
+            return !place.approvals.isEmpty
         }
         return !place.deferred
     }
@@ -43,10 +43,9 @@ import CoreLocation
             if !changed.approvals.contains(me) { changed.approvals.append(me) }
             changed.passedBy.removeAll { $0 == me }
             changed.franked = true; changed.deferred = false
-        } else if changed.franked {
-            if !changed.passedBy.contains(me) { changed.passedBy.append(me) }
         } else {
-            changed.deferred = true
+            changed.approvals.removeAll { $0 == me }
+            if !changed.passedBy.contains(me) { changed.passedBy.append(me) }
         }
         return changed
     }
