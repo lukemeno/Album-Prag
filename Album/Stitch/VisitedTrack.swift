@@ -40,7 +40,7 @@ struct VisitedTrack: View {
             .contentShape(shape)
             .gesture(reduceMotion || visited ? nil : drag(travel: travel))
             .onTapGesture { fill(travel: travel) }
-            .animation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.4, dampingFraction: 0.78), value: visited)
+            .animation(reduceMotion ? Stitch.Motion.reducedFade : .spring(response: 0.4, dampingFraction: 0.78), value: visited)
         }
         .frame(height: trackHeight)
         .sensoryFeedback(.selection, trigger: tick)
@@ -86,7 +86,7 @@ struct VisitedTrack: View {
         guard !visited else { return }
         tick += 1
         armed = false
-        withAnimation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.34, dampingFraction: 0.8)) { dx = travel }
+        withAnimation(reduceMotion ? Stitch.Motion.reducedFade : .spring(response: 0.34, dampingFraction: 0.8)) { dx = travel }
         onComplete()
     }
 }

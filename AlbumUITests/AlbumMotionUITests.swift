@@ -1,16 +1,43 @@
 import XCTest
 
-/// Bewegungsmuster vom 01.10.2026. Alle laufen nur mit Wegwerf-Stores (Kopien von plan-demo, Name beginnt mit `slot-`)
-/// und nie gegen die echte Reise. Mit `TEST_RUNNER_ALBUM_SHOT_DIR` liegen Standbilder dort.
+/// Bewegungsmuster vom 01.10.2026. Fixture-abhängige Tests laufen nur mit einem isolierten vorbereiteten Store.
 final class AlbumMotionUITests: XCTestCase {
-    private func launch(_ extra: [String: String] = [:]) throws -> (XCUIApplication, (String) -> Void) {
+    private var reduceMotionRequested: Bool {
+        ProcessInfo.processInfo.environment["ALBUM_QA_REDUCE_MOTION"] == "1"
+    }
+
+    private func launch(_ extra: [String: String] = [:], allowEmptyStore: Bool = false) throws -> (XCUIApplication, (String) -> Void) {
         let environment = ProcessInfo.processInfo.environment
-        guard let store = environment["ALBUM_MOTION_STORE"], store.hasPrefix("slot-") else { throw XCTSkip("Kein Wegwerf-Store (TEST_RUNNER_ALBUM_MOTION_STORE=slot-…)") }
+        let configuredStore = environment["ALBUM_MOTION_STORE"]
+        let store: String
+        if let configuredStore {
+            guard configuredStore.hasPrefix("slot-") else {
+                throw XCTSkip("Der Motion-Test benötigt einen isolierten Store mit Präfix slot-.")
+            }
+            store = configuredStore
+        } else if allowEmptyStore {
+            store = "slot-motion-\(UUID().uuidString)"
+        } else {
+            throw XCTSkip("Der Motion-Test benötigt einen vorbereiteten, isolierten Store mit Präfix slot-.")
+        }
         let app = XCUIApplication()
         app.launchEnvironment["ALBUM_TEST_STORE"] = store
         app.launchEnvironment["ALBUM_MY_NAME"] = "Luke"
         for (key, value) in extra { app.launchEnvironment[key] = value }
+        let reduceMotionFlag = environment["ALBUM_QA_REDUCE_MOTION"] ?? "missing"
+        XCTAssertTrue(["1", "0", "missing"].contains(reduceMotionFlag), "ALBUM_QA_REDUCE_MOTION muss 1, 0 oder missing sein")
+        if reduceMotionFlag != "missing" { app.launchEnvironment["ALBUM_QA_REDUCE_MOTION"] = reduceMotionFlag }
+        let reduceMotionRequested = reduceMotionFlag == "1"
+        let startupMarker = XCTAttachment(string: "motion-runtime-20261002-v2; ALBUM_QA_REDUCE_MOTION=\(reduceMotionFlag); ALBUM_TEST_STORE=slot-*")
+        startupMarker.name = "Motion runtime revision"
+        startupMarker.lifetime = .keepAlways
+        add(startupMarker)
+        print("motion-runtime-20261002-v2; ALBUM_QA_REDUCE_MOTION=\(reduceMotionFlag); ALBUM_TEST_STORE=slot-*")
         app.launch()
+        if reduceMotionRequested {
+            let root = app.descendants(matching: .any).matching(identifier: "qa-reduce-motion-root").firstMatch
+            XCTAssertTrue(root.waitForExistence(timeout: 15), "Der isolierte Root muss die reduzierte SwiftUI-Umgebung über seine QA-ID belegen")
+        }
         let shots = environment["ALBUM_SHOT_DIR"].map { URL(fileURLWithPath: $0) }
         let shot = { (name: String) in
             if let shots { try? XCUIScreen.main.screenshot().pngRepresentation.write(to: shots.appendingPathComponent(name + ".png")) }
@@ -21,9 +48,20 @@ final class AlbumMotionUITests: XCTestCase {
     /// C · Einladung einlösen: zu kurz gezogen federt zurück, über der Schwelle startet der (simulierte) Beitritt,
     /// der scheitert zuerst (Karte federt zurück, Text bleibt ruhig), dann klappt es per Knopf.
     func testInvitationMoment() throws {
-        let (app, shot) = try launch(["ALBUM_DEMO_INVITE": "failthenok", "ALBUM_DEMO_SENDER": "Mia"])
+        let (app, shot) = try launch(["ALBUM_DEMO_INVITE": "failthenok", "ALBUM_DEMO_SENDER": "Mia"], allowEmptyStore: true)
         let card = app.otherElements["Einladungs-Karte"]
         XCTAssertTrue(card.waitForExistence(timeout: 15))
+        if reduceMotionRequested {
+            let redeem = app.buttons["Einladung einlösen"]
+            XCTAssertTrue(redeem.waitForExistence(timeout: 5))
+            XCTAssertTrue(redeem.isEnabled)
+            redeem.tap()
+            let failure = app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'nicht geklappt'")).firstMatch
+            XCTAssertTrue(failure.waitForExistence(timeout: 8), "Der reduzierte Slot muss den ersten fehlgeschlagenen Einlöseversuch sichtbar melden")
+            XCTAssertTrue(card.exists)
+            XCTAssertTrue(redeem.isEnabled)
+            redeem.tap()
+        } else {
         sleep(1); shot("C-1-karte")
         let start = card.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
         // Zu früh losgelassen: nichts passiert, der Knopf bleibt im Ausgangszustand.
@@ -42,18 +80,19 @@ final class AlbumMotionUITests: XCTestCase {
         // Erneut versuchen ohne Ziehen: Der Knopf löst aus.
         DispatchQueue.global().asyncAfter(deadline: .now() + 0.9) { shot("C-4-beitritt") }
         app.buttons["Einladung einlösen"].tap()
+        }
         XCTAssertTrue(app.buttons["Album wird geöffnet …"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["Album geöffnet"].waitForExistence(timeout: 8))
         sleep(1); shot("C-5-zettel")
         XCTAssertTrue(app.buttons["Album ansehen"].isEnabled)
         app.buttons["Album ansehen"].tap()
-        XCTAssertTrue(app.buttons["Idee hinzufügen"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.tabBars.buttons["Reise"].waitForExistence(timeout: 5))
     }
 
     /// F · Abgleich-Insel: pulsiert während des (simulierten) Abgleichs, wächst mit Neuigkeiten auf, klappt per Tipp zu.
     func testSyncIsland() throws {
-        let (app, shot) = try launch(["ALBUM_DEMO_SYNC": "1"])
-        XCTAssertTrue(app.buttons["Mehr"].waitForExistence(timeout: 15))
+        let (app, shot) = try launch(["ALBUM_DEMO_SYNC": "1"], allowEmptyStore: true)
+        XCTAssertTrue(app.tabBars.buttons["Reise"].waitForExistence(timeout: 15))
         // Der Abgleich beginnt 2 s nach dem Start, die Kapsel pulsiert ab 0,5 s danach und wächst nach 2 s.
         for index in 0..<12 {
             let delay = 0.4 * Double(index)
@@ -66,6 +105,11 @@ final class AlbumMotionUITests: XCTestCase {
         usleep(900_000); shot("F-3-offen")
         XCTAssertTrue(island.label.contains("Mia hat 2 Ideen eingeworfen"))
         XCTAssertTrue(island.label.contains("1× Ja"))
+        XCTAssertGreaterThanOrEqual(island.frame.height, 44, "Die geöffnete Abgleich-Insel bleibt mindestens 44 Punkte hoch")
+        let expandedScreenshot = XCTAttachment(screenshot: app.screenshot())
+        expandedScreenshot.name = "F-4-Abgleich-Insel-geöffnet"
+        expandedScreenshot.lifetime = .keepAlways
+        add(expandedScreenshot)
         island.tap()
         usleep(300_000); shot("F-4-zuklappen")
         sleep(1); shot("F-5-zu")
@@ -74,9 +118,9 @@ final class AlbumMotionUITests: XCTestCase {
     }
 
     /// B · Foto-Stapel im Ortsdetail: wischen blättert zyklisch, Zähler blättert ohne Geste, Tippen öffnet das Foto groß.
-    /// Braucht einen Ort mit drei Fotos; ALBUM_PHOTO_STACK_PLACE wählt ihn im Wegwerf-Store.
+    /// Der lokale Demo-Store liefert Café Savoy mit drei Fotos.
     func testPhotoStack() throws {
-        let (app, shot) = try launch(["ALBUM_START_TAB": "Karte"])
+        let (app, shot) = try launch(["ALBUM_START_TAB": "Karte", "ALBUM_DEMO_MOTION": "1"], allowEmptyStore: true)
         let grabber = app.buttons["Liste ausklappen"]
         XCTAssertTrue(grabber.waitForExistence(timeout: 15))
         grabber.tap()
@@ -90,6 +134,15 @@ final class AlbumMotionUITests: XCTestCase {
         XCTAssertTrue(stack.exists)
         sleep(4); shot("B-1-stapel")
         XCTAssertTrue(counter.label.contains("1 von"))
+        if reduceMotionRequested {
+            // Reduced Motion disables the PhotoStack gesture; the counter is the supported equivalent.
+            counter.tap(); sleep(1)
+            XCTAssertTrue(counter.label.contains("2 von"))
+            counter.tap(); sleep(1)
+            XCTAssertTrue(counter.label.contains("3 von"))
+            counter.tap(); sleep(1)
+            XCTAssertTrue(counter.label.contains("1 von"))
+        } else {
         let start = stack.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.4))
         // Zu kurz gewischt: nichts blättert, der Stapel federt zurück.
         DispatchQueue.global().asyncAfter(deadline: .now() + 0.9) { shot("B-2-halb") }
@@ -106,6 +159,7 @@ final class AlbumMotionUITests: XCTestCase {
         XCTAssertTrue(counter.label.contains("3 von"))
         counter.tap(); sleep(1)
         XCTAssertTrue(counter.label.contains("1 von"))
+        }
         // Tippen aufs Foto öffnet es groß, mit Bildnachweis.
         stack.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.4)).tap()
         XCTAssertTrue(app.buttons["Foto schließen"].waitForExistence(timeout: 5))
@@ -116,8 +170,8 @@ final class AlbumMotionUITests: XCTestCase {
 
     /// D · Flug wird Bordkarte: Tippen lässt das angeheftete Ticket aufwachsen, Schließen kehrt um.
     func testBoardingPass() throws {
-        let (app, shot) = try launch()
-        XCTAssertTrue(app.buttons["Mehr"].waitForExistence(timeout: 15))
+        let (app, shot) = try launch(["ALBUM_DEMO_MOTION": "1"], allowEmptyStore: true)
+        XCTAssertTrue(app.tabBars.buttons["Reise"].waitForExistence(timeout: 15))
         sleep(4)
         app.swipeUp(); sleep(1)
         let ticket = app.descendants(matching: .any).matching(identifier: "Flug-Ticket").firstMatch
@@ -129,7 +183,7 @@ final class AlbumMotionUITests: XCTestCase {
         XCTAssertTrue(close.waitForExistence(timeout: 3))
         sleep(2); shot("D-3-bordkarte")
         XCTAssertTrue(app.staticTexts["EW4241"].exists || app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'EW4241'")).firstMatch.exists)
-        XCTAssertTrue(app.buttons["Reiseunterlagen"].exists)
+        XCTAssertTrue(app.buttons["Unterlagen öffnen"].exists)
         close.tap(); sleep(2)
         XCTAssertFalse(close.exists)
         shot("D-4-zu")
@@ -137,7 +191,7 @@ final class AlbumMotionUITests: XCTestCase {
 
     /// E · Als besucht markieren: zu früh losgelassen federt zurück, über der Schwelle rastet es ein, der Stempel landet.
     func testVisitedTrack() throws {
-        let (app, shot) = try launch(["ALBUM_START_TAB": "Karte"])
+        let (app, shot) = try launch(["ALBUM_START_TAB": "Karte", "ALBUM_DEMO_MOTION": "1"], allowEmptyStore: true)
         let grabber = app.buttons["Liste ausklappen"]
         XCTAssertTrue(grabber.waitForExistence(timeout: 15))
         grabber.tap()
@@ -147,6 +201,15 @@ final class AlbumMotionUITests: XCTestCase {
         let track = app.descendants(matching: .any).matching(identifier: "Besucht-Spur").firstMatch
         XCTAssertTrue(track.waitForExistence(timeout: 8))
         sleep(2); shot("E-1-spur")
+        if reduceMotionRequested {
+            XCTAssertEqual(track.label, "Als besucht markieren")
+            track.tap()
+            let done = expectation(for: NSPredicate(format: "label == 'Besucht'"), evaluatedWith: track)
+            wait(for: [done], timeout: 5)
+            XCTAssertEqual(track.label, "Besucht")
+            shot("E-4-besucht")
+            return
+        }
         let start = track.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5))
         // Zu früh losgelassen: federt zurück, nichts ist besucht.
         DispatchQueue.global().asyncAfter(deadline: .now() + 1.4) { shot("E-2-halb") }

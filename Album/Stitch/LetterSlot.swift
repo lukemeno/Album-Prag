@@ -276,7 +276,7 @@ struct LetterSlotDrop: View {
     private var card: some View {
         StampFrame(mat: place.mat, inset: 9, matWidth: 5, elevation: .floating) {
             VStack(alignment: .leading, spacing: Stitch.Space.xs) {
-                AlbumPhoto(asset: place.image, root: root).frame(width: 220, height: 190)
+                AlbumPhoto(asset: place.displayImage, root: root).frame(width: 220, height: 190)
                 Text(place.title.isEmpty ? "Neue Idee" : place.title).font(Stitch.Face.place(24, relativeTo: .title3))
                     .foregroundStyle(Stitch.ink).lineLimit(2)
                     .frame(width: 220, alignment: .leading)

@@ -54,8 +54,9 @@ struct SyncIsland: View {
     @State private var pending: SyncChange?
     @State private var collapse: Task<Void, Never>?
 
-    private let small = CGSize(width: 96, height: 32)
     private let wide: CGFloat = 244
+    @ScaledMetric(relativeTo: .footnote) private var pulseWidth: CGFloat = 96
+    @ScaledMetric(relativeTo: .footnote) private var pulseHeight: CGFloat = 32
 
     private var visible: Bool { showsPulse || expanded }
     private var pulseWanted: Bool { store.syncing && !suppressed }
@@ -63,16 +64,19 @@ struct SyncIsland: View {
     var body: some View {
         Button(action: close) {
             ZStack {
-                if !expanded {
+                if expanded {
+                    Text(message)
+                        .font(.footnote.weight(.semibold)).foregroundStyle(Stitch.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, Stitch.Space.m)
+                        .accessibilityHidden(true)
+                        .opacity(contentVisible ? 1 : 0)
+                } else {
                     pulse
                 }
-                Text(message)
-                    .font(.footnote.weight(.semibold)).foregroundStyle(Stitch.ink)
-                    .lineLimit(1).minimumScaleFactor(0.8)
-                    .padding(.horizontal, Stitch.Space.m)
-                    .opacity(contentVisible ? 1 : 0)
             }
-            .frame(width: expanded ? wide : small.width, height: expanded ? Stitch.Size.touch : small.height)
+            .frame(width: expanded ? wide : pulseWidth)
+            .frame(minHeight: expanded ? Stitch.Size.touch : pulseHeight)
             .background(Stitch.card, in: Capsule())
             .overlay(Capsule().strokeBorder(Stitch.rule, lineWidth: expanded ? 0 : 1))
             .stitchElevation(expanded ? .floating : .pinned)
@@ -82,7 +86,7 @@ struct SyncIsland: View {
         .frame(width: wide, alignment: .leading)
         .opacity(visible ? 1 : 0)
         .scaleEffect(visible ? 1 : 0.85, anchor: .leading)
-        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: visible)
+        .animation(reduceMotion ? Stitch.Motion.reducedFade : .spring(response: 0.35, dampingFraction: 0.8), value: visible)
         .accessibilityElement(children: .ignore)
         .accessibilityHidden(!expanded)
         .accessibilityLabel(message)
@@ -110,7 +114,7 @@ struct SyncIsland: View {
             let t = context.date.timeIntervalSinceReferenceDate
             HStack(spacing: Stitch.Space.xs) {
                 Circle().fill(Stitch.red).frame(width: 7, height: 7)
-                Text("Abgleich").font(.footnote).foregroundStyle(Stitch.inkSoft)
+                Text("Abgleich").font(.footnote).foregroundStyle(Stitch.inkSoft).accessibilityHidden(true)
             }
             .opacity(reduceMotion ? 1 : 0.65 + 0.35 * sin(t * 2.6))
         }
@@ -122,7 +126,7 @@ struct SyncIsland: View {
         message = change.message
         let shell: Animation = .spring(response: 0.5, dampingFraction: 0.78)
         // Erst wächst die Hülle, dann blendet der Text ein.
-        withAnimation(reduceMotion ? .easeInOut(duration: 0.2) : shell) { expanded = true }
+        withAnimation(reduceMotion ? Stitch.Motion.reducedFade : shell) { expanded = true }
         withAnimation(.easeOut(duration: 0.2).delay(reduceMotion ? 0 : 0.15)) { contentVisible = true }
         AccessibilityNotification.Announcement(change.message).post()
         collapse = Task {
@@ -136,6 +140,6 @@ struct SyncIsland: View {
         collapse?.cancel()
         guard expanded else { return }
         withAnimation(.easeIn(duration: 0.12)) { contentVisible = false }
-        withAnimation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.42, dampingFraction: 0.85).delay(0.06)) { expanded = false }
+        withAnimation(reduceMotion ? Stitch.Motion.reducedFade : .spring(response: 0.42, dampingFraction: 0.85).delay(0.06)) { expanded = false }
     }
 }

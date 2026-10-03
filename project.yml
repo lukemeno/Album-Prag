@@ -19,6 +19,12 @@ targets:
     sources:
       - path: Album
         excludes: ["**/.omc/**"]
+      - path: Shared
+    entitlements:
+      path: Album/Album.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.de.privatealbum.prague
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: de.privatealbum.prague
@@ -30,8 +36,11 @@ targets:
         CFBundleDevelopmentRegion: de
         CFBundleLocalizations: [de]
         UILaunchScreen: {}
-        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
-        UIRequiresFullScreen: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
         UIAppFonts: [Fraunces-SemiBold.ttf, InstrumentSerif-Regular.ttf]
         UIFileSharingEnabled: false
         LSSupportsOpeningDocumentsInPlace: true
@@ -47,6 +56,38 @@ targets:
     dependencies:
       - package: Supabase
       - package: RiveRuntime
+      - target: AlbumShare
+        embed: true
+  AlbumShare:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: ShareExtension
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: de.privatealbum.prague.share
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+    info:
+      path: ShareExtension/Info.plist
+      properties:
+        CFBundleDisplayName: Album
+        CFBundlePackageType: XPC!
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+              NSExtensionActivationSupportsText: true
+    entitlements:
+      path: ShareExtension/ShareExtension.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.de.privatealbum.prague
   AlbumTests:
     type: bundle.unit-test
     platform: iOS
@@ -72,6 +113,14 @@ schemes:
         Album: all
     test:
       targets: [AlbumTests, AlbumUITests]
+  Album QA:
+    build:
+      targets:
+        Album: all
+    test:
+      testPlans:
+        - path: Album-QA-Full.xctestplan
+          defaultPlan: true
 packages:
   RiveRuntime:
     url: https://github.com/rive-app/rive-ios.git

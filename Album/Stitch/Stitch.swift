@@ -13,7 +13,7 @@ enum Stitch {
     static let card = dynamic(light: (251, 248, 242), dark: (37, 33, 29))
     static let rule = dynamic(light: (221, 211, 194), dark: (62, 56, 49))
     static let ink = dynamic(light: (28, 25, 21), dark: (242, 237, 227))
-    static let inkSoft = dynamic(light: (107, 100, 92), dark: (181, 172, 160))
+    static let inkSoft = dynamic(light: (104, 97, 89), dark: (181, 172, 160))
     /// Poststempel als Schrift und Linie. Auf Papier 4,7:1, auf Karte 5,1:1.
     static let red = dynamic(light: (182, 69, 50), dark: (236, 134, 114))
     /// Poststempel als Fläche, helle Schrift darauf mindestens 5,2:1.
@@ -95,6 +95,14 @@ enum Stitch {
         static let touch: CGFloat = 44
         static let button: CGFloat = 52
         static let thumb: CGFloat = 48
+    }
+
+    /// Gemeinsame Bewegungswerte. Besondere Choreografien behalten ihre eigenen Schwellen und Beats.
+    enum Motion {
+        static let press = Animation.spring(response: 0.25, dampingFraction: 0.7)
+        static let panel = Animation.spring(response: 0.42, dampingFraction: 0.88)
+        static let decisionReturn = Animation.spring(response: 0.4, dampingFraction: 0.72)
+        static let reducedFade = Animation.easeInOut(duration: 0.2)
     }
 
     /// Warme Schattenfarbe statt Schwarz, damit Marken auf Papier liegen statt zu schweben.
@@ -256,6 +264,7 @@ extension Place {
 struct StitchButton: ButtonStyle {
     var primary = false
     @Environment(\.isEnabled) private var enabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.subheadline.weight(.semibold))
@@ -269,21 +278,22 @@ struct StitchButton: ButtonStyle {
             .background(primary ? Stitch.redFill : Stitch.card, in: Capsule())
             .overlay(Capsule().strokeBorder(Stitch.rule, lineWidth: primary ? 0 : 1))
             .opacity(enabled ? 1 : 0.45)
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
+            .scaleEffect(!reduceMotion && configuration.isPressed ? 0.97 : 1)
+            .animation(reduceMotion ? nil : Stitch.Motion.press, value: configuration.isPressed)
     }
 }
 
 /// Runder Knopf nur mit Symbol, 44 × 44.
 struct HeaderIconButton: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.body.weight(.semibold)).foregroundStyle(Stitch.ink)
             .frame(width: Stitch.Size.touch, height: Stitch.Size.touch)
             .background(Stitch.card, in: Circle())
             .overlay(Circle().strokeBorder(Stitch.rule, lineWidth: 1))
-            .scaleEffect(configuration.isPressed ? 0.94 : 1)
-            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
+            .scaleEffect(!reduceMotion && configuration.isPressed ? 0.94 : 1)
+            .animation(reduceMotion ? nil : Stitch.Motion.press, value: configuration.isPressed)
     }
 }
 
@@ -293,7 +303,9 @@ struct TextActionButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.subheadline.weight(.semibold)).foregroundStyle(tint)
-            .frame(minHeight: Stitch.Size.touch)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(minWidth: Stitch.Size.touch, minHeight: Stitch.Size.touch, alignment: .center)
             .contentShape(Rectangle())
             .opacity(configuration.isPressed ? 0.55 : 1)
     }

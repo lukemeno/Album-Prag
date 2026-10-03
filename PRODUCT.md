@@ -26,7 +26,7 @@ Keine Planungs-Software und kein Reiseportal, sondern ein schöner, einfacher Or
 ## Operating Context
 
 - Ideen kommen als Links (TikTok, Instagram, Webseiten) oder als Orte aus der Kartensuche.
-- Abstimmen per Wischen: rechts = dafür („frankieren“), links = zurücklegen, mit Rückgängig.
+- Abstimmen per Wischen: rechts = „Ja“, links = „Nein“, nach oben = „Offen“ für den aktuellen Durchgang (ohne Stimme); jede Entscheidung lässt sich rückgängig machen.
 - Reisedaten (Anreise, Flug, Hotel) und PDF-Unterlagen, bisher eine Datei „Prag Urlaub.pdf“ in iCloud.
 - Synchronisierung zwischen zwei Geräten über einen privaten Einladungslink.
 

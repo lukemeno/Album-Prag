@@ -1,0 +1,10 @@
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+const encode = path => readFileSync(path).toString('base64');
+const dir = 'node_modules/pdfjs-dist/standard_fonts';
+const fonts = Object.fromEntries(readdirSync(dir).filter(name => /\.(pfb|ttf)$/iu.test(name)).sort().map(name => [name, encode(`${dir}/${name}`)]));
+const foxitLicense = readFileSync(`${dir}/LICENSE_FOXIT`, 'utf8').trim();
+const liberationLicense = readFileSync(`${dir}/LICENSE_LIBERATION`, 'utf8').trim();
+const licenseComment = `/* Embedded pdfjs-dist standard fonts.\n * The following upstream license texts accompany the embedded binaries.\n *\n${foxitLicense.split('\n').map(line => ` * ${line}`).join('\n')}\n *\n${liberationLicense.split('\n').map(line => ` * ${line}`).join('\n')}\n */\n`;
+writeFileSync('src/components/pdfjs-standard-fonts.ts', `${licenseComment}export const PDFJS_STANDARD_FONTS_BASE64: Record<string, string> = ${JSON.stringify(fonts)};\n`);
+const source = `export const PDFJS_MODULE_BASE64 = '${encode('node_modules/pdfjs-dist/build/pdf.mjs')}';\nexport const PDFJS_WORKER_BASE64 = '${encode('node_modules/pdfjs-dist/build/pdf.worker.mjs')}';\n`;
+writeFileSync('src/components/pdfjs-bundle.ts', source);

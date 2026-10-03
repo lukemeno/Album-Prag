@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-01T19:16:15.250157+00:00",
+  "generatedAt": "2026-10-02T00:08:09.000000+00:00",
   "title": "Album · Briefmarke",
   "source": "DESIGN.md",
   "extensions": {
@@ -37,7 +37,7 @@
       },
       "ink-soft": {
         "displayName": "ink-soft",
-        "canonical": "#6B645C",
+      "canonical": "#686159",
         "dark": "#B5ACA0",
         "role": "neutral"
       },
@@ -139,7 +139,7 @@
       "name": "TicketRow",
       "kind": "card",
       "refersTo": "TicketRow",
-      "description": "Flug und Hotel mit Abschnitt und Perforation."
+      "description": "Flug und Hotel mit Abschnitt und Perforation; Titel und Details umbrechen bei großer Schrift."
     },
     {
       "name": "Postmark",
@@ -170,6 +170,12 @@
       "kind": "button",
       "refersTo": "VisitedTrack",
       "description": "Zentrierte Subheadline Semibold, skalierende Höhe, Geste oder Tippen, kein Kürzen."
+    },
+    {
+      "name": "PlacesDrawer",
+      "kind": "panel",
+      "refersTo": "PlacesDrawer",
+      "description": "Vier Rastpunkte. Von unten im Hochformat, links im Querformat. Pin und Listenzeile teilen Auswahl; die Kapsel öffnet das verborgene Blatt. VoiceOver beschreibt die Karte und ihre Orte."
     }
   ],
   "narrative": {
@@ -178,7 +184,10 @@
     "rules": [
       "Offen bleibt ohne Stimme für einen späteren Durchgang.",
       "Buttonbeschriftungen stehen mittig und haben ausreichend Innenabstand.",
-      "Dynamic Type und mindestens 44 Punkte Tippflächen."
+      "Dynamic Type und mindestens 44 Punkte Tippflächen.",
+      "Bei Bedienungshilfen ändern sich Layout und Aktionsflächen; Texte werden nicht künstlich verkleinert.",
+      "Map und Liste teilen den Ortskontext, die Ortsliste passt sich an jede iPhone-Orientierung an.",
+      "Bei Bewegung reduzieren blendet Auswahlzustände über und lässt Pin-Federn aus."
     ]
   }
 }

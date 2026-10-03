@@ -89,6 +89,15 @@ struct TripDocumentsView: View {
                         Text("Das Original bleibt gespeichert. Flüge und Hotel übernimmt Album aus dem Text.")
                             .font(.footnote).foregroundStyle(Stitch.inkSoft)
                     }
+
+                    section("Wechsel zu Expo") {
+                        Text("Teile dieses Backup und öffne es anschließend in der Expo-App unter „Album übertragen“.")
+                            .font(.footnote).foregroundStyle(Stitch.inkSoft)
+                        ShareLink(item: store.root.appendingPathComponent("album.json")) {
+                            Label("Album-Backup exportieren", systemImage: "square.and.arrow.up")
+                        }
+                        .buttonStyle(StitchButton(primary: false))
+                    }
                 }
                 .padding(Stitch.Space.page)
             }
@@ -158,13 +167,16 @@ struct TripEditor: View {
                     TextField("Ankunft, z. B. 15:55", text: $trip.arrival)
                     TextField("Route, z. B. CGN → PRG", text: $trip.route)
                     TextField("Flugnummer", text: $trip.flightNumber)
-                    TextField("Notizen", text: $trip.notes, axis: .vertical).lineLimit(4...10)
+                    TextField("Notizen", text: $trip.notes, axis: .vertical)
+                        .lineLimit(4...10)
+                        .accessibilityLabel("Notizen")
+                        .accessibilityIdentifier("TripEditor-Notes")
                 }
                 .listRowBackground(Stitch.card)
             }.scrollContentBackground(.hidden).background(PaperBackground()).navigationTitle("Reisedaten").navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }
-                    ToolbarItem(placement: .confirmationAction) { Button("Speichern") { store.updateTrip(trip); dismiss() } }
+                    ToolbarItem(placement: .confirmationAction) { Button("Speichern") { if store.updateTrip(trip) { dismiss() } } }
                 }
         }
     }

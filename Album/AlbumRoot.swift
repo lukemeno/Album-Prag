@@ -1,4 +1,7 @@
 import SwiftUI
+#if DEBUG && targetEnvironment(simulator)
+import UIKit
+#endif
 
 enum AlbumTab: String, CaseIterable { case reise = "Reise", ideen = "Ideen", karte = "Karte" }
 
@@ -23,6 +26,12 @@ struct AlbumRoot: View {
     @State private var documents = false
     @State private var clipboardOffer = false
     @State private var askName = false
+    @State private var assistantPresented = false
+    @State private var assistantClearance: CGFloat = 0
+    @State private var assistantSession: AssistantSession?
+#if DEBUG && targetEnvironment(simulator)
+    @State private var nativeShareSheet = false
+#endif
     @AppStorage("album.offeredPasteboard") private var offeredChangeCount = -1
 
     init() {
@@ -39,15 +48,30 @@ struct AlbumRoot: View {
                 ReiseView(openIdeas: { tab = .ideen }, openMap: { tab = .karte },
                           openDocuments: { documents = true }, openSharing: { sharing = true })
                     .albumToolbar(add: add)
+#if DEBUG && targetEnvironment(simulator)
+                    .toolbar {
+                        if ProcessInfo.processInfo.environment["ALBUM_QA_NATIVE_SHARE"] == "1" {
+                            ToolbarItem(placement: .topBarTrailing) {
+                                Button("QA Share", systemImage: "square.and.arrow.up") {
+                                    nativeShareSheet = true
+                                }
+                                .accessibilityIdentifier("qa-native-share")
+                            }
+                        }
+                    }
+#endif
             }
             .tabItem { Label("Reise", systemImage: "suitcase") }.tag(AlbumTab.reise)
-            NavigationStack { InboxView(add: add).albumToolbar(add: add) }
+            NavigationStack { InboxView(add: add) }
                 .tabItem { Label("Ideen", systemImage: "tray") }.tag(AlbumTab.ideen)
                 .badge(store.inbox.count)
             NavigationStack { TripMapView().albumToolbar(add: add) }
                 .tabItem { Label("Karte", systemImage: "map") }.tag(AlbumTab.karte)
         }
         .tint(Stitch.red)
+        #if DEBUG
+        .accessibilityIdentifier(qaReduceMotionObserved ? "qa-reduce-motion-root" : "album-root")
+        #endif
         .overlay(alignment: .top) {
             if clipboardOffer {
                 ClipboardNote(onPaste: { url in
@@ -59,6 +83,30 @@ struct AlbumRoot: View {
                 .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
             }
         }
+        .overlay(alignment: .bottomTrailing) {
+            if !assistantPresented && !addingPresented {
+                Button {
+                    if assistantSession == nil { assistantSession = AssistantSession(store: store) }
+                    assistantPresented = true
+                } label: {
+                    Label("Reise-Assistent", systemImage: "sparkles")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, Stitch.Space.m)
+                        .frame(minHeight: Stitch.Size.touch)
+                        .background(Stitch.redFill, in: Capsule())
+                        .stitchElevation(.floating)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("assistant-launch")
+                .padding(.trailing, Stitch.Space.page)
+                .padding(.bottom, max(76, assistantClearance + Stitch.Space.m))
+            }
+        }
+        .onPreferenceChange(AssistantBottomClearanceKey.self) { assistantClearance = $0 }
+        .sheet(isPresented: $assistantPresented) {
+            if let assistantSession { AssistantView(session: assistantSession).environment(store) }
+        }
         .sheet(item: $adding) { PlaceEditor(place: $0) }
         .sheet(isPresented: $sharing) { AlbumSettings() }
         .sheet(isPresented: $documents) { TripDocumentsView() }
@@ -69,9 +117,29 @@ struct AlbumRoot: View {
             if store.myName.isEmpty { askName = true } else { checkPasteboard() }
         }
         .onChange(of: askName) { _, open in if !open { checkPasteboard() } }
+#if DEBUG && targetEnvironment(simulator)
+        .sheet(isPresented: $nativeShareSheet) {
+            QANativeShareSheet(item: URL(string: "https://example.com/album-qa-share")!, onComplete: {
+                store.drainShareQueue()
+                nativeShareSheet = false
+            })
+        }
+#endif
     }
 
     private func add() { adding = Place(title: "", author: store.me) }
+
+    private var addingPresented: Bool {
+        adding != nil || sharing || documents || askName || store.pendingExtraction != nil
+    }
+
+    #if DEBUG
+    private var qaReduceMotionObserved: Bool {
+        ProcessInfo.processInfo.environment["ALBUM_TEST_STORE"] != nil
+            && ProcessInfo.processInfo.environment["ALBUM_QA_REDUCE_MOTION"] == "1"
+            && reduceMotion
+    }
+    #endif
 
     /// Prüft nur, ob ein Link in der Zwischenablage liegt. Gelesen wird erst, wenn ihr „Einfügen“ tippt.
     private func checkPasteboard() {
@@ -86,6 +154,21 @@ struct AlbumRoot: View {
         }
     }
 }
+
+#if DEBUG && targetEnvironment(simulator)
+private struct QANativeShareSheet: UIViewControllerRepresentable {
+    let item: URL
+    let onComplete: () -> Void
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let controller = UIActivityViewController(activityItems: [item], applicationActivities: nil)
+        controller.completionWithItemsHandler = { _, _, _, _ in onComplete() }
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+#endif
 
 /// Einmal beim ersten Start: Wie heißt du? Der Name steht an den eigenen Ideen.
 struct NamePrompt: View {

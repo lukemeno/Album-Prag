@@ -1,0 +1,239 @@
+{
+  "configurations": [
+    {
+      "id": "c4eca310-438d-4ec7-a733-24c86075b68a",
+      "name": "Full isolated baseline",
+      "options": {
+        "preferredScreenCaptureFormat": "screenRecording",
+        "uiTestingScreenshotsLifetime": "keepAlways",
+        "userAttachmentLifetime": "keepAlways",
+        "environmentVariableEntries": [
+          {
+            "key": "ALBUM_PLAN_STORE",
+            "value": "slot-full-plan",
+            "enabled": true
+          },
+          {
+            "key": "ALBUM_MY_NAME",
+            "value": "Luke",
+            "enabled": true
+          },
+          {
+            "key": "ALBUM_TODAY",
+            "value": "2026-10-06",
+            "enabled": true
+          },
+          {
+            "key": "ALBUM_SHOT_DIR",
+            "value": "$(SRCROOT)/.qa-shots",
+            "enabled": true
+          },
+          {
+            "key": "ALBUM_RUN_ACCESSIBILITY_AUDITS",
+            "value": "1",
+            "enabled": true
+          },
+          {
+            "key": "ALBUM_JOURNEY_STORE",
+            "value": "slot-full-plan",
+            "enabled": true
+          },
+          {
+            "key": "ALBUM_MAP_ROW_ID",
+            "value": "qa-oldtown",
+            "enabled": true
+          },
+          {
+            "key": "ALBUM_AUTOPLAN_STORE",
+            "value": "slot-autoplan",
+            "enabled": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "c3770182-68fd-4597-b717-5b9ebf652d4e",
+      "name": "Focused Motion Layout (system setting pending)",
+      "options": {
+        "preferredScreenCaptureFormat": "screenRecording",
+        "uiTestingScreenshotsLifetime": "keepAlways",
+        "userAttachmentLifetime": "keepAlways",
+        "environmentVariableEntries": [
+          {
+            "key": "ALBUM_PLAN_STORE",
+            "value": "slot-full-plan",
+            "enabled": true
+          },
+          {
+            "key": "ALBUM_MY_NAME",
+            "value": "Luke",
+            "enabled": true
+          },
+          {
+            "key": "ALBUM_TODAY",
+            "value": "2026-10-06",
+            "enabled": true
+          },
+          {
+            "key": "ALBUM_SHOT_DIR",
+            "value": "$(SRCROOT)/.qa-shots",
+            "enabled": true
+          },
+          {
+            "key": "ALBUM_JOURNEY_STORE",
+            "value": "slot-full-plan",
+            "enabled": true
+          },
+          {
+            "key": "ALBUM_MAP_ROW_ID",
+            "value": "qa-oldtown",
+            "enabled": true
+          },
+          {
+            "key": "ALBUM_AUTOPLAN_STORE",
+            "value": "slot-autoplan",
+            "enabled": true
+          }
+        ],
+        "language": "de",
+        "region": "DE",
+        "applicationLanguage": "de"
+      }
+    },
+    {
+      "id": "2a9a58a9-f49c-4e57-8903-6f8dae71b992",
+      "name": "Focused Accessibility (large type setting pending)",
+      "options": {
+        "preferredScreenCaptureFormat": "screenRecording",
+        "uiTestingScreenshotsLifetime": "keepAlways",
+        "userAttachmentLifetime": "keepAlways",
+        "environmentVariableEntries": [
+          {
+            "key": "ALBUM_PLAN_STORE",
+            "value": "slot-full-plan",
+            "enabled": true
+          },
+          {
+            "key": "ALBUM_MY_NAME",
+            "value": "Luke",
+            "enabled": true
+          },
+          {
+            "key": "ALBUM_TODAY",
+            "value": "2026-10-06",
+            "enabled": true
+          },
+          {
+            "key": "ALBUM_SHOT_DIR",
+            "value": "$(SRCROOT)/.qa-shots",
+            "enabled": true
+          },
+          {
+            "key": "ALBUM_RUN_ACCESSIBILITY_AUDITS",
+            "value": "1",
+            "enabled": true
+          },
+          {
+            "key": "ALBUM_JOURNEY_STORE",
+            "value": "slot-full-plan",
+            "enabled": true
+          },
+          {
+            "key": "ALBUM_MAP_ROW_ID",
+            "value": "qa-oldtown",
+            "enabled": true
+          },
+          {
+            "key": "ALBUM_AUTOPLAN_STORE",
+            "value": "slot-autoplan",
+            "enabled": true
+          }
+        ],
+        "language": "de",
+        "region": "DE",
+        "applicationLanguage": "de"
+      }
+    },
+    {
+      "id": "fd2dccb4-b250-4e0d-8ff0-bdab2b42b6aa",
+      "name": "Reduced motion (isolated SwiftUI environment)",
+      "options": {
+        "preferredScreenCaptureFormat": "screenRecording",
+        "uiTestingScreenshotsLifetime": "keepAlways",
+        "userAttachmentLifetime": "keepAlways",
+        "environmentVariableEntries": [
+          {
+            "key": "ALBUM_PLAN_STORE",
+            "value": "slot-full-plan",
+            "enabled": true
+          },
+          {
+            "key": "ALBUM_MY_NAME",
+            "value": "Luke",
+            "enabled": true
+          },
+          {
+            "key": "ALBUM_TODAY",
+            "value": "2026-10-06",
+            "enabled": true
+          },
+          {
+            "key": "ALBUM_SHOT_DIR",
+            "value": "$(SRCROOT)/.qa-shots",
+            "enabled": true
+          },
+          {
+            "key": "ALBUM_JOURNEY_STORE",
+            "value": "slot-full-plan",
+            "enabled": true
+          },
+          {
+            "key": "ALBUM_MAP_ROW_ID",
+            "value": "qa-oldtown",
+            "enabled": true
+          },
+          {
+            "key": "ALBUM_AUTOPLAN_STORE",
+            "value": "slot-autoplan",
+            "enabled": true
+          },
+          {
+            "key": "ALBUM_QA_REDUCE_MOTION",
+            "value": "1",
+            "enabled": true
+          }
+        ],
+        "language": "de",
+        "region": "DE",
+        "applicationLanguage": "de"
+      }
+    }
+  ],
+  "defaultOptions": {
+    "codeCoverage": false,
+    "testTimeoutsEnabled": true,
+    "maximumTestExecutionTimeAllowance": 1200,
+    "targetForVariableExpansion": {
+      "containerPath": "container:Album.xcodeproj",
+      "identifier": "52995A4D1C7DABD30AC80E51",
+      "name": "Album"
+    }
+  },
+  "testTargets": [
+    {
+      "target": {
+        "containerPath": "container:Album.xcodeproj",
+        "identifier": "C945C44FF2A6FF074EB5CE7A",
+        "name": "AlbumTests"
+      }
+    },
+    {
+      "target": {
+        "containerPath": "container:Album.xcodeproj",
+        "identifier": "CDBAE63A375341030F4CAAB0",
+        "name": "AlbumUITests"
+      }
+    }
+  ],
+  "version": 1
+}
