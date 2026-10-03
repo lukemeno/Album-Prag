@@ -1,0 +1,131 @@
+<title>Album Prag</title>
+<style>
+/* Layout: one phone-sized app column, five tabs, floating glass tab bar. Cream surfaces, one black pill, coral accent. */
+:root{--surface:#f3eeea;--raised:#fbf8f5;--ink:#121212;--muted:#6b6560;--faint:#c9c2bc;--hair:#e0dbd6;--pill:#0b0b0b;--on-pill:#fffdf9;--sunset:#e98d74;--on-sunset:#1a0f0b;--dusk:#8d93a8;--lilac:#e4d5f6;--pink:#f8d5dc;--peach:#fbe0cc;--heart:#f26a3d;--glass:#ffffff66;--glass-hi:#ffffffcc;--glass-lo:#00000026;--shadow:0 1px 2px #0000001a,0 10px 28px #3c281e24;--stage:#e6e0da;
+--display:"Instrument Sans","SF Pro Display",system-ui,sans-serif;--text:"SF Pro Text","Instrument Sans",system-ui,sans-serif;--ease:cubic-bezier(.23,1,.32,1)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--surface:#141210;--raised:#1e1b18;--ink:#f3eeea;--muted:#a8a19b;--faint:#4a443f;--hair:#2e2925;--pill:#f3eeea;--on-pill:#121212;--sunset:#f0a18a;--dusk:#a7adc2;--lilac:#5a4a73;--pink:#74434f;--peach:#74513a;--heart:#ff8a5c;--glass:#ffffff1f;--glass-hi:#ffffff40;--glass-lo:#00000099;--shadow:0 1px 2px #00000080,0 10px 28px #00000080;--stage:#0b0a09;color-scheme:dark}}
+:root[data-theme="dark"]{--surface:#141210;--raised:#1e1b18;--ink:#f3eeea;--muted:#a8a19b;--faint:#4a443f;--hair:#2e2925;--pill:#f3eeea;--on-pill:#121212;--sunset:#f0a18a;--dusk:#a7adc2;--lilac:#5a4a73;--pink:#74434f;--peach:#74513a;--heart:#ff8a5c;--glass:#ffffff1f;--glass-hi:#ffffff40;--glass-lo:#00000099;--shadow:0 1px 2px #00000080,0 10px 28px #00000080;--stage:#0b0a09;color-scheme:dark}
+*{box-sizing:border-box}html,body{height:100%}
+body{margin:0;padding-inline:0;background:var(--stage);color:var(--ink);font:400 17px/24px var(--text);display:flex;justify-content:center;align-items:center;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0;transition:transform .12s var(--ease)}button:active{transform:scale(.97)}
+button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.app{position:relative;width:min(100%,430px);height:min(100%,860px);background:var(--surface);overflow:hidden;border-radius:0}
+@media (min-width:520px){.app{border-radius:56px;box-shadow:0 0 0 10px #0b0b0b,0 30px 80px #0006;height:min(94%,860px)}}
+.screen{position:absolute;inset:0;overflow-y:auto;padding:64px 20px 130px;scrollbar-width:none;opacity:0;pointer-events:none;transform:translateY(8px);transition:opacity .22s var(--ease),transform .22s var(--ease)}
+.screen::-webkit-scrollbar{display:none}.screen.on{opacity:1;pointer-events:auto;transform:none}
+h1{font:300 40px/42px var(--display);letter-spacing:-.02em;margin:0 0 20px;text-wrap:balance}h1 span{display:block;color:var(--faint)}
+h2{font:400 26px/30px var(--display);margin:28px 0 4px}
+.cap{font-size:13px;line-height:18px;color:var(--muted)}.lab{font:600 11px/13px var(--text);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.hero{position:relative;height:300px;border-radius:36px;overflow:hidden;background:var(--dusk);box-shadow:var(--shadow)}
+.hero svg{position:absolute;inset:0;width:100%;height:100%}
+.hero .meta{position:absolute;left:18px;right:18px;bottom:16px;display:flex;justify-content:space-between;align-items:flex-end;color:#fffdf9}
+.pillbtn{height:40px;padding:0 20px;border-radius:20px;background:var(--pill);color:var(--on-pill);font-weight:600;font-size:15px}
+.chip{height:36px;padding:0 14px;border-radius:18px;background:var(--raised);box-shadow:0 0 0 1px var(--hair);font-size:15px;font-weight:500}.chip[aria-pressed=true]{background:var(--pill);color:var(--on-pill)}
+.stat{margin-top:20px;border-radius:28px;background:var(--pill);color:var(--on-pill);padding:18px 20px;display:flex;justify-content:space-between;align-items:flex-end}.stat b{font:300 56px/50px var(--display)}
+.prints{display:flex;gap:14px;overflow-x:auto;padding:14px 4px 22px;scrollbar-width:none;scroll-snap-type:x mandatory}.prints::-webkit-scrollbar{display:none}
+.print{flex:none;width:132px;height:140px;padding:6px;background:var(--raised);border-radius:8px;box-shadow:var(--shadow);scroll-snap-align:start;transition:transform .3s var(--ease)}
+.print:nth-child(odd){transform:rotate(-3deg)}.print:nth-child(even){transform:rotate(2.5deg)}.print:active{transform:scale(1.04) rotate(0)}
+.print svg{width:100%;height:100%;border-radius:4px;display:block}
+.day{position:sticky;top:-64px;margin:0 -20px;padding:64px 20px 10px;background:linear-gradient(var(--surface) 78%,transparent);z-index:2}
+.days{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none}.days::-webkit-scrollbar{display:none}
+.row{display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--hair)}.row time{flex:none;width:52px;font:600 13px/20px var(--text);color:var(--muted);font-variant-numeric:tabular-nums}
+.row b{display:block;font-weight:600}.sec{margin:22px 0 2px}
+.idea{background:var(--raised);border-radius:28px;padding:18px;margin-bottom:14px;box-shadow:0 0 0 1px var(--hair)}
+.idea h3{margin:0;font:600 19px/24px var(--text)}.idea .st{display:inline-block;margin-top:8px}
+.vote{display:flex;align-items:center;margin-top:14px}
+.v{flex:1 1 0;min-width:0;height:48px;border-radius:24px;background:var(--surface);box-shadow:inset 0 0 0 1px var(--hair);font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;transition:flex-grow .45s var(--ease),opacity .25s,filter .25s,background-color .3s,color .3s,margin .45s var(--ease),transform .12s}
+.v+.v{margin-left:8px}
+.vote[data-s=yes] .v[data-v=yes]{flex-grow:6;background:var(--pill);color:var(--on-pill)}.vote[data-s=no] .v[data-v=no]{flex-grow:6;background:var(--sunset);color:var(--on-sunset)}.vote[data-s=open] .v[data-v=open]{flex-grow:6;background:var(--lilac)}
+.vote:not([data-s=none]) .v:not(.me){flex-grow:.001;opacity:0;filter:blur(6px);margin:0;pointer-events:none;padding:0}
+.undo{flex:0 0 0;width:0;height:48px;border-radius:24px;box-shadow:inset 0 0 0 1px var(--hair);opacity:0;overflow:hidden;transition:flex-basis .45s var(--ease),opacity .25s .1s,margin .45s var(--ease)}
+.vote:not([data-s=none]) .undo{flex-basis:48px;opacity:1;margin-left:8px}
+.toast{position:absolute;left:50%;bottom:112px;transform:translate(-50%,16px);padding:12px 18px;border-radius:24px;background:var(--pill);color:var(--on-pill);font-size:15px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .25s var(--ease),transform .25s var(--ease);white-space:nowrap;z-index:6}.toast.on{opacity:1;transform:translate(-50%,0)}
+.map{position:relative;height:330px;border-radius:36px;overflow:hidden;background:var(--raised);box-shadow:var(--shadow)}.map svg{width:100%;height:100%;display:block}
+.search{position:absolute;left:14px;right:14px;top:14px;height:50px;border-radius:25px;display:flex;align-items:center;padding:0 18px;color:var(--muted);background:var(--glass);backdrop-filter:blur(18px) saturate(1.6);-webkit-backdrop-filter:blur(18px) saturate(1.6);box-shadow:inset 0 1px 1px var(--glass-hi),0 0 0 .5px var(--glass-lo)}
+.months{display:flex;gap:8px;height:300px;margin-top:6px}
+.mo{flex:1 1 0;min-width:0;border-radius:24px;position:relative;overflow:hidden;transition:flex-grow .55s var(--ease);box-shadow:var(--shadow)}
+.mo.on{flex-grow:5}.mo svg{position:absolute;inset:0;width:100%;height:100%}
+.mo span{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-90deg);font:400 22px/1 var(--display);color:#fffdf9;text-shadow:0 1px 8px #0006;white-space:nowrap;transition:transform .55s var(--ease)}.mo.on span{transform:translate(-50%,0) rotate(0);top:auto;bottom:16px;left:20px;translate:0 0;transform:none}
+.bar{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);width:min(calc(100% - 36px),350px);height:64px;border-radius:32px;display:flex;align-items:center;padding:0 6px;background:var(--glass);backdrop-filter:blur(20px) saturate(1.7);-webkit-backdrop-filter:blur(20px) saturate(1.7);box-shadow:inset 0 1px 1px var(--glass-hi),0 0 0 .5px var(--glass-lo),0 8px 32px #28191229;transition:width .5s var(--ease),height .5s var(--ease);z-index:5}
+.bar button{flex:1;height:52px;border-radius:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font:600 11px/13px var(--text);transition:background .2s,flex .5s var(--ease),transform .12s}
+.bar button[aria-selected=true]{background:var(--glass-lo)}.bar svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.bar.min{width:156px;height:48px}.bar.min span{display:none}.bar.min button{height:40px}.bar.min button:not([aria-selected=true]){flex:.35}
+@media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important}}
+</style>
+<div class="app" id="app">
+<!-- HOME -->
+<section class="screen on" id="s-home" aria-label="Home">
+ <h1><span>You have 1</span>upcoming trip</h1>
+ <div class="hero"><svg viewBox="0 0 390 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="390" height="300" fill="var(--dusk)"/><circle cx="270" cy="100" r="46" fill="var(--sunset)"/><path d="M0 300V200L40 170 90 205 140 160 200 210 250 175 310 215 390 180V300Z" fill="#00000030"/><path d="M0 300V235L60 215 110 240 170 220 230 245 300 225 390 250V300Z" fill="#0b0b0b"/></svg>
+  <div class="meta"><div><div style="font:600 17px/22px var(--text)">Prague</div><div style="font-size:13px;opacity:.85">12 – 18 May 2026</div></div><button class="pillbtn" style="background:#fffdf9;color:#121212" data-go="plan">View</button></div></div>
+ <div class="stat"><div><div class="cap" style="color:inherit;opacity:.7">Trips completed<br>this year</div></div><b>6</b></div>
+ <h2>Malá Strana</h2><p class="cap" style="margin:0">It was raining on the first day, so we took the tram up to the castle.</p>
+ <div class="prints" id="prints"></div>
+ <h2>Vyšehrad</h2><p class="cap" style="margin:0">Quiet cemetery, huge sky, a long walk home along the river.</p>
+ <div class="prints" id="prints2"></div>
+</section>
+<!-- PLAN -->
+<section class="screen" id="s-plan" aria-label="Trip plan">
+ <h1><span>Day by day,</span>Prague</h1>
+ <div class="day"><div class="days" id="days" role="tablist"></div></div>
+ <div id="dayList"></div>
+</section>
+<!-- IDEAS -->
+<section class="screen" id="s-ideas" aria-label="Ideas">
+ <h1><span>Ideas to vote on,</span>for Prague</h1><div id="ideas"></div>
+</section>
+<!-- MAP -->
+<section class="screen" id="s-map" aria-label="Map">
+ <h1><span>Your route,</span>so far</h1>
+ <div class="map"><svg viewBox="0 0 390 330" preserveAspectRatio="xMidYMid slice" aria-label="Route across Prague with three stamped stops"><g fill="var(--hair)" opacity=".7" id="blocks"></g><path d="M-10 250C80 210 160 280 250 230S350 170 400 200" fill="none" stroke="var(--dusk)" stroke-width="30" opacity=".35" stroke-linecap="round"/><path id="rt" d="M40 270C100 160 170 290 220 190S300 90 350 150" fill="none" stroke="var(--ink)" stroke-width="5" stroke-linecap="round" stroke-dasharray="700" stroke-dashoffset="700"/><g id="stamps"></g></svg><div class="search">Search here …</div></div>
+ <h2>Pins</h2><div class="prints" id="pins"></div>
+</section>
+<!-- MEMO -->
+<section class="screen" id="s-memo" aria-label="Memories">
+ <h1><span>2026,</span>by month</h1><div class="months" id="months"></div>
+ <p class="cap" style="margin-top:14px">18 places · 6 cities</p>
+</section>
+<div class="toast" id="toast" role="status"></div>
+<nav class="bar" id="bar" aria-label="Main"></nav>
+</div>
+<script>
+(function(){
+var $=function(i){return document.getElementById(i)},reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+var NS='http://www.w3.org/2000/svg';
+function hap(){try{navigator.vibrate&&navigator.vibrate(8)}catch(e){}}
+function art(i){var c=['--lilac','--pink','--peach','--dusk','--sunset'][i%5],d=['--sunset','--peach','--ink','--raised','--pill'][(i+2)%5];
+ return '<svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="var('+c+')"/><circle cx="'+(58+(i*11)%24)+'" cy="'+(28+(i*7)%12)+'" r="12" fill="var('+d+')"/><path d="M12 100V66A19 19 0 0 1 50 66V100Z" fill="var(--pill)" opacity=".85"/><path d="M56 100V78A14 14 0 0 1 84 78V100Z" fill="var(--raised)" opacity=".8"/></svg>'}
+function fill(id,n,o){var e=$(id);for(var i=0;i<n;i++){var d=document.createElement('div');d.className='print';d.innerHTML=art(i+o);e.appendChild(d)}}
+fill('prints',6,0);fill('prints2',5,3);fill('pins',5,1);
+// tabs
+var T=[['home','Home','<path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z"/>'],['plan','Trip','<circle cx="12" cy="12" r="8"/><path d="M15 9l-2 6-4 0 2-6z"/>'],['ideas','Ideas','<path d="M12 4a6 6 0 0 0-3 11v2h6v-2a6 6 0 0 0-3-11zM10 20h4"/>'],['map','Map','<path d="M12 21s-6-5.5-6-10a6 6 0 0 1 12 0c0 4.5-6 10-6 10z"/><circle cx="12" cy="11" r="2"/>'],['memo','Memo','<path d="M7 4h10v16l-5-4-5 4z"/>']];
+var bar=$('bar');T.forEach(function(t,i){var b=document.createElement('button');b.setAttribute('aria-selected',i===0);b.dataset.t=t[0];b.innerHTML='<svg viewBox="0 0 24 24">'+t[2]+'</svg><span>'+t[1]+'</span>';b.setAttribute('aria-label',t[1]);bar.appendChild(b)});
+function go(n){[].forEach.call(document.querySelectorAll('.screen'),function(s){s.classList.toggle('on',s.id==='s-'+n)});[].forEach.call(bar.children,function(b){b.setAttribute('aria-selected',b.dataset.t===n)});bar.classList.remove('min');if(n==='map')drawRoute();if(n==='memo')openMonth(2);hap()}
+bar.onclick=function(e){var b=e.target.closest('button');if(b)go(b.dataset.t)};
+document.addEventListener('click',function(e){var g=e.target.closest('[data-go]');if(g)go(g.dataset.go)});
+// minimise bar on scroll
+var last=0;[].forEach.call(document.querySelectorAll('.screen'),function(s){s.addEventListener('scroll',function(){var y=s.scrollTop;if(y>last+8&&y>60)bar.classList.add('min');else if(y<last-8||y<20)bar.classList.remove('min');last=y})});
+// plan
+var D=[['Tue 12','Arrival',[['14:30','Tram 22 to Malostranská','Check in, then a first walk'],['18:00','Dinner at Lokál','Pilsner and svíčková']]],['Wed 13','Old Town',[['07:00','Charles Bridge at sunrise','Almost nobody there'],['11:00','Astronomical Clock','On the hour'],['15:00','Josefov','Old-New Synagogue']]],['Thu 14','Castle',[['09:00','Prague Castle','Tickets booked'],['13:00','Strahov Library','Coffee first'],['17:30','Petřín funicular','Down through the orchard']]],['Fri 15','Vyšehrad',[['10:00','Vyšehrad Cemetery','Quiet morning'],['14:00','Riverside walk','Back along the Vltava']]]];
+var dd=$('days');D.forEach(function(d,i){var b=document.createElement('button');b.className='chip';b.setAttribute('aria-pressed',i===0);b.textContent=d[0];b.onclick=function(){[].forEach.call(dd.children,function(c,j){c.setAttribute('aria-pressed',j===i)});showDay(i);hap()};dd.appendChild(b)});
+function showDay(i){var d=D[i];$('dayList').innerHTML='<h2 style="margin-top:8px">'+d[1]+'</h2>'+d[2].map(function(r){return '<div class="row"><time>'+r[0]+'</time><div><b>'+r[1]+'</b><span class="cap">'+r[2]+'</span></div></div>'}).join('')}showDay(0);
+// ideas
+var I=[['Letná Beer Garden at sunset','12 min from the flat · open until 23:00'],['Day trip to Kutná Hora','Bone church and cathedral · 1 h by train'],['Vltava river cruise','Evening, 60 min · from the Old Town pier'],['Dancing House rooftop','Terrace bar, reserve ahead']];
+var ideas=$('ideas'),toast=$('toast'),tt;
+I.forEach(function(x,k){var c=document.createElement('div');c.className='idea';c.innerHTML='<h3>'+x[0]+'</h3><div class="cap">'+x[1]+'</div><div class="vote" data-s="none"><button class="v" data-v="yes">Yes</button><button class="v" data-v="open">Open</button><button class="v" data-v="no">No</button><button class="undo" aria-label="Undo vote"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="display:block;margin:auto"><path d="M9 7L4 12l5 5M4 12h9a6 6 0 0 1 0 12" transform="translate(0 -3)"/></svg></button></div>';ideas.appendChild(c);
+ var v=c.querySelector('.vote');
+ v.onclick=function(e){var b=e.target.closest('button');if(!b)return;if(b.classList.contains('undo')){v.dataset.s='none';[].forEach.call(v.querySelectorAll('.v'),function(q){q.classList.remove('me');q.textContent=({yes:'Yes',no:'No',open:'Open'})[q.dataset.v]});say('Vote removed');return}
+  var s=b.dataset.v;v.dataset.s=s;[].forEach.call(v.querySelectorAll('.v'),function(q){q.classList.toggle('me',q===b)});b.textContent=({yes:'Voted yes',no:'Voted no',open:'Kept open'})[s];say(({yes:'You voted yes',no:'You voted no',open:'Marked as open'})[s]);hap()}});
+function say(t){toast.textContent=t;toast.classList.add('on');clearTimeout(tt);tt=setTimeout(function(){toast.classList.remove('on')},2200)}
+// map
+var bl=$('blocks');for(var i=0;i<30;i++){var r=document.createElementNS(NS,'rect');r.setAttribute('x',(i%7)*60+((i*13)%9));r.setAttribute('y',Math.floor(i/7)*70+((i*7)%11));r.setAttribute('width',50);r.setAttribute('height',56);r.setAttribute('rx',6);bl.appendChild(r)}
+var rt=$('rt'),L=rt.getTotalLength();rt.style.strokeDasharray=L;rt.style.strokeDashoffset=L;var st=$('stamps');
+function sp(w,h,r){var p='M'+r+' 0',n,s,x,y,i;n=Math.round(w/(r*2.4));s=(w-2*r)/n;for(i=0;i<n;i++){x=r+i*s;p+='L'+(x+s/2-r*.75)+' 0A'+r*.75+' '+r*.75+' 0 0 0 '+(x+s/2+r*.75)+' 0'}p+='L'+w+' 0';n=Math.round(h/(r*2.4));s=(h-2*r)/n;for(i=0;i<n;i++){y=r+i*s;p+='L'+w+' '+(y+s/2-r*.75)+'A'+r*.75+' '+r*.75+' 0 0 0 '+w+' '+(y+s/2+r*.75)}p+='L'+w+' '+h;n=Math.round(w/(r*2.4));s=(w-2*r)/n;for(i=0;i<n;i++){x=w-r-i*s;p+='L'+(x-s/2+r*.75)+' '+h+'A'+r*.75+' '+r*.75+' 0 0 0 '+(x-s/2-r*.75)+' '+h}p+='L0 '+h;n=Math.round(h/(r*2.4));s=(h-2*r)/n;for(i=0;i<n;i++){y=h-r-i*s;p+='L0 '+(y-s/2+r*.75)+'A'+r*.75+' '+r*.75+' 0 0 0 0 '+(y-s/2-r*.75)}return p+'Z'}
+var pts=[[.1,-34,-62,'--lilac'],[.45,-30,-70,'--pink'],[.8,-62,-30,'--peach']],S=[];
+pts.forEach(function(p,i){var q=rt.getPointAtLength(p[0]*L),g=document.createElementNS(NS,'g');g.setAttribute('transform','translate('+(q.x+p[1])+' '+(q.y+p[2])+') rotate('+(i*4-4)+')');g.style.opacity=0;g.innerHTML='<path d="'+sp(56,66,4.2)+'" fill="var('+p[3]+')" style="filter:drop-shadow(0 6px 8px #0003)"/><rect x="6" y="6" width="44" height="54" rx="2" fill="var(--raised)"/><circle cx="34" cy="22" r="7" fill="var(--sunset)"/><path d="M10 60V42a12 12 0 0 1 24 0v18z" fill="var(--pill)"/>';st.appendChild(g);S.push([p[0],g])});
+var drawn=false;function drawRoute(){if(drawn)return;drawn=true;if(reduce){rt.style.strokeDashoffset=0;S.forEach(function(s){s[1].style.opacity=1});return}var t0=performance.now();(function f(n){var p=Math.min(1,(n-t0)/2600),e=p<.5?4*p*p*p:1-Math.pow(-2*p+2,3)/2;rt.style.strokeDashoffset=L*(1-e);S.forEach(function(s){if(e>=s[0]&&!s[2]){s[2]=1;s[1].style.opacity=1;s[1].animate([{opacity:0},{opacity:1}],{duration:250})}});if(p<1)requestAnimationFrame(f)})(t0)}
+// memo
+var M=['January','February','March','April','May'],mo=$('months');M.forEach(function(m,i){var d=document.createElement('button');d.className='mo';d.setAttribute('aria-label',m);d.innerHTML=art(i+1).replace('<svg','<svg').replace('/>','/>')+'<span>'+m+'</span>';d.onclick=function(){openMonth(i);hap()};mo.appendChild(d)});
+function openMonth(n){[].forEach.call(mo.children,function(c,j){c.classList.toggle('on',j===n)})}openMonth(2);
+})();
+</script>
