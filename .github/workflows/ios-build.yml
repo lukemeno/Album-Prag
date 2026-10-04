@@ -1,0 +1,113 @@
+name: iOS Build (Ausgangsstand)
+
+# Baut Album ohne Signierung in der Cloud: App und Share Extension für Simulator und Gerät,
+# dazu die Unit-Tests auf einem iPhone-Simulator. Installieren aufs iPhone geht weiter nur über Xcode am Mac.
+on:
+  push:
+    branches: ['claude/**', 'design/**']
+    paths-ignore: ['**/*.md', 'Design/**']
+  workflow_dispatch:
+
+concurrency:
+  group: ios-build-${{ github.ref }}
+  # Laufende Läufe (UI-Tests dauern ~30 min) nicht abbrechen; neue warten.
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode wählen
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.6.app
+          xcodebuild -version
+          mkdir -p logs
+
+      - name: Pakete laden
+        run: |
+          set -o pipefail
+          xcodebuild -resolvePackageDependencies -project Album.xcodeproj -scheme Album -derivedDataPath DerivedData 2>&1 | tee logs/packages.log | tail -20
+
+      - name: App für Simulator bauen
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project Album.xcodeproj -scheme Album \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee logs/build-simulator.log | xcbeautify --renderer github-actions
+
+      - name: Unit-Tests (iPhone 17 Pro, iOS 26.5)
+        if: success()
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project Album.xcodeproj -scheme Album \
+            -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' \
+            -derivedDataPath DerivedData \
+            -only-testing:AlbumTests \
+            -resultBundlePath logs/AlbumTests.xcresult \
+            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= \
+            2>&1 | tee logs/test.log | xcbeautify --renderer github-actions
+
+      - name: App für iPhone bauen (ohne Signierung)
+        if: always()
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project Album.xcodeproj -scheme Album \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee logs/build-device.log | xcbeautify --renderer github-actions
+
+      - name: Logs sichern
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-logs
+          path: logs
+          retention-days: 7
+
+  # Alle bestehenden UI-Tests (Abläufe, Bewegung, Barrierefreiheit) auf dem Simulator.
+  uitests:
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode wählen
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.6.app
+          mkdir -p logs
+
+      - name: Simulator starten
+        run: |
+          udid=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print([x['udid'] for k,v in d.items() if k.endswith('iOS-26-5') for x in v if x['name']=='iPhone 17 Pro'][0])")
+          xcrun simctl boot "$udid" || true
+          xcrun simctl bootstatus "$udid" -b
+
+      - name: UI-Tests (iPhone 17 Pro, iOS 26.5)
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project Album.xcodeproj -scheme Album \
+            -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' \
+            -derivedDataPath DerivedData \
+            -only-testing:AlbumUITests \
+            -skip-testing:AlbumUITests/ScreenTourUITests \
+            -resultBundlePath logs/UITests.xcresult \
+            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= \
+            2>&1 | tee logs/uitests.log | xcbeautify --renderer github-actions
+
+      - name: Logs sichern
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-test-logs
+          path: logs
+          retention-days: 7
