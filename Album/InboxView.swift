@@ -495,7 +495,7 @@ private struct RejectedIdeasSheet: View {
 
     private func row(_ place: Place) -> some View {
         HStack(spacing: Stitch.Space.s) {
-            AlbumPhoto(asset: place.image, root: store.root, thumbnailWidth: 120)
+            AlbumPhoto(asset: place.image, root: store.root, thumbnailWidth: 120, placeholderSymbol: place.symbol, placeholderTint: place.mat)
                 .frame(width: Stitch.Size.thumb, height: Stitch.Size.thumb)
                 .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
                 .saturation(0.35)
@@ -676,7 +676,7 @@ struct IdeaStamp: View {
     private func photo(height: CGFloat) -> some View {
         AlbumPhoto(asset: place.image, root: root, fallbackLocation: place.coordinate.map {
             ResolvedPlaceIdentity(title: place.title, latitude: $0.latitude, longitude: $0.longitude, category: place.category, address: place.address)
-        })
+        }, placeholderSymbol: place.symbol, placeholderTint: place.mat)
             .frame(maxWidth: .infinity)
             .frame(height: height)
             .clipped()

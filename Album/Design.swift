@@ -12,6 +12,9 @@ struct AlbumPhoto: View {
     var thumbnailWidth: Int? = nil
     /// Blendet den Beschnitt während eines gemeinsamen Übergangs stufenlos in das vollständige Foto über.
     var fitProgress: CGFloat = 0
+    /// Ohne Foto: Symbol und Pastellfarbe der Kategorie statt eines grauen Kastens.
+    var placeholderSymbol: String? = nil
+    var placeholderTint: Color? = nil
     /// Große Fotos (Ideenkarte, Ortsdetail, Vollbild) ohne eigene Breite: die größte erlaubte Wikimedia-Breite
     /// unterhalb der 1600 px, die der Server anfragt. 1600 selbst ist keine erlaubte Breite.
     static let fullWidth = 1280
@@ -93,14 +96,9 @@ struct AlbumPhoto: View {
             if unavailablePreviewKey == key, let unavailablePreview {
                 imageLayers(Image(uiImage: unavailablePreview), size: size)
             } else {
-                empty
+                empty(size: size)
             }
-            VStack(spacing: 2) {
-                Text("Foto nicht verfügbar")
-                if unavailablePreviewKey == key, unavailablePreview != nil {
-                    Text("Apple Karten · Kartenansicht")
-                }
-            }
+            Text(unavailablePreviewKey == key && unavailablePreview != nil ? "Kein Foto · Kartenausschnitt" : "Kein Foto")
             .font(.caption.weight(.semibold))
             .foregroundStyle(.white)
             .multilineTextAlignment(.center)
@@ -118,8 +116,8 @@ struct AlbumPhoto: View {
             unavailablePreview = UIImage(data: data)
         }
         .accessibilityLabel(unavailablePreviewKey == key && unavailablePreview != nil
-                            ? "Foto nicht verfügbar, Apple Karten Kartenansicht"
-                            : "Foto nicht verfügbar")
+                            ? "Kein Foto, Kartenausschnitt von Apple Karten"
+                            : "Kein Foto")
     }
     private func imageLayers(_ image: Image, size: CGSize) -> some View {
         ZStack {
@@ -137,12 +135,14 @@ struct AlbumPhoto: View {
         if let asset, !asset.bundledName.isEmpty { imageLayers(Image(asset.bundledName), size: size) }
         else if let fallbackLocation {
             unavailablePhotoPreview(key: "location-\(fallbackLocation.latitude)-\(fallbackLocation.longitude)", resolvedFor: fallbackLocation, size: size)
-        } else { empty }
+        } else { empty(size: size) }
     }
-    var empty: some View {
+    private func empty(size: CGSize) -> some View {
         ZStack {
-            Stitch.paperDeep
-            Image(systemName: "photo").font(.title2).foregroundStyle(Stitch.inkSoft.opacity(0.7))
+            placeholderTint ?? Stitch.paperDeep
+            Image(systemName: placeholderSymbol ?? "photo")
+                .font(.system(size: min(max(min(size.width, size.height) * 0.26, 14), 56), weight: .light))
+                .foregroundStyle(placeholderSymbol == nil ? Stitch.inkSoft.opacity(0.7) : Stitch.ink.opacity(0.42))
                 .accessibilityHidden(true)
         }
     }

@@ -1233,7 +1233,7 @@ final class ScreenTourUITests: XCTestCase {
         app.launchEnvironment["ALBUM_DISABLE_LOOK_AROUND"] = "1"
         if let trip { app.launchEnvironment["ALBUM_DEMO_TRIP"] = trip }
         for (key, value) in env { app.launchEnvironment[key] = value }
-        if dark { app.launchArguments += ["-AppleInterfaceStyle", "Dark"] }
+        if dark { app.launchEnvironment["ALBUM_COLOR_SCHEME"] = "dark" }
         if largeType { app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL"] }
         app.launch()
         XCTAssertTrue(app.tabBars.buttons[tab].waitForExistence(timeout: 20), "Tab \(tab) erscheint")
@@ -1242,7 +1242,10 @@ final class ScreenTourUITests: XCTestCase {
 
     private func shot(_ app: XCUIApplication, _ name: String, wait: UInt32 = 1) {
         sleep(wait)
-        let attachment = XCTAttachment(screenshot: app.screenshot())
+        // Ganzer Bildschirm, aufrecht gerendert: `app.screenshot()` liefert im Querformat gedrehte, halb schwarze Bilder.
+        let raw = XCUIScreen.main.screenshot().image
+        let upright = UIGraphicsImageRenderer(size: raw.size).image { _ in raw.draw(in: CGRect(origin: .zero, size: raw.size)) }
+        let attachment = XCTAttachment(image: upright)
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)

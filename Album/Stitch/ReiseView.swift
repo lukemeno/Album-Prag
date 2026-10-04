@@ -25,12 +25,33 @@ struct ReiseView: View {
     private var today: Int? { TripDates.tripDay() }
 
     var body: some View {
+        GeometryReader { proxy in
+            page.overlay(alignment: .top) { statusBarPaper(proxy) }
+        }
+    }
+
+    /// Papier unter der Statusleiste: Beim Scrollen liegen Uhrzeit und Fotos nicht übereinander.
+    /// Deckt den Bildschirm von oben bis zur sicheren Fläche, egal wo der Rahmen dieser Ansicht beginnt.
+    private func statusBarPaper(_ proxy: GeometryProxy) -> some View {
+        let top = max(proxy.frame(in: .global).minY, 0)
+        return VStack(spacing: 0) {
+            Stitch.paper.frame(height: top + proxy.safeAreaInsets.top)
+            LinearGradient(colors: [Stitch.paper, Stitch.paper.opacity(0)], startPoint: .top, endPoint: .bottom)
+                .frame(height: Stitch.Space.xs)
+        }
+        .offset(y: -top)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private var page: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Stitch.Space.m) {
                 header
+                // Nach der Reise ist das Album das Wichtigste: gleich unter dem Titelfoto.
+                if TripDates.phase() == .after { memoriesEntry }
                 participants
                 itinerary
-                if TripDates.phase() == .after { memoriesEntry }
                 dayPlan
                 tickets
                 if !store.inbox.isEmpty { ideasWaiting }
@@ -160,6 +181,9 @@ struct ReiseView: View {
                 ForEach(participantNames, id: \.self) { name in
                     Text(initials(for: name))
                         .font(.caption2.weight(.bold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                        .padding(.horizontal, 3)
                         .foregroundStyle(Stitch.ink)
                         .frame(width: 34, height: 34)
                         .background(Stitch.Mat.sky, in: Circle())
@@ -539,7 +563,7 @@ private struct NextStop: View {
             Button(action: open) {
                 HStack(alignment: .top, spacing: Stitch.Space.m) {
                     StampFrame(mat: stop.place.mat) {
-                        AlbumPhoto(asset: stop.place.image, root: root, thumbnailWidth: 400).frame(width: 96, height: 112)
+                        AlbumPhoto(asset: stop.place.image, root: root, thumbnailWidth: 400, placeholderSymbol: stop.place.symbol, placeholderTint: stop.place.mat).frame(width: 96, height: 112)
                     }
                     .zoomSource(id: stop.place.id, in: zoom)
                     VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
@@ -576,7 +600,7 @@ private struct StopRow: View {
             Button(action: open) {
                 HStack(spacing: Stitch.Space.s) {
                     StampFrame(mat: place.mat, inset: 4, matWidth: 2, elevation: .flat) {
-                        AlbumPhoto(asset: place.image, root: root, thumbnailWidth: 160).frame(width: 44, height: 52)
+                        AlbumPhoto(asset: place.image, root: root, thumbnailWidth: 160, placeholderSymbol: place.symbol, placeholderTint: place.mat).frame(width: 44, height: 52)
                     }
                     .zoomSource(id: place.id, in: zoom)
                     VStack(alignment: .leading, spacing: 2) {

@@ -645,7 +645,7 @@ struct PlacesDrawer: View {
 
     private func editRow(_ place: Place) -> some View {
         HStack(spacing: Stitch.Space.s) {
-            AlbumPhoto(asset: place.image, root: store.root, thumbnailWidth: 120).frame(width: Stitch.Size.thumb, height: Stitch.Size.thumb)
+            AlbumPhoto(asset: place.image, root: store.root, thumbnailWidth: 120, placeholderSymbol: place.symbol, placeholderTint: place.mat).frame(width: Stitch.Size.thumb, height: Stitch.Size.thumb)
                 .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
                 .accessibilityHidden(true)
             Text(place.title).font(.body.weight(.semibold)).foregroundStyle(Stitch.ink)
@@ -670,7 +670,7 @@ private struct PlaceRow: View {
             HStack(spacing: Stitch.Space.s) {
                 Button(action: onShow) {
                     HStack(spacing: Stitch.Space.s) {
-                        AlbumPhoto(asset: place.image, root: root, thumbnailWidth: 160)
+                        AlbumPhoto(asset: place.image, root: root, thumbnailWidth: 160, placeholderSymbol: place.symbol, placeholderTint: place.mat)
                             .frame(width: 64, height: 66)
                             .clipShape(RoundedRectangle(cornerRadius: 10))
                         VStack(alignment: .leading, spacing: 2) {

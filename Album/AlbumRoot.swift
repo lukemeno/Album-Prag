@@ -20,6 +20,7 @@ struct AlbumRoot: View {
     @Environment(AlbumStore.self) private var store
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
     @State private var tab: AlbumTab = .reise
     @State private var adding: Place?
     @State private var sharing = false
@@ -88,18 +89,21 @@ struct AlbumRoot: View {
                     if assistantSession == nil { assistantSession = AssistantSession(store: store) }
                     assistantPresented = true
                 } label: {
+                    // Immer der kleine dunkle Kreis: `Stitch.ink` wird im Dunkelmodus hell, das weiße Symbol wäre dann unsichtbar.
                     Image(systemName: "sparkles")
                         .font(.system(size: 20, weight: .medium))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Stitch.onAccent)
                         .frame(width: 48, height: 48)
-                        .background(Stitch.ink, in: Circle())
+                        .background(Stitch.actionFill, in: Circle())
+                        .overlay(Circle().strokeBorder(Stitch.rule, lineWidth: colorScheme == .dark ? 1 : 0))
                         .stitchElevation(.floating)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Reise-Assistent")
                 .accessibilityIdentifier("assistant-launch")
                 .padding(.trailing, Stitch.Space.page)
-                .padding(.bottom, 76)
+                // Knapp über der Tab-Leiste: So bleibt der Ja-Knopf der Ideen frei.
+                .padding(.bottom, 56)
             }
         }
         .sheet(isPresented: $assistantPresented) {

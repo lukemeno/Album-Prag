@@ -438,7 +438,7 @@ struct StampPin: View {
         let width: CGFloat = selected ? 82 : 70
         VStack(spacing: 2) {
             ZStack {
-                AlbumPhoto(asset: place.image, root: root, thumbnailWidth: 120)
+                AlbumPhoto(asset: place.image, root: root, thumbnailWidth: 120, placeholderSymbol: place.symbol, placeholderTint: place.mat)
                     .frame(width: width, height: width * 0.86)
                     .overlay {
                         if place.image == nil {
@@ -584,7 +584,7 @@ struct StampClusterPin: View {
 
     private func stamp(_ place: Place, size: CGFloat) -> some View {
         StampFrame(mat: place.mat, inset: 2, matWidth: 2) {
-            AlbumPhoto(asset: place.image, root: root, thumbnailWidth: 96)
+            AlbumPhoto(asset: place.image, root: root, thumbnailWidth: 96, placeholderSymbol: place.symbol, placeholderTint: place.mat)
                 .frame(width: size, height: size * 1.16)
                 .overlay {
                     if place.image == nil {
@@ -625,7 +625,7 @@ struct PlaceDetail: View {
                 if let place {
                     ScrollView {
                         VStack(spacing: 0) {
-                            AlbumPhoto(asset: place.image, root: store.root)
+                            AlbumPhoto(asset: place.image, root: store.root, placeholderSymbol: place.symbol, placeholderTint: place.mat)
                                 // The reference keeps the first photo full bleed and gives the
                                 // sheet roughly half of the available screen height.
                                 .frame(height: heroHeight)

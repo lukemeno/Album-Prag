@@ -34,6 +34,9 @@ import SwiftUI
         WindowGroup {
             AlbumRoot().environment(store).tint(Stitch.redFill)
                 #if DEBUG
+                // Screen-Tour: Dunkelmodus erzwingen, ohne die Simulator-Einstellung zu ändern (nur isolierte Teststores).
+                .preferredColorScheme(ProcessInfo.processInfo.environment["ALBUM_TEST_STORE"] != nil
+                                      && ProcessInfo.processInfo.environment["ALBUM_COLOR_SCHEME"] == "dark" ? .dark : nil)
                 .transformEnvironment(\._accessibilityReduceMotion) { value in
                     let isolatedStore = ProcessInfo.processInfo.environment["ALBUM_TEST_STORE"] != nil
                     if isolatedStore && ProcessInfo.processInfo.environment["ALBUM_QA_REDUCE_MOTION"] == "1" {

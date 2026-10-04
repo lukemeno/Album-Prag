@@ -107,8 +107,9 @@ struct TripDocumentsView: View {
                             .font(.footnote).foregroundStyle(Stitch.inkSoft)
                     }
 
-                    section("Wechsel zu Expo") {
-                        Text("Teile dieses Backup und öffne es anschließend in der Expo-App unter „Album übertragen“.")
+                    // Die Expo-App wird nicht weiterentwickelt; der Export bleibt als Sicherung.
+                    section("Sicherung") {
+                        Text("Alle Ideen, Orte und Reisedaten als Datei, zum Beispiel für Dateien oder AirDrop.")
                             .font(.footnote).foregroundStyle(Stitch.inkSoft)
                         ShareLink(item: store.root.appendingPathComponent("album.json")) {
                             Label("Album-Backup exportieren", systemImage: "square.and.arrow.up")
