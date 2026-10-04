@@ -11,7 +11,7 @@ Stand 04.10.2026, Branch `claude/ready-to-land` (baut auf `design/album-visual-r
 
 ## Was in diesem Branch neu ist
 
-Diese Änderungen konnte ich in der Cloud ohne Xcode weder bauen noch testen. Bitte zuerst bauen und kurz prüfen (siehe Prüfliste unten).
+**In der Cloud gebaut und getestet (04.10.2026):** GitHub Actions auf macOS 26 mit Xcode 26.6 (`.github/workflows/ios-build.yml`). App und Share Extension bauen für Simulator und iPhone ohne Fehler. Unit-Tests auf iPhone 17 Pro / iOS 26.5: 162 ausgeführt, 0 Fehler, 4 übersprungen (optionale Live-Supabase- und PDF-Tests). Jeder Push auf `claude/**` baut automatisch neu. Nicht geprüft sind das Aussehen, die Bewegung und die Haptik auf dem echten iPhone: dafür ist die Prüfliste unten.
 
 1. **Fotos in Ideenkarte, Ortsdetail und Vollbild**
    - Diese großen Ansichten luden Wikimedia-Fotos in 1600 px Breite. Wikimedia liefert aber nur feste Breiten aus (120, 250, 330, 500, 960, 1280, 1920), andere enden mit HTTP 400. Das steht auch in `PROGRESS.md`.
