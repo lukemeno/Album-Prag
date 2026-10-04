@@ -47,6 +47,9 @@ struct AlbumPhoto: View {
                                 .accessibilityElement(children: .ignore)
                                 .accessibilityLabel(asset?.isSourcePreview == true ? "Bild der Quelle" : "Ortsfoto")
                                 .accessibilityIdentifier("place-photo-loaded")
+                        } else if phase.error != nil, case .linkPreview(let pageURL, _, _) = asset {
+                            // TikTok signiert Vorschaubilder nur für ein bis zwei Tage. Danach frisch von der Seite holen.
+                            refreshedLinkPreview(pageURL: pageURL, size: geo.size)
                         } else if phase.error != nil, retries < Self.maxRetries {
                             // Wechselndes Netz unterwegs: kurz warten und dieselbe Adresse erneut laden.
                             fallback(size: geo.size)
@@ -74,6 +77,15 @@ struct AlbumPhoto: View {
             retries = 0
             guard case .linkPreview(let pageURL, nil, _) = asset, let url = URL(string: pageURL) else { preview = nil; return }
             preview = await LinkPreviewImageLoader.load(url)
+        }
+    }
+    private func refreshedLinkPreview(pageURL: String, size: CGSize) -> some View {
+        Group {
+            if let preview { imageLayers(Image(uiImage: preview), size: size) } else { fallback(size: size) }
+        }
+        .task(id: pageURL) {
+            guard preview == nil, let url = URL(string: pageURL) else { return }
+            preview = await LinkPreviewImageLoader.refresh(url)
         }
     }
     private func unavailablePhotoPreview(key: String, resolvedFor: ResolvedPlaceIdentity, size: CGSize) -> some View {
@@ -164,16 +176,44 @@ struct PhotoCard: View {
 }
 
 private enum LinkPreviewImageLoader {
+    /// Solange die App läuft, wird jede Seite nur einmal gelesen, auch wenn Listen Zellen neu aufbauen.
+    private static let cache = NSCache<NSString, UIImage>()
+
     static func load(_ url: URL) async -> UIImage? {
+        let key = url.absoluteString as NSString
+        if let cached = cache.object(forKey: key) { return cached }
         do {
             let metadata = try await LPMetadataProvider().startFetchingMetadata(for: url)
             guard let provider = metadata.imageProvider else { return nil }
-            return try await withCheckedThrowingContinuation { continuation in
+            let image: UIImage = try await withCheckedThrowingContinuation { continuation in
                 provider.loadDataRepresentation(forTypeIdentifier: UTType.image.identifier) { data, error in
                     if let data, let image = UIImage(data: data) { continuation.resume(returning: image) }
                     else { continuation.resume(throwing: error ?? CocoaError(.fileReadUnknown)) }
                 }
             }
+            cache.setObject(image, forKey: key)
+            return image
+        } catch { return nil }
+    }
+
+    /// Frisches Vorschaubild, wenn die gespeicherte Adresse abgelaufen ist: zuerst oEmbed (TikTok), dann die Seite selbst.
+    static func refresh(_ page: URL) async -> UIImage? {
+        let key = ("refresh:" + page.absoluteString) as NSString
+        if let cached = cache.object(forKey: key) { return cached }
+        if let preview = try? await OEmbedService.preview(page),
+           let thumbnail = preview.thumbnail_url.flatMap({ URL(string: $0) }),
+           let fresh = await download(thumbnail) {
+            cache.setObject(fresh, forKey: key)
+            return fresh
+        }
+        return await load(page)
+    }
+
+    private static func download(_ url: URL) async -> UIImage? {
+        do {
+            let (data, response) = try await URLSession.shared.data(from: url)
+            guard (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+            return UIImage(data: data)
         } catch { return nil }
     }
 }

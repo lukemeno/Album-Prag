@@ -19,8 +19,9 @@ Diese Änderungen konnte ich in der Cloud ohne Xcode weder bauen noch testen. Bi
    - Jetzt laden große Fotos 1280 px. Das gilt auch für ältere, schon gespeicherte Bilder ohne Anbieterangabe.
    - Dateien: `Album/Design.swift`, `Album/Models.swift`, Test in `AlbumTests/DayPlanTests.swift`.
 2. **Fotos bei wackligem Netz:** Schlägt ein Foto fehl, versucht die App es nach 1 und nach 3 Sekunden noch zweimal. Vorher blieb es sofort bei „Foto nicht verfügbar“. Datei: `Album/Design.swift`.
-3. **Server, optional:** Die Bildsuche fragt Wikimedia jetzt direkt nach 1280 px statt 1600 px (`supabase/functions/_shared/wikimedia_photos.ts`). Der App-Fix funktioniert auch ohne diese Änderung. Wer sie live haben will: `supabase functions deploy place-photo`.
-4. **Einladung ohne antippbaren Link**
+3. **TikTok-Vorschaubilder:** TikTok signiert die Bildadressen nur für etwa ein bis zwei Tage. Danach zeigten Ideen aus TikTok nur noch einen Platzhalter, auch auf dem zweiten iPhone. Jetzt holt die App dann ein frisches Vorschaubild, zuerst über TikTok (oEmbed), sonst von der Seite selbst, und merkt es sich, solange sie läuft. Datei: `Album/Design.swift`.
+4. **Server, optional:** Die Bildsuche fragt Wikimedia jetzt direkt nach 1280 px statt 1600 px (`supabase/functions/_shared/wikimedia_photos.ts`). Der App-Fix funktioniert auch ohne diese Änderung. Wer sie live haben will: `supabase functions deploy place-photo`.
+5. **Einladung ohne antippbaren Link**
    - Der Einladungslink hat die Form `album://join/…`. Messenger machen solche Links oft nicht antippbar.
    - Unter **Teilen** gibt es jetzt **„Link kopieren“**.
    - Auf dem anderen iPhone gibt es **„Einladung bekommen?“** mit Feld und **„Album beitreten“**. Der Link wird auch dann erkannt, wenn er mitten in einer weitergeleiteten Nachricht steht.
@@ -63,6 +64,7 @@ In Xcode unter **Window → Devices and Simulators** bei jedem iPhone **„Conne
 - [ ] **Ideen:** Ideenkarten mit Wikimedia-Foto zeigen das Foto und nicht „Foto nicht verfügbar“.
 - [ ] **Karte → Ort antippen:** Das große Foto im Ortsdetail lädt.
 - [ ] **Foto antippen:** Das Vollbild lädt.
+- [ ] **Ältere TikTok-Idee** (vor ein paar Tagen eingeworfen): Das Vorschaubild erscheint nach kurzer Zeit wieder.
 - [ ] **Flugmodus kurz an, dann wieder aus:** Fotos laden nach wenigen Sekunden von selbst.
 - [ ] **Teilen:** „Link kopieren“ erscheint unter „Einladung senden“. Auf dem zweiten iPhone erscheint „Einladung bekommen?“, solange es noch nicht verbunden ist.
 - [ ] **Unit-Tests:** `⌘U` oder nur `DayPlanTests`. Neu ist der Test `testLargeWikimediaPhotosUseAnAllowedWidth`.
