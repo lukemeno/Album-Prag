@@ -638,6 +638,7 @@ struct PlaceDetail: View {
                                                 .background(Stitch.card.opacity(0.94), in: Circle())
                                         }
                                         .accessibilityLabel("Bearbeiten")
+                                        .accessibilityIdentifier("place-detail-edit")
                                     }
                                     .buttonStyle(.plain)
                                     .foregroundStyle(Stitch.ink)

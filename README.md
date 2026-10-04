@@ -11,6 +11,13 @@ Native SwiftUI-App für die Reise nach Prag vom 4. bis 9. Oktober 2026. Daten bl
 
 Das Projekt ist bereits mit dem Album-Supabase-Backend konfiguriert; für den normalen Start müssen keine Zugangsdaten eingegeben werden. Die App unterstützt Hoch- und Querformat sowie beide Drehrichtungen. Im Querformat wechselt das Ortsblatt auf die linke Seite. Karte, Ortssuche und TikTok-oEmbed benötigen Internet. Instagram wird nicht ausgelesen.
 
+## Ideen verwenden
+
+- **Entdecken**: neue Orte mit Ja, Nein oder Offen entscheiden.
+- **Alle**: gespeicherte Ideen durchsuchen, ihren Status ansehen und die Ortsdetails öffnen. Auch Ja- und Nein-Entscheidungen bleiben hier auffindbar.
+- **Weggelegt**: zurückgestellte Ideen ansehen und bei Bedarf wieder zu Entdecken hinzufügen.
+- **+**: einen Ort manuell hinzufügen oder einen kopierten Link aus Instagram oder TikTok einfügen.
+
 ## Eigenes Supabase-Projekt (optional)
 
 Das vorhandene Projekt kann direkt mit der mitgelieferten Konfiguration genutzt werden. Die folgenden Schritte sind nur nötig, wenn Album auf ein anderes Supabase-Projekt zeigen soll. Voraussetzung sind ein kostenloses Supabase-Projekt und die installierte Supabase CLI.

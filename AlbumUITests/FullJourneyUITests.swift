@@ -487,8 +487,9 @@ final class FullJourneyUITests: XCTestCase {
         XCTAssertTrue(qaPlaceRow.label.contains("Altstädter Ring"), "Der Titel der QA-Zeile muss im AX-Label erreichbar bleiben")
         XCTAssertTrue(qaPlaceRow.label.contains("Sehenswert"), "Die Metadaten der QA-Zeile müssen im AX-Label erreichbar bleiben")
         qaPlaceDetails.tap()
-        XCTAssertTrue(app.buttons["Bearbeiten"].waitForExistence(timeout: 5))
-        app.buttons["Bearbeiten"].tap()
+        let editPlace = app.buttons["place-detail-edit"]
+        XCTAssertTrue(editPlace.waitForExistence(timeout: 5))
+        editPlace.tap()
         let title = app.textFields["PlaceEditor-Title"]
         XCTAssertTrue(title.waitForExistence(timeout: 5))
         XCTAssertTrue(title.isHittable, "Der Editor-Titel muss in Large Type erreichbar bleiben")

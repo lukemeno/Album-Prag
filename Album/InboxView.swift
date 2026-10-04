@@ -63,6 +63,8 @@ struct InboxView: View {
     @State private var tiltDecay: Task<Void, Never>?
     @State private var viewer: PhotoViewerItem?
     @State private var section: InboxSection = .discover
+    @State private var allSearchText = ""
+    @State private var detailPlaceID: String?
 
     private let decisionThreshold: CGFloat = 96
     private var progress: CGFloat { min(abs(offset.width) / decisionThreshold, 1) }
@@ -97,6 +99,8 @@ struct InboxView: View {
 
             if section == .collection {
                 CollectionHomeView(add: add)
+            } else if section == .all {
+                AllIdeasView(query: $allSearchText) { detailPlaceID = $0 }
             } else if section == .deferred {
                 DeferredIdeasView(places: store.deferred, root: store.root) { place in
                     editing = place
@@ -165,13 +169,16 @@ struct InboxView: View {
         .background(PaperBackground())
         .navigationTitle("Ideen")
         .toolbar {
-            if section == .discover {
+            if section == .discover || section == .all {
                 ToolbarItem(placement: .primaryAction) {
                     Button("Idee einwerfen", systemImage: "plus", action: add)
                 }
             }
         }
         .sheet(item: $editing) { PlaceEditor(place: $0, frankOnSave: shouldFrank) }
+        .sheet(isPresented: Binding(get: { detailPlaceID != nil }, set: { if !$0 { detailPlaceID = nil } })) {
+            if let detailPlaceID { PlaceDetail(placeID: detailPlaceID) }
+        }
         .sensoryFeedback(.impact(weight: .medium), trigger: feedback)
         .sensoryFeedback(.selection, trigger: thresholdFeedback)
         .sensoryFeedback(.impact(weight: .heavy, intensity: 0.9), trigger: stampTick)
@@ -431,14 +438,144 @@ struct InboxView: View {
 }
 
 private enum InboxSection: String, CaseIterable, Identifiable {
-    case discover, deferred, collection
+    case discover, all, deferred, collection
     var id: String { rawValue }
     var title: String {
         switch self {
         case .discover: "Entdecken"
+        case .all: "Alle"
         case .deferred: "Weggelegt"
         case .collection: "Sammlung"
         }
+    }
+}
+
+private struct AllIdeasView: View {
+    @Environment(AlbumStore.self) private var store
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Binding var query: String
+    let open: (String) -> Void
+
+    private var filteredPlaces: [Place] {
+        let term = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !term.isEmpty else { return store.places }
+        return store.places.filter { place in
+            [place.title, place.category, place.address, place.note]
+                .contains { $0.localizedCaseInsensitiveContains(term) }
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Stitch.Space.s) {
+            HStack(spacing: Stitch.Space.xs) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(Stitch.inkSoft)
+                    .accessibilityHidden(true)
+                TextField("Ideen suchen", text: $query)
+                    .textFieldStyle(.plain)
+                    .accessibilityIdentifier("Ideas-All-Search")
+                if !query.isEmpty {
+                    Button("Suche löschen", systemImage: "xmark.circle.fill") { query = "" }
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Stitch.inkSoft)
+                        .frame(width: Stitch.Size.touch, height: Stitch.Size.touch)
+                        .contentShape(Rectangle())
+                        .accessibilityIdentifier("Ideas-All-Search-Clear")
+                }
+            }
+            .padding(.horizontal, Stitch.Space.s)
+            .frame(minHeight: Stitch.Size.touch)
+            .background(Stitch.paperDeep, in: RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
+
+            Text(filteredPlaces.count == 1 ? "1 Idee" : "\(filteredPlaces.count) Ideen")
+                .font(.footnote.weight(.medium))
+                .foregroundStyle(Stitch.inkSoft)
+                .accessibilityIdentifier("Ideas-All-Count")
+                .accessibilityValue("\(filteredPlaces.count) von \(store.places.count)")
+
+            ScrollView {
+                LazyVStack(spacing: Stitch.Space.s) {
+                    if filteredPlaces.isEmpty {
+                        ContentUnavailableView {
+                            Label(query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Noch keine Ideen" : "Keine Treffer", systemImage: "magnifyingglass")
+                        } description: {
+                            Text(query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                 ? "Gespeicherte Ideen erscheinen hier."
+                                 : "Versuche einen anderen Titel, Ort oder Begriff.")
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 220)
+                        .accessibilityIdentifier("Ideas-All-Empty")
+                    } else {
+                        ForEach(filteredPlaces) { place in
+                            ideaRow(place)
+                        }
+                    }
+                }
+                .padding(.vertical, Stitch.Space.xs)
+            }
+            .scrollIndicators(.hidden)
+            .scrollDismissesKeyboard(.interactively)
+            .accessibilityIdentifier("Ideas-All-List")
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
+    private func ideaRow(_ place: Place) -> some View {
+        Button { open(place.id) } label: {
+            HStack(alignment: .top, spacing: Stitch.Space.m) {
+                AlbumPhoto(asset: place.image, root: store.root, fallbackLocation: place.coordinate.map {
+                    ResolvedPlaceIdentity(title: place.title, latitude: $0.latitude, longitude: $0.longitude,
+                                          category: place.category, address: place.address)
+                })
+                .frame(width: 76, height: 76)
+                .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
+                .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
+                    Text(place.title.isEmpty ? "Neue Idee" : place.title)
+                        .font(Stitch.Face.place(21, relativeTo: .headline))
+                        .foregroundStyle(Stitch.ink)
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? 4 : 2)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(place.category)
+                        .font(.subheadline)
+                        .foregroundStyle(Stitch.inkSoft)
+                        .lineLimit(1)
+                    Text(status(for: place))
+                        .font(.footnote.weight(.medium))
+                        .foregroundStyle(Stitch.inkSoft)
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Stitch.inkSoft)
+                    .padding(.top, Stitch.Space.xs)
+                    .accessibilityHidden(true)
+            }
+            .padding(Stitch.Space.s)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Stitch.card, in: RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous).strokeBorder(Stitch.rule))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("Ideas-All-Row-\(place.id)")
+        .accessibilityLabel("\(place.title.isEmpty ? "Neue Idee" : place.title), \(place.category), \(status(for: place))")
+    }
+
+    private func status(for place: Place) -> String {
+        if place.franked { return "Im Reiseplan" }
+        if place.passedBy.contains(store.me) || (place.deferred && place.passedBy.isEmpty) { return "Weggelegt" }
+        let approvals = place.approvals.filter { !$0.isEmpty }
+        if approvals.contains(store.me) {
+            return approvals.count > 1 ? "Deine Zusage · weitere Zusagen" : "Deine Zusage"
+        }
+        if let first = approvals.first {
+            return approvals.count == 1 ? "Zusage von \(first)" : "\(approvals.count) Zusagen"
+        }
+        return "Offen"
     }
 }
 

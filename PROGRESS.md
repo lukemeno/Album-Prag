@@ -355,3 +355,11 @@
 - Idee hat jetzt direkt erreichbare Quelle/Kartenlink. OG/Twitter + begrenzte ortsbezogene JSON-LD Bildextraktion; keine allgemeinen Firmenlogos übernehmen. Quellenpreview auch bei bestätigter Lage/erzeugtem Kartenfallback, schützt persönliche Bilder und bleibt bei leerem Foto-Backend erhalten.
 - Speculum real von Prague City Tourism ausgelesen und Remote-Foto im Simulator geladen. Screenshot QA/one-hour-screenshots/speculum-source-photo.png. Legacy-Museumslink präzise auf funktionierende Stadtseite migriert.
 - 20 Tests bestanden (18 Unit + Live-Quellenfoto-UI + erzwungener Fallback-UI), 0 Fehler/Skips. Signierter iPhone-Build erfolgreich, Installation weiterhin durch unavailable-Gerät blockiert. Quelle/Belege QA/PHOTO-FALLBACK-FIX.md.
+
+
+## Ideen zusätzlich als Liste · 04.10.2026
+- Ideen → Alle: sämtliche nicht gelöschten Ideen, Suche über Titel/Kategorie/Adresse/Notiz, Anzahl, Status und Ortsdetails. Ja/Nein-Ideen bleiben sichtbar. 44pt Suchlöschaktion und Lazy-Liste.
+- Finaler Listentest und Autoplan-Nachtest 2/2 bestanden; Offen/Neustart und Bildabbruch vorher bestanden. Neue gesamte Unit-Suite 156 erfolgreich, 4 optionale Spezialtests ausgelassen, keine Fehler. Recheck-Belege QA/RECHECK-2026-10-04.md.
+- Signierter Gerätebuild mit Personal Team als Buildargument erfolgreich. Eine frühere Installation auf dem iPhone 15 Pro wurde protokolliert; aktuell meldet `devicectl` das Gerät als nicht verfügbar. Installierte Version und Start sind damit heute nicht erneut überprüfbar. Hauptsource bleibt unangetastet, isolierter Branch `design/album-visual-refresh`.
+- Weiterer Auftrag: Design/Claude-Spec/README.md lesen und Claude-Design auf separatem Branch pushen. Datei bisher in lokalen Album-Worktrees und vorhandenen GitHub-Branches nicht gefunden; Speicherort erfragt. Nicht umgesetzt/gepusht behaupten.
+- Finaler gezielter Simulator-Nachlauf: Alle Ideen + Autoplan 2/2; Bildsuche abbrechen + offene Ideen nach Neustart 2/2; Großschrift, Hoch-/Querformat und Karteneditor 1/1. Insgesamt 5 gezielte UI-Flows bestanden; der alte „Bearbeiten“-Locator ist durch `place-detail-edit` ersetzt. Vollständige UI-Suite nach diesen letzten Änderungen nicht erneut ausgeführt.

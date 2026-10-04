@@ -424,6 +424,60 @@ final class AlbumUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Karlsbrücke'")).firstMatch.waitForExistence(timeout: 5))
     }
 
+    func testAllIdeasSearchOpensLiveDetailAndClears() {
+        let app = XCUIApplication()
+        app.launchEnvironment["ALBUM_TEST_STORE"] = "slot-all-ideas-\(UUID().uuidString)"
+        app.launchEnvironment["ALBUM_MY_NAME"] = "Luke"
+        app.launchEnvironment["ALBUM_START_TAB"] = "Ideen"
+        app.launchEnvironment["ALBUM_DEMO_INBOX"] = "1"
+        app.launch()
+
+        XCTAssertTrue(app.tabBars.buttons["Ideen"].waitForExistence(timeout: 10))
+        app.tabBars.buttons["Ideen"].tap()
+        XCTAssertTrue(app.otherElements["Inbox-Ticket"].waitForExistence(timeout: 10))
+        app.buttons["Ja"].tap()
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Café Slavia'" )).firstMatch.waitForExistence(timeout: 5))
+        app.buttons["Nein"].tap()
+
+        let all = app.buttons["Alle"]
+        XCTAssertTrue(all.waitForExistence(timeout: 5))
+        all.tap()
+
+        XCTAssertTrue(app.scrollViews["Ideas-All-List"].waitForExistence(timeout: 5))
+        let count = app.staticTexts["Ideas-All-Count"]
+        XCTAssertTrue(count.waitForExistence(timeout: 5))
+        XCTAssertTrue(count.label.contains("3"), "Alle drei gespeicherten Ideen müssen im Zähler erscheinen")
+        let agreed = app.buttons["Ideas-All-Row-motion-inbox-bridge"]
+        let declined = app.buttons["Ideas-All-Row-motion-inbox-cafe"]
+        XCTAssertTrue(agreed.waitForExistence(timeout: 5))
+        XCTAssertTrue(declined.waitForExistence(timeout: 5))
+        XCTAssertTrue(agreed.label.contains("Im Reiseplan"))
+        XCTAssertTrue(declined.label.contains("Weggelegt"))
+
+        let search = app.textFields["Ideas-All-Search"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        search.tap()
+        search.typeText("Nicht vorhanden")
+        XCTAssertTrue(app.staticTexts["Keine Treffer"].waitForExistence(timeout: 5))
+        XCTAssertTrue(count.label.contains("0"), "Die Suche muss die Trefferzahl aktualisieren")
+        app.buttons["Ideas-All-Search-Clear"].tap()
+        XCTAssertTrue(agreed.waitForExistence(timeout: 5))
+
+        search.tap()
+        search.typeText("Karlsbrücke")
+
+        let row = app.buttons["Ideas-All-Row-motion-inbox-bridge"]
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        row.tap()
+        XCTAssertTrue(app.staticTexts["Karlsbrücke"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Schließen"].waitForExistence(timeout: 5))
+        app.buttons["Schließen"].tap()
+
+        XCTAssertTrue(app.buttons["Ideas-All-Search-Clear"].waitForExistence(timeout: 5))
+        app.buttons["Ideas-All-Search-Clear"].tap()
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+    }
+
     func testInboxSubthresholdOpposingReleasesKeepSameCardUndecided() {
         let app = XCUIApplication()
         app.launchEnvironment["ALBUM_TEST_STORE"] = "slot-ideas-abort-\(UUID().uuidString)"
@@ -591,15 +645,18 @@ final class AlbumUITests: XCTestCase {
         add(assignmentAX)
         for _ in 0..<8 where !castleRow.isHittable { mapList.swipeUp() }
         XCTAssertTrue(castleRow.isHittable, "Die angewandte Zuordnung muss Prager Burg nach eigenständigem Scrollen erreichbar machen")
+        app.buttons["Listenaktionen"].tap()
         app.buttons["Ordnen"].tap()
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Tag ändern, jetzt'" )).firstMatch.waitForExistence(timeout: 5), "Nach Übernehmen muss mindestens ein Ort einer konkreten Reise zugeordnet sein")
         XCTAssertEqual(app.buttons.matching(NSPredicate(format: "label == 'Tag festlegen'" )).count, 0, "Die unzugewiesene Autoplan-Fixture darf nach Übernehmen keine ungeplanten Orte behalten")
+        app.buttons["Listenaktionen"].tap()
         app.buttons["Fertig"].tap()
         app.terminate(); app.launch()
         XCTAssertTrue(app.textFields["map-search"].waitForExistence(timeout: 10))
         let reloadExpand = app.buttons["Liste ausklappen"]
         if reloadExpand.waitForExistence(timeout: 5) { reloadExpand.tap() }
         XCTAssertTrue(app.buttons["Liste einklappen"].waitForExistence(timeout: 5))
+        app.buttons["Listenaktionen"].tap()
         app.buttons["Ordnen"].tap()
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Tag ändern, jetzt'" )).firstMatch.waitForExistence(timeout: 5), "Die Tageszuordnung muss nach Relaunch erhalten bleiben")
         shot("plan-applied")
