@@ -179,6 +179,30 @@ jobs:
             CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= \
             2>&1 | tee logs/uitests.log | xcbeautify --renderer github-actions
 
+      - name: Accessibility-Funde ausgeben
+        if: always()
+        run: |
+          xcrun xcresulttool export attachments --path logs/UITests.xcresult --output-path a11y || exit 0
+          python3 - <<'PY'
+          import json, os, re
+          try:
+              manifest = json.load(open('a11y/manifest.json'))
+          except Exception as error:
+              print('Kein Manifest:', error); raise SystemExit
+          for test in manifest:
+              for item in test.get('attachments', []):
+                  name = item.get('suggestedHumanReadableName', '')
+                  if not name.startswith('Accessibility findings'):
+                      continue
+                  lines = open(os.path.join('a11y', item['exportedFileName']), errors='replace').read().split('\n')
+                  print('=====', test.get('testIdentifier', '?'), '|', name)
+                  for i, line in enumerate(lines):
+                      if re.search(r'\] suppressed=false$', line):
+                          print('  -', line)
+                          for extra in lines[i + 1:i + 5]:
+                              print('     ', extra[:300])
+          PY
+
       - name: Logs sichern
         if: always()
         uses: actions/upload-artifact@v4

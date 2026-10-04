@@ -40,7 +40,9 @@ struct TripMapView: View {
                     // Die Karte läuft vollflächig bis unter Statusleiste und Suchfeld; nur der Drawer gibt
                     // den sichtbaren Ausschnitt frei.
                     .safeAreaPadding(.bottom, isLandscape ? 0 : min(coveredHeight, geo.size.height * 0.5))
-                    .safeAreaPadding(.leading, isLandscape ? min(coveredWidth, geo.size.width * 0.5) : 0)
+                    // Querformat: Das halbe Blatt ist breiter als die halbe Karte. Mit der vollen Breite
+                    // bleibt das Apple-Karten-Logo links unten sichtbar statt unter dem Blatt.
+                    .safeAreaPadding(.leading, isLandscape ? min(coveredWidth, geo.size.width * 0.7) : 0)
                     .accessibilityHidden(detent == .full && !isLandscape)
                 PlacesDrawer(detent: $detent, filter: $filter, selectedID: $selectedID, selectionRequest: $selectionRequest,
                              coveredHeight: $coveredHeight, coveredWidth: $coveredWidth, searchQuery: searchQuery, namespace: drawerMorph,
@@ -622,7 +624,7 @@ struct PlaceDetail: View {
         GeometryReader { geometry in
             let isLandscape = geometry.size.width > geometry.size.height
             let heroHeight = isLandscape
-                ? min(max(geometry.size.height * 0.62, 260), 440)
+                ? min(max(geometry.size.height * 0.5, 200), 440)
                 : min(max(geometry.size.height * 0.46, 360), 520)
             NavigationStack {
                 if let place {

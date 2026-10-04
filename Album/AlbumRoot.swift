@@ -102,10 +102,12 @@ struct AlbumRoot: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Reise-Assistent")
                 .accessibilityIdentifier("assistant-launch")
-                .padding(.trailing, Stitch.Space.page)
                 // Hochformat: knapp über der Tab-Leiste, so bleibt der Ja-Knopf der Ideen frei.
-                // Querformat: in der Zeile der Tab-Leiste, rechts ist dort genug Platz.
+                // Querformat: in der Zeile der Tab-Leiste und im seitlichen Rand neben dem Inhalt,
+                // sonst verdeckt der Kreis z. B. „Einladen“ auf der Reise-Seite.
+                .padding(.trailing, verticalSizeClass == .compact ? Stitch.Space.m : Stitch.Space.page)
                 .padding(.bottom, verticalSizeClass == .compact ? 30 : 56)
+                .ignoresSafeArea(.container, edges: verticalSizeClass == .compact ? .trailing : [])
             }
         }
         .sheet(isPresented: $assistantPresented) {

@@ -206,13 +206,20 @@ struct ReiseView: View {
             Spacer(minLength: Stitch.Space.xs)
 
             Button(action: openSharing) {
-                Label("Einladen", systemImage: "person.2")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Stitch.ink)
-                    .padding(.horizontal, Stitch.Space.m)
-                    .frame(minHeight: Stitch.Size.touch)
-                    .background(Stitch.card, in: Capsule())
-                    .overlay(Capsule().strokeBorder(Stitch.rule, lineWidth: 1))
+                Group {
+                    // Bei sehr großer Schrift bricht das Wort sonst als „Ein-laden“ um; die Initialen brauchen den Platz.
+                    if dynamicTypeSize.isAccessibilitySize {
+                        Image(systemName: "person.2")
+                    } else {
+                        Label("Einladen", systemImage: "person.2")
+                    }
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Stitch.ink)
+                .padding(.horizontal, Stitch.Space.m)
+                .frame(minHeight: Stitch.Size.touch)
+                .background(Stitch.card, in: Capsule())
+                .overlay(Capsule().strokeBorder(Stitch.rule, lineWidth: 1))
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Einladen")
@@ -236,12 +243,15 @@ struct ReiseView: View {
 
     private var itinerary: some View {
         VStack(alignment: .leading, spacing: Stitch.Space.s) {
-            HStack(alignment: .firstTextBaseline) {
+            let header = dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: Stitch.Space.xs))
+                : AnyLayout(HStackLayout(alignment: .firstTextBaseline))
+            header {
                 Text("Reiseplan")
                     .font(Stitch.Face.title(20, relativeTo: .title2))
                     .foregroundStyle(Stitch.ink)
                     .accessibilityAddTraits(.isHeader)
-                Spacer(minLength: Stitch.Space.s)
+                if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: Stitch.Space.s) }
                 Button(action: openMap) {
                     Label("Alle öffnen", systemImage: "calendar")
                 }
@@ -278,7 +288,7 @@ struct ReiseView: View {
 
     private func itineraryDay(_ day: Int) -> some View {
         let places = store.plan(for: day)
-        let title = places.first?.title ?? "Noch frei"
+        let title = places.first?.title ?? (isPast(day) ? "Ohne Plan" : "Noch frei")
         let selectedDay = day == self.day
         let width = max(90, itineraryTileWidth)
         return Button {
@@ -379,6 +389,7 @@ struct ReiseView: View {
     private func memorySummary(places: Int, photos: Int) -> String {
         if places == 0 { return "Eure besuchten Orte und Fotos" }
         let placeCount = places == 1 ? "1 Ort erlebt" : "\(places) Orte erlebt"
+        if photos == 0 { return placeCount }
         let photoCount = photos == 1 ? "1 eigenes Foto" : "\(photos) eigene Fotos"
         return "\(placeCount) · \(photoCount)"
     }
@@ -387,6 +398,12 @@ struct ReiseView: View {
     private var partner: String? {
         let names = store.places.flatMap { [$0.author] + $0.approvals }
         return names.first { $0 != store.me && !$0.isEmpty && $0.localizedCaseInsensitiveCompare("Wir") != .orderedSame }
+    }
+
+    /// Ein vergangener Tag ohne Plan ist nicht mehr „noch frei“.
+    private func isPast(_ day: Int) -> Bool {
+        if let today { return day < today }
+        return TripDates.phase() == .after
     }
 
     private func coverPhoto(for day: Int) -> PlaceImageAsset? {
@@ -454,7 +471,7 @@ struct ReiseView: View {
             ? AnyLayout(VStackLayout(spacing: Stitch.Space.s))
             : AnyLayout(HStackLayout(spacing: Stitch.Space.s))
         return VStack(alignment: .leading, spacing: Stitch.Space.s) {
-            Text("Noch frei")
+            Text(isPast(day) ? "Ohne Plan" : "Noch frei")
                 .font(Stitch.Face.place(26, relativeTo: .title2))
                 .foregroundStyle(Stitch.ink)
             Text(waiting == 0
