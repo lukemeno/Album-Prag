@@ -1,6 +1,6 @@
 # Album auf zwei iPhones – ohne bezahlten Apple Developer Account
 
-Stand 04.10.2026, Branch `claude/ready-to-land` (baut auf `design/album-visual-refresh` auf).
+Stand 05.10.2026, Branch **`claude/motion-flow`**. Er enthält alles aus `claude/ready-to-land` (Fotos, Einladung) und dazu Bewegung, Haptik und Abläufe, siehe `Design/MOTION-FLOW-PLAN.md`. Diesen Branch installieren.
 
 ## Das Wichtigste vorab
 
@@ -26,6 +26,7 @@ Stand 04.10.2026, Branch `claude/ready-to-land` (baut auf `design/album-visual-r
    - Unter **Teilen** gibt es jetzt **„Link kopieren“**.
    - Auf dem anderen iPhone gibt es **„Einladung bekommen?“** mit Feld und **„Album beitreten“**. Der Link wird auch dann erkannt, wenn er mitten in einer weitergeleiteten Nachricht steht.
    - Datei: `Album/AlbumSettings.swift`.
+6. **Ideen entscheiden:** Nach rechts wischen oder „Ja“ zählt sofort, ohne Speichern. Die Idee liegt danach auf der Karte. Fehlt ihr noch ein Kartenort, erscheint daneben „Ort ergänzen“. Datei: `Album/InboxView.swift`.
 
 ## Schritt für Schritt
 
@@ -35,11 +36,11 @@ Stand 04.10.2026, Branch `claude/ready-to-land` (baut auf `design/album-visual-r
    ```sh
    cd Album-Prag
    git fetch origin
-   git checkout claude/ready-to-land
+   git checkout claude/motion-flow
    xcodegen generate   # nur nötig, wenn project.yml geändert wurde; schadet nicht
    open Album.xcodeproj
    ```
-3. **Product → Build** (⌘B). Wenn der Build fehlschlägt, schick mir oder ChatGPT die Fehlermeldung. Notfalls `git checkout design/album-visual-refresh`: Das ist der letzte geprüfte Stand.
+3. **Product → Build** (⌘B). Wenn der Build fehlschlägt, schick mir oder ChatGPT die Fehlermeldung. Notfalls `git checkout claude/ready-to-land` (nur Foto- und Einladungs-Fixes) oder `design/album-visual-refresh` (Stand vor dem Flug).
 4. Unter **Signing & Capabilities**, bei den Targets **Album** und **AlbumShare**, ist das Team `X7K385PZ68` eingetragen. Das sollte dein Personal Team sein, denn damit wurde schon auf deinem iPhone installiert. Falls Xcode etwas anderes meldet: dort dein Team wählen.
 
 ### 2. Dein iPhone
@@ -67,7 +68,9 @@ In Xcode unter **Window → Devices and Simulators** bei jedem iPhone **„Conne
 - [ ] **Ältere TikTok-Idee** (vor ein paar Tagen eingeworfen): Das Vorschaubild erscheint nach kurzer Zeit wieder.
 - [ ] **Flugmodus kurz an, dann wieder aus:** Fotos laden nach wenigen Sekunden von selbst.
 - [ ] **Teilen:** „Link kopieren“ erscheint unter „Einladung senden“. Auf dem zweiten iPhone erscheint „Einladung bekommen?“, solange es noch nicht verbunden ist.
+- [ ] **Ideen:** Eine Idee nach rechts wischen. Sie gilt sofort als „Ja“, ohne Speichern.
 - [ ] **Unit-Tests:** `⌘U` oder nur `DayPlanTests`. Neu ist der Test `testLargeWikimediaPhotosUseAnAllowedWidth`.
+- [ ] Danach die Prüfliste für Bewegung und Haptik in `Design/MOTION-FLOW-PLAN.md`.
 
 ## Typische Meldungen und was hilft
 
