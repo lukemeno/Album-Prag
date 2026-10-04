@@ -306,14 +306,13 @@ final class AlbumUITests: XCTestCase {
         app.launchEnvironment["ALBUM_TEST_STORE"] = store
         app.launchEnvironment["ALBUM_MY_NAME"] = "Luke"
         app.launchEnvironment["ALBUM_EMPTY_TEST_STORE"] = "1"
-        // „Idee einwerfen“ ist die Leistenaktion der Karte; die Reise hat dafür „Neue Idee“ im Kopf.
-        app.launchEnvironment["ALBUM_START_TAB"] = "Karte"
+        // Die Karte blendet ihre Leiste aus; auf der Reise öffnet „Neue Idee“ (das „+“ im Kopf) den Editor.
         app.launch()
         let shots = environment["ALBUM_SHOT_DIR"].map { URL(fileURLWithPath: $0) }
         func shot(_ name: String) { if let shots { try? XCUIScreen.main.screenshot().pngRepresentation.write(to: shots.appendingPathComponent(name + ".png")) } }
         func newIdea(_ name: String) {
-            XCTAssertTrue(app.buttons["Idee einwerfen"].waitForExistence(timeout: 15))
-            app.buttons["Idee einwerfen"].tap()
+            XCTAssertTrue(app.buttons["Neue Idee"].waitForExistence(timeout: 15))
+            app.buttons["Neue Idee"].tap()
             let title = app.textFields["Name der Idee"]
             XCTAssertTrue(title.waitForExistence(timeout: 5))
             title.tap(); title.typeText(name)
@@ -338,7 +337,7 @@ final class AlbumUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Eingeworfen"].exists)
         XCTAssertFalse(app.buttons["Eingeworfen"].isEnabled)
         // Danach schließt der Editor wie bisher.
-        XCTAssertTrue(app.buttons["Idee einwerfen"].waitForExistence(timeout: 6))
+        XCTAssertTrue(app.buttons["Neue Idee"].waitForExistence(timeout: 6))
 
         // Gleichwertige Schaltfläche: Tippen wirft von selbst ein.
         newIdea("Petřín")
@@ -346,7 +345,7 @@ final class AlbumUITests: XCTestCase {
         XCTAssertTrue(button.waitForExistence(timeout: 5))
         button.tap()
         XCTAssertTrue(app.staticTexts["Liegt bei Ideen"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["Idee einwerfen"].waitForExistence(timeout: 6))
+        XCTAssertTrue(app.buttons["Neue Idee"].waitForExistence(timeout: 6))
 
         // Beide Ideen sind gespeichert, auch wenn sie nur über die Schaltfläche oder gar nicht eingeworfen wurden.
         app.terminate()

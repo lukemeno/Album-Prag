@@ -183,25 +183,7 @@ jobs:
         if: always()
         run: |
           xcrun xcresulttool export attachments --path logs/UITests.xcresult --output-path a11y || exit 0
-          python3 - <<'PY'
-          import json, os, re
-          try:
-              manifest = json.load(open('a11y/manifest.json'))
-          except Exception as error:
-              print('Kein Manifest:', error); raise SystemExit
-          for test in manifest:
-              for item in test.get('attachments', []):
-                  name = item.get('suggestedHumanReadableName', '')
-                  if not name.startswith('Accessibility findings'):
-                      continue
-                  lines = open(os.path.join('a11y', item['exportedFileName']), errors='replace').read().split('\n')
-                  print('=====', test.get('testIdentifier', '?'), '|', name)
-                  for i, line in enumerate(lines):
-                      if re.search(r'\] suppressed=false$', line):
-                          print('  -', line)
-                          for extra in lines[i + 1:i + 5]:
-                              print('     ', extra[:300])
-          PY
+          python3 .github/scripts/a11y_findings.py a11y
 
       - name: Logs sichern
         if: always()
@@ -210,3 +192,42 @@ jobs:
           name: ui-test-logs
           path: logs
           retention-days: 7
+
+  # Nur die Accessibility-Audits: Funde stehen nach etwa 15 Minuten im Log statt nach dem ganzen UI-Testlauf.
+  a11y:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode wählen
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.6.app
+          mkdir -p logs
+
+      - name: Simulator starten
+        run: |
+          udid=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print([x['udid'] for k,v in d.items() if k.endswith('iOS-26-5') for x in v if x['name']=='iPhone 17 Pro'][0])")
+          xcrun simctl boot "$udid" || true
+          xcrun simctl bootstatus "$udid" -b
+
+      - name: Accessibility-Audits (iPhone 17 Pro, iOS 26.5)
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project Album.xcodeproj -scheme Album \
+            -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' \
+            -derivedDataPath DerivedData \
+            -only-testing:AlbumUITests/AlbumUITests/testAccessibilityAuditReiseScreen \
+            -only-testing:AlbumUITests/AlbumUITests/testAccessibilityAuditPlaceEditorScreen \
+            -only-testing:AlbumUITests/AlbumUITests/testAccessibilityAuditIdeasScreen \
+            -only-testing:AlbumUITests/AlbumUITests/testAccessibilityAuditMapScreen \
+            -resultBundlePath logs/A11y.xcresult \
+            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= \
+            2>&1 | tee logs/a11y.log | xcbeautify --renderer github-actions
+
+      - name: Accessibility-Funde ausgeben
+        if: always()
+        run: |
+          xcrun xcresulttool export attachments --path logs/A11y.xcresult --output-path a11y || exit 0
+          python3 .github/scripts/a11y_findings.py a11y

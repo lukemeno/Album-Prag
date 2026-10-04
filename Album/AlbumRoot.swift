@@ -50,14 +50,17 @@ struct AlbumRoot: View {
                           openDocuments: { documents = true }, openSharing: { sharing = true }, openAdd: add)
                     .toolbar(.hidden, for: .navigationBar)
 #if DEBUG && targetEnvironment(simulator)
-                    .toolbar {
+                    // Die Reise blendet ihre Navigationsleiste aus, ein Leisteneintrag wäre unsichtbar.
+                    // Der QA-Knopf schwebt deshalb links unten über dem Inhalt.
+                    .overlay(alignment: .bottomLeading) {
                         if ProcessInfo.processInfo.environment["ALBUM_QA_NATIVE_SHARE"] == "1" {
-                            ToolbarItem(placement: .topBarTrailing) {
-                                Button("QA Share", systemImage: "square.and.arrow.up") {
-                                    nativeShareSheet = true
-                                }
-                                .accessibilityIdentifier("qa-native-share")
+                            Button("QA Share", systemImage: "square.and.arrow.up") {
+                                nativeShareSheet = true
                             }
+                            .buttonStyle(.borderedProminent)
+                            .accessibilityIdentifier("qa-native-share")
+                            .padding(.leading, Stitch.Space.page)
+                            .padding(.bottom, Stitch.Space.m)
                         }
                     }
 #endif
