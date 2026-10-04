@@ -446,7 +446,7 @@ struct PlacesDrawer: View {
         }
     }
 
-    private var visiblePlaces: [Place] { store.franked.filter { filter.matches($0.category) && $0.matchesMapSearch(searchQuery) } }
+    private var visiblePlaces: [Place] { store.franked.filter { filter.matches($0) && $0.matchesMapSearch(searchQuery) } }
 
     private var sections: [Section] {
         let windows = DayPlanGenerator.windows(flights: store.data.trip.flights ?? [])
@@ -460,7 +460,7 @@ struct PlacesDrawer: View {
         for day in DayPlanGenerator.days {
             // Zeiten aus dem ganzen Tag rechnen, erst dann filtern: Ein Filter verschiebt keine Uhrzeiten.
             let stops = DayPlanGenerator.timeline(store.plan(for: day), day: day, window: windows[day]!, hotel: store.hotelCoordinate)
-                .filter { filter.matches($0.place.category) && $0.place.matchesMapSearch(searchQuery) }
+                .filter { filter.matches($0.place) && $0.place.matchesMapSearch(searchQuery) }
             // Mit Filter nur Tage mit Treffern; ohne Filter alle Reisetage, damit freie Tage sichtbar sind.
             guard !stops.isEmpty || (filter == .all && searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) else { continue }
             result.append(Section(id: "section-day-\(day)", title: TripDates.dayTitle(day), isToday: day == today, stops: stops))

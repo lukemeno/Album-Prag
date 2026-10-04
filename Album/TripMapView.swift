@@ -23,12 +23,12 @@ struct TripMapView: View {
     /// Orte, die schon einmal auf der Karte gelandet sind. Nur neue fallen als Stecknadel.
     @AppStorage("album.landedPins") private var landedRaw = ""
 
-    var visible: [Place] { store.franked.filter { $0.coordinate != nil && filter.matches($0.category) && $0.matchesMapSearch(searchQuery) } }
+    var visible: [Place] { store.franked.filter { $0.coordinate != nil && filter.matches($0) && $0.matchesMapSearch(searchQuery) } }
     private var selectedDay: Int? { visible.first { $0.id == selectedID }?.day }
 
     /// Orte eines Tages, verbunden in geplanter Reihenfolge.
     private var dayThreads: [(day: Int, coordinates: [CLLocationCoordinate2D])] {
-        (4...9).map { day in (day, store.plan(for: day).filter { filter.matches($0.category) && $0.matchesMapSearch(searchQuery) }.compactMap(\.coordinate)) }
+        (4...9).map { day in (day, store.plan(for: day).filter { filter.matches($0) && $0.matchesMapSearch(searchQuery) }.compactMap(\.coordinate)) }
             .filter { $0.1.count > 1 }
     }
 
@@ -141,7 +141,7 @@ struct TripMapView: View {
         .onChange(of: filter) { _, newFilter in
             lastTappedClusterID = nil
             clusterSelection = nil
-            if let selectedID, !store.franked.contains(where: { $0.id == selectedID && newFilter.matches($0.category) }) {
+            if let selectedID, !store.franked.contains(where: { $0.id == selectedID && newFilter.matches($0) }) {
                 self.selectedID = nil
             }
         }
@@ -153,7 +153,7 @@ struct TripMapView: View {
 
     private var drawerTitle: String {
         let count = store.franked.filter {
-            filter.matches($0.category) && $0.matchesMapSearch(searchQuery)
+            filter.matches($0) && $0.matchesMapSearch(searchQuery)
         }.count
         return count == 1 ? "1 Ort" : "\(count) Orte"
     }
@@ -401,17 +401,22 @@ struct TripMapView: View {
 }
 
 enum MapFilter: String, CaseIterable, Identifiable {
-    case all, food, sights, view
+    case all, food, sights, view, visited
     var id: String { rawValue }
-    var title: String { switch self { case .all: "Alle"; case .food: "Essen"; case .sights: "Sehenswert"; case .view: "Aussicht" } }
-    var symbol: String? { switch self { case .all: nil; case .food: "fork.knife"; case .sights: "building.columns"; case .view: "binoculars" } }
+    var title: String { switch self { case .all: "Alle"; case .food: "Essen"; case .sights: "Sehenswert"; case .view: "Aussicht"; case .visited: "Besucht" } }
+    var symbol: String? { switch self { case .all: nil; case .food: "fork.knife"; case .sights: "building.columns"; case .view: "binoculars"; case .visited: "checkmark.seal" } }
+    /// Nur die Kategorie; „Besucht“ ist ein Status und lässt hier jede Kategorie durch.
     func matches(_ category: String) -> Bool {
         switch self {
-        case .all: true
+        case .all, .visited: true
         case .food: category == "Essen & Trinken"
         case .sights: category == "Sehenswert"
         case .view: category == "Aussicht"
         }
+    }
+    /// Kategorie und Status zusammen: Nach der Reise zeigt „Besucht“ genau, wo ihr wart.
+    func matches(_ place: Place) -> Bool {
+        self == .visited ? place.visited : matches(place.category)
     }
 }
 
@@ -678,6 +683,9 @@ struct PlaceDetail: View {
                                     .font(.body)
                                     .foregroundStyle(Stitch.inkSoft)
                                     .fixedSize(horizontal: false, vertical: true)
+                                PlaceStatusTrail(place: place)
+                                    .animation(reduceMotion ? Stitch.Motion.reducedFade : Stitch.Motion.panel, value: place.franked)
+                                    .animation(reduceMotion ? Stitch.Motion.reducedFade : Stitch.Motion.panel, value: place.visited)
                                 if !facts(place).isEmpty || !place.note.isEmpty {
                                     VStack(alignment: .leading, spacing: Stitch.Space.xs) {
                                         if !place.note.isEmpty {
@@ -870,6 +878,49 @@ struct PlaceDetail: View {
             }
         }
         .font(.caption).foregroundStyle(Stitch.inkSoft).tint(Stitch.inkSoft)
+    }
+}
+
+/// Idee → Geplant → Besucht: überall dieselben drei Wörter für denselben Weg eines Orts.
+private struct PlaceStatusTrail: View {
+    let place: Place
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    private static let steps: [(title: String, symbol: String)] = [
+        ("Idee", "lightbulb"), ("Geplant", "calendar"), ("Besucht", "checkmark.seal.fill")
+    ]
+    private var current: Int { place.visited ? 2 : place.franked ? 1 : 0 }
+
+    var body: some View {
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                // Große Schrift: nur der aktuelle Schritt, damit nichts abgeschnitten wird.
+                step(current)
+            } else {
+                HStack(spacing: Stitch.Space.xxs) {
+                    ForEach(Self.steps.indices, id: \.self) { index in
+                        if index > 0 {
+                            Capsule()
+                                .fill(index <= current ? Stitch.ink.opacity(0.45) : Stitch.rule)
+                                .frame(width: 12, height: 2)
+                        }
+                        step(index)
+                    }
+                }
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Status")
+        .accessibilityValue(Self.steps[current].title)
+    }
+
+    private func step(_ index: Int) -> some View {
+        let isCurrent = index == current
+        return Label(Self.steps[index].title, systemImage: Self.steps[index].symbol)
+            .font(.footnote.weight(isCurrent ? .semibold : .regular))
+            .foregroundStyle(isCurrent ? (index == 2 ? Stitch.teal : Stitch.ink) : Stitch.inkSoft)
+            .padding(.horizontal, Stitch.Space.xs)
+            .padding(.vertical, 5)
+            .background(isCurrent ? Stitch.selection : Color.clear, in: Capsule())
     }
 }
 

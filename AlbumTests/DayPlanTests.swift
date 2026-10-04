@@ -171,3 +171,32 @@ extension DayPlanTests {
         XCTAssertEqual(stops.first?.slot, "vormittags")
     }
 }
+
+extension DayPlanTests {
+    func testVisitedMapFilterUsesStatusNotCategory() {
+        var visited = place("letna", 50.0966, 14.4165, category: "Aussicht")
+        visited.visited = true
+        let planned = place("louvre", 50.0817, 14.4183, category: "Essen & Trinken")
+        XCTAssertTrue(MapFilter.visited.matches(visited))
+        XCTAssertFalse(MapFilter.visited.matches(planned))
+        XCTAssertTrue(MapFilter.food.matches(planned))
+        XCTAssertFalse(MapFilter.food.matches(visited))
+        XCTAssertTrue(MapFilter.all.matches(visited))
+    }
+
+    @MainActor func testRestoringOneRejectedIdeaLeavesTheOthers() {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = AlbumStore(root: directory)
+        let first = Place(id: "rejected-a", title: "Planetarium", author: "Mia", passedBy: [store.me])
+        let second = Place(id: "rejected-b", title: "Alchemistenmuseum", author: "Mia", passedBy: [store.me])
+        store.upsert(first)
+        store.upsert(second)
+        XCTAssertEqual(Set(store.deferred.map(\.id)), ["rejected-a", "rejected-b"])
+
+        store.restore(first)
+
+        XCTAssertEqual(store.deferred.map(\.id), ["rejected-b"])
+        XCTAssertTrue(store.inbox.contains { $0.id == "rejected-a" }, "Zurückgeholt liegt die Idee wieder im Stapel")
+    }
+}

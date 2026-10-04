@@ -63,6 +63,7 @@ struct InboxView: View {
     @State private var tiltDecay: Task<Void, Never>?
     @State private var viewer: PhotoViewerItem?
     @State private var section: InboxSection = .discover
+    @State private var showingRejected = false
 
     private let decisionThreshold: CGFloat = 96
     private var progress: CGFloat { min(abs(offset.width) / decisionThreshold, 1) }
@@ -161,8 +162,15 @@ struct InboxView: View {
                 ToolbarItem(placement: .primaryAction) {
                     Button("Idee einwerfen", systemImage: "plus", action: add)
                 }
+                if !store.deferred.isEmpty {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Abgelehnte Ideen", systemImage: "tray.and.arrow.up") { showingRejected = true }
+                            .accessibilityValue("\(store.deferred.count)")
+                    }
+                }
             }
         }
+        .sheet(isPresented: $showingRejected) { RejectedIdeasSheet() }
         .sheet(item: $editing) { PlaceEditor(place: $0, frankOnSave: shouldFrank) }
         .sensoryFeedback(.impact(weight: .medium), trigger: feedback)
         .sensoryFeedback(.selection, trigger: thresholdFeedback)
@@ -227,8 +235,8 @@ struct InboxView: View {
                         .buttonStyle(AlbumActionButtonStyle(primary: true))
                 }
                 if !store.deferred.isEmpty {
-                    Button(store.deferred.count == 1 ? "1 abgelehnte Idee zurückholen" : "\(store.deferred.count) abgelehnte Ideen zurückholen") {
-                        store.restoreDeferred()
+                    Button(store.deferred.count == 1 ? "1 abgelehnte Idee ansehen" : "\(store.deferred.count) abgelehnte Ideen ansehen") {
+                        showingRejected = true
                     }
                     .buttonStyle(AlbumTextActionButtonStyle())
                 }
@@ -419,6 +427,80 @@ struct InboxView: View {
                 committing = false
             }
         }
+    }
+}
+
+/// Abgelehnte Ideen einzeln ansehen und zurückholen. Nichts verschwindet heimlich.
+private struct RejectedIdeasSheet: View {
+    @Environment(AlbumStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var restoredTick = 0
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: Stitch.Space.s) {
+                    Text(store.deferred.isEmpty
+                         ? "Alles zurückgeholt. Die Ideen warten wieder im Stapel."
+                         : "Hier landet, wozu du Nein gesagt hast. Zurückgeholt kommt eine Idee wieder in den Stapel.")
+                        .font(.subheadline)
+                        .foregroundStyle(Stitch.inkSoft)
+                        .fixedSize(horizontal: false, vertical: true)
+                    ForEach(store.deferred) { place in
+                        row(place)
+                            .transition(reduceMotion ? .opacity : .move(edge: .trailing).combined(with: .opacity))
+                    }
+                }
+                .padding(Stitch.Space.page)
+            }
+            .background(PaperBackground())
+            .navigationTitle("Abgelehnt")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Fertig") { dismiss() } }
+                if store.deferred.count > 1 {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button("Alle zurückholen") {
+                            withAnimation(reduceMotion ? Stitch.Motion.reducedFade : Stitch.Motion.panel) { store.restoreDeferred() }
+                            restoredTick += 1
+                        }
+                    }
+                }
+            }
+            .sensoryFeedback(.selection, trigger: restoredTick)
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    private func row(_ place: Place) -> some View {
+        HStack(spacing: Stitch.Space.s) {
+            AlbumPhoto(asset: place.image, root: store.root, thumbnailWidth: 120)
+                .frame(width: Stitch.Size.thumb, height: Stitch.Size.thumb)
+                .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
+                .saturation(0.35)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(place.title.isEmpty ? "Ohne Titel" : place.title)
+                    .font(Stitch.Face.place(21, relativeTo: .headline))
+                    .foregroundStyle(Stitch.ink)
+                    .lineLimit(2)
+                Text(place.category)
+                    .font(.footnote)
+                    .foregroundStyle(Stitch.inkSoft)
+            }
+            Spacer(minLength: Stitch.Space.xs)
+            Button {
+                withAnimation(reduceMotion ? Stitch.Motion.reducedFade : Stitch.Motion.panel) { store.restore(place) }
+                restoredTick += 1
+                AccessibilityNotification.Announcement("\(place.title) ist wieder bei den Ideen").post()
+            } label: {
+                Image(systemName: "arrow.uturn.backward")
+            }
+            .buttonStyle(HeaderIconButton())
+            .accessibilityLabel("\(place.title) zurückholen")
+        }
+        .stitchCard()
     }
 }
 

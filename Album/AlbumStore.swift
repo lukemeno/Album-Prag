@@ -358,7 +358,12 @@ private struct OpeningHoursFetchResult: Sendable {
 
     func deferPlace(_ place: Place) { var p = place; p.deferred = true; upsert(p) }
     func restoreDeferred() {
-        for var p in deferred { p.deferred = false; p.passedBy.removeAll { $0 == me }; upsert(p) }
+        for place in deferred { restore(place) }
+    }
+
+    /// Eine abgelehnte oder zurückgestellte Idee kommt zurück in den Stapel.
+    func restore(_ place: Place) {
+        var p = place; p.deferred = false; p.passedBy.removeAll { $0 == me }; upsert(p)
     }
 
     /// Setzt einen Ort ans Ende eines Tages (oder nimmt ihn aus der Tagesplanung).
@@ -769,7 +774,10 @@ private struct OpeningHoursFetchResult: Sendable {
         guard let document = PDFDocument(url: url) else { throw CocoaError(.fileReadCorruptFile) }
         guard !document.isLocked else { throw CocoaError(.fileReadNoPermission) }
         let size = (try url.resourceValues(forKeys: [.fileSizeKey])).fileSize ?? 0
-        guard size <= 25_000_000 else { throw NSError(domain: "Album", code: 1, userInfo: [NSLocalizedDescriptionKey: "Bitte ein PDF unter 25 MB verwenden."]) }
+        guard size <= 25_000_000 else {
+            let megabytes = Int((Double(size) / 1_000_000).rounded(.up))
+            throw NSError(domain: "Album", code: 1, userInfo: [NSLocalizedDescriptionKey: "Diese Datei hat \(megabytes) MB. Bitte ein PDF unter 25 MB verwenden."])
+        }
         let name = id + ".pdf"
         let destination = root.appendingPathComponent(name)
         let copiedDestination = !FileManager.default.fileExists(atPath: destination.path)

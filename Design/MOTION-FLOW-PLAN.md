@@ -33,10 +33,20 @@ Album hat schon 18 Bewegungspfade und 15 Haptik-Auslöser (`QA-MOTION-INVENTORY.
 | 11 | Reise-Seite endet mit genug Platz über dem KI-Kreis | `ReiseView` | – | – |
 | 12 | „Link kopieren“ bestätigt mit Häkchen-Morph und Erfolgs-Haptik | `AlbumSettings` | Symbol-Ersatz | – |
 
+## Zweite Runde: Lücken aus der Spezifikation
+
+| # | Was | Wo |
+|---|---|---|
+| 13 | **Kartenfilter „Besucht“:** neuer Eintrag im Filtermenü. Er filtert nach Status statt nach Kategorie, Route und Liste folgen. | `MapFilter`, `TripMapView`, `PlacesDrawer` |
+| 14 | **Einheitlicher Ortsstatus:** Unter der Kategorie im Ortsdetail steht „Idee — Geplant — Besucht“, der aktuelle Schritt ist hervorgehoben (Besucht in Teal). Bei großer Schrift steht nur der aktuelle Schritt da. VoiceOver: „Status, Geplant“. | `PlaceDetail` (`PlaceStatusTrail`) |
+| 15 | **Abgelehnte Ideen einzeln:** Ein Knopf in der Ideen-Leiste und im leeren Stapel öffnet die Liste „Abgelehnt“. Jede Idee lässt sich einzeln zurückholen (sie gleitet heraus, kurze Haptik, VoiceOver-Ansage), dazu „Alle zurückholen“. Vorher gab es nur „alle zurückholen“, und das erst bei leerem Stapel. | `InboxView` (`RejectedIdeasSheet`), `AlbumStore.restore` |
+| 16 | **PDF-Zustände:** Im geteilten Album steht unter jedem PDF „Auf beiden iPhones“, „Wird hochgeladen …“ oder „Wartet auf Netz“. Die 25-MB-Grenze steht sichtbar da, und die Fehlermeldung nennt die echte Größe. | `TripDocumentsView`, `AlbumStore.importPDF` |
+
+Neue Tests: `testVisitedMapFilterUsesStatusNotCategory`, `testRestoringOneRejectedIdeaLeavesTheOthers` (`DayPlanTests`).
+
 ## Bewusst nicht gemacht
 
-- **Kartenfilter „Besucht“:** `MapFilter` filtert nach Kategorie, und mehrere Aufrufer übergeben nur die Kategorie. Ein Status-Filter braucht eine API-Änderung, die man mit Xcode testen sollte.
-- **Querformat-Tab-Leiste über dem Ortsblatt** und **PDF-Upload-Zustände:** Beides braucht Sichtprüfung im Simulator.
+- **Querformat-Tab-Leiste über dem Ortsblatt:** braucht Sichtprüfung im Simulator.
 - **Animationen pro Listenzeile, Parallaxe, Daueranimationen:** Das widerspricht `MOTION-PROMPTS.md` #5 und #6.
 - **Keine neuen Swift-Dateien:** XcodeGen müsste sie erst ins Projekt aufnehmen. Alles steckt in bestehenden Dateien.
 
@@ -50,4 +60,8 @@ Album hat schon 18 Bewegungspfade und 15 Haptik-Auslöser (`QA-MOTION-INVENTORY.
 - [ ] Alle heutigen Orte als besucht markieren: Die Karte „Heute alles erlebt“ erscheint.
 - [ ] Flugmodus an, App neu aktivieren: Kein Fehlerfenster, sondern die Kapsel „Offline“. Flugmodus aus, Kapsel antippen: Sie verschwindet.
 - [ ] Ortsdetail: „Zum Reiseplan hinzufügen“ morpht und vibriert, der Bildnachweis steht auf dem Foto.
+- [ ] Karte → Filter → „Besucht“: nur besuchte Orte, Liste und Route passen dazu.
+- [ ] Ortsdetail: Statuszeile Idee — Geplant — Besucht wechselt beim Merken und beim Abstempeln.
+- [ ] Ideen: Eine Idee mit Nein ablehnen, dann oben links „Abgelehnte Ideen“ öffnen und einzeln zurückholen.
+- [ ] Unterlagen im geteilten Album: Ein neues PDF zeigt erst „Wartet auf Netz“ bzw. „Wird hochgeladen …“, danach „Auf beiden iPhones“.
 - [ ] Alles einmal mit „Bewegung reduzieren“ und mit sehr großer Schrift.

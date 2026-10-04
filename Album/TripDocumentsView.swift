@@ -10,6 +10,14 @@ struct TripDocumentsView: View {
     @State private var editing = false
     @State private var extraction: ExtractedTrip?
     private var trip: TripInfo { store.data.trip }
+
+    /// Nur im geteilten Album: Liegt das PDF schon auf beiden iPhones oder wartet es noch?
+    private func uploadState(_ doc: TravelDocument) -> (text: String, symbol: String, done: Bool)? {
+        guard store.isShared else { return nil }
+        if !store.data.dirty.contains("doc-" + doc.id) { return ("Auf beiden iPhones", "checkmark.icloud", true) }
+        if store.syncing { return ("Wird hochgeladen …", "icloud.and.arrow.up", false) }
+        return ("Wartet auf Netz", "icloud.slash", false)
+    }
     private var hasFlights: Bool { !(trip.flights ?? []).isEmpty }
 
     var body: some View {
@@ -71,7 +79,16 @@ struct TripDocumentsView: View {
                                     HStack(spacing: Stitch.Space.s) {
                                         Image(systemName: "doc.text").foregroundStyle(Stitch.ink)
                                             .frame(width: 36, height: 36).background(Stitch.paperDeep, in: Circle())
-                                        Text(doc.name).font(.body).foregroundStyle(Stitch.ink).multilineTextAlignment(.leading)
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(doc.name).font(.body).foregroundStyle(Stitch.ink).multilineTextAlignment(.leading)
+                                            if let state = uploadState(doc) {
+                                                Label(state.text, systemImage: state.symbol)
+                                                    .font(.footnote)
+                                                    .foregroundStyle(state.done ? Stitch.teal : Stitch.inkSoft)
+                                                    .contentTransition(.opacity)
+                                            }
+                                        }
+                                        .animation(Stitch.Motion.reducedFade, value: uploadState(doc)?.text)
                                         Spacer(minLength: 0)
                                         Image(systemName: "chevron.right").font(.footnote.weight(.bold)).foregroundStyle(Stitch.inkSoft)
                                     }
@@ -86,7 +103,7 @@ struct TripDocumentsView: View {
                         }
                         Button("PDF hinzufügen", systemImage: "plus") { importing = true }
                             .buttonStyle(AlbumActionButtonStyle(primary: !hasFlights))
-                        Text("Das Original bleibt gespeichert. Flüge und Hotel übernimmt Album aus dem Text.")
+                        Text("PDFs bis 25 MB. Das Original bleibt gespeichert. Flüge und Hotel übernimmt Album aus dem Text.")
                             .font(.footnote).foregroundStyle(Stitch.inkSoft)
                     }
 
