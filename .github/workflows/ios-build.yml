@@ -5,6 +5,7 @@ name: iOS Build
 on:
   push:
     branches: ['claude/**', 'design/**']
+    paths-ignore: ['**/*.md', 'Design/**']
   workflow_dispatch:
 
 concurrency:
