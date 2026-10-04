@@ -1216,3 +1216,202 @@ extension AlbumUITests {
         app.terminate()
     }
 }
+
+/// Screen-Tour für die visuelle Abnahme: jeder Screen und Zustand als Bild im Testergebnis.
+/// Der Cloud-Build exportiert die Bilder (`.github/workflows/ios-build.yml`, Job „screens“).
+final class ScreenTourUITests: XCTestCase {
+    private func launch(_ name: String, today: String = "2026-10-04", tab: String = "Reise", trip: String? = "1",
+                        env: [String: String] = [:], dark: Bool = false, largeType: Bool = false) -> XCUIApplication {
+        // Jede Station läuft für sich: Hochformat, und ein Fehlschlag stoppt die Bilder danach nicht.
+        continueAfterFailure = true
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        app.launchEnvironment["ALBUM_TEST_STORE"] = "tour-\(name)-\(UUID().uuidString.prefix(8))"
+        app.launchEnvironment["ALBUM_MY_NAME"] = "Luke"
+        app.launchEnvironment["ALBUM_TODAY"] = today
+        app.launchEnvironment["ALBUM_START_TAB"] = tab
+        app.launchEnvironment["ALBUM_DISABLE_LOOK_AROUND"] = "1"
+        if let trip { app.launchEnvironment["ALBUM_DEMO_TRIP"] = trip }
+        for (key, value) in env { app.launchEnvironment[key] = value }
+        if dark { app.launchArguments += ["-AppleInterfaceStyle", "Dark"] }
+        if largeType { app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL"] }
+        app.launch()
+        XCTAssertTrue(app.tabBars.buttons[tab].waitForExistence(timeout: 20), "Tab \(tab) erscheint")
+        return app
+    }
+
+    private func shot(_ app: XCUIApplication, _ name: String, wait: UInt32 = 1) {
+        sleep(wait)
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    private func button(_ app: XCUIApplication, containing text: String) -> XCUIElement {
+        app.buttons.matching(NSPredicate(format: "label CONTAINS %@ AND NOT (label BEGINSWITH 'Route')", text)).firstMatch
+    }
+
+    func test01ReiseHell() {
+        let app = launch("reise")
+        shot(app, "01-reise-hell", wait: 3)
+        app.swipeUp()
+        shot(app, "02-reise-tagesplan-hell")
+        app.swipeUp()
+        shot(app, "03-reise-unten-hell")
+    }
+
+    func test02ReiseDunkel() {
+        let app = launch("reise-dark", dark: true)
+        shot(app, "04-reise-dunkel", wait: 3)
+        app.swipeUp()
+        shot(app, "05-reise-tagesplan-dunkel")
+    }
+
+    func test03FreierTag() {
+        let app = launch("free-day")
+        let tile = button(app, containing: "7. Oktober")
+        if tile.waitForExistence(timeout: 5) { tile.tap() }
+        shot(app, "06-reise-freier-tag-streifen")
+        app.swipeUp()
+        shot(app, "07-reise-freier-tag")
+    }
+
+    func test04Offline() {
+        let app = launch("offline", env: ["ALBUM_DEMO_OFFLINE": "1"])
+        shot(app, "08-reise-offline", wait: 2)
+    }
+
+    func test05TagGeschafft() {
+        let app = launch("complete", trip: "complete")
+        app.swipeUp()
+        shot(app, "09-reise-tag-geschafft", wait: 2)
+    }
+
+    func test06ReiseQuer() {
+        let app = launch("landscape")
+        XCUIDevice.shared.orientation = .landscapeLeft
+        shot(app, "10-reise-quer", wait: 3)
+        app.swipeUp()
+        shot(app, "11-reise-quer-tagesplan")
+    }
+
+    func test07ReiseGrosseSchrift() {
+        let app = launch("large", largeType: true)
+        shot(app, "12-reise-grosse-schrift", wait: 3)
+        app.swipeUp()
+        shot(app, "13-reise-grosse-schrift-tagesplan")
+    }
+
+    func test08Ortsdetail() {
+        let app = launch("detail")
+        app.swipeUp()
+        var stop = button(app, containing: "Als Nächstes")
+        if !stop.waitForExistence(timeout: 5) { stop = button(app, containing: "Altstädter Ring") }
+        if stop.waitForExistence(timeout: 5) { stop.tap() }
+        shot(app, "14-ortsdetail", wait: 2)
+        app.swipeUp()
+        shot(app, "15-ortsdetail-unten")
+    }
+
+    func test09OrtsdetailDunkelQuer() {
+        let app = launch("detail-dark", dark: true)
+        app.swipeUp()
+        let stop = button(app, containing: "Café Savoy")
+        if stop.waitForExistence(timeout: 5) { stop.tap() }
+        shot(app, "16-ortsdetail-dunkel", wait: 2)
+        XCUIDevice.shared.orientation = .landscapeLeft
+        shot(app, "17-ortsdetail-quer", wait: 2)
+    }
+
+    func test10Ideen() {
+        let app = launch("ideas", tab: "Ideen")
+        shot(app, "18-ideen", wait: 2)
+        let no = app.buttons["Nein"]
+        if no.waitForExistence(timeout: 5) { no.tap() }
+        shot(app, "19-ideen-nach-nein", wait: 2)
+        let rejected = app.buttons["Abgelehnte Ideen"]
+        if rejected.waitForExistence(timeout: 5) { rejected.tap() }
+        shot(app, "20-ideen-abgelehnt", wait: 2)
+    }
+
+    func test11IdeenDunkel() {
+        let app = launch("ideas-dark", tab: "Ideen", dark: true)
+        shot(app, "21-ideen-dunkel", wait: 2)
+    }
+
+    func test12Karte() {
+        let app = launch("map", tab: "Karte")
+        shot(app, "22-karte", wait: 5)
+        let filter = app.buttons["Karte filtern"]
+        if filter.waitForExistence(timeout: 5) {
+            filter.tap()
+            let visited = app.buttons["Besucht"]
+            if visited.waitForExistence(timeout: 5) { visited.tap() }
+        }
+        shot(app, "23-karte-besucht", wait: 3)
+        XCUIDevice.shared.orientation = .landscapeLeft
+        shot(app, "24-karte-quer", wait: 4)
+    }
+
+    func test13KarteDunkel() {
+        let app = launch("map-dark", tab: "Karte", dark: true)
+        shot(app, "25-karte-dunkel", wait: 5)
+    }
+
+    func test14Unterlagen() {
+        let app = launch("documents")
+        let menu = app.buttons["Reiseoptionen"]
+        if menu.waitForExistence(timeout: 5) {
+            menu.tap()
+            let documents = app.buttons["Reiseunterlagen"]
+            if documents.waitForExistence(timeout: 5) { documents.tap() }
+        }
+        shot(app, "26-unterlagen", wait: 2)
+    }
+
+    func test15Teilen() {
+        let app = launch("share")
+        let share = app.buttons["Teilnehmende verwalten"]
+        if share.waitForExistence(timeout: 5) { share.tap() }
+        shot(app, "27-teilen", wait: 2)
+        app.swipeUp()
+        shot(app, "28-teilen-einladung-bekommen")
+    }
+
+    func test16Assistent() {
+        let app = launch("assistant")
+        let circle = app.buttons["assistant-launch"]
+        if circle.waitForExistence(timeout: 5) { circle.tap() }
+        shot(app, "29-assistent", wait: 2)
+    }
+
+    func test17NachDerReise() {
+        let app = launch("after", today: "2026-10-10", trip: nil, env: ["ALBUM_DEMO_MEMORIES": "1"])
+        shot(app, "30-reise-danach", wait: 2)
+        let memories = app.buttons["Erinnerungen ansehen"]
+        if memories.waitForExistence(timeout: 5) { memories.tap() }
+        shot(app, "31-erinnerungen", wait: 2)
+    }
+
+    func test18VorDerReise() {
+        let app = launch("before", today: "2026-10-01")
+        shot(app, "32-reise-vorher", wait: 2)
+    }
+
+    func test19LeererStart() {
+        let app = launch("empty", trip: nil, env: ["ALBUM_EMPTY_TEST_STORE": "1"])
+        shot(app, "33-reise-leer", wait: 2)
+        app.tabBars.buttons["Ideen"].tap()
+        shot(app, "34-ideen-leer", wait: 2)
+        app.tabBars.buttons["Karte"].tap()
+        shot(app, "35-karte-leer", wait: 4)
+    }
+
+    func test20IdeeEinwerfen() {
+        let app = launch("add")
+        let add = app.buttons["Neue Idee"]
+        if add.waitForExistence(timeout: 5) { add.tap() }
+        shot(app, "36-idee-einwerfen", wait: 2)
+    }
+}

@@ -71,3 +71,105 @@ jobs:
           name: ios-build-logs
           path: logs
           retention-days: 7
+
+  # Screen-Tour: jeder Screen und Zustand als Bild (hell, dunkel, quer, große Schrift).
+  # Die Bilder landen als JPEG im Branch ci-screens/<branch>, damit man sie ohne Xcode ansehen kann.
+  screens:
+    runs-on: macos-26
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode wählen
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.6.app
+          mkdir -p logs
+
+      - name: Screen-Tour (iPhone 17 Pro, iOS 26.5)
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project Album.xcodeproj -scheme Album \
+            -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' \
+            -derivedDataPath DerivedData \
+            -only-testing:AlbumUITests/ScreenTourUITests \
+            -resultBundlePath logs/Screens.xcresult \
+            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= \
+            2>&1 | tee logs/screens.log | xcbeautify --renderer github-actions
+
+      - name: Bilder exportieren
+        if: always()
+        run: |
+          mkdir -p raw screens
+          xcrun xcresulttool export attachments --path logs/Screens.xcresult --output-path raw || true
+          python3 - <<'PY'
+          import json, os, subprocess
+          images = ('.png', '.jpg', '.jpeg', '.heic')
+          def convert(src, name):
+              subprocess.run(['sips', '-s', 'format', 'jpeg', '-s', 'formatOptions', '72', '-Z', '1400', src,
+                              '--out', os.path.join('screens', name + '.jpg')], check=True, capture_output=True)
+          try:
+              manifest = json.load(open('raw/manifest.json'))
+              for test in manifest:
+                  for item in test.get('attachments', []):
+                      src = os.path.join('raw', item['exportedFileName'])
+                      if src.lower().endswith(images):
+                          convert(src, item.get('suggestedHumanReadableName', item['exportedFileName']).split('_')[0])
+          except Exception as error:
+              print('Manifest nicht lesbar, nehme alle Bilder:', error)
+              for file in sorted(os.listdir('raw')):
+                  if file.lower().endswith(images):
+                      convert(os.path.join('raw', file), os.path.splitext(file)[0])
+          PY
+          ls screens
+
+      - name: Bilder in Branch ablegen
+        if: always()
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          branch="ci-screens/${GITHUB_REF_NAME//\//-}"
+          cp logs/screens.log screens/ 2>/dev/null || true
+          cd screens
+          echo "Screen-Tour von ${GITHUB_SHA} (${GITHUB_REF_NAME})" > README.md
+          git init -q -b main
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Screen-Tour ${GITHUB_SHA::7}"
+          git push -q --force "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:"refs/heads/${branch}"
+
+  # Alle bestehenden UI-Tests (Abläufe, Bewegung, Barrierefreiheit) auf dem Simulator.
+  uitests:
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode wählen
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.6.app
+          mkdir -p logs
+
+      - name: UI-Tests (iPhone 17 Pro, iOS 26.5)
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project Album.xcodeproj -scheme Album \
+            -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' \
+            -derivedDataPath DerivedData \
+            -only-testing:AlbumUITests \
+            -skip-testing:AlbumUITests/ScreenTourUITests \
+            -resultBundlePath logs/UITests.xcresult \
+            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= \
+            2>&1 | tee logs/uitests.log | xcbeautify --renderer github-actions
+
+      - name: Logs sichern
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-test-logs
+          path: logs
+          retention-days: 7

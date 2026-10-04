@@ -169,6 +169,36 @@ private struct OpeningHoursFetchResult: Sendable {
                       address: "Národní 22, Praha 1", lat: 50.0819, lng: 14.4185, franked: true, day: 4, dayOrder: 0, approvals: ["Luke"])
             ]
         }
+        if let mode = ProcessInfo.processInfo.environment["ALBUM_DEMO_TRIP"] {
+            // Screen-Tour: ein glaubwürdiger Plan mit erledigtem, nächstem und offenem Ort, Ideen beider Personen und einer Ablehnung.
+            // `complete` markiert alle Orte des 4. Oktober als besucht.
+            let allDone = mode == "complete"
+            data.places = [
+                Place(id: "tour-bridge", title: "Karlsbrücke", category: "Sehenswert", author: "Luke",
+                      image: .bundled(name: "imgPhotoCharlesBridge"), lat: 50.0865, lng: 14.4114,
+                      franked: true, visited: true, day: 4, dayOrder: 0, approvals: ["Luke", "Mia"]),
+                Place(id: "tour-oldtown", title: "Altstädter Ring", category: "Sehenswert", author: "Mia",
+                      image: .bundled(name: "imgPhotoOldTown"), lat: 50.0875, lng: 14.4213,
+                      franked: true, visited: allDone, day: 4, dayOrder: 1, approvals: ["Luke", "Mia"]),
+                Place(id: "tour-savoy", title: "Café Savoy", category: "Essen & Trinken", author: "Luke",
+                      image: .bundled(name: "imgThumbCafe"), address: "Vítězná 5, Praha 5", lat: 50.0806, lng: 14.4072,
+                      franked: true, visited: allDone, day: 4, dayOrder: 2, approvals: ["Luke"]),
+                Place(id: "tour-letna", title: "Letná Park", category: "Aussicht", author: "Mia",
+                      image: .bundled(name: "imgPhotoLetna"), lat: 50.0966, lng: 14.4165,
+                      franked: true, day: 5, dayOrder: 0, approvals: ["Mia"]),
+                Place(id: "tour-kafka", title: "Franz Kafka Museum", category: "Sehenswert", author: "Mia",
+                      address: "Cihelná 2b, Praha 1", lat: 50.0889, lng: 14.4097,
+                      franked: true, day: 5, dayOrder: 1, approvals: ["Mia"]),
+                Place(id: "tour-petrin", title: "Petřín", category: "Aussicht", author: "Luke",
+                      lat: 50.0833, lng: 14.3951, franked: true, approvals: ["Luke"]),
+                Place(id: "tour-louvre", title: "Café Louvre", note: "Zum Frühstück?", category: "Essen & Trinken", author: "Mia",
+                      address: "Národní 22, Praha 1", lat: 50.0819, lng: 14.4185),
+                Place(id: "tour-lennon", title: "Lennon Wall", category: "Sehenswert", author: "Mia", lat: 50.0862, lng: 14.4067),
+                Place(id: "tour-planetarium", title: "Planetarium Prag", category: "Sehenswert", author: "Mia",
+                      lat: 50.1036, lng: 14.4311, passedBy: ["Luke"])
+            ]
+        }
+        if ProcessInfo.processInfo.environment["ALBUM_DEMO_OFFLINE"] == "1" { syncOffline = true }
         #endif
         #if DEBUG
         let isAutomatedTest = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
