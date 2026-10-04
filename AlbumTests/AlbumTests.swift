@@ -352,6 +352,24 @@ final class AlbumTests: XCTestCase {
         XCTAssertFalse(saved.deferred)
     }
 
+    @MainActor func testRestoreOneDeferredIdeaLeavesOtherIdeasInArchive() {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = AlbumStore(root: directory)
+        store.myName = "Luke"
+        let first = Place(id: "deferred-first", title: "Erste Idee")
+        let second = Place(id: "deferred-second", title: "Zweite Idee")
+        store.data.places = [first, second]
+        store.upsert(store.decided(first, approve: false))
+        store.upsert(store.decided(second, approve: false))
+
+        store.restoreDeferred(first)
+
+        XCTAssertTrue(store.inbox.contains { $0.id == first.id })
+        XCTAssertFalse(store.inbox.contains { $0.id == second.id })
+        XCTAssertEqual(store.deferred.map(\.id), [second.id])
+    }
+
     func testMergeKeepsVotesFromBothPhones() {
         var local = Place(id: "p", title: "Letná", approvals: ["Luke"], updatedAt: Date(timeIntervalSince1970: 10))
         local.franked = true

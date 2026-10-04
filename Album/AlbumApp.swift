@@ -34,6 +34,14 @@ import SwiftUI
         WindowGroup {
             AlbumRoot().environment(store).tint(Stitch.redFill)
                 #if DEBUG
+                .preferredColorScheme(ProcessInfo.processInfo.environment["ALBUM_TEST_STORE"] != nil
+                    && ProcessInfo.processInfo.environment["ALBUM_QA_APPEARANCE"] == "dark" ? .dark : nil)
+                .transformEnvironment(\.dynamicTypeSize) { value in
+                    if ProcessInfo.processInfo.environment["ALBUM_TEST_STORE"] != nil,
+                       ProcessInfo.processInfo.environment["ALBUM_QA_DYNAMIC_TYPE"] == "accessibility5" {
+                        value = .accessibility5
+                    }
+                }
                 .transformEnvironment(\._accessibilityReduceMotion) { value in
                     let isolatedStore = ProcessInfo.processInfo.environment["ALBUM_TEST_STORE"] != nil
                     if isolatedStore && ProcessInfo.processInfo.environment["ALBUM_QA_REDUCE_MOTION"] == "1" {

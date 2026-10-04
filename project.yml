@@ -7,7 +7,6 @@ settings:
   base:
     SWIFT_VERSION: '5.0'
     TARGETED_DEVICE_FAMILY: '1'
-    DEVELOPMENT_TEAM: X7K385PZ68
     CODE_SIGN_STYLE: Automatic
     SUPABASE_URL: "https://akzrlkbylglwrlbaacjo.supabase.co"
     SUPABASE_ANON_KEY: "sb_publishable_yQgk23feVRz0OYzaIlff2g_zD999Wjh"
@@ -20,11 +19,6 @@ targets:
       - path: Album
         excludes: ["**/.omc/**"]
       - path: Shared
-    entitlements:
-      path: Album/Album.entitlements
-      properties:
-        com.apple.security.application-groups:
-          - group.de.privatealbum.prague
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: de.privatealbum.prague
@@ -56,8 +50,6 @@ targets:
     dependencies:
       - package: Supabase
       - package: RiveRuntime
-      - target: AlbumShare
-        embed: true
   AlbumShare:
     type: app-extension
     platform: iOS

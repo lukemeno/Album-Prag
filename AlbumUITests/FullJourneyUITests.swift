@@ -7,7 +7,7 @@ import UIKit
 final class FullJourneyUITests: XCTestCase {
     private let wait: TimeInterval = 12
 
-    private func launchFixture(today: String = "2026-10-06", startTab: String = "Reise", demoMemories: Bool = false) throws -> XCUIApplication {
+    private func launchFixture(today: String = "2026-10-06", startTab: String = "Reise", demoMemories: Bool = false, dynamicType: String? = nil) throws -> XCUIApplication {
         let environment = ProcessInfo.processInfo.environment
         guard let configured = environment["ALBUM_JOURNEY_STORE"], configured.hasPrefix("slot-") else {
             throw XCTSkip("ALBUM_JOURNEY_STORE muss auf einen vorbereiteten slot-Store zeigen")
@@ -19,6 +19,7 @@ final class FullJourneyUITests: XCTestCase {
         app.launchEnvironment["ALBUM_MY_NAME"] = "Luke"
         app.launchEnvironment["ALBUM_TODAY"] = today
         app.launchEnvironment["ALBUM_START_TAB"] = startTab
+        if let dynamicType { app.launchEnvironment["ALBUM_QA_DYNAMIC_TYPE"] = dynamicType }
         if let reduceMotion = environment["ALBUM_QA_REDUCE_MOTION"] {
             app.launchEnvironment["ALBUM_QA_REDUCE_MOTION"] = reduceMotion
         }
@@ -328,7 +329,7 @@ final class FullJourneyUITests: XCTestCase {
 
     func testLargeTypeMapAndEditorJourney() throws {
         defer { restorePortrait() }
-        let app = try launchFixture(startTab: "Karte")
+        let app = try launchFixture(startTab: "Karte", dynamicType: "accessibility5")
         XCTAssertTrue(app.textFields["map-search"].waitForExistence(timeout: wait))
 
         let listToggle = app.buttons["Liste ausklappen"]
@@ -434,7 +435,7 @@ final class FullJourneyUITests: XCTestCase {
         ] {
             rotate(app, orientation)
             let compactMenu = app.buttons["Listenaktionen"]
-            if orientation != .portrait && compactMenu.exists {
+            if compactMenu.exists {
                 XCTAssertTrue(compactMenu.isHittable, "Listenaktionen muss in \(name) hittable sein")
                 XCTAssertGreaterThanOrEqual(compactMenu.frame.width, 44, "Listenaktionen muss in \(name) mindestens 44pt breit sein")
                 XCTAssertGreaterThanOrEqual(compactMenu.frame.height, 44, "Listenaktionen muss in \(name) mindestens 44pt hoch sein")

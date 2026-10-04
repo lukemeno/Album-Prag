@@ -21,7 +21,6 @@
 		1C629E0488E90C564F7CB538 /* OFL-Fraunces.txt in Resources */ = {isa = PBXBuildFile; fileRef = 615ED079C1A91AA1900B3238 /* OFL-Fraunces.txt */; };
 		2143B0FE4D8F825511121131 /* FullJourneyUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E390D0CC63F946CAD5EFCACB /* FullJourneyUITests.swift */; };
 		2435F00F89D4BCE5208426E3 /* InvitationMoment.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7A97F1143D53ACAA53B2877 /* InvitationMoment.swift */; };
-		261952B8C002E3B4825AADB3 /* AlbumShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D4C2E6A74A8035F0C02A870E /* AlbumShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		26E0646402B99DAADBE9FC56 /* CollectionUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA976634EA4BE0B62152931F /* CollectionUITests.swift */; };
 		26F0493B1BA0F54C79318990 /* MapPinClustering.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BF661C06675C413B3989C90 /* MapPinClustering.swift */; };
 		2D52439BB4B470948D57A8BF /* TripDataViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E474EB9D9CCF8084253023D /* TripDataViews.swift */; };
@@ -88,13 +87,6 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		4B867AC2C405681AE31F8087 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 98735B0BE74C02C9CC7260DE /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 516B4460989F7FE265B9F8F3;
-			remoteInfo = AlbumShare;
-		};
 		73B579E4C80DEDB9BE3080F0 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 98735B0BE74C02C9CC7260DE /* Project object */;
@@ -110,20 +102,6 @@
 			remoteInfo = Album;
 		};
 /* End PBXContainerItemProxy section */
-
-/* Begin PBXCopyFilesBuildPhase section */
-		71B4F34EE728C5D4EA3E9B54 /* Embed Foundation Extensions */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 13;
-			files = (
-				261952B8C002E3B4825AADB3 /* AlbumShare.appex in Embed Foundation Extensions */,
-			);
-			name = "Embed Foundation Extensions";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		063EBAEF481875CED99A6755 /* AssistantService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantService.swift; sourceTree = "<group>"; };
@@ -446,12 +424,10 @@
 				E2205DB8D2DA1854788A807E /* Sources */,
 				C236E5D795824D2576E2518B /* Resources */,
 				74FDB524228CADBAE0970340 /* Frameworks */,
-				71B4F34EE728C5D4EA3E9B54 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				959725848E0C019B6FD53A70 /* PBXTargetDependency */,
 			);
 			name = Album;
 			packageProductDependencies = (
@@ -472,20 +448,16 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					113CA2AB28E7212956A52CD2 = {
-						DevelopmentTeam = X7K385PZ68;
 						ProvisioningStyle = Automatic;
 					};
 					516B4460989F7FE265B9F8F3 = {
-						DevelopmentTeam = X7K385PZ68;
 						ProvisioningStyle = Automatic;
 					};
 					5ADD64A950DC6970C17A9943 = {
-						DevelopmentTeam = X7K385PZ68;
 						ProvisioningStyle = Automatic;
 						TestTargetID = A12B0EADAC3182E6DBB5FBDC;
 					};
 					A12B0EADAC3182E6DBB5FBDC = {
-						DevelopmentTeam = X7K385PZ68;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -633,11 +605,6 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		959725848E0C019B6FD53A70 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 516B4460989F7FE265B9F8F3 /* AlbumShare */;
-			targetProxy = 4B867AC2C405681AE31F8087 /* PBXContainerItemProxy */;
-		};
 		D8EE2DCDEC3A5F93BF786A21 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = A12B0EADAC3182E6DBB5FBDC /* Album */;
@@ -725,7 +692,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = Album/Album.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				INFOPLIST_FILE = Album/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -774,7 +740,6 @@
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = X7K385PZ68;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -828,7 +793,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = Album/Album.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				INFOPLIST_FILE = Album/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -877,7 +841,6 @@
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = X7K385PZ68;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;

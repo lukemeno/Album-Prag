@@ -321,6 +321,49 @@ final class StoreRegressionTests: XCTestCase {
         XCTAssertNil(store.data.places.first?.image, "Ein verspätetes Preview-Ergebnis darf nach Cancellation nicht gespeichert werden")
     }
 
+    func testCancelledImageSearchDropsLateVerifiedResultAndAllowsRetry() async throws {
+        let store = makeStore(at: makeRoot())
+        let place = Place(id: "cancelled-image", title: "Museum", lat: 50.09, lng: 14.42)
+        let fallback = UploadedPlaceImage(
+            id: "generated", storagePath: nil, pixelWidth: 1, pixelHeight: 1,
+            resolvedFor: ResolvedPlaceIdentity(title: place.title, latitude: 50.09, longitude: 14.42,
+                                               category: place.category, address: place.address),
+            generatedSource: .mapSnapshot
+        )
+        var saved = place
+        saved.image = .uploaded(fallback)
+        store.data.places = [saved]
+        XCTAssertTrue(store.persist())
+
+        let verified = PlaceImage(
+            imageURL: try XCTUnwrap(URL(string: "https://example.com/museum.jpg")),
+            sourceURL: try XCTUnwrap(URL(string: "https://example.com/museum")),
+            credit: "Test", provider: .legacy, licenseName: nil, licenseURL: nil,
+            providerPlaceID: nil, confidence: .verified, caption: nil
+        )
+        let gate = AsyncValueGate<PlaceImageSearchResult>()
+        var calls = 0
+        store.placeImageSearchResolver = { _ in
+            calls += 1
+            if calls == 1 { return await gate.wait() }
+            return PlaceImageSearchResult(image: verified, candidates: [], selectionVersion: PlaceImageService.ranking)
+        }
+
+        let task = Task { await store.refreshPlaceImages(placeID: saved.id) }
+        while calls < 1 { await Task.yield() }
+        task.cancel()
+        gate.resume(PlaceImageSearchResult(image: verified, candidates: [], selectionVersion: PlaceImageService.ranking))
+        await task.value
+
+        XCTAssertEqual(store.data.places.first?.image, saved.image, "Das verspätete verifizierte Ergebnis darf den Kartenfallback nicht ersetzen")
+        await store.refreshPlaceImages(placeID: saved.id)
+        XCTAssertEqual(calls, 2, "Cancellation muss den Lookup-Key für den nächsten Versuch freigeben")
+        guard case .external(let accepted) = store.data.places.first?.image else {
+            return XCTFail("Der nächste Lauf muss das verifizierte Foto übernehmen")
+        }
+        XCTAssertEqual(accepted.imageURL, verified.imageURL.absoluteString)
+    }
+
     func testOpeningHoursResolverUsesBoundedConcurrency() async throws {
         let store = makeStore(at: makeRoot())
         store.data.places = (0..<6).map { index in

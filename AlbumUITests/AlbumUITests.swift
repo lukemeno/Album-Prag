@@ -9,6 +9,7 @@ final class AlbumUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchEnvironment["ALBUM_TEST_STORE"] = "slot-photo-source"
         app.launchEnvironment["ALBUM_MY_NAME"] = "Luke"
+        app.launchEnvironment["ALBUM_QA_APPEARANCE"] = "dark"
         app.launchEnvironment["ALBUM_IMAGE_RESPONSE_BASE64"] = "eyJpbWFnZSI6bnVsbCwiY2FuZGlkYXRlcyI6W10sInNlbGVjdGlvbl92ZXJzaW9uIjozfQ=="
         app.launchEnvironment["ALBUM_DISABLE_LOOK_AROUND"] = "1"
         app.launch()
@@ -26,11 +27,11 @@ final class AlbumUITests: XCTestCase {
 
     func testMissingSeedPhotoShowsLocationFallback() throws {
         let app = XCUIApplication()
-        app.launchEnvironment["ALBUM_TEST_STORE"] = "slot-photo-fallback"
+        app.launchEnvironment["ALBUM_TEST_STORE"] = "slot-photo-fallback-\(UUID().uuidString)"
         app.launchEnvironment["ALBUM_MY_NAME"] = "Luke"
+        app.launchEnvironment["ALBUM_DEMO_PHOTO_FALLBACK"] = "1"
         app.launchEnvironment["ALBUM_IMAGE_RESPONSE_BASE64"] = "eyJpbWFnZSI6bnVsbCwiY2FuZGlkYXRlcyI6W10sInNlbGVjdGlvbl92ZXJzaW9uIjozfQ=="
         app.launchEnvironment["ALBUM_DISABLE_LOOK_AROUND"] = "1"
-        app.launchEnvironment["ALBUM_LINK_PREVIEW_TITLE"] = "Speculum Alchemiae"
         app.launchArguments += ["-AppleInterfaceStyle", "Dark"]
         app.launch()
         XCTAssertTrue(app.buttons["Ideen"].waitForExistence(timeout: 10))
@@ -253,8 +254,9 @@ final class AlbumUITests: XCTestCase {
 
     func testOpenIdeasRemainUndecidedAfterRelaunch() {
         let app = XCUIApplication()
-        app.launchEnvironment["ALBUM_TEST_STORE"] = "ui-" + UUID().uuidString
+        app.launchEnvironment["ALBUM_TEST_STORE"] = "slot-open-" + UUID().uuidString
         app.launchEnvironment["ALBUM_MY_NAME"] = "Luke"
+        app.launchEnvironment["ALBUM_DEMO_INBOX"] = "1"
         app.launch()
         app.buttons["Ideen"].tap()
         for _ in 0..<3 {
@@ -264,6 +266,7 @@ final class AlbumUITests: XCTestCase {
         }
         XCTAssertTrue(app.staticTexts["Noch offen"].waitForExistence(timeout: 5))
         app.terminate()
+        app.launchEnvironment.removeValue(forKey: "ALBUM_DEMO_INBOX")
         app.launch()
         app.buttons["Ideen"].tap()
         XCTAssertTrue(app.otherElements["Inbox-Ticket"].waitForExistence(timeout: 5))
@@ -399,6 +402,28 @@ final class AlbumUITests: XCTestCase {
         XCTAssertTrue(reopened.otherElements["Inbox-Ticket"].waitForExistence(timeout: 5), "Der Reststapel muss erhalten bleiben")
     }
 
+    func testDeferredIdeasCanBeViewedAndRestoredFromArchive() {
+        let store = "slot-deferred-archive-\(UUID().uuidString)"
+        let app = XCUIApplication()
+        app.launchEnvironment["ALBUM_TEST_STORE"] = store
+        app.launchEnvironment["ALBUM_MY_NAME"] = "Luke"
+        app.launchEnvironment["ALBUM_START_TAB"] = "Ideen"
+        app.launchEnvironment["ALBUM_DEMO_INBOX"] = "1"
+        app.launch()
+
+        XCTAssertTrue(app.otherElements["Inbox-Ticket"].waitForExistence(timeout: 15))
+        app.buttons["Nein"].tap()
+        XCTAssertTrue(app.buttons["Letzte Entscheidung rückgängig"].waitForExistence(timeout: 5))
+        let deferredTitle = app.staticTexts["Deferred-Idea-motion-inbox-bridge-Title"]
+        app.buttons["Weggelegt"].tap()
+        XCTAssertTrue(deferredTitle.waitForExistence(timeout: 5), "Abgelehnte Ideen müssen im Archiv sichtbar sein")
+
+        app.buttons["Deferred-Idea-motion-inbox-bridge-Restore"].tap()
+        XCTAssertFalse(deferredTitle.waitForExistence(timeout: 2), "Wiederhergestellte Ideen verlassen das Archiv")
+        app.buttons["Entdecken"].tap()
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Karlsbrücke'")).firstMatch.waitForExistence(timeout: 5))
+    }
+
     func testInboxSubthresholdOpposingReleasesKeepSameCardUndecided() {
         let app = XCUIApplication()
         app.launchEnvironment["ALBUM_TEST_STORE"] = "slot-ideas-abort-\(UUID().uuidString)"
@@ -506,7 +531,6 @@ final class AlbumUITests: XCTestCase {
         app.launchEnvironment["ALBUM_START_TAB"] = "Karte"
         app.launch()
         let auto = app.buttons["Tage planen"]
-        XCTAssertTrue(auto.waitForExistence(timeout: 15))
         let initialExpand = app.buttons["Liste ausklappen"]
         XCTAssertTrue(initialExpand.waitForExistence(timeout: 5))
         initialExpand.tap()
@@ -515,6 +539,10 @@ final class AlbumUITests: XCTestCase {
         XCTAssertTrue(unassignedRow.waitForExistence(timeout: 5))
         let unassignedControls = app.buttons.matching(NSPredicate(format: "label == 'Tag festlegen'"))
         XCTAssertTrue(unassignedControls.firstMatch.waitForExistence(timeout: 5), "Die isolierte Autoplan-Fixture muss vor der Vorschau ungeplante Orte ausweisen")
+        let actions = app.buttons["Listenaktionen"]
+        XCTAssertTrue(actions.waitForExistence(timeout: 5))
+        actions.tap()
+        XCTAssertTrue(auto.waitForExistence(timeout: 5))
         auto.tap()
         XCTAssertTrue(app.navigationBars["Vorschlag"].waitForExistence(timeout: 5))
         let apply = app.buttons["Übernehmen"]
@@ -835,7 +863,7 @@ extension AlbumUITests {
         XCTAssertTrue(details.waitForExistence(timeout: 10))
         details.tap()
         XCTAssertTrue(app.buttons["Bearbeiten"].waitForExistence(timeout: 5))
-        app.buttons["Bearbeiten"].tap()
+        app.buttons["Bearbeiten"].firstMatch.tap()
 
         // Persist the fixture-backed place before starting the late-result scenario.
         // The relaunch below must read this baseline from the isolated store rather
@@ -847,7 +875,7 @@ extension AlbumUITests {
         XCTAssertTrue(baselineSave.isHittable, "Baseline-Speichern muss vor dem Late-Resolver hittable sein")
         baselineSave.tap()
         XCTAssertTrue(app.buttons["Bearbeiten"].waitForExistence(timeout: 5))
-        app.buttons["Bearbeiten"].tap()
+        app.buttons["Bearbeiten"].firstMatch.tap()
 
         let choose = app.buttons["Bild wählen"]
         for _ in 0..<6 where !choose.isHittable { app.swipeUp() }
@@ -893,7 +921,7 @@ extension AlbumUITests {
         XCTAssertTrue(relaunchedDetails.waitForExistence(timeout: 10))
         relaunchedDetails.tap()
         XCTAssertTrue(app.buttons["Bearbeiten"].waitForExistence(timeout: 5))
-        app.buttons["Bearbeiten"].tap()
+        app.buttons["Bearbeiten"].firstMatch.tap()
         XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Late QA Result'")).firstMatch.exists, "Der verspätete Resolver darf keinen Foto-Draft persistieren")
         let relaunchedCancel = app.buttons["PlaceEditor-Cancel"].exists ? app.buttons["PlaceEditor-Cancel"] : app.buttons["Abbrechen"]
         XCTAssertTrue(relaunchedCancel.waitForExistence(timeout: 5))

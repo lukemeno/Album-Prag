@@ -97,6 +97,14 @@ struct InboxView: View {
 
             if section == .collection {
                 CollectionHomeView(add: add)
+            } else if section == .deferred {
+                DeferredIdeasView(places: store.deferred, root: store.root) { place in
+                    editing = place
+                } restore: { place in
+                    store.restoreDeferred(place)
+                } restoreAll: {
+                    store.restoreDeferred()
+                }
             } else if let place = undecided.first {
                 if dynamicTypeSize.isAccessibilitySize {
                     frontCard(place)
@@ -423,9 +431,88 @@ struct InboxView: View {
 }
 
 private enum InboxSection: String, CaseIterable, Identifiable {
-    case discover, collection
+    case discover, deferred, collection
     var id: String { rawValue }
-    var title: String { self == .discover ? "Entdecken" : "Sammlung" }
+    var title: String {
+        switch self {
+        case .discover: "Entdecken"
+        case .deferred: "Weggelegt"
+        case .collection: "Sammlung"
+        }
+    }
+}
+
+private struct DeferredIdeasView: View {
+    let places: [Place]
+    let root: URL
+    let edit: (Place) -> Void
+    let restore: (Place) -> Void
+    let restoreAll: () -> Void
+
+    var body: some View {
+        if places.isEmpty {
+            ContentUnavailableView {
+                Label("Nichts weggelegt", systemImage: "tray")
+            } description: {
+                Text("Ideen, die du mit Nein beantwortest, kannst du hier später wieder ansehen.")
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .accessibilityIdentifier("Deferred-Ideas-Empty")
+        } else {
+            ScrollView {
+                LazyVStack(spacing: Stitch.Space.s) {
+                    ForEach(places) { place in
+                        HStack(spacing: Stitch.Space.m) {
+                            AlbumPhoto(asset: place.image, root: root, fallbackLocation: place.coordinate.map {
+                                ResolvedPlaceIdentity(title: place.title, latitude: $0.latitude, longitude: $0.longitude,
+                                                     category: place.category, address: place.address)
+                            })
+                            .frame(width: 88, height: 88)
+                            .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
+                            .accessibilityHidden(true)
+
+                            VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
+                                Text(place.title.isEmpty ? "Neue Idee" : place.title)
+                                    .font(Stitch.Face.place(21, relativeTo: .headline))
+                                    .foregroundStyle(Stitch.ink)
+                                    .lineLimit(2)
+                                    .accessibilityIdentifier("Deferred-Idea-\(place.id)-Title")
+                                Text([place.category, place.sourceLabel].filter { !$0.isEmpty }.joined(separator: " · "))
+                                    .font(.subheadline)
+                                    .foregroundStyle(Stitch.inkSoft)
+                                    .lineLimit(2)
+                                Button("Idee ansehen") { edit(place) }
+                                    .font(.subheadline.weight(.medium))
+                                    .buttonStyle(AlbumTextActionButtonStyle())
+                                    .accessibilityLabel("Idee ansehen: \(place.title)")
+                            }
+                            Spacer(minLength: 0)
+                            Button {
+                                restore(place)
+                            } label: {
+                                Image(systemName: "arrow.uturn.backward")
+                                    .frame(width: Stitch.Size.touch, height: Stitch.Size.touch)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(HeaderIconButton())
+                            .accessibilityLabel("Idee wiederherstellen: \(place.title)")
+                            .accessibilityIdentifier("Deferred-Idea-\(place.id)-Restore")
+                        }
+                        .padding(Stitch.Space.s)
+                        .background(Stitch.card, in: RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous).strokeBorder(Stitch.rule))
+                    }
+
+                    Button("Alle Ideen zurückholen", action: restoreAll)
+                        .buttonStyle(AlbumTextActionButtonStyle())
+                        .padding(.top, Stitch.Space.xs)
+                        .accessibilityIdentifier("Deferred-Ideas-Restore-All")
+                }
+                .padding(.vertical, Stitch.Space.s)
+            }
+            .accessibilityIdentifier("Deferred-Ideas-List")
+        }
+    }
 }
 
 private enum InboxDecision { case shelve, frank, open }

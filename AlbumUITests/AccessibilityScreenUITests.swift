@@ -7,6 +7,7 @@ extension AlbumUITests {
         app.launchEnvironment["ALBUM_MY_NAME"] = "Luke"
         app.launchEnvironment["ALBUM_START_TAB"] = startTab
         app.launchEnvironment["ALBUM_EMPTY_TEST_STORE"] = "1"
+        app.launchEnvironment["ALBUM_QA_DYNAMIC_TYPE"] = "accessibility5"
         for (key, value) in extra { app.launchEnvironment[key] = value }
         app.launch()
         return app
@@ -109,7 +110,7 @@ extension AlbumUITests {
         let addIdea = ideas.navigationBars["Ideen"].buttons["Idee einwerfen"]
         XCTAssertTrue(addIdea.waitForExistence(timeout: 8))
         XCTAssertTrue(addIdea.isHittable, "Die primäre Idee-Aktion muss erreichbar bleiben")
-        XCTAssertTrue(ideas.staticTexts["Sehenswert"].waitForExistence(timeout: 8), "Die Kartenkategorie muss sichtbar bleiben")
+        XCTAssertTrue(ideas.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Sehenswert")).firstMatch.waitForExistence(timeout: 8), "Die Kartenkategorie muss sichtbar bleiben")
         attachAccessibilityScreen(ideas, name: "Ideen Large Type")
 
         // Prüfe die tatsächliche 44-Punkt-Touchfläche an allen vier Randpunkten.

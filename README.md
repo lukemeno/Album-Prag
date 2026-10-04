@@ -7,7 +7,7 @@ Native SwiftUI-App für die Reise nach Prag vom 4. bis 9. Oktober 2026. Daten bl
 1. `Album.xcodeproj` in Xcode öffnen.
 2. Das Schema **Album** und einen iPhone-Simulator wählen.
 3. Mit `⌘R` starten.
-4. Links aus Instagram oder TikTok kopieren und in Album über **+** einfügen.
+4. Links aus Instagram oder TikTok kopieren und in Album über **+** einfügen. Album liest den Link aus der Zwischenablage ein; danach kann die Vorschau gespeichert werden.
 
 Das Projekt ist bereits mit dem Album-Supabase-Backend konfiguriert; für den normalen Start müssen keine Zugangsdaten eingegeben werden. Die App unterstützt Hoch- und Querformat sowie beide Drehrichtungen. Im Querformat wechselt das Ortsblatt auf die linke Seite. Karte, Ortssuche und TikTok-oEmbed benötigen Internet. Instagram wird nicht ausgelesen.
 
@@ -75,7 +75,9 @@ Der Link ist der Zugangsschlüssel und läuft nach 30 Tagen ab. Ein beigetretene
 
 ## Auf einem iPhone installieren
 
-Ein kostenloses Personal Team reicht aus, weil die App keine iCloud-, App-Group- oder Share-Extension-Entitlements verwendet. In Xcode unter **Targets → Album → Signing & Capabilities** das eigene Team wählen, eine eindeutige Bundle-ID setzen und das verbundene iPhone als Ziel starten. Für das zweite iPhone denselben Vorgang wiederholen. Die Installation über ein Personal Team muss regelmäßig erneuert werden; TestFlight benötigt weiterhin das Apple Developer Program.
+Ein kostenloses Personal Team reicht für das Standardziel **Album**, weil es keine iCloud- oder App-Group-Entitlements verwendet. In Xcode unter **Targets → Album → Signing & Capabilities** das eigene Team wählen und das verbundene iPhone als Ziel starten. Die vorhandene Bundle-ID beibehalten und auf beiden iPhones dieselbe verwenden, damit eine Neuinstallation vorhandene App-Daten weiter nutzt. Die Installation über ein Personal Team muss regelmäßig erneuert werden; TestFlight benötigt weiterhin das Apple Developer Program.
+
+Die native Share-Extension im Projekt ist als optionaler historischer Code enthalten und gehört nicht zum Personal-Team-Installationsweg. Für diesen Installationsweg Links in Instagram oder TikTok über **Kopieren** übernehmen und in Album über **+** einfügen.
 
 ## Prüfungen
 

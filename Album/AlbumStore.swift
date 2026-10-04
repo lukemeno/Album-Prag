@@ -167,6 +167,14 @@ private struct OpeningHoursFetchResult: Sendable {
                       address: "Národní 22, Praha 1", lat: 50.0819, lng: 14.4185, franked: true, day: 4, dayOrder: 0, approvals: ["Luke"])
             ]
         }
+        if ProcessInfo.processInfo.environment["ALBUM_DEMO_PHOTO_FALLBACK"] == "1" {
+            data.places = [
+                Place(id: "photo-fallback-speculum", title: "Speculum Alchemiae",
+                      sourceURL: "https://example.invalid/speculum-alchemiae",
+                      category: "Sehenswert", address: "Haštalská 795/1, 110 00 Praha 1",
+                      lat: 50.0907544, lng: 14.4224672)
+            ]
+        }
         #endif
         #if DEBUG
         let isAutomatedTest = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
@@ -355,8 +363,14 @@ private struct OpeningHoursFetchResult: Sendable {
     }
 
     func deferPlace(_ place: Place) { var p = place; p.deferred = true; upsert(p) }
+    func restoreDeferred(_ place: Place) {
+        var restored = place
+        restored.deferred = false
+        restored.passedBy.removeAll { $0 == me }
+        upsert(restored)
+    }
     func restoreDeferred() {
-        for var p in deferred { p.deferred = false; p.passedBy.removeAll { $0 == me }; upsert(p) }
+        for place in deferred { restoreDeferred(place) }
     }
 
     /// Setzt einen Ort ans Ende eines Tages (oder nimmt ihn aus der Tagesplanung).
