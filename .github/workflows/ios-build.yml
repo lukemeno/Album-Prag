@@ -10,7 +10,8 @@ on:
 
 concurrency:
   group: ios-build-${{ github.ref }}
-  cancel-in-progress: true
+  # Laufende Läufe (UI-Tests dauern ~30 min) nicht abbrechen; neue warten.
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -87,6 +88,12 @@ jobs:
           sudo xcode-select -s /Applications/Xcode_26.6.app
           mkdir -p logs
 
+      - name: Simulator starten
+        run: |
+          udid=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print([x['udid'] for k,v in d.items() if k.endswith('iOS-26-5') for x in v if x['name']=='iPhone 17 Pro'][0])")
+          xcrun simctl boot "$udid" || true
+          xcrun simctl bootstatus "$udid" -b
+
       - name: Screen-Tour (iPhone 17 Pro, iOS 26.5)
         run: |
           set -o pipefail
@@ -152,6 +159,12 @@ jobs:
         run: |
           sudo xcode-select -s /Applications/Xcode_26.6.app
           mkdir -p logs
+
+      - name: Simulator starten
+        run: |
+          udid=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print([x['udid'] for k,v in d.items() if k.endswith('iOS-26-5') for x in v if x['name']=='iPhone 17 Pro'][0])")
+          xcrun simctl boot "$udid" || true
+          xcrun simctl bootstatus "$udid" -b
 
       - name: UI-Tests (iPhone 17 Pro, iOS 26.5)
         run: |

@@ -27,7 +27,12 @@ enum Stitch {
     /// Nur Zierde (Stempelring, Sterne), nie Schrift.
     static let gold = dynamic(light: (196, 165, 116), dark: (214, 186, 138))
     static let onAccent = Color(red: 1, green: 1, blue: 1)
-    static let actionFill = Color(red: 15 / 255, green: 24 / 255, blue: 49 / 255)
+    /// Hauptknopf: hell Navy mit weißer Schrift, dunkel helle Tinte mit Navy-Schrift.
+    /// Ein Navy-Knopf auf dunklem Papier wäre im Dunkelmodus kaum zu sehen.
+    static let actionFill = dynamic(light: (15, 24, 49), dark: (233, 238, 246))
+    static let onAction = dynamic(light: (255, 255, 255), dark: (15, 24, 49))
+    /// Der KI-Kreis bleibt in beiden Modi dunkel.
+    static let night = Color(red: 15 / 255, green: 24 / 255, blue: 49 / 255)
     /// Hintergrund hinter Vollbildfotos, in beiden Modi dunkel.
     static let scrim = Color(red: 20 / 255, green: 18 / 255, blue: 16 / 255)
 
@@ -305,7 +310,7 @@ struct StitchButton: ButtonStyle {
             .padding(.horizontal, Stitch.Space.m)
             .padding(.vertical, Stitch.Space.s)
             .frame(maxWidth: .infinity, minHeight: Stitch.Size.button, alignment: .center)
-            .foregroundStyle(primary ? Stitch.onAccent : Stitch.ink)
+            .foregroundStyle(primary ? Stitch.onAction : Stitch.ink)
             .background(primary ? Stitch.actionFill : Stitch.card, in: Capsule())
             .overlay(Capsule().strokeBorder(Stitch.rule, lineWidth: primary ? 0 : 1))
             .opacity(enabled ? 1 : 0.45)

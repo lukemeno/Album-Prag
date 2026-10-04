@@ -109,8 +109,11 @@ struct TripMapView: View {
                 .frame(minHeight: 56)
                 .background(Stitch.card.opacity(0.96), in: Capsule())
                 .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
-                .padding(.horizontal, 20)
+                // Im Querformat liegt das Suchfeld über der Karte rechts vom Ortsblatt, nicht über dessen Titel.
+                .padding(.leading, isLandscape ? (detent == .hidden ? 150 : coveredWidth + Stitch.Space.m) : 20)
+                .padding(.trailing, 20)
                 .padding(.top, 8)
+                .animation(reduceMotion ? nil : Stitch.Motion.panel, value: coveredWidth)
                 .opacity(detent == .full && !isLandscape ? 0 : 1)
                 .allowsHitTesting(detent != .full || isLandscape)
             }

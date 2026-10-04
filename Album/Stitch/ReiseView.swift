@@ -6,6 +6,7 @@ struct ReiseView: View {
     @Environment(AlbumStore.self) private var store
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     var openIdeas: () -> Void
     var openMap: () -> Void
     var openDocuments: () -> Void
@@ -31,11 +32,13 @@ struct ReiseView: View {
     }
 
     /// Papier unter der Statusleiste: Beim Scrollen liegen Uhrzeit und Fotos nicht übereinander.
-    /// Deckt den Bildschirm von oben bis zur sicheren Fläche, egal wo der Rahmen dieser Ansicht beginnt.
+    /// Deckt genau den Streifen über der sicheren Fläche: Beginnt diese Ansicht schon unter der Statusleiste,
+    /// ist das ihr Abstand nach oben, sonst die obere Einrückung (nie beides, sonst verschwindet der Kopf).
     private func statusBarPaper(_ proxy: GeometryProxy) -> some View {
         let top = max(proxy.frame(in: .global).minY, 0)
+        let height = top > 0 ? top : proxy.safeAreaInsets.top
         return VStack(spacing: 0) {
-            Stitch.paper.frame(height: top + proxy.safeAreaInsets.top)
+            Stitch.paper.frame(height: height)
             LinearGradient(colors: [Stitch.paper, Stitch.paper.opacity(0)], startPoint: .top, endPoint: .bottom)
                 .frame(height: Stitch.Space.xs)
         }
@@ -125,7 +128,8 @@ struct ReiseView: View {
                         .padding(Stitch.Space.l)
                 }
             }
-            .frame(height: 300)
+            // Im Querformat flacher, damit Titel und Daten über der Tab-Leiste stehen.
+            .frame(height: verticalSizeClass == .compact ? 220 : 300)
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             .overlay(alignment: .topTrailing) {
                 // Unterwegs: der Stempel des heutigen Tages, unter dem Menüknopf.
@@ -177,7 +181,7 @@ struct ReiseView: View {
 
     private var participants: some View {
         HStack(spacing: Stitch.Space.s) {
-            HStack(spacing: -8) {
+            HStack(spacing: -avatarSize * 0.24) {
                 ForEach(participantNames, id: \.self) { name in
                     Text(initials(for: name))
                         .font(.caption2.weight(.bold))
@@ -185,7 +189,7 @@ struct ReiseView: View {
                         .minimumScaleFactor(0.5)
                         .padding(.horizontal, 3)
                         .foregroundStyle(Stitch.ink)
-                        .frame(width: 34, height: 34)
+                        .frame(width: avatarSize, height: avatarSize)
                         .background(Stitch.Mat.sky, in: Circle())
                         .overlay(Circle().stroke(Stitch.card, lineWidth: 2))
                         .accessibilityLabel(name)
@@ -264,6 +268,8 @@ struct ReiseView: View {
     }
 
     @ScaledMetric(relativeTo: .body) private var itineraryTileWidth: CGFloat = 90
+    /// Initialenkreise wachsen mit der Schrift, damit große Buchstaben nicht über den Rand laufen.
+    @ScaledMetric(relativeTo: .caption2) private var avatarSize: CGFloat = 34
 
     private func itineraryDay(_ day: Int) -> some View {
         let places = store.plan(for: day)

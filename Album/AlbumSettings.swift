@@ -61,7 +61,7 @@ struct AlbumSettings: View {
                                     catch { localError = error.localizedDescription }
                                 }
                             } label: {
-                                if preparing { ProgressView().tint(Stitch.onAccent) } else { Label("Einladung erstellen", systemImage: "link") }
+                                if preparing { ProgressView().tint(Stitch.onAction) } else { Label("Einladung erstellen", systemImage: "link") }
                             }
                             .buttonStyle(AlbumActionButtonStyle(primary: true)).disabled(preparing || store.syncing)
                         }
@@ -136,7 +136,7 @@ struct AlbumActionButtonStyle: ButtonStyle {
             .padding(.horizontal, Stitch.Space.m)
             .padding(.vertical, Stitch.Space.s)
             .frame(maxWidth: .infinity, minHeight: Stitch.Size.button, alignment: .center)
-            .foregroundStyle(primary ? Stitch.onAccent : Stitch.ink)
+            .foregroundStyle(primary ? Stitch.onAction : Stitch.ink)
             .background(primary ? Stitch.actionFill : Stitch.selection, in: Capsule())
             .overlay(Capsule().strokeBorder(primary ? .clear : Stitch.rule, lineWidth: 1))
             .opacity(enabled ? 1 : 0.45)

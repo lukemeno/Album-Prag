@@ -94,7 +94,7 @@ struct AlbumRoot: View {
                         .font(.system(size: 20, weight: .medium))
                         .foregroundStyle(Stitch.onAccent)
                         .frame(width: 48, height: 48)
-                        .background(Stitch.actionFill, in: Circle())
+                        .background(Stitch.night, in: Circle())
                         .overlay(Circle().strokeBorder(Stitch.rule, lineWidth: colorScheme == .dark ? 1 : 0))
                         .stitchElevation(.floating)
                 }
