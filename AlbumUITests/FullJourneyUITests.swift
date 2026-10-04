@@ -99,7 +99,7 @@ final class FullJourneyUITests: XCTestCase {
         }
 
         // Open the nested trip editor, exercise the keyboard, then cancel.
-        app.buttons["Bearbeiten"].tap()
+        app.buttons["Bearbeiten"].firstMatch.tap()
         XCTAssertTrue(app.navigationBars["Reisedaten"].waitForExistence(timeout: 5))
         let notes = app.textFields["TripEditor-Notes"]
         XCTAssertTrue(notes.waitForExistence(timeout: 5), "Reisedaten-Notizfeld ist erreichbar")
@@ -108,13 +108,13 @@ final class FullJourneyUITests: XCTestCase {
         notes.typeText(" Journey")
         app.buttons["Abbrechen"].tap()
         XCTAssertTrue(app.navigationBars["Unterlagen"].waitForExistence(timeout: 5))
-        app.buttons["Bearbeiten"].tap()
+        app.buttons["Bearbeiten"].firstMatch.tap()
         XCTAssertTrue(app.navigationBars["Reisedaten"].waitForExistence(timeout: 5))
         XCTAssertEqual(app.textFields["TripEditor-Notes"].value as? String, originalNotes, "Abbrechen verwirft die Notizänderung")
         app.buttons["Abbrechen"].tap()
 
         // Save a second edit, then dismiss the outer sheet.
-        app.buttons["Bearbeiten"].tap()
+        app.buttons["Bearbeiten"].firstMatch.tap()
         XCTAssertTrue(app.navigationBars["Reisedaten"].waitForExistence(timeout: 5))
         let editorNotes = app.textFields["TripEditor-Notes"]
         XCTAssertTrue(editorNotes.waitForExistence(timeout: 5))
@@ -130,7 +130,7 @@ final class FullJourneyUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Alle Reiseunterlagen"].waitForExistence(timeout: 5))
         app.buttons["Alle Reiseunterlagen"].tap()
         XCTAssertTrue(app.navigationBars["Unterlagen"].waitForExistence(timeout: 5))
-        app.buttons["Bearbeiten"].tap()
+        app.buttons["Bearbeiten"].firstMatch.tap()
         XCTAssertTrue(app.navigationBars["Reisedaten"].waitForExistence(timeout: 5))
         XCTAssertTrue((app.textFields["TripEditor-Notes"].value as? String)?.contains("Saved") == true, "Gespeicherte Notiz bleibt nach Relaunch erhalten")
         app.buttons["Abbrechen"].tap()
@@ -156,20 +156,20 @@ final class FullJourneyUITests: XCTestCase {
         XCTAssertTrue(qaPlaceDetails.waitForExistence(timeout: 5), "Die Detailaktion der QA-Ortszeile muss erreichbar sein")
         XCTAssertTrue(qaPlaceDetails.isHittable, "Die Detailaktion muss nach dem Rückscrollen sichtbar sein")
         qaPlaceDetails.tap()
-        XCTAssertTrue(app.buttons["Bearbeiten"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Bearbeiten"].firstMatch.waitForExistence(timeout: 5))
 
         // Detail -> editor -> cancel must leave the detail sheet open.
-        app.buttons["Bearbeiten"].tap()
+        app.buttons["Bearbeiten"].firstMatch.tap()
         let title = app.textFields["PlaceEditor-Title"]
         XCTAssertTrue(title.waitForExistence(timeout: 5))
         let originalTitle = title.value as? String ?? ""
         title.tap()
         title.typeText(" cancelled")
         app.buttons["PlaceEditor-Cancel"].tap()
-        XCTAssertTrue(app.buttons["Bearbeiten"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Bearbeiten"].firstMatch.waitForExistence(timeout: 5))
 
         // Re-open the editor and use the visible toggle to mark visited.
-        app.buttons["Bearbeiten"].tap()
+        app.buttons["Bearbeiten"].firstMatch.tap()
         XCTAssertEqual(app.textFields["PlaceEditor-Title"].value as? String, originalTitle, "Abbrechen verwirft die Titeländerung")
         let visited = app.switches["Schon besucht"]
         let visitedControl = revealVisitedToggle(app, visited, name: "Besucht aktivieren")
@@ -184,7 +184,7 @@ final class FullJourneyUITests: XCTestCase {
         add(afterActivate)
         attachAX(app, name: "Besucht aktivieren-nach-Tap")
         app.buttons["PlaceEditor-Save"].tap()
-        XCTAssertTrue(app.buttons["Bearbeiten"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Bearbeiten"].firstMatch.waitForExistence(timeout: 5))
         let visitedTrack = app.descendants(matching: .any).matching(identifier: "Besucht-Spur").firstMatch
         XCTAssertTrue(visitedTrack.waitForExistence(timeout: 5))
         XCTAssertEqual(visitedTrack.label, "Besucht")
@@ -204,13 +204,13 @@ final class FullJourneyUITests: XCTestCase {
         XCTAssertTrue(relaunchedQAPlaceDetails.waitForExistence(timeout: 5), "Die Detailaktion derselben QA-Ortszeile muss nach Relaunch erreichbar sein")
         XCTAssertTrue(relaunchedQAPlaceDetails.isHittable, "Dieselbe Detailaktion muss nach dem Rückscrollen sichtbar sein")
         relaunchedQAPlaceDetails.tap()
-        XCTAssertTrue(app.buttons["Bearbeiten"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Bearbeiten"].firstMatch.waitForExistence(timeout: 5))
         let persistedTrack = app.descendants(matching: .any).matching(identifier: "Besucht-Spur").firstMatch
         XCTAssertTrue(persistedTrack.waitForExistence(timeout: 5))
         XCTAssertEqual(persistedTrack.label, "Besucht", "Besucht bleibt nach Relaunch erhalten")
 
         // Explicit undo: inspect the current detail, open editor again, turn it off, save.
-        app.buttons["Bearbeiten"].tap()
+        app.buttons["Bearbeiten"].firstMatch.tap()
         let undoVisited = app.switches["Schon besucht"]
         let undoControl = revealVisitedToggle(app, undoVisited, name: "Besucht zurücknehmen")
         XCTAssertEqual(undoVisited.value as? String, "1")
@@ -224,7 +224,7 @@ final class FullJourneyUITests: XCTestCase {
         add(afterUndo)
         attachAX(app, name: "Besucht zurücknehmen-nach-Tap")
         app.buttons["PlaceEditor-Save"].tap()
-        XCTAssertTrue(app.buttons["Bearbeiten"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Bearbeiten"].firstMatch.waitForExistence(timeout: 5))
         let undoneTrack = app.descendants(matching: .any).matching(identifier: "Besucht-Spur").firstMatch
         XCTAssertTrue(undoneTrack.waitForExistence(timeout: 5))
         XCTAssertEqual(undoneTrack.label, "Als besucht markieren", "Der Besuch ist über den aktuellen Toggle zurückgenommen")
@@ -317,7 +317,7 @@ final class FullJourneyUITests: XCTestCase {
         let place = app.buttons["Ort ansehen: Letná"]
         XCTAssertTrue(place.waitForExistence(timeout: 5))
         place.tap()
-        XCTAssertTrue(app.buttons["Bearbeiten"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Bearbeiten"].firstMatch.waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Schließen"].isHittable)
         app.buttons["Schließen"].tap()
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "Reiseerinnerungen").firstMatch.exists)
@@ -486,8 +486,8 @@ final class FullJourneyUITests: XCTestCase {
         XCTAssertTrue(qaPlaceRow.label.contains("Altstädter Ring"), "Der Titel der QA-Zeile muss im AX-Label erreichbar bleiben")
         XCTAssertTrue(qaPlaceRow.label.contains("Sehenswert"), "Die Metadaten der QA-Zeile müssen im AX-Label erreichbar bleiben")
         qaPlaceDetails.tap()
-        XCTAssertTrue(app.buttons["Bearbeiten"].waitForExistence(timeout: 5))
-        app.buttons["Bearbeiten"].tap()
+        XCTAssertTrue(app.buttons["Bearbeiten"].firstMatch.waitForExistence(timeout: 5))
+        app.buttons["Bearbeiten"].firstMatch.tap()
         let title = app.textFields["PlaceEditor-Title"]
         XCTAssertTrue(title.waitForExistence(timeout: 5))
         XCTAssertTrue(title.isHittable, "Der Editor-Titel muss in Large Type erreichbar bleiben")
@@ -495,6 +495,6 @@ final class FullJourneyUITests: XCTestCase {
         XCTAssertTrue(cancel.waitForExistence(timeout: 5), "Der Editor muss einen eindeutigen Abbrechen-Button exponieren")
         XCTAssertTrue(cancel.isHittable, "Abbrechen muss in Large Type hittable sein")
         cancel.tap()
-        XCTAssertTrue(app.buttons["Bearbeiten"].waitForExistence(timeout: 5), "Abbrechen muss zum Ortsdetail zurückkehren")
+        XCTAssertTrue(app.buttons["Bearbeiten"].firstMatch.waitForExistence(timeout: 5), "Abbrechen muss zum Ortsdetail zurückkehren")
     }
 }

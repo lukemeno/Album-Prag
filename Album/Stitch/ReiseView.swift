@@ -72,7 +72,6 @@ struct ReiseView: View {
             refreshing = false
         }
         .sensoryFeedback(.impact(weight: .light), trigger: refreshed)
-        .toolbar { islandItem }
         #if DEBUG
         .task { await demoSync() }
         #endif
@@ -114,6 +113,12 @@ struct ReiseView: View {
                 .accessibilityLabel("Neue Idee")
             }
             .animation(reduceMotion ? Stitch.Motion.reducedFade : Stitch.Motion.panel, value: store.syncOffline)
+            // Die Abgleich-Insel schwebt mittig über der Kopfzeile. Die Navigationsleiste der Reise ist ausgeblendet,
+            // als Leisten-Element war die Insel deshalb nie zu sehen. Offline übernimmt die Kapsel links das Pulsieren.
+            .overlay(alignment: .top) {
+                SyncIsland(suppressed: refreshing || store.syncOffline)
+                    .padding(.top, (Stitch.Size.touch - 32) / 2)
+            }
 
             ZStack(alignment: .bottomLeading) {
                 AlbumPhoto(asset: .bundled(name: "imgPragueCover"))
@@ -522,15 +527,6 @@ struct ReiseView: View {
 
     // MARK: Abgleich
 
-    /// Die Insel sitzt links in der Leiste, wo sonst nichts steht; ohne eigene Glasfläche des Systems.
-    @ToolbarContentBuilder private var islandItem: some ToolbarContent {
-        if #available(iOS 26.0, *) {
-            ToolbarItem(placement: .topBarLeading) { SyncIsland(suppressed: refreshing) }
-                .sharedBackgroundVisibility(.hidden)
-        } else {
-            ToolbarItem(placement: .topBarLeading) { SyncIsland(suppressed: refreshing) }
-        }
-    }
 
     #if DEBUG
     /// `ALBUM_DEMO_SYNC=1|none`: zeigt die Abgleich-Insel mit simulierten Neuigkeiten, ohne zu schreiben oder abzugleichen.

@@ -117,48 +117,41 @@ final class AlbumMotionUITests: XCTestCase {
         XCTAssertFalse(island.isHittable)
     }
 
-    /// B · Foto-Stapel im Ortsdetail: wischen blättert zyklisch, Zähler blättert ohne Geste, Tippen öffnet das Foto groß.
-    /// Der lokale Demo-Store liefert Café Savoy mit drei Fotos.
+    /// B · Foto-Stapel: Er lebt in den Erinnerungen (das Ortsdetail zeigt Fotos als Streifen).
+    /// Wischen blättert zyklisch, der Zähler blättert ohne Geste, Tippen öffnet das Foto groß.
+    /// Der Demo-Rückblick liefert Letná mit zwei Fotos.
     func testPhotoStack() throws {
-        let (app, shot) = try launch(["ALBUM_START_TAB": "Karte", "ALBUM_DEMO_MOTION": "1"], allowEmptyStore: true)
-        let grabber = app.buttons["Liste ausklappen"]
-        XCTAssertTrue(grabber.waitForExistence(timeout: 15))
-        grabber.tap()
-        let photoPlace = ProcessInfo.processInfo.environment["ALBUM_PHOTO_STACK_PLACE"] ?? "Savoy"
-        let detail = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Details zu' AND label CONTAINS %@", photoPlace)).firstMatch
-        XCTAssertTrue(detail.waitForExistence(timeout: 8))
-        detail.tap()
-        let counter = app.buttons["Foto-Zähler"]
+        let (app, shot) = try launch(["ALBUM_TODAY": "2026-10-10", "ALBUM_DEMO_MEMORIES": "1"], allowEmptyStore: true)
+        let memories = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Erinnerungen ansehen'")).firstMatch
+        XCTAssertTrue(memories.waitForExistence(timeout: 15))
+        memories.tap()
+        let counter = app.buttons["Foto-Zähler"].firstMatch
         XCTAssertTrue(counter.waitForExistence(timeout: 8))
-        let stack = app.otherElements["Foto-Stapel"]
+        let stack = app.otherElements["Foto-Stapel"].firstMatch
         XCTAssertTrue(stack.exists)
-        sleep(4); shot("B-1-stapel")
-        XCTAssertTrue(counter.label.contains("1 von"))
+        sleep(2); shot("B-1-stapel")
+        XCTAssertTrue(counter.label.contains("1 von 2"))
         if reduceMotionRequested {
             // Reduced Motion disables the PhotoStack gesture; the counter is the supported equivalent.
             counter.tap(); sleep(1)
-            XCTAssertTrue(counter.label.contains("2 von"))
+            XCTAssertTrue(counter.label.contains("2 von 2"))
             counter.tap(); sleep(1)
-            XCTAssertTrue(counter.label.contains("3 von"))
-            counter.tap(); sleep(1)
-            XCTAssertTrue(counter.label.contains("1 von"))
+            XCTAssertTrue(counter.label.contains("1 von 2"))
         } else {
-        let start = stack.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.4))
-        // Zu kurz gewischt: nichts blättert, der Stapel federt zurück.
-        DispatchQueue.global().asyncAfter(deadline: .now() + 0.9) { shot("B-2-halb") }
-        start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: -60, dy: 0)), withVelocity: .slow, thenHoldForDuration: 2.5)
-        sleep(1)
-        XCTAssertTrue(counter.label.contains("1 von"))
-        // Weit genug: blättert weiter.
-        DispatchQueue.global().asyncAfter(deadline: .now() + 0.35) { shot("B-3-fliegt") }
-        start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: -170, dy: 0)), withVelocity: 500, thenHoldForDuration: 0)
-        sleep(2); shot("B-4-zweites")
-        XCTAssertTrue(counter.label.contains("2 von"))
-        // Der Zähler blättert ohne Geste, nach dem letzten Foto wieder zum ersten.
-        counter.tap(); sleep(1)
-        XCTAssertTrue(counter.label.contains("3 von"))
-        counter.tap(); sleep(1)
-        XCTAssertTrue(counter.label.contains("1 von"))
+            let start = stack.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.4))
+            // Zu kurz gewischt: nichts blättert, der Stapel federt zurück.
+            DispatchQueue.global().asyncAfter(deadline: .now() + 0.9) { shot("B-2-halb") }
+            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: -60, dy: 0)), withVelocity: .slow, thenHoldForDuration: 2.5)
+            sleep(1)
+            XCTAssertTrue(counter.label.contains("1 von 2"))
+            // Weit genug: blättert weiter.
+            DispatchQueue.global().asyncAfter(deadline: .now() + 0.35) { shot("B-3-fliegt") }
+            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: -170, dy: 0)), withVelocity: 500, thenHoldForDuration: 0)
+            sleep(2); shot("B-4-zweites")
+            XCTAssertTrue(counter.label.contains("2 von 2"))
+            // Der Zähler blättert ohne Geste, nach dem letzten Foto wieder zum ersten.
+            counter.tap(); sleep(1)
+            XCTAssertTrue(counter.label.contains("1 von 2"))
         }
         // Tippen aufs Foto öffnet es groß, mit Bildnachweis.
         stack.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.4)).tap()

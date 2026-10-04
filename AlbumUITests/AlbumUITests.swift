@@ -255,6 +255,8 @@ final class AlbumUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchEnvironment["ALBUM_TEST_STORE"] = "ui-" + UUID().uuidString
         app.launchEnvironment["ALBUM_MY_NAME"] = "Luke"
+        // Genau drei Ideen: Die Beispielsammlung ist inzwischen viel größer als drei.
+        app.launchEnvironment["ALBUM_DEMO_INBOX"] = "1"
         app.launch()
         app.buttons["Ideen"].tap()
         for _ in 0..<3 {
@@ -304,6 +306,8 @@ final class AlbumUITests: XCTestCase {
         app.launchEnvironment["ALBUM_TEST_STORE"] = store
         app.launchEnvironment["ALBUM_MY_NAME"] = "Luke"
         app.launchEnvironment["ALBUM_EMPTY_TEST_STORE"] = "1"
+        // „Idee einwerfen“ ist die Leistenaktion der Karte; die Reise hat dafür „Neue Idee“ im Kopf.
+        app.launchEnvironment["ALBUM_START_TAB"] = "Karte"
         app.launch()
         let shots = environment["ALBUM_SHOT_DIR"].map { URL(fileURLWithPath: $0) }
         func shot(_ name: String) { if let shots { try? XCUIScreen.main.screenshot().pngRepresentation.write(to: shots.appendingPathComponent(name + ".png")) } }
@@ -773,8 +777,8 @@ final class AlbumUITests: XCTestCase {
         }
         XCTAssertTrue(details.isHittable, "Der Tagesstart darf die Detailzeile nicht außerhalb des sichtbaren Kartenlistenbereichs lassen")
         details.tap(); shot("05-ortsdetail")
-        XCTAssertTrue(app.buttons["Bearbeiten"].waitForExistence(timeout: 5))
-        app.buttons["Bearbeiten"].tap(); shot("07-editor-ort")
+        XCTAssertTrue(app.buttons["Bearbeiten"].firstMatch.waitForExistence(timeout: 5))
+        app.buttons["Bearbeiten"].firstMatch.tap(); shot("07-editor-ort")
         XCTAssertTrue(app.buttons["PlaceEditor-Cancel"].waitForExistence(timeout: 5))
         app.buttons["PlaceEditor-Cancel"].tap()
         XCTAssertTrue(app.buttons["Schließen"].waitForExistence(timeout: 5))
@@ -834,8 +838,8 @@ extension AlbumUITests {
         let details = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Details zu' AND label CONTAINS 'Café Louvre'")).firstMatch
         XCTAssertTrue(details.waitForExistence(timeout: 10))
         details.tap()
-        XCTAssertTrue(app.buttons["Bearbeiten"].waitForExistence(timeout: 5))
-        app.buttons["Bearbeiten"].tap()
+        XCTAssertTrue(app.buttons["Bearbeiten"].firstMatch.waitForExistence(timeout: 5))
+        app.buttons["Bearbeiten"].firstMatch.tap()
 
         // Persist the fixture-backed place before starting the late-result scenario.
         // The relaunch below must read this baseline from the isolated store rather
@@ -846,8 +850,8 @@ extension AlbumUITests {
         XCTAssertTrue(baselineSave.waitForExistence(timeout: 5))
         XCTAssertTrue(baselineSave.isHittable, "Baseline-Speichern muss vor dem Late-Resolver hittable sein")
         baselineSave.tap()
-        XCTAssertTrue(app.buttons["Bearbeiten"].waitForExistence(timeout: 5))
-        app.buttons["Bearbeiten"].tap()
+        XCTAssertTrue(app.buttons["Bearbeiten"].firstMatch.waitForExistence(timeout: 5))
+        app.buttons["Bearbeiten"].firstMatch.tap()
 
         let choose = app.buttons["Bild wählen"]
         for _ in 0..<6 where !choose.isHittable { app.swipeUp() }
@@ -867,7 +871,7 @@ extension AlbumUITests {
         beforeCancelScreenshot.lifetime = .keepAlways
         add(beforeCancelScreenshot)
         cancel.tap()
-        XCTAssertTrue(app.buttons["Bearbeiten"].waitForExistence(timeout: 5), "Cancel muss zum unveränderten Ortsdetail zurückkehren")
+        XCTAssertTrue(app.buttons["Bearbeiten"].firstMatch.waitForExistence(timeout: 5), "Cancel muss zum unveränderten Ortsdetail zurückkehren")
         sleep(13)
         XCTAssertFalse(app.navigationBars["Bild wählen"].exists, "Das verspätete Ergebnis darf kein Bildauswahl-Sheet nach Cancel öffnen")
         XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Late QA Result'")).firstMatch.exists)
@@ -892,8 +896,8 @@ extension AlbumUITests {
         let relaunchedDetails = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Details zu' AND label CONTAINS 'Café Louvre'")).firstMatch
         XCTAssertTrue(relaunchedDetails.waitForExistence(timeout: 10))
         relaunchedDetails.tap()
-        XCTAssertTrue(app.buttons["Bearbeiten"].waitForExistence(timeout: 5))
-        app.buttons["Bearbeiten"].tap()
+        XCTAssertTrue(app.buttons["Bearbeiten"].firstMatch.waitForExistence(timeout: 5))
+        app.buttons["Bearbeiten"].firstMatch.tap()
         XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Late QA Result'")).firstMatch.exists, "Der verspätete Resolver darf keinen Foto-Draft persistieren")
         let relaunchedCancel = app.buttons["PlaceEditor-Cancel"].exists ? app.buttons["PlaceEditor-Cancel"] : app.buttons["Abbrechen"]
         XCTAssertTrue(relaunchedCancel.waitForExistence(timeout: 5))
@@ -980,8 +984,8 @@ extension AlbumUITests {
             let details = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Details zu' AND label CONTAINS 'Café Louvre'" )).firstMatch
             XCTAssertTrue(details.waitForExistence(timeout: 10))
             details.tap()
-            XCTAssertTrue(app.buttons["Bearbeiten"].waitForExistence(timeout: 5))
-            app.buttons["Bearbeiten"].tap()
+            XCTAssertTrue(app.buttons["Bearbeiten"].firstMatch.waitForExistence(timeout: 5))
+            app.buttons["Bearbeiten"].firstMatch.tap()
         }
 
         func saveEditor() {
@@ -989,7 +993,7 @@ extension AlbumUITests {
             XCTAssertTrue(save.waitForExistence(timeout: 5))
             XCTAssertTrue(save.isHittable, "Speichern muss im Native-Photo-Test hittable sein")
             save.tap()
-            XCTAssertTrue(app.buttons["Bearbeiten"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.buttons["Bearbeiten"].firstMatch.waitForExistence(timeout: 5))
         }
 
         func selectObservedNativePhoto() {
@@ -1042,7 +1046,7 @@ extension AlbumUITests {
 
         openEditor()
         saveEditor() // Persist the no-photo baseline before the real picker flow.
-        app.buttons["Bearbeiten"].tap()
+        app.buttons["Bearbeiten"].firstMatch.tap()
         selectObservedNativePhoto()
         saveEditor()
 
@@ -1081,8 +1085,8 @@ extension AlbumUITests {
             let details = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Details zu' AND label CONTAINS 'Café Louvre'" )).firstMatch
             XCTAssertTrue(details.waitForExistence(timeout: 10))
             details.tap()
-            XCTAssertTrue(app.buttons["Bearbeiten"].waitForExistence(timeout: 5))
-            app.buttons["Bearbeiten"].tap()
+            XCTAssertTrue(app.buttons["Bearbeiten"].firstMatch.waitForExistence(timeout: 5))
+            app.buttons["Bearbeiten"].firstMatch.tap()
         }
 
         func saveBaseline() {
@@ -1090,12 +1094,12 @@ extension AlbumUITests {
             XCTAssertTrue(save.waitForExistence(timeout: 5))
             XCTAssertTrue(save.isHittable)
             save.tap()
-            XCTAssertTrue(app.buttons["Bearbeiten"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.buttons["Bearbeiten"].firstMatch.waitForExistence(timeout: 5))
         }
 
         openEditor()
         saveBaseline()
-        app.buttons["Bearbeiten"].tap()
+        app.buttons["Bearbeiten"].firstMatch.tap()
 
         let form = app.descendants(matching: .any).matching(identifier: "PlaceEditor-Form").firstMatch
         let ownPhoto = app.buttons["Eigenes Foto wählen"]
@@ -1136,7 +1140,7 @@ extension AlbumUITests {
         XCTAssertTrue(cancel.waitForExistence(timeout: 5))
         XCTAssertTrue(cancel.isHittable)
         cancel.tap()
-        XCTAssertTrue(app.buttons["Bearbeiten"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Bearbeiten"].firstMatch.waitForExistence(timeout: 5))
 
         app.terminate()
         app.launchEnvironment.removeValue(forKey: "ALBUM_DEMO_IMAGE_CHOICE")
@@ -1177,8 +1181,8 @@ extension AlbumUITests {
         let details = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Details zu' AND label CONTAINS 'Café Louvre'" )).firstMatch
         XCTAssertTrue(details.waitForExistence(timeout: 10), "Der isolierte Bildwahl-Ort muss im Kartenblatt sichtbar sein")
         details.tap()
-        XCTAssertTrue(app.buttons["Bearbeiten"].waitForExistence(timeout: 5))
-        app.buttons["Bearbeiten"].tap()
+        XCTAssertTrue(app.buttons["Bearbeiten"].firstMatch.waitForExistence(timeout: 5))
+        app.buttons["Bearbeiten"].firstMatch.tap()
 
         let ownPhoto = app.buttons["Eigenes Foto wählen"]
         for _ in 0..<8 where !ownPhoto.isHittable { app.swipeUp() }

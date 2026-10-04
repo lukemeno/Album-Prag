@@ -109,7 +109,8 @@ extension AlbumUITests {
         let addIdea = ideas.navigationBars["Ideen"].buttons["Idee einwerfen"]
         XCTAssertTrue(addIdea.waitForExistence(timeout: 8))
         XCTAssertTrue(addIdea.isHittable, "Die primäre Idee-Aktion muss erreichbar bleiben")
-        XCTAssertTrue(ideas.staticTexts["Sehenswert"].waitForExistence(timeout: 8), "Die Kartenkategorie muss sichtbar bleiben")
+        // Die Karte zeigt „Ort ansehen · Sehenswert“; die Kategorie muss darin lesbar bleiben.
+        XCTAssertTrue(ideas.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Sehenswert'")).firstMatch.waitForExistence(timeout: 8), "Die Kartenkategorie muss sichtbar bleiben")
         attachAccessibilityScreen(ideas, name: "Ideen Large Type")
 
         // Prüfe die tatsächliche 44-Punkt-Touchfläche an allen vier Randpunkten.
