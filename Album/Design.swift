@@ -98,7 +98,8 @@ struct AlbumPhoto: View {
             } else {
                 empty(size: size)
             }
-            Text(unavailablePreviewKey == key && unavailablePreview != nil ? "Kein Foto · Kartenausschnitt" : "Kein Foto")
+            // Die Quelle des Kartenbilds bleibt sichtbar genannt.
+            Text(unavailablePreviewKey == key && unavailablePreview != nil ? "Kein Foto · Apple Karten" : "Kein Foto")
             .font(.caption.weight(.semibold))
             .foregroundStyle(.white)
             .multilineTextAlignment(.center)
@@ -116,7 +117,7 @@ struct AlbumPhoto: View {
             unavailablePreview = UIImage(data: data)
         }
         .accessibilityLabel(unavailablePreviewKey == key && unavailablePreview != nil
-                            ? "Kein Foto, Kartenausschnitt von Apple Karten"
+                            ? "Kein Foto, Kartenausschnitt aus Apple Karten"
                             : "Kein Foto")
     }
     private func imageLayers(_ image: Image, size: CGSize) -> some View {
