@@ -884,29 +884,25 @@ struct PlaceDetail: View {
 /// Idee → Geplant → Besucht: überall dieselben drei Wörter für denselben Weg eines Orts.
 private struct PlaceStatusTrail: View {
     let place: Place
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     private static let steps: [(title: String, symbol: String)] = [
         ("Idee", "lightbulb"), ("Geplant", "calendar"), ("Besucht", "checkmark.seal.fill")
     ]
     private var current: Int { place.visited ? 2 : place.franked ? 1 : 0 }
 
     var body: some View {
-        Group {
-            if dynamicTypeSize.isAccessibilitySize {
-                // Große Schrift: nur der aktuelle Schritt, damit nichts abgeschnitten wird.
-                step(current)
-            } else {
-                HStack(spacing: Stitch.Space.xxs) {
-                    ForEach(Self.steps.indices, id: \.self) { index in
-                        if index > 0 {
-                            Capsule()
-                                .fill(index <= current ? Stitch.ink.opacity(0.45) : Stitch.rule)
-                                .frame(width: 12, height: 2)
-                        }
-                        step(index)
+        // Passt die ganze Zeile nicht (große Schrift, schmales Querformat), steht nur der aktuelle Schritt da.
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: Stitch.Space.xxs) {
+                ForEach(Self.steps.indices, id: \.self) { index in
+                    if index > 0 {
+                        Capsule()
+                            .fill(index <= current ? Stitch.ink.opacity(0.45) : Stitch.rule)
+                            .frame(width: 12, height: 2)
                     }
+                    step(index)
                 }
             }
+            step(current)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Status")
