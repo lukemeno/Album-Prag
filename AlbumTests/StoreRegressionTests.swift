@@ -272,6 +272,55 @@ final class StoreRegressionTests: XCTestCase {
         XCTAssertEqual(store.data.places.first?.image, personal.image)
     }
 
+    func testStaleImageResultReleasesLookupKeyForRetry() async throws {
+        let store = makeStore(at: makeRoot())
+        let fallback = UploadedPlaceImage(id: "generated", storagePath: nil, pixelWidth: 1, pixelHeight: 1,
+                                          resolvedFor: ResolvedPlaceIdentity(title: "Museum", latitude: 50.09, longitude: 14.42,
+                                                                             category: "Idee", address: ""),
+                                          generatedSource: .mapSnapshot)
+        let place = Place(id: "image-race", title: "Museum", image: .uploaded(fallback), lat: 50.09, lng: 14.42)
+        store.data.places = [place]
+        XCTAssertTrue(store.persist())
+
+        let gate = AsyncValueGate<PlaceImageSearchResult>()
+        var calls = 0
+        store.placeImageSearchResolver = { _ in
+            calls += 1
+            if calls == 1 { return await gate.wait() }
+            return PlaceImageSearchResult(image: nil, candidates: [], selectionVersion: PlaceImageService.ranking)
+        }
+
+        let task = Task { await store.refreshPlaceImages(placeID: place.id) }
+        while calls < 1 { await Task.yield() }
+
+        var edited = place
+        edited.image = .uploaded(UploadedPlaceImage(id: "user-photo", storagePath: nil, pixelWidth: 1, pixelHeight: 1))
+        XCTAssertTrue(store.upsert(edited))
+        gate.resume(PlaceImageSearchResult(image: nil, candidates: [], selectionVersion: PlaceImageService.ranking))
+        await task.value
+
+        XCTAssertTrue(store.upsert(place), "Fixture must restore the original generated fallback")
+        await store.refreshPlaceImages(placeID: place.id)
+        XCTAssertEqual(calls, 2, "Ein veraltetes Ergebnis darf den nächsten sichtbaren Versuch nicht sperren")
+    }
+
+    func testCancelledSourcePreviewResultIsIgnored() async throws {
+        let store = makeStore(at: makeRoot())
+        let place = Place(id: "cancelled-source", title: "Quelle", sourceURL: "http://example.com/place")
+        store.data.places = [place]
+        XCTAssertTrue(store.persist())
+
+        let gate = AsyncValueGate<OEmbedService.Preview?>()
+        store.sourcePreviewResolver = { _ in await gate.wait() }
+        let task = Task { await store.refreshPlaceImages(placeID: place.id) }
+        while !gate.requested { await Task.yield() }
+        task.cancel()
+        gate.resume(OEmbedService.Preview(title: "Quelle", thumbnail_url: "https://example.com/late.jpg"))
+        await task.value
+
+        XCTAssertNil(store.data.places.first?.image, "Ein verspätetes Preview-Ergebnis darf nach Cancellation nicht gespeichert werden")
+    }
+
     func testOpeningHoursResolverUsesBoundedConcurrency() async throws {
         let store = makeStore(at: makeRoot())
         store.data.places = (0..<6).map { index in
