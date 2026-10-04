@@ -21,6 +21,7 @@ struct AlbumRoot: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     @State private var tab: AlbumTab = .reise
     @State private var adding: Place?
     @State private var sharing = false
@@ -102,8 +103,9 @@ struct AlbumRoot: View {
                 .accessibilityLabel("Reise-Assistent")
                 .accessibilityIdentifier("assistant-launch")
                 .padding(.trailing, Stitch.Space.page)
-                // Knapp über der Tab-Leiste: So bleibt der Ja-Knopf der Ideen frei.
-                .padding(.bottom, 56)
+                // Hochformat: knapp über der Tab-Leiste, so bleibt der Ja-Knopf der Ideen frei.
+                // Querformat: in der Zeile der Tab-Leiste, rechts ist dort genug Platz.
+                .padding(.bottom, verticalSizeClass == .compact ? 30 : 56)
             }
         }
         .sheet(isPresented: $assistantPresented) {

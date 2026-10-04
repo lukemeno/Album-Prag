@@ -1392,9 +1392,10 @@ final class ScreenTourUITests: XCTestCase {
     func test17NachDerReise() {
         let app = launch("after", today: "2026-10-10", trip: nil, env: ["ALBUM_DEMO_MEMORIES": "1"])
         shot(app, "30-reise-danach", wait: 2)
-        let memories = app.buttons["Erinnerungen ansehen"]
-        if memories.waitForExistence(timeout: 5) { memories.tap() }
-        shot(app, "31-erinnerungen", wait: 2)
+        let memories = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Erinnerungen ansehen'")).firstMatch
+        if memories.waitForExistence(timeout: 8) { memories.tap() }
+        XCTAssertTrue(app.navigationBars["Erinnerungen"].waitForExistence(timeout: 8), "Erinnerungen öffnen sich")
+        shot(app, "31-erinnerungen", wait: 1)
     }
 
     func test18VorDerReise() {
