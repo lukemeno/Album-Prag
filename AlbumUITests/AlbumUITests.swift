@@ -1280,7 +1280,9 @@ final class ScreenTourUITests: XCTestCase {
         let tile = button(app, containing: "7. Oktober")
         if tile.waitForExistence(timeout: 5) { tile.tap() }
         shot(app, "06-reise-freier-tag-streifen")
-        app.swipeUp()
+        // Unterhalb des Tagesstreifens ziehen, damit der Wisch nicht beim gerade animierten Streifen landet.
+        let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85))
+        from.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35)))
         shot(app, "07-reise-freier-tag")
     }
 
