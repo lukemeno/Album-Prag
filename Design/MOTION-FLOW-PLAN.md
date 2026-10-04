@@ -1,6 +1,6 @@
 # Motion-, Haptik- und Flow-Plan (04.10.2026)
 
-Branch `claude/motion-flow`, baut auf `claude/ready-to-land` auf. Ohne Xcode erstellt: nicht gebaut, nicht getestet.
+Branch `claude/motion-flow`, baut auf `claude/ready-to-land` auf. **In der Cloud gebaut (GitHub Actions, Xcode 26.6):** Simulator- und iPhone-Build ohne Fehler, 162 Unit-Tests, 0 Fehler. Aussehen, Bewegung und Haptik sind damit noch nicht geprüft.
 
 ## Ausgangslage
 
