@@ -41,6 +41,8 @@ struct InboxView: View {
     @State private var editing: Place?
     @State private var shouldFrank = false
     @State private var lastAction: Place?
+    /// Nach einem Ja ohne Kartenort: ein leiser Weg, den Ort nachzutragen. Die Stimme zählt schon.
+    @State private var needsLocation: Place?
     @State private var lastActionWasOpen = false
     @State private var openThisPassIDs: Set<String> = []
     @State private var feedback = 0
@@ -145,6 +147,7 @@ struct InboxView: View {
                 }
                 HStack {
                     if let lastAction { undoButton(lastAction) }
+                    if let needsLocation { locationButton(needsLocation) }
                     Spacer()
                     Button("Offen") { markOpen(place) }.buttonStyle(AlbumTextActionButtonStyle(tint: Stitch.inkSoft))
                 }
@@ -242,7 +245,10 @@ struct InboxView: View {
                 }
             }
             .padding(.top, Stitch.Space.m).padding(.horizontal, Stitch.Space.l)
-            if let lastAction { undoButton(lastAction) }
+            HStack(spacing: Stitch.Space.s) {
+                if let lastAction { undoButton(lastAction) }
+                if let needsLocation { locationButton(needsLocation) }
+            }
             Spacer()
         }
         .frame(maxWidth: .infinity)
@@ -252,6 +258,7 @@ struct InboxView: View {
         Button {
             if lastActionWasOpen { openThisPassIDs.remove(place.id) } else { store.upsert(place) }
             lastAction = nil
+            needsLocation = nil
         } label: { Label("Rückgängig", systemImage: "arrow.uturn.backward") }
         .buttonStyle(AlbumTextActionButtonStyle())
         .accessibilityLabel("Letzte Entscheidung rückgängig")
@@ -372,8 +379,20 @@ struct InboxView: View {
     }
 
     /// Offen: Die Marke geht nur für diesen Durchgang aus dem Weg, ohne Stimme und ohne Abgleich.
+    /// Öffnet den Editor für den Kartenort; ohne Pflicht und ohne die Stimme zu ändern.
+    private func locationButton(_ place: Place) -> some View {
+        Button {
+            shouldFrank = false
+            editing = store.places.first { $0.id == place.id } ?? place
+            needsLocation = nil
+        } label: { Label("Ort ergänzen", systemImage: "mappin.and.ellipse") }
+        .buttonStyle(AlbumTextActionButtonStyle(tint: Stitch.red))
+        .accessibilityHint("Damit die Idee auf der Karte und im Tagesplan erscheint")
+    }
+
     private func markOpen(_ place: Place) {
         guard !committing else { return }
+        needsLocation = nil
         lastAction = place
         lastActionWasOpen = true
         feedback += 1
@@ -387,11 +406,12 @@ struct InboxView: View {
     }
 
     private func act(_ place: Place, frank: Bool) {
-        if frank && place.coordinate == nil { shouldFrank = true; editing = place; return }
         guard !committing else { return }
         lastAction = place
         lastActionWasOpen = false
         let changed = store.decided(place, approve: frank)
+        // Ja zählt sofort, auch ohne Kartenort; der Ort lässt sich danach in Ruhe ergänzen.
+        needsLocation = frank && changed.coordinate == nil ? changed : nil
         let bothAgree = frank && store.isShared(changed)
         if reduceMotion { feedback += 1; if bothAgree { magnetTick += 1 }; store.upsert(changed); offset = .zero; return }
         committing = true

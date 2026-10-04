@@ -1408,6 +1408,25 @@ final class ScreenTourUITests: XCTestCase {
         shot(app, "35-karte-leer", wait: 4)
     }
 
+    func test21JaZaehltSofort() {
+        // Ja per Knopf (wie per Wisch) zählt sofort; kein Formular „Wo ist das?“ mehr dazwischen.
+        let app = launch("yes-now", tab: "Ideen", trip: nil)
+        var sawLocationHint = false
+        for _ in 0..<4 {
+            let yes = app.buttons["Ja"]
+            guard yes.waitForExistence(timeout: 5) else { break }
+            yes.tap()
+            sleep(2)
+            XCTAssertFalse(app.navigationBars["Wo ist das?"].exists, "Ja öffnet kein Formular")
+            XCTAssertFalse(app.staticTexts["Wo ist das?"].exists, "Ja öffnet kein Formular")
+            if app.buttons["Ort ergänzen"].exists, !sawLocationHint {
+                sawLocationHint = true
+                shot(app, "37-ja-ohne-ort", wait: 0)
+            }
+        }
+        XCTAssertTrue(sawLocationHint, "Nach einem Ja ohne Kartenort erscheint „Ort ergänzen“")
+    }
+
     func test20IdeeEinwerfen() {
         let app = launch("add")
         let add = app.buttons["Neue Idee"]
