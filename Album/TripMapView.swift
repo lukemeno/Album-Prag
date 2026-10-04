@@ -598,6 +598,8 @@ struct PlaceDetail: View {
     var placeID: String
     @State private var editing = false
     @State private var viewing: PhotoView?
+    /// Zählt „Zum Reiseplan hinzufügen“ für Haptik und Symbol-Hüpfer.
+    @State private var plannedTick = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     var place: Place? { store.places.first { $0.id == placeID } }
@@ -623,6 +625,7 @@ struct PlaceDetail: View {
                                 // sheet roughly half of the available screen height.
                                 .frame(height: heroHeight)
                                 .accessibilityHidden(true)
+                                .overlay(alignment: .bottomTrailing) { photoCredit(place) }
                                 .overlay(alignment: .top) {
                                     HStack {
                                         Button { dismiss() } label: {
@@ -661,10 +664,13 @@ struct PlaceDetail: View {
                                         Image(systemName: place.franked ? "bookmark.fill" : "bookmark")
                                             .font(.body.weight(.semibold))
                                             .foregroundStyle(Stitch.ink)
+                                            .contentTransition(.symbolEffect(.replace))
+                                            .symbolEffect(.bounce, value: reduceMotion ? 0 : plannedTick)
                                             .frame(width: Stitch.Size.touch, height: Stitch.Size.touch)
                                             .background(place.franked ? Stitch.selection : Stitch.paperDeep, in: Circle())
                                     }
                                     .buttonStyle(.plain)
+                                    .sensoryFeedback(.success, trigger: plannedTick)
                                     .accessibilityLabel(place.franked ? "Plan ändern" : "Zum Reiseplan hinzufügen")
                                     .accessibilityValue(place.franked ? "Im Reiseplan" : "Nicht im Reiseplan")
                                 }
@@ -803,7 +809,30 @@ struct PlaceDetail: View {
     }
 
     private func addToPlan(_ place: Place) {
-        store.upsert(store.decided(place, approve: true))
+        withAnimation(reduceMotion ? Stitch.Motion.reducedFade : Stitch.Motion.press) {
+            _ = store.upsert(store.decided(place, approve: true))
+        }
+        plannedTick += 1
+        AccessibilityNotification.Announcement("Zum Reiseplan hinzugefügt").post()
+    }
+
+    /// Bildnachweis direkt am Foto; ausführlich mit Lizenz steht er unten im Blatt.
+    @ViewBuilder private func photoCredit(_ place: Place) -> some View {
+        if case .external(let image) = place.image, !image.credit.isEmpty {
+            Text("Foto: \(image.credit)")
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .padding(.horizontal, Stitch.Space.xs)
+                .padding(.vertical, 3)
+                .background(.black.opacity(0.45), in: Capsule())
+                // Links bleibt Platz, unten liegt das Blatt 24 pt über dem Foto.
+                .padding(.leading, 96)
+                .padding(.trailing, Stitch.Space.s)
+                .padding(.bottom, 24 + Stitch.Space.xs)
+                .accessibilityHidden(true)
+        }
     }
 
     /// Adresse, Tag, Herkunft – nur was stimmt.

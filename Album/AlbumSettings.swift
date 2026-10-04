@@ -46,8 +46,11 @@ struct AlbumSettings: View {
                                 copied = true
                             } label: {
                                 Label(copied ? "Link kopiert" : "Link kopieren", systemImage: copied ? "checkmark" : "doc.on.doc")
+                                    .contentTransition(.symbolEffect(.replace))
                             }
                             .buttonStyle(AlbumActionButtonStyle())
+                            .sensoryFeedback(.success, trigger: copied) { _, now in now }
+                            .animation(.snappy, value: copied)
                             .accessibilityHint("Den Link in einer Nachricht einfügen. Auf dem anderen iPhone unter „Einladung bekommen?“ einfügen.")
                         } else if !store.isShared {
                             Button {

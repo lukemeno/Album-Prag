@@ -465,6 +465,12 @@ final class AlbumTests: XCTestCase {
         XCTAssertEqual(AlbumStore(root: directory).data.collaboration?.tripID, service.tripID)
     }
 
+    func testConnectivityErrorsStayQuiet() {
+        XCTAssertTrue(AlbumStore.isConnectivityError(URLError(.notConnectedToInternet)))
+        XCTAssertTrue(AlbumStore.isConnectivityError(NSError(domain: "Wrapper", code: 1, userInfo: [NSUnderlyingErrorKey: URLError(.timedOut)])))
+        XCTAssertFalse(AlbumStore.isConnectivityError(NSError(domain: "PostgREST", code: 42501)))
+    }
+
     @MainActor func testOfflineSyncFailureKeepsChangesForRetryAfterRestart() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -483,6 +489,7 @@ final class AlbumTests: XCTestCase {
         await store.sync()
 
         XCTAssertEqual(store.syncStatus, "Lokal gespeichert · Synchronisierung nicht erreichbar")
+        XCTAssertTrue(store.syncOffline, "Die Reise-Seite zeigt die Offline-Kapsel")
         XCTAssertFalse(store.syncing)
         XCTAssertTrue(store.data.dirty.contains(place.id), "Der Änderungsauftrag bleibt für den nächsten Versuch erhalten")
 

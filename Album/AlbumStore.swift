@@ -22,6 +22,8 @@ private struct OpeningHoursFetchResult: Sendable {
     var error: String?
     var syncStatus = "Auf diesem iPhone gespeichert"
     var syncing = false
+    /// Der letzte Abgleich kam nicht durch. Die Reise-Seite zeigt das leise; nichts geht verloren.
+    var syncOffline = false
     /// Was der letzte Abgleich von anderen gebracht hat; die Abgleich-Insel zeigt es kurz.
     var syncChange: SyncChange?
     var shareQueueRevision = 0
@@ -819,16 +821,28 @@ private struct OpeningHoursFetchResult: Sendable {
             if !before.isEmpty { syncChange = SyncChange.between(before: before, after: data.places, me: me) ?? syncChange }
             service.startRealtime { [weak self] in await self?.sync() }
             syncStatus = "Synchronisiert"
+            syncOffline = false
             succeeded = true
         } catch {
             syncStatus = "Lokal gespeichert · Synchronisierung nicht erreichbar"
+            syncOffline = true
             for id in data.dirty.compactMap({ $0.hasPrefix("collection:") ? String($0.dropFirst("collection:".count)) : nil }) {
                 if var metadata = data.collectionSync[id] { metadata.lastErrorCode = String(describing: error); data.collectionSync[id] = metadata }
             }
             _ = persist()
-            self.error = error.localizedDescription
+            // Unterwegs ist fehlendes Netz der Normalfall: kein Fehlerfenster, die Offline-Kapsel genügt.
+            if !Self.isConnectivityError(error) { self.error = error.localizedDescription }
         }
         return succeeded
+    }
+
+    /// Netz weg, Roaming aus, Zeitüberschreitung: kein Grund für eine Meldung.
+    nonisolated static func isConnectivityError(_ error: Error) -> Bool {
+        if error is URLError { return true }
+        let nsError = error as NSError
+        if nsError.domain == NSURLErrorDomain { return true }
+        if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? Error { return isConnectivityError(underlying) }
+        return false
     }
 
     func createSharedTrip() async throws -> URL {

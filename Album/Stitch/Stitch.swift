@@ -14,7 +14,8 @@ enum Stitch {
     static let card = dynamic(light: (255, 254, 251), dark: (28, 36, 49))
     static let rule = dynamic(light: (224, 230, 237), dark: (54, 64, 80))
     static let ink = dynamic(light: (15, 24, 49), dark: (243, 246, 251))
-    static let inkSoft = dynamic(light: (115, 115, 120), dark: (175, 187, 201))
+    /// #66676C auf Papier erreicht AA-Kontrast auch für kleine Schrift; #737378 lag knapp darunter.
+    static let inkSoft = dynamic(light: (102, 103, 108), dark: (175, 187, 201))
     /// Koralle für Text, Auswahl und primäre Aktionen mit ausreichendem Kontrast.
     static let red = dynamic(light: (190, 70, 54), dark: (255, 145, 125))
     /// Koralle als Aktionsfläche; heller Vordergrund bleibt gut lesbar.
@@ -232,6 +233,32 @@ struct Postmark: View {
         .frame(width: size, height: size)
         .rotationEffect(.degrees(-12))
         .accessibilityHidden(true)
+    }
+}
+
+// MARK: Zoom-Übergang
+
+extension View {
+    /// Quelle für den Zoom ins Detail (iOS 18+). Davor ohne Wirkung.
+    @ViewBuilder func zoomSource(id: some Hashable, in namespace: Namespace.ID) -> some View {
+        if #available(iOS 18.0, *) {
+            matchedTransitionSource(id: id, in: namespace)
+        } else {
+            self
+        }
+    }
+
+    /// Ziel des Zooms: direkt auf die Wurzel eines Blatts setzen. Bei „Bewegung reduzieren“ bleibt es ein normales Blatt.
+    @ViewBuilder func zoomDestination(id: some Hashable, in namespace: Namespace.ID, enabled: Bool = true) -> some View {
+        if enabled {
+            if #available(iOS 18.0, *) {
+                navigationTransition(.zoom(sourceID: id, in: namespace))
+            } else {
+                self
+            }
+        } else {
+            self
+        }
     }
 }
 

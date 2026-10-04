@@ -19,6 +19,8 @@ struct ReiseView: View {
     @State private var refreshed = 0
     /// Solange das Herunterziehen abgleicht, wartet die Abgleich-Insel.
     @State private var refreshing = false
+    /// Das Ortsdetail wächst aus der Marke, die angetippt wurde.
+    @Namespace private var placeZoom
 
     private var today: Int? { TripDates.tripDay() }
 
@@ -35,7 +37,8 @@ struct ReiseView: View {
             }
             .padding(.horizontal, Stitch.Space.page)
             .padding(.top, Stitch.Space.xs)
-            .padding(.bottom, Stitch.Space.xxl)
+            // Unten Platz für den KI-Kreis, damit er nie den letzten Route-Knopf verdeckt.
+            .padding(.bottom, Stitch.Space.xxl + Stitch.Size.touch)
         }
         .scrollIndicators(.hidden)
         .refreshable {
@@ -51,7 +54,7 @@ struct ReiseView: View {
         #endif
         .background(PaperBackground())
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(item: $selected) { PlaceDetail(placeID: $0.id) }
+        .sheet(item: $selected) { PlaceDetail(placeID: $0.id).zoomDestination(id: $0.id, in: placeZoom, enabled: !reduceMotion) }
         .sheet(isPresented: $memoriesOpen) {
             TripMemoriesView(openMap: {
                 memoriesOpen = false
@@ -70,6 +73,10 @@ struct ReiseView: View {
                     .font(Stitch.Face.display(28, relativeTo: .title2))
                     .foregroundStyle(Stitch.ink)
                     .accessibilityAddTraits(.isHeader)
+                if store.syncOffline {
+                    OfflinePill()
+                        .transition(reduceMotion ? .opacity : .scale(scale: 0.8, anchor: .leading).combined(with: .opacity))
+                }
                 Spacer(minLength: Stitch.Space.s)
                 Button(action: openSharing) {
                     Image(systemName: "person.2.fill")
@@ -82,6 +89,7 @@ struct ReiseView: View {
                 .buttonStyle(HeaderIconButton())
                 .accessibilityLabel("Neue Idee")
             }
+            .animation(reduceMotion ? Stitch.Motion.reducedFade : Stitch.Motion.panel, value: store.syncOffline)
 
             ZStack(alignment: .bottomLeading) {
                 AlbumPhoto(asset: .bundled(name: "imgPragueCover"))
@@ -98,6 +106,15 @@ struct ReiseView: View {
             }
             .frame(height: 300)
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(alignment: .topTrailing) {
+                // Unterwegs: der Stempel des heutigen Tages, unter dem Menüknopf.
+                if let today, !dynamicTypeSize.isAccessibilitySize {
+                    DayPostmark(day: today)
+                        .padding(.top, Stitch.Size.touch + Stitch.Space.l)
+                        .padding(.trailing, Stitch.Space.l)
+                        .allowsHitTesting(false)
+                }
+            }
             .overlay(alignment: .topTrailing) { heroMenu.padding(Stitch.Space.s) }
 
             if dynamicTypeSize.isAccessibilitySize {
@@ -199,14 +216,22 @@ struct ReiseView: View {
                 .accessibilityLabel("Alle Reisetage öffnen")
             }
 
-            ScrollView(.horizontal) {
-                HStack(spacing: Stitch.Space.s) {
-                    ForEach(DayPlanGenerator.days, id: \.self) { itineraryDay($0) }
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal) {
+                    HStack(spacing: Stitch.Space.s) {
+                        ForEach(DayPlanGenerator.days, id: \.self) { itineraryDay($0).id($0) }
+                    }
+                    .padding(.vertical, Stitch.Space.xxs)
                 }
-                .padding(.vertical, Stitch.Space.xxs)
+                .scrollIndicators(.hidden)
+                // Der gewählte Tag steht immer mittig, auch am 8. Oktober beim Öffnen.
+                .onAppear { proxy.scrollTo(day, anchor: .center) }
+                .onChange(of: day) { _, newDay in
+                    withAnimation(reduceMotion ? nil : Stitch.Motion.panel) { proxy.scrollTo(newDay, anchor: .center) }
+                }
             }
-            .scrollIndicators(.hidden)
         }
+        .sensoryFeedback(.selection, trigger: day)
         .padding(Stitch.Space.m)
         .background(Stitch.card, in: RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous).strokeBorder(Stitch.rule, lineWidth: 1))
@@ -218,7 +243,7 @@ struct ReiseView: View {
 
     private func itineraryDay(_ day: Int) -> some View {
         let places = store.plan(for: day)
-        let title = places.first?.title ?? "Noch offen"
+        let title = places.first?.title ?? "Noch frei"
         let selectedDay = day == self.day
         let width = max(90, itineraryTileWidth)
         return Button {
@@ -233,12 +258,15 @@ struct ReiseView: View {
                     if let asset = coverPhoto(for: day) {
                         AlbumPhoto(asset: asset, root: store.root, thumbnailWidth: 250)
                     } else {
-                        ZStack {
-                            Stitch.paperDeep
-                            Image(systemName: "calendar")
-                                .font(.title3)
-                                .foregroundStyle(Stitch.inkSoft)
-                        }
+                        // Ein freier Platz für eine Marke statt eines leeren Kastens.
+                        RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous)
+                            .strokeBorder(Stitch.rule, style: StrokeStyle(lineWidth: 1.5, dash: [4, 4]))
+                            .background(Stitch.paper, in: RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
+                            .overlay {
+                                Image(systemName: "plus")
+                                    .font(.title3.weight(.medium))
+                                    .foregroundStyle(Stitch.inkSoft)
+                            }
                     }
                 }
                 .frame(width: 84, height: 90)
@@ -352,30 +380,63 @@ struct ReiseView: View {
             SectionTitle(title: day == today ? "Heute" : TripDates.dayTitle(day)) {
                 if !stops.isEmpty {
                     Text(stops.count == 1 ? "1 Ort" : "\(stops.count) Orte").font(.footnote).foregroundStyle(Stitch.inkSoft)
+                        .contentTransition(.numericText(value: Double(stops.count)))
                 }
             }
             if day == today {
                 Text(TripDates.dayTitle(day)).font(.subheadline).foregroundStyle(Stitch.inkSoft).padding(.top, -Stitch.Space.xs)
             }
             ForEach(flightsToday) { FlightTicket(leg: $0, legs: store.data.trip.flights ?? [], openDocuments: openDocuments) }
+            if dayComplete {
+                DayComplete(day: day, count: stops.count) { memoriesOpen = true }
+                    .transition(reduceMotion ? .opacity : .scale(scale: 0.94, anchor: .top).combined(with: .opacity))
+            }
             if let next {
-                NextStop(stop: next, root: store.root) { selected = next.place }
+                NextStop(stop: next, root: store.root, zoom: placeZoom) { selected = next.place }
             }
             ForEach(Array(stops.enumerated()), id: \.element.id) { index, stop in
                 if stop.id != next?.id {
-                    StopRow(number: index + 1, stop: stop, root: store.root) { selected = stop.place }
+                    StopRow(number: index + 1, stop: stop, root: store.root, zoom: placeZoom) { selected = stop.place }
                 }
             }
-            if stops.isEmpty {
-                VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
-                    Text("Noch nichts geplant").font(.headline).foregroundStyle(Stitch.ink)
-                    Button("Tage planen", action: openMap).buttonStyle(TextActionButton())
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .stitchCard()
-            }
+            if stops.isEmpty { emptyDay }
         }
         .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.86), value: day)
+        // Wird ein Ort besucht, rückt der nächste weich nach oben; der Abschluss wächst ein.
+        .animation(reduceMotion ? Stitch.Motion.reducedFade : Stitch.Motion.panel, value: next?.id)
+        .animation(reduceMotion ? Stitch.Motion.reducedFade : Stitch.Motion.panel, value: dayComplete)
+    }
+
+    /// Heute ist jeder geplante Ort besucht.
+    private var dayComplete: Bool {
+        day == today && !stops.isEmpty && stops.allSatisfy { $0.place.visited }
+    }
+
+    /// Ein freier Tag ist eine Einladung, kein Fehler: der direkte Weg zu den Ideen oder zur Karte.
+    private var emptyDay: some View {
+        let waiting = store.inbox.count
+        let actions = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(spacing: Stitch.Space.s))
+            : AnyLayout(HStackLayout(spacing: Stitch.Space.s))
+        return VStack(alignment: .leading, spacing: Stitch.Space.s) {
+            Text("Noch frei")
+                .font(Stitch.Face.place(26, relativeTo: .title2))
+                .foregroundStyle(Stitch.ink)
+            Text(waiting == 0
+                 ? "Legt Orte von der Karte auf diesen Tag."
+                 : waiting == 1 ? "1 Idee wartet noch auf eure Entscheidung." : "\(waiting) Ideen warten noch auf eure Entscheidung.")
+                .font(.subheadline)
+                .foregroundStyle(Stitch.inkSoft)
+                .fixedSize(horizontal: false, vertical: true)
+            actions {
+                if waiting > 0 {
+                    Button("Ideen ansehen", action: openIdeas).buttonStyle(StitchButton(primary: true))
+                }
+                Button("Tage planen", action: openMap).buttonStyle(StitchButton(primary: waiting == 0))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .stitchCard()
     }
 
     // MARK: Unterlagen
@@ -417,6 +478,8 @@ struct ReiseView: View {
                     .background(Stitch.paperDeep, in: RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(store.inbox.count == 1 ? "1 Idee wartet" : "\(store.inbox.count) Ideen warten").font(.headline).foregroundStyle(Stitch.ink)
+                        .contentTransition(.numericText(value: Double(store.inbox.count)))
+                        .animation(reduceMotion ? nil : .snappy, value: store.inbox.count)
                     Text("Ja, Nein oder Offen").font(.subheadline).foregroundStyle(Stitch.inkSoft)
                 }
                 Spacer(minLength: 0)
@@ -469,6 +532,7 @@ struct ReiseView: View {
 private struct NextStop: View {
     let stop: PlanStop
     let root: URL
+    let zoom: Namespace.ID
     var open: () -> Void
     var body: some View {
         VStack(alignment: .leading, spacing: Stitch.Space.m) {
@@ -477,6 +541,7 @@ private struct NextStop: View {
                     StampFrame(mat: stop.place.mat) {
                         AlbumPhoto(asset: stop.place.image, root: root, thumbnailWidth: 400).frame(width: 96, height: 112)
                     }
+                    .zoomSource(id: stop.place.id, in: zoom)
                     VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
                         Text("Als Nächstes").font(.footnote.weight(.semibold)).foregroundStyle(Stitch.ink)
                         Text(stop.place.title).font(Stitch.Face.place(28, relativeTo: .title)).foregroundStyle(Stitch.ink)
@@ -503,6 +568,7 @@ private struct StopRow: View {
     let number: Int
     let stop: PlanStop
     let root: URL
+    let zoom: Namespace.ID
     var open: () -> Void
     private var place: Place { stop.place }
     var body: some View {
@@ -512,6 +578,7 @@ private struct StopRow: View {
                     StampFrame(mat: place.mat, inset: 4, matWidth: 2, elevation: .flat) {
                         AlbumPhoto(asset: place.image, root: root, thumbnailWidth: 160).frame(width: 44, height: 52)
                     }
+                    .zoomSource(id: place.id, in: zoom)
                     VStack(alignment: .leading, spacing: 2) {
                     Text(place.title).font(Stitch.Face.place(21, relativeTo: .headline)).foregroundStyle(place.visited ? Stitch.inkSoft : Stitch.ink)
                             .strikethrough(place.visited, color: Stitch.inkSoft)
@@ -536,6 +603,102 @@ private struct StopRow: View {
 
     private var meta: String {
         [place.category, stop.slot, stop.note ?? ""].filter { !$0.isEmpty }.joined(separator: " · ")
+    }
+}
+
+// MARK: Kleine Momente
+
+/// Leise Kapsel neben dem Titel, solange der Abgleich nicht durchkommt. Tippen versucht es erneut.
+private struct OfflinePill: View {
+    @Environment(AlbumStore.self) private var store
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var attempts = 0
+    var body: some View {
+        Button {
+            attempts += 1
+            Task { await store.sync() }
+        } label: {
+            HStack(spacing: Stitch.Space.xxs) {
+                Image(systemName: "wifi.slash")
+                    .symbolEffect(.pulse, isActive: store.syncing && !reduceMotion)
+                Text(store.syncing ? "Verbinde …" : "Offline")
+            }
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(Stitch.inkSoft)
+            .padding(.horizontal, Stitch.Space.s)
+            .frame(minHeight: 30)
+            .background(Stitch.paperDeep, in: Capsule())
+            .frame(minHeight: Stitch.Size.touch)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(store.syncing)
+        .sensoryFeedback(.selection, trigger: attempts)
+        .accessibilityLabel("Offline. Alles ist auf diesem iPhone gespeichert.")
+        .accessibilityHint("Tippen, um erneut abzugleichen")
+    }
+}
+
+/// Unterwegs: Beim ersten Öffnen eines Reisetags drückt ein Poststempel mit dem Datum auf das Titelfoto.
+/// Danach liegt er still dort, bis der nächste Tag beginnt.
+private struct DayPostmark: View {
+    static let storageKey = "album.postmarkedDay"
+    let day: Int
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var landed: Bool
+    @State private var thump = 0
+
+    init(day: Int) {
+        self.day = day
+        _landed = State(initialValue: UserDefaults.standard.integer(forKey: Self.storageKey) == day)
+    }
+
+    var body: some View {
+        Postmark(bottom: String(format: "%d.10.26", day), color: .white, size: 74)
+            .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
+            .scaleEffect(landed ? 1 : 1.7)
+            .blur(radius: landed ? 0 : 5)
+            .opacity(landed ? 0.94 : 0)
+            .sensoryFeedback(.impact(weight: .heavy, intensity: 0.85), trigger: thump)
+            .task(id: day) {
+                guard UserDefaults.standard.integer(forKey: Self.storageKey) != day else { landed = true; return }
+                landed = false
+                // Erst ankommen lassen, dann stempeln.
+                try? await Task.sleep(for: .milliseconds(700))
+                guard !Task.isCancelled else { return }
+                withAnimation(reduceMotion ? .easeOut(duration: 0.25) : .spring(response: 0.26, dampingFraction: 0.58)) { landed = true }
+                UserDefaults.standard.set(day, forKey: Self.storageKey)
+                // Der Schlag kommt, wenn der Stempel aufsetzt.
+                try? await Task.sleep(for: .milliseconds(reduceMotion ? 0 : 110))
+                thump += 1
+            }
+            .accessibilityHidden(true)
+    }
+}
+
+/// Alle Orte des Tages besucht: ein ruhiger Abschluss mit Stempel und dem Weg zu den Erinnerungen.
+private struct DayComplete: View {
+    let day: Int
+    let count: Int
+    var openMemories: () -> Void
+    var body: some View {
+        HStack(spacing: Stitch.Space.m) {
+            Postmark(bottom: String(format: "%d.10.26", day), color: Stitch.teal, size: 64)
+            VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
+                Text("Heute alles erlebt")
+                    .font(Stitch.Face.title(20, relativeTo: .title3))
+                    .foregroundStyle(Stitch.ink)
+                    .accessibilityAddTraits(.isHeader)
+                Text(count == 1 ? "1 Ort abgestempelt" : "\(count) Orte abgestempelt")
+                    .font(.subheadline)
+                    .foregroundStyle(Stitch.inkSoft)
+                Button("Erinnerungen ansehen", action: openMemories)
+                    .buttonStyle(TextActionButton(tint: Stitch.red))
+            }
+            Spacer(minLength: 0)
+        }
+        .stitchCard(.pinned)
+        .accessibilityElement(children: .contain)
     }
 }
 
