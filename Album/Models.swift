@@ -83,9 +83,10 @@ enum PlaceImageAsset: Codable, Equatable {
 
     /// Kleinere Fassung für Vorschaubilder („…/500px-Datei.jpg“). Wikimedia liefert nur feste Breiten aus,
     /// andere enden mit HTTP 400; deshalb die nächste erlaubte Breite ab der gewünschten.
+    /// Gilt für jede Wikimedia-Adresse, auch für ältere Bilder ohne Anbieterangabe: Der Server liefert 1600 px.
     func remoteURL(width: Int) -> String? {
         guard let url = remoteURL else { return nil }
-        guard case .external(let image) = self, image.provider == .wikimedia else { return url }
+        guard case .external = self, url.contains("upload.wikimedia.org/") else { return url }
         let allowed = [120, 250, 330, 500, 960, 1280, 1920]
         let bucket = allowed.first { $0 >= width } ?? allowed.last!
         return url.replacingOccurrences(of: #"/\d+px-"#, with: "/\(bucket)px-", options: .regularExpression)

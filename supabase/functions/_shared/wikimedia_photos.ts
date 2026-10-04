@@ -128,7 +128,7 @@ async function fileInfos(titles: string[]) {
   const payloads = [];
   for (const batch of batches) payloads.push(await commons({
     action: "query", titles: batch.join("|"), prop: "imageinfo|globalusage",
-    iiprop: "url|size|extmetadata", iiurlwidth: "1600",
+    iiprop: "url|size|extmetadata", iiurlwidth: "1280", // feste Wikimedia-Breite; 1600 wird abgelehnt
     iiextmetadatafilter: "Artist|Credit|LicenseShortName|LicenseUrl|Assessments",
     gulimit: "50", gunamespace: "0",
   }));

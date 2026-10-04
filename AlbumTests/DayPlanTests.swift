@@ -140,6 +140,17 @@ extension DayPlanTests {
         XCTAssertEqual(asset.remoteURL(width: 480), "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Letna.jpg/500px-Letna.jpg")
     }
 
+    func testLargeWikimediaPhotosUseAnAllowedWidth() {
+        // Ideenkarte, Ortsdetail und Vollbild fragen ohne eigene Breite an; 1600 px liefert Wikimedia nicht aus.
+        let legacy = PlaceImageAsset.external(ExternalPlaceImage(
+            imageURL: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Letna.jpg/1600px-Letna.jpg",
+            sourceURL: "https://commons.wikimedia.org/wiki/File:Letna.jpg", credit: "x", provider: .legacy))
+        XCTAssertEqual(legacy.remoteURL(width: AlbumPhoto.fullWidth), "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Letna.jpg/1280px-Letna.jpg")
+        let other = PlaceImageAsset.external(ExternalPlaceImage(
+            imageURL: "https://example.com/1600px-photo.jpg", sourceURL: "https://example.com", credit: "x", provider: .legacy))
+        XCTAssertEqual(other.remoteURL(width: AlbumPhoto.fullWidth), "https://example.com/1600px-photo.jpg")
+    }
+
     func testGallerySurvivesSyncAndIsRequestedOnce() throws {
         let identity = ResolvedPlaceIdentity(title: "Letná", latitude: 50.0966, longitude: 14.4165)
         let photo = ExternalPlaceImage(imageURL: "https://x/1.jpg", sourceURL: "https://x", credit: "A", provider: .wikimedia, resolvedFor: identity, ranking: PlaceImageService.ranking)

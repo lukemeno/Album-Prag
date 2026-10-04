@@ -12,7 +12,12 @@ struct AlbumPhoto: View {
     var thumbnailWidth: Int? = nil
     /// Blendet den Beschnitt während eines gemeinsamen Übergangs stufenlos in das vollständige Foto über.
     var fitProgress: CGFloat = 0
+    /// Große Fotos (Ideenkarte, Ortsdetail, Vollbild) ohne eigene Breite: die größte erlaubte Wikimedia-Breite
+    /// unterhalb der 1600 px, die der Server anfragt. 1600 selbst ist keine erlaubte Breite.
+    static let fullWidth = 1280
+    static let maxRetries = 2
     @State private var preview: UIImage?
+    @State private var retries = 0
     @State private var unavailablePreview: UIImage?
     @State private var unavailablePreviewKey: String?
     var body: some View {
@@ -35,19 +40,29 @@ struct AlbumPhoto: View {
                           uploaded.generatedSource != nil,
                           let resolvedFor = uploaded.resolvedFor {
                     unavailablePhotoPreview(key: "uploaded-\(uploaded.id)", resolvedFor: resolvedFor, size: geo.size)
-                } else if let remote = thumbnailWidth.flatMap({ asset?.remoteURL(width: $0) }) ?? asset?.remoteURL, let url = URL(string: remote) {
+                } else if let remote = asset?.remoteURL(width: thumbnailWidth ?? Self.fullWidth), let url = URL(string: remote) {
                     AsyncImage(url: url) { phase in
                         if let image = phase.image {
                             imageLayers(image, size: geo.size)
                                 .accessibilityElement(children: .ignore)
                                 .accessibilityLabel(asset?.isSourcePreview == true ? "Bild der Quelle" : "Ortsfoto")
                                 .accessibilityIdentifier("place-photo-loaded")
+                        } else if phase.error != nil, retries < Self.maxRetries {
+                            // Wechselndes Netz unterwegs: kurz warten und dieselbe Adresse erneut laden.
+                            fallback(size: geo.size)
+                                .task {
+                                    try? await Task.sleep(for: .seconds(1 + retries * 2))
+                                    guard !Task.isCancelled else { return }
+                                    retries += 1
+                                }
                         } else if phase.error != nil, let resolvedFor = asset?.resolvedFor {
                             unavailablePhotoPreview(key: remote, resolvedFor: resolvedFor, size: geo.size)
                         } else {
                             fallback(size: geo.size)
                         }
                     }
+                    // Neue Identität startet einen neuen Ladeversuch.
+                    .id("\(remote)#\(retries)")
                 } else if let preview {
                     imageLayers(Image(uiImage: preview), size: geo.size)
                 } else { fallback(size: geo.size) }
@@ -56,6 +71,7 @@ struct AlbumPhoto: View {
             // `clipped()` beschneidet nur das Bild, nicht die Tippfläche: Ein hohes Foto würde sonst Knöpfe darüber verdecken.
             .contentShape(Rectangle())
         }.task(id: asset?.sourceURL) {
+            retries = 0
             guard case .linkPreview(let pageURL, nil, _) = asset, let url = URL(string: pageURL) else { preview = nil; return }
             preview = await LinkPreviewImageLoader.load(url)
         }

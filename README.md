@@ -75,7 +75,7 @@ Der Link ist der Zugangsschlüssel und läuft nach 30 Tagen ab. Ein beigetretene
 
 ## Auf einem iPhone installieren
 
-Ein kostenloses Personal Team reicht aus, weil die App keine iCloud-, App-Group- oder Share-Extension-Entitlements verwendet. In Xcode unter **Targets → Album → Signing & Capabilities** das eigene Team wählen, eine eindeutige Bundle-ID setzen und das verbundene iPhone als Ziel starten. Für das zweite iPhone denselben Vorgang wiederholen. Die Installation über ein Personal Team muss regelmäßig erneuert werden; TestFlight benötigt weiterhin das Apple Developer Program.
+Ein kostenloses Personal Team reicht aus (App und Share Extension nutzen nur die App-Group `group.de.privatealbum.prague`, kein iCloud). Schritt-für-Schritt-Anleitung für zwei iPhones: [INSTALLATION.md](INSTALLATION.md). In Xcode unter **Targets → Album → Signing & Capabilities** das eigene Team wählen, eine eindeutige Bundle-ID setzen und das verbundene iPhone als Ziel starten. Für das zweite iPhone denselben Vorgang wiederholen. Die Installation über ein Personal Team muss regelmäßig erneuert werden; TestFlight benötigt weiterhin das Apple Developer Program.
 
 ## Prüfungen
 
