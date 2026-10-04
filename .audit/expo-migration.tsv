@@ -1,0 +1,6 @@
+ts	phase	decision	why	evidence	result
+2026-10-03T17:26:09Z	frame	keep the native app intact and build a separate Expo client in expo/	rollback stays available while the cross-language migration is incomplete	EXPO-MIGRATION-STATUS.md	chosen
+2026-10-03T17:26:09Z	distribution	use Expo Go as the first target and gate the full move on a two-device run	this is the path that avoids the Apple Developer Program fee	EXPO-MIGRATION-STATUS.md	open
+2026-10-03T17:26:09Z	local-data	read only the connected phone album.json to confirm migration scope; keep private trip content out of source control	device transfer succeeded; 80 places, 20 collection records, one document	EXPO-MIGRATION-STATUS.md	inventory
+2026-10-03T17:26:09Z	implementation	add Expo Router/SQLite ideas shell, Supabase invite/session/place sync and album JSON transfer	client export and docs/map implemented; live Expo Go and Supabase flow remains unverified	EXPO-MIGRATION-STATUS.md	in-progress
+2026-10-03T17:26:09Z	dependency-audit	do not apply incompatible automatic fixes to the SDK-aligned Expo 57 package set	32 npm advisories; automatic fix proposes a breaking SDK downgrade	EXPO-MIGRATION-STATUS.md	open

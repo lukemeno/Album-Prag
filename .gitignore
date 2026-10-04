@@ -1,4 +1,6 @@
 .build/
+.qa-shots/
+.qa-results/
 .DS_Store
 xcuserdata/
 *.xcuserstate
@@ -6,3 +8,6 @@ supabase/.temp/
 **/.omc/
 .impeccable/questions/
 Design/rive/*/build/
+
+# Local OpenAI backend credential
+.env.local

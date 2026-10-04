@@ -13,9 +13,11 @@ struct AlbumSettings: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Stitch.Space.xl) {
                     VStack(alignment: .leading, spacing: Stitch.Space.s) {
-                        Postmark(top: "ALBUM", bottom: "FÜR ZWEI", size: 84)
+                        Text("Album")
+                            .font(Stitch.Face.display(30, relativeTo: .largeTitle))
+                            .foregroundStyle(Stitch.ink)
                         Text(store.isShared ? "Ihr teilt dieses Album" : "Zu zweit planen")
-                            .font(Stitch.Face.display(32, relativeTo: .largeTitle)).foregroundStyle(Stitch.ink)
+                            .font(Stitch.Face.title(24, relativeTo: .title2)).foregroundStyle(Stitch.ink)
                         Text("Ideen, Orte und Unterlagen landen auf beiden iPhones. Der Link gilt nur für diese Reise.")
                             .font(.body).foregroundStyle(Stitch.inkSoft)
                     }
@@ -32,7 +34,7 @@ struct AlbumSettings: View {
                             ShareLink(item: inviteURL, subject: Text("Prag 2026"), message: Text("Komm in unser Prag-Album")) {
                                 Label("Einladung senden", systemImage: "paperplane")
                             }
-                            .buttonStyle(StitchButton(primary: true))
+                            .buttonStyle(AlbumActionButtonStyle(primary: true))
                         } else if !store.isShared {
                             Button {
                                 preparing = true
@@ -44,7 +46,7 @@ struct AlbumSettings: View {
                             } label: {
                                 if preparing { ProgressView().tint(Stitch.onAccent) } else { Label("Einladung erstellen", systemImage: "link") }
                             }
-                            .buttonStyle(StitchButton(primary: true)).disabled(preparing || store.syncing)
+                            .buttonStyle(AlbumActionButtonStyle(primary: true)).disabled(preparing || store.syncing)
                         }
                         Label(store.syncStatus, systemImage: store.isShared ? "arrow.triangle.2.circlepath" : "iphone")
                             .font(.footnote).foregroundStyle(Stitch.inkSoft)
@@ -57,5 +59,46 @@ struct AlbumSettings: View {
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Schließen", systemImage: "xmark") { dismiss() } } }
             .alert("Einladung hat nicht geklappt", isPresented: Binding(get: { localError != nil }, set: { if !$0 { localError = nil } })) { Button("OK") { localError = nil } } message: { Text(localError ?? "") }
         }
+    }
+}
+
+/// Die unterstützenden Screens teilen dieselbe ruhige Aktionssprache wie die
+/// Referenz: Navy für die wichtigste Aktion, helles Blau für sekundäre Flächen.
+/// Die Styles bleiben lokal in der nativen App, damit bestehende Tokens und
+/// die bereits verwendeten Store-Aktionen unverändert bleiben.
+struct AlbumActionButtonStyle: ButtonStyle {
+    var primary = false
+    @Environment(\.isEnabled) private var enabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.subheadline.weight(.semibold))
+            .labelStyle(.titleAndIcon)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, Stitch.Space.m)
+            .padding(.vertical, Stitch.Space.s)
+            .frame(maxWidth: .infinity, minHeight: Stitch.Size.button, alignment: .center)
+            .foregroundStyle(primary ? Stitch.onAccent : Stitch.ink)
+            .background(primary ? Stitch.actionFill : Stitch.selection, in: Capsule())
+            .overlay(Capsule().strokeBorder(primary ? .clear : Stitch.rule, lineWidth: 1))
+            .opacity(enabled ? 1 : 0.45)
+            .scaleEffect(!reduceMotion && configuration.isPressed ? 0.97 : 1)
+            .animation(reduceMotion ? nil : Stitch.Motion.press, value: configuration.isPressed)
+    }
+}
+
+struct AlbumTextActionButtonStyle: ButtonStyle {
+    var tint: Color = Stitch.ink
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(tint)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(minWidth: Stitch.Size.touch, minHeight: Stitch.Size.touch, alignment: .center)
+            .contentShape(Rectangle())
+            .opacity(configuration.isPressed ? 0.55 : 1)
     }
 }

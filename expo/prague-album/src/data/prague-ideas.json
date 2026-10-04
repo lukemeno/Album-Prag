@@ -1,0 +1,626 @@
+[
+  {
+    "id": "prague-genesis-second-hand",
+    "title": "Genesis Second Hand",
+    "note": "Second-Hand-Laden; genaue Filiale noch auswählen.",
+    "sourceURL": "https://www.glamourcabaret.cz/m/nejlepsi-prazske-second-handy-obchody-s-vintage-recyklovanou-modou",
+    "category": "Shopping",
+    "address": ""
+  },
+  {
+    "id": "prague-3some-vintage",
+    "title": "3SOME Vintage",
+    "note": "Vintage-Shop; genaue Adresse vor dem Besuch prüfen.",
+    "sourceURL": "https://www.glamourcabaret.cz/m/nejlepsi-prazske-second-handy-obchody-s-vintage-recyklovanou-modou",
+    "category": "Shopping",
+    "address": ""
+  },
+  {
+    "id": "prague-old-czech-chimney-cake",
+    "title": "Old Czech Chimney Cake · Karlova 25",
+    "note": "Trdelník / Chimney Cake.",
+    "sourceURL": "https://www.oldczechchimney.com/",
+    "category": "Essen & Trinken",
+    "address": "Karlova 145/25, 110 00 Praha 1"
+  },
+  {
+    "id": "prague-our-lady-victorious",
+    "title": "Church of Our Lady Victorious",
+    "note": "Kirche mit dem Prager Jesulein (Infant Jesus of Prague).",
+    "sourceURL": "https://prague.eu/en/objevujte/church-of-our-lady-victorious-church-of-the-infant-jesus-kostel-panny-marie-vitezne/",
+    "category": "Sehenswert",
+    "address": "Karmelitská 9, 118 00 Praha 1"
+  },
+  {
+    "id": "prague-st-nicholas-old-town",
+    "title": "St Nicholas Church · Old Town",
+    "note": "Nikolauskirche am Altstädter Ring.",
+    "sourceURL": "https://prague.eu/en/objevujte/st-nicholas-church-kostel-sv-mikulase/",
+    "category": "Sehenswert",
+    "address": "Staroměstské náměstí, 110 00 Praha 1"
+  },
+  {
+    "id": "prague-orthodox-cathedral-cyril-methodius",
+    "title": "Orthodox Cathedral of Saints Cyril and Methodius",
+    "note": "Orthodoxe Kathedrale und Gedenkstätte der Heydrich-Attentäter.",
+    "sourceURL": "https://prague.eu/en/spiritual-prague/pilgrimage-routes/cyril-and-methodius-route/",
+    "category": "Sehenswert",
+    "address": "Resslova 9a, 120 00 Praha 2"
+  },
+  {
+    "id": "prague-venice-cruise",
+    "title": "Prague Venice · Čertovka",
+    "note": "Bootsfahrt durch die Prager Kanäle und Čertovka (Little Venice).",
+    "sourceURL": "https://www.prague-venice.cz/en/detail",
+    "category": "Idee",
+    "address": "Křižovnické náměstí, 110 00 Praha 1"
+  },
+  {
+    "id": "prague-planetum-program",
+    "title": "Planetarium Prag",
+    "note": "Planetarium mit modernisiertem LED-Dome.",
+    "sourceURL": "https://prague.eu/de/objevujte/planetarium-prag-planetarium-praha/",
+    "category": "Idee",
+    "address": "Královská obora 233, 170 21 Praha 7"
+  },
+  {
+    "id": "prague-alchemiae",
+    "title": "Speculum Alchemiae",
+    "note": "Alchemie-Museum in der Prager Altstadt.",
+    "sourceURL": "http://alchemiae.cz/cs",
+    "category": "Sehenswert",
+    "address": ""
+  },
+  {
+    "id": "prague-ghost-legends-tour",
+    "title": "Geister- und Legenden-Tour",
+    "note": "Atmosphärischer Abendspaziergang; Treffpunkt Kožná 500/6 in der Altstadt.",
+    "sourceURL": "https://spectrumtours.cz/de/tours/ghost-and-legends-tour",
+    "category": "Idee",
+    "address": "Kožná 500/6, 110 00 Praha 1"
+  },
+  {
+    "id": "prague-knedelin",
+    "title": "Knedlín",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Knedl%C3%ADn%20Prague",
+    "category": "Essen & Trinken",
+    "address": ""
+  },
+  {
+    "id": "prague-koncept-bar",
+    "title": "Koncept Bar",
+    "note": "Matcha",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Koncept%20Bar%20Prague",
+    "category": "Essen & Trinken",
+    "address": ""
+  },
+  {
+    "id": "prague-pasta-fresca",
+    "title": "Pasta Fresca",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Pasta%20Fresca%20Prague",
+    "category": "Essen & Trinken",
+    "address": ""
+  },
+  {
+    "id": "prague-jun-matcha",
+    "title": "Jun Matcha",
+    "note": "Matcha",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Jun%20Matcha%20Prague",
+    "category": "Essen & Trinken",
+    "address": ""
+  },
+  {
+    "id": "prague-na-prikope",
+    "title": "Na Příkopě",
+    "note": "Einkaufsstraße",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Na%20P%C5%99%C3%ADkop%C4%9B%20Prague",
+    "category": "Shopping",
+    "address": ""
+  },
+  {
+    "id": "prague-kolacherie",
+    "title": "Sweet Treat at Kolacherie",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Sweet%20Treat%20at%20Kolacherie%20Prague",
+    "category": "Essen & Trinken",
+    "address": ""
+  },
+  {
+    "id": "prague-prague-castle",
+    "title": "Prague Castle",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Prague%20Castle%20Prague",
+    "category": "Sehenswert",
+    "address": ""
+  },
+  {
+    "id": "prague-golden-lane",
+    "title": "Golden Lane",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Golden%20Lane%20Prague",
+    "category": "Sehenswert",
+    "address": ""
+  },
+  {
+    "id": "prague-charles-bridge-sunset",
+    "title": "Charles Bridge · Sunset",
+    "note": "Sonnenuntergang an der Karlsbrücke",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Charles%20Bridge%20%C2%B7%20Sunset%20Prague",
+    "category": "Aussicht",
+    "address": ""
+  },
+  {
+    "id": "prague-pho-bar",
+    "title": "Pho Bar",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Pho%20Bar%20Prague",
+    "category": "Essen & Trinken",
+    "address": ""
+  },
+  {
+    "id": "prague-void-cafe",
+    "title": "Void Cafe",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Void%20Cafe%20Prague",
+    "category": "Essen & Trinken",
+    "address": ""
+  },
+  {
+    "id": "prague-bistro-monk",
+    "title": "Bistro Monk",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Bistro%20Monk%20Prague",
+    "category": "Essen & Trinken",
+    "address": ""
+  },
+  {
+    "id": "prague-coffee-cube",
+    "title": "Coffee Cube",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Coffee%20Cube%20Prague",
+    "category": "Essen & Trinken",
+    "address": ""
+  },
+  {
+    "id": "prague-coffee-room",
+    "title": "Coffee Room",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Coffee%20Room%20Prague",
+    "category": "Essen & Trinken",
+    "address": ""
+  },
+  {
+    "id": "prague-golden-egg",
+    "title": "Golden Egg",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Golden%20Egg%20Prague",
+    "category": "Essen & Trinken",
+    "address": ""
+  },
+  {
+    "id": "prague-v-zahrade",
+    "title": "V Zahradě Restaurant",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=V%20Zahrad%C4%9B%20Restaurant%20Prague",
+    "category": "Essen & Trinken",
+    "address": ""
+  },
+  {
+    "id": "prague-staromestske-namesti-cafe",
+    "title": "Café · Staroměstské náměstí 4/1",
+    "note": "Café an der angegebenen Adresse.",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Starom%C4%9Bstsk%C3%A9+n%C3%A1m%C4%9Bst%C3%AD+4%2F1+Prague",
+    "category": "Essen & Trinken",
+    "address": "Staroměstské náměstí 4/1, 110 00 Praha 1"
+  },
+  {
+    "id": "prague-national-museum",
+    "title": "National Museum",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=National%20Museum%20Prague",
+    "category": "Sehenswert",
+    "address": ""
+  },
+  {
+    "id": "prague-state-opera",
+    "title": "State Opera",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=State%20Opera%20Prague",
+    "category": "Sehenswert",
+    "address": ""
+  },
+  {
+    "id": "prague-u-mateje",
+    "title": "U Matěje",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=U%20Mat%C4%9Bje%20Prague",
+    "category": "Essen & Trinken",
+    "address": ""
+  },
+  {
+    "id": "prague-historic-tram-42",
+    "title": "Historic Tram Line 42",
+    "note": "Sightseeing mit der historischen Straßenbahn",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Historic%20Tram%20Line%2042%20Prague",
+    "category": "Idee",
+    "address": ""
+  },
+  {
+    "id": "prague-municipal-library",
+    "title": "Municipal Library of Prague",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Municipal%20Library%20of%20Prague%20Prague",
+    "category": "Sehenswert",
+    "address": ""
+  },
+  {
+    "id": "prague-anezsky-klaster",
+    "title": "Anežský klášter",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Ane%C5%BEsk%C3%BD%20kl%C3%A1%C5%A1ter%20Prague",
+    "category": "Sehenswert",
+    "address": ""
+  },
+  {
+    "id": "prague-jan-hus-memorial",
+    "title": "Jan Hus Memorial",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Jan%20Hus%20Memorial%20Prague",
+    "category": "Sehenswert",
+    "address": ""
+  },
+  {
+    "id": "prague-astronomical-clock",
+    "title": "Prague Astronomical Clock",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Prague%20Astronomical%20Clock%20Prague",
+    "category": "Sehenswert",
+    "address": ""
+  },
+  {
+    "id": "prague-our-lady-before-tyn",
+    "title": "Church of Our Lady before Týn",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Church%20of%20Our%20Lady%20before%20T%C3%BDn%20Prague",
+    "category": "Sehenswert",
+    "address": ""
+  },
+  {
+    "id": "prague-head-of-franz-kafka",
+    "title": "Head of Franz Kafka",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Head%20of%20Franz%20Kafka%20Prague",
+    "category": "Sehenswert",
+    "address": ""
+  },
+  {
+    "id": "prague-sigmund-freud-sculpture",
+    "title": "Man Hanging Out · Sigmund Freud Sculpture",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Man%20Hanging%20Out%20%C2%B7%20Sigmund%20Freud%20Sculpture%20Prague",
+    "category": "Sehenswert",
+    "address": ""
+  },
+  {
+    "id": "prague-havels-market",
+    "title": "Havels Market",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Havels%20Market%20Prague",
+    "category": "Shopping",
+    "address": ""
+  },
+  {
+    "id": "prague-cafe-letka",
+    "title": "Café Letka",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Caf%C3%A9%20Letka%20Prague",
+    "category": "Essen & Trinken",
+    "address": ""
+  },
+  {
+    "id": "prague-natureza-vegetarian-house",
+    "title": "Natureza Vegetarian House",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Natureza%20Vegetarian%20House%20Prague",
+    "category": "Essen & Trinken",
+    "address": ""
+  },
+  {
+    "id": "prague-bokovka",
+    "title": "Bokovka Bar",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Bokovka%20Bar%20Prague",
+    "category": "Essen & Trinken",
+    "address": ""
+  },
+  {
+    "id": "prague-etapa",
+    "title": "Etapa",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Etapa%20Prague",
+    "category": "Essen & Trinken",
+    "address": ""
+  },
+  {
+    "id": "prague-ema-espresso",
+    "title": "Ema Espresso",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Ema%20Espresso%20Prague",
+    "category": "Essen & Trinken",
+    "address": ""
+  },
+  {
+    "id": "prague-bjukitchen",
+    "title": "Bjukitchen",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Bjukitchen%20Prague",
+    "category": "Essen & Trinken",
+    "address": ""
+  },
+  {
+    "id": "prague-baracnicka-rychta",
+    "title": "Baráčnická rychta",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Bar%C3%A1%C4%8Dnick%C3%A1%20rychta%20Prague",
+    "category": "Essen & Trinken",
+    "address": ""
+  },
+  {
+    "id": "prague-di-tutti",
+    "title": "di tutti",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=di%20tutti%20Prague",
+    "category": "Essen & Trinken",
+    "address": ""
+  },
+  {
+    "id": "prague-cafe-savoy",
+    "title": "Café Savoy",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Caf%C3%A9%20Savoy%20Prague",
+    "category": "Essen & Trinken",
+    "address": ""
+  },
+  {
+    "id": "prague-st-vitus-cathedral",
+    "title": "St Vitus Cathedral",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=St%20Vitus%20Cathedral%20Prague",
+    "category": "Sehenswert",
+    "address": ""
+  },
+  {
+    "id": "prague-lennon-wall",
+    "title": "Lennon Wall",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Lennon%20Wall%20Prague",
+    "category": "Sehenswert",
+    "address": ""
+  },
+  {
+    "id": "prague-eska",
+    "title": "Eska",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Eska%20Prague",
+    "category": "Essen & Trinken",
+    "address": ""
+  },
+  {
+    "id": "prague-riegrovy-sady",
+    "title": "Riegrovy Sady",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Riegrovy%20Sady%20Prague",
+    "category": "Aussicht",
+    "address": ""
+  },
+  {
+    "id": "prague-petrin-hill",
+    "title": "Petřín Hill",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Pet%C5%99%C3%ADn%20Hill%20Prague",
+    "category": "Aussicht",
+    "address": ""
+  },
+  {
+    "id": "prague-petrin-tower",
+    "title": "Petřín Tower",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Pet%C5%99%C3%ADn%20Tower%20Prague",
+    "category": "Aussicht",
+    "address": ""
+  },
+  {
+    "id": "prague-strahov-library",
+    "title": "Strahov Monastery Library",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Strahov%20Monastery%20Library%20Prague",
+    "category": "Sehenswert",
+    "address": ""
+  },
+  {
+    "id": "prague-the-vintage-prague",
+    "title": "The Vintage Prague",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=The%20Vintage%20Prague%20Prague",
+    "category": "Shopping",
+    "address": ""
+  },
+  {
+    "id": "prague-vintage-therapy",
+    "title": "Vintage Therapy",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Vintage%20Therapy%20Prague",
+    "category": "Shopping",
+    "address": ""
+  },
+  {
+    "id": "prague-almo-vintage",
+    "title": "Almo Vintage",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Almo%20Vintage%20Prague",
+    "category": "Shopping",
+    "address": ""
+  },
+  {
+    "id": "prague-old-town-hall-tower",
+    "title": "Old Town Hall Tower",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Old%20Town%20Hall%20Tower%20Prague",
+    "category": "Aussicht",
+    "address": ""
+  },
+  {
+    "id": "prague-jazz-republic",
+    "title": "Jazz Republic",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Jazz%20Republic%20Prague",
+    "category": "Essen & Trinken",
+    "address": ""
+  },
+  {
+    "id": "prague-waldstein-gardens",
+    "title": "Waldstein Gardens · Valdštejnská zahrada",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Waldstein%20Gardens%20%C2%B7%20Vald%C5%A1tejnsk%C3%A1%20zahrada%20Prague",
+    "category": "Sehenswert",
+    "address": ""
+  },
+  {
+    "id": "prague-strelecky-island",
+    "title": "Střelecký Island",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=St%C5%99eleck%C3%BD%20Island%20Prague",
+    "category": "Sehenswert",
+    "address": ""
+  },
+  {
+    "id": "prague-pilsner-urquell-experience",
+    "title": "Pilsner Urquell Experience",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Pilsner%20Urquell%20Experience%20Prague",
+    "category": "Sehenswert",
+    "address": ""
+  },
+  {
+    "id": "prague-st-wenceslas-vineyard",
+    "title": "St Wenceslas Vineyard",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=St%20Wenceslas%20Vineyard%20Prague",
+    "category": "Aussicht",
+    "address": ""
+  },
+  {
+    "id": "prague-mala-strana",
+    "title": "Malá Strana",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Mal%C3%A1%20Strana%20Prague",
+    "category": "Sehenswert",
+    "address": ""
+  },
+  {
+    "id": "prague-havlickovy-sady-grebovka",
+    "title": "Havlíčkovy Sady · Grébovka",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Havl%C3%AD%C4%8Dkovy%20Sady%20%C2%B7%20Gr%C3%A9bovka%20Prague",
+    "category": "Aussicht",
+    "address": ""
+  },
+  {
+    "id": "prague-vysehrad-citadel",
+    "title": "Vyšehrad Citadel",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Vy%C5%A1ehrad%20Citadel%20Prague",
+    "category": "Sehenswert",
+    "address": ""
+  },
+  {
+    "id": "prague-naplavka",
+    "title": "Náplavka",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=N%C3%A1plavka%20Prague",
+    "category": "Sehenswert",
+    "address": ""
+  },
+  {
+    "id": "prague-josefov",
+    "title": "Josefov",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Josefov%20Prague",
+    "category": "Sehenswert",
+    "address": ""
+  },
+  {
+    "id": "prague-kampa-island",
+    "title": "Kampa Island",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Kampa%20Island%20Prague",
+    "category": "Sehenswert",
+    "address": ""
+  },
+  {
+    "id": "prague-dancing-house",
+    "title": "Dancing House",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Dancing%20House%20Prague",
+    "category": "Sehenswert",
+    "address": ""
+  },
+  {
+    "id": "prague-stare-mesto",
+    "title": "Staré Město",
+    "note": "",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Star%C3%A9%20M%C4%9Bsto%20Prague",
+    "category": "Sehenswert",
+    "address": ""
+  },
+  {
+    "id": "prague-karlstejn-castle",
+    "title": "Karlštejn Castle",
+    "note": "Tagesausflug ab Prag",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Karl%C5%A1tejn%20Castle,%20Czechia",
+    "category": "Sehenswert",
+    "address": ""
+  },
+  {
+    "id": "prague-kutna-hora",
+    "title": "Kutná Hora",
+    "note": "Tagesausflug ab Prag",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Kutn%C3%A1%20Hora,%20Czechia",
+    "category": "Sehenswert",
+    "address": ""
+  },
+  {
+    "id": "prague-sedlec-ossuary",
+    "title": "Sedlec Ossuary",
+    "note": "Beinhaus in Sedlec bei Kutná Hora",
+    "sourceURL": "https://www.google.com/maps/search/?api=1&query=Sedlec%20Ossuary,%20Kutn%C3%A1%20Hora,%20Czechia",
+    "category": "Sehenswert",
+    "address": ""
+  },
+  {
+    "id": "prague-premyslids-exhibition",
+    "title": "Die Přemysliden · Nationalmuseum",
+    "note": "Sonderausstellung vom 24. April bis 15. Oktober 2026.",
+    "sourceURL": "https://www.nm.cz/en/program/exhibitions/the-premyslids-a-ruling-dynasty-and-its-age",
+    "category": "Idee",
+    "address": "Václavské náměstí 68, 110 00 Praha 1"
+  },
+  {
+    "id": "prague-alchemists-magicians-museum",
+    "title": "Alchemisten- und Magiermuseum",
+    "note": "Museum nahe der Prager Burg im Haus, in dem Alchemist Edward Kelley lebte.",
+    "sourceURL": "https://prague.eu/de/objevujte/alchymisten-und-magier-museum-des-alten-prags-muzeum-alchymistu-a-magu-stare-prahy/",
+    "category": "Idee",
+    "address": "Jánský vršek 8, 118 00 Praha 1"
+  },
+  {
+    "id": "prague-franz-kafka-museum",
+    "title": "Franz Kafka Museum",
+    "note": "Ausstellung zu Leben und Werk Franz Kafkas in der Herget-Ziegelei.",
+    "sourceURL": "https://kafkamuseum.cz/de",
+    "category": "Idee",
+    "address": "Cihelná 2b, 118 00 Praha 1"
+  }
+]

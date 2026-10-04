@@ -1,16 +1,21 @@
 import SwiftUI
 
 /// Startseite der Reise: Prag, die sechs Tage als Streifen, der Plan des gewählten Tages und die Tickets.
-/// Vor der Reise steht der erste Tag offen, währenddessen „heute“ mit dem nächsten Ort obenauf.
+/// Vor der Reise steht der erste Tag offen, unterwegs „heute“ und danach der Erinnerungs-Einstieg.
 struct ReiseView: View {
     @Environment(AlbumStore.self) private var store
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     var openIdeas: () -> Void
     var openMap: () -> Void
     var openDocuments: () -> Void
     var openSharing: () -> Void
-    @State private var day: Int = TripDates.tripDay() ?? DayPlanGenerator.days.first ?? 4
+    var openAdd: () -> Void
+    @State private var day: Int = TripDates.phase() == .after
+        ? (DayPlanGenerator.days.last ?? 9)
+        : (TripDates.tripDay() ?? DayPlanGenerator.days.first ?? 4)
     @State private var selected: Place?
+    @State private var memoriesOpen = false
     @State private var refreshed = 0
     /// Solange das Herunterziehen abgleicht, wartet die Abgleich-Insel.
     @State private var refreshing = false
@@ -19,9 +24,11 @@ struct ReiseView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: Stitch.Space.xl) {
+            VStack(alignment: .leading, spacing: Stitch.Space.m) {
                 header
-                DayStrip(selection: $day, today: today, photo: { coverPhoto(for: $0) })
+                participants
+                itinerary
+                if TripDates.phase() == .after { memoriesEntry }
                 dayPlan
                 tickets
                 if !store.inbox.isEmpty { ideasWaiting }
@@ -45,36 +52,272 @@ struct ReiseView: View {
         .background(PaperBackground())
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $selected) { PlaceDetail(placeID: $0.id) }
+        .sheet(isPresented: $memoriesOpen) {
+            TripMemoriesView(openMap: {
+                memoriesOpen = false
+                openMap()
+            })
+            .environment(store)
+        }
     }
 
     // MARK: Kopf
 
     private var header: some View {
-        HStack(alignment: .top, spacing: Stitch.Space.s) {
-            VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
-                Text("Prag").font(Stitch.Face.display(48, relativeTo: .largeTitle)).foregroundStyle(Stitch.ink)
+        VStack(alignment: .leading, spacing: Stitch.Space.s) {
+            HStack(spacing: Stitch.Space.s) {
+                Text("Album")
+                    .font(Stitch.Face.display(28, relativeTo: .title2))
+                    .foregroundStyle(Stitch.ink)
                     .accessibilityAddTraits(.isHeader)
-                Text(subtitle).font(.subheadline).foregroundStyle(Stitch.inkSoft)
+                Spacer(minLength: Stitch.Space.s)
+                Button(action: openSharing) {
+                    Image(systemName: "person.2.fill")
+                }
+                .buttonStyle(HeaderIconButton())
+                .accessibilityLabel("Teilnehmende verwalten")
+                Button(action: openAdd) {
+                    Image(systemName: "plus")
+                }
+                .buttonStyle(HeaderIconButton())
+                .accessibilityLabel("Neue Idee")
             }
-            Spacer(minLength: 0)
-            Button(action: openSharing) {
-                Image(systemName: store.isShared ? "person.2.fill" : "person.badge.plus")
+
+            ZStack(alignment: .bottomLeading) {
+                AlbumPhoto(asset: .bundled(name: "imgPragueCover"))
+                    .accessibilityHidden(true)
+                if !dynamicTypeSize.isAccessibilitySize {
+                    LinearGradient(
+                        colors: [.clear, Stitch.scrim.opacity(0.78)],
+                        startPoint: .center, endPoint: .bottom
+                    )
+                    .accessibilityHidden(true)
+                    heroTitle.foregroundStyle(Stitch.onAccent)
+                        .padding(Stitch.Space.l)
+                }
             }
-            .buttonStyle(HeaderIconButton())
-            .padding(.top, Stitch.Space.xs)
-            .accessibilityLabel(store.isShared ? "Gemeinsames Album" : "Jemanden einladen")
+            .frame(height: 300)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(alignment: .topTrailing) { heroMenu.padding(Stitch.Space.s) }
+
+            if dynamicTypeSize.isAccessibilitySize {
+                heroTitle
+                    .foregroundStyle(Stitch.ink)
+                    .padding(.top, Stitch.Space.s)
+            }
         }
+    }
+
+    private var heroTitle: some View {
+        VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
+            Text("Prag")
+                .font(Stitch.Face.display(40, relativeTo: .largeTitle))
+                .accessibilityAddTraits(.isHeader)
+            Text(subtitle)
+                .font(.subheadline)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var heroMenu: some View {
+        Menu {
+            Button("Reiseunterlagen", systemImage: "doc.text", action: openDocuments)
+            Button("Karte", systemImage: "map", action: openMap)
+            Button("Teilen", systemImage: "square.and.arrow.up", action: openSharing)
+            Link(destination: URL(string: "https://commons.wikimedia.org/wiki/File:Charles_Bridge_at_sunset.jpg")!) {
+                Label("Foto: Thomas Fabian · CC BY-SA 2.0", systemImage: "photo")
+            }
+            Link(destination: URL(string: "https://creativecommons.org/licenses/by-sa/2.0/")!) {
+                Label("Lizenz und Bildnachweis", systemImage: "info.circle")
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+        }
+        .buttonStyle(HeaderIconButton())
+        .accessibilityLabel("Reiseoptionen")
+    }
+
+    private var participants: some View {
+        HStack(spacing: Stitch.Space.s) {
+            HStack(spacing: -8) {
+                ForEach(participantNames, id: \.self) { name in
+                    Text(initials(for: name))
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(Stitch.ink)
+                        .frame(width: 34, height: 34)
+                        .background(Stitch.Mat.sky, in: Circle())
+                        .overlay(Circle().stroke(Stitch.card, lineWidth: 2))
+                        .accessibilityLabel(name)
+                }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(participantNames.joined(separator: ", "))
+
+            Spacer(minLength: Stitch.Space.xs)
+
+            Button(action: openSharing) {
+                Label("Einladen", systemImage: "person.2")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Stitch.ink)
+                    .padding(.horizontal, Stitch.Space.m)
+                    .frame(minHeight: Stitch.Size.touch)
+                    .background(Stitch.card, in: Capsule())
+                    .overlay(Capsule().strokeBorder(Stitch.rule, lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Einladen")
+        }
+        .frame(minHeight: Stitch.Size.touch)
+    }
+
+    private var participantNames: [String] {
+        var names = [store.me]
+        if let partner, !names.contains(partner) { names.append(partner) }
+        return names
+    }
+
+    private func initials(for name: String) -> String {
+        let words = name.split(whereSeparator: { $0 == " " || $0 == "-" })
+        if let first = words.first, let last = words.dropFirst().last, first != last {
+            return (String(first.prefix(1)) + String(last.prefix(1))).uppercased()
+        }
+        return String(name.prefix(2)).uppercased()
+    }
+
+    private var itinerary: some View {
+        VStack(alignment: .leading, spacing: Stitch.Space.s) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Reiseplan")
+                    .font(Stitch.Face.title(20, relativeTo: .title2))
+                    .foregroundStyle(Stitch.ink)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer(minLength: Stitch.Space.s)
+                Button(action: openMap) {
+                    Label("Alle öffnen", systemImage: "calendar")
+                }
+                .buttonStyle(TextActionButton(tint: Stitch.ink))
+                .accessibilityLabel("Alle Reisetage öffnen")
+            }
+
+            ScrollView(.horizontal) {
+                HStack(spacing: Stitch.Space.s) {
+                    ForEach(DayPlanGenerator.days, id: \.self) { itineraryDay($0) }
+                }
+                .padding(.vertical, Stitch.Space.xxs)
+            }
+            .scrollIndicators(.hidden)
+        }
+        .padding(Stitch.Space.m)
+        .background(Stitch.card, in: RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous).strokeBorder(Stitch.rule, lineWidth: 1))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Reisetage")
+    }
+
+    @ScaledMetric(relativeTo: .body) private var itineraryTileWidth: CGFloat = 90
+
+    private func itineraryDay(_ day: Int) -> some View {
+        let places = store.plan(for: day)
+        let title = places.first?.title ?? "Noch offen"
+        let selectedDay = day == self.day
+        let width = max(90, itineraryTileWidth)
+        return Button {
+            self.day = day
+        } label: {
+            VStack(alignment: .leading, spacing: Stitch.Space.xs) {
+                Text("\(day). OKT")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Stitch.inkSoft)
+                    .lineLimit(1)
+                Group {
+                    if let asset = coverPhoto(for: day) {
+                        AlbumPhoto(asset: asset, root: store.root, thumbnailWidth: 250)
+                    } else {
+                        ZStack {
+                            Stitch.paperDeep
+                            Image(systemName: "calendar")
+                                .font(.title3)
+                                .foregroundStyle(Stitch.inkSoft)
+                        }
+                    }
+                }
+                .frame(width: 84, height: 90)
+                .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
+                Text(title)
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(Stitch.ink)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(width: width, alignment: .leading)
+            .padding(.horizontal, max(3, (width - 84) / 2))
+            .padding(.vertical, Stitch.Space.xs)
+            .background(selectedDay ? Stitch.selection : Stitch.card, in: RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous)
+                    .strokeBorder(selectedDay ? Stitch.Mat.sky : Stitch.rule, lineWidth: selectedDay ? 2 : 1)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(TripDates.dayTitle(day)), \(title)")
+        .accessibilityAddTraits(selectedDay ? .isSelected : [])
     }
 
     /// „4.–9. Oktober · noch 3 Tage · mit Mia“ – nur was stimmt.
     private var subtitle: String {
         var parts = ["4.–9. Oktober"]
-        let days = TripDates.daysUntilStart()
-        if days > 1 { parts.append("noch \(days) Tage") }
-        else if days == 1 { parts.append("morgen geht’s los") }
-        else if let today { parts.append("Tag \(today - 3) von 6") }
+        switch TripDates.phase() {
+        case .before:
+            let days = TripDates.daysUntilStart()
+            if days > 1 { parts.append("noch \(days) Tage") }
+            else if days == 1 { parts.append("morgen geht’s los") }
+        case .during:
+            if let today { parts.append("Tag \(today - 3) von 6") }
+        case .after:
+            parts.append("6 Tage in Prag")
+        }
         if let partner { parts.append("mit \(partner)") }
         return parts.joined(separator: " · ")
+    }
+
+    private var memoriesEntry: some View {
+        let visited = store.franked.filter(\.visited)
+        let ownPhotos = visited.filter { place in
+            if case .uploaded = place.image { return true }
+            return false
+        }.count
+        return Button { memoriesOpen = true } label: {
+            HStack(spacing: Stitch.Space.m) {
+                Image(systemName: "photo.stack")
+                    .font(.title2.weight(.medium))
+                    .foregroundStyle(Stitch.ink)
+                    .frame(width: 48, height: 48)
+                    .background(Stitch.paperDeep, in: RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
+                VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
+                    Text("Erinnerungen ansehen")
+                        .font(.headline).foregroundStyle(Stitch.ink)
+                    Text(memorySummary(places: visited.count, photos: ownPhotos))
+                        .font(.subheadline).foregroundStyle(Stitch.inkSoft)
+                }
+                Spacer(minLength: Stitch.Space.xs)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold)).foregroundStyle(Stitch.inkSoft)
+            }
+            .frame(minHeight: Stitch.Size.touch)
+            .stitchCard(.pinned)
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Erinnerungen ansehen")
+        .accessibilityValue(memorySummary(places: visited.count, photos: ownPhotos))
+        .accessibilityHint("Blättert durch besuchte Orte und Fotos")
+    }
+
+    private func memorySummary(places: Int, photos: Int) -> String {
+        if places == 0 { return "Eure besuchten Orte und Fotos" }
+        let placeCount = places == 1 ? "1 Ort erlebt" : "\(places) Orte erlebt"
+        let photoCount = photos == 1 ? "1 eigenes Foto" : "\(photos) eigene Fotos"
+        return "\(placeCount) · \(photoCount)"
     }
 
     /// Die andere Person, sobald sie im Album vorkommt.
@@ -126,7 +369,6 @@ struct ReiseView: View {
             if stops.isEmpty {
                 VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
                     Text("Noch nichts geplant").font(.headline).foregroundStyle(Stitch.ink)
-                    Text("Auf der Karte bekommen beschlossene Orte einen Tag.").font(.subheadline).foregroundStyle(Stitch.inkSoft)
                     Button("Tage planen", action: openMap).buttonStyle(TextActionButton())
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -147,7 +389,7 @@ struct ReiseView: View {
             let legs = store.data.trip.flights ?? []
             if legs.isEmpty {
                 Button(action: openDocuments) {
-                    TicketRow(symbol: "airplane", title: "Flüge hinzufügen", detail: "Buchung als PDF ablegen, Album liest sie aus", stub: nil)
+                    TicketRow(symbol: "airplane", title: "Flüge hinzufügen", detail: "Das Album liest PDFs automatisch.", stub: nil)
                 }
                 .buttonStyle(.plain)
             } else {
@@ -170,12 +412,12 @@ struct ReiseView: View {
     private var ideasWaiting: some View {
         Button(action: openIdeas) {
             HStack(spacing: Stitch.Space.s) {
-                Image(systemName: "tray.full").font(.title3).foregroundStyle(Stitch.red)
+                Image(systemName: "tray.full").font(.title3).foregroundStyle(Stitch.ink)
                     .frame(width: Stitch.Size.thumb, height: Stitch.Size.thumb)
                     .background(Stitch.paperDeep, in: RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(store.inbox.count == 1 ? "1 Idee wartet" : "\(store.inbox.count) Ideen warten").font(.headline).foregroundStyle(Stitch.ink)
-                    Text("Ja oder Nein, dann landet sie im Plan").font(.subheadline).foregroundStyle(Stitch.inkSoft)
+                    Text("Ja, Nein oder Offen").font(.subheadline).foregroundStyle(Stitch.inkSoft)
                 }
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(Stitch.inkSoft)
@@ -204,106 +446,21 @@ struct ReiseView: View {
         try? await Task.sleep(for: .seconds(2))
         store.syncing = true
         try? await Task.sleep(for: .seconds(2))
-        var after = store.places
         if mode != "none" {
+            var before = store.places
+            if !before.contains(where: \.franked) {
+                before.append(Place(id: "demo-shared", title: "Karlsbrücke", author: store.me,
+                                    franked: true, approvals: [store.me]))
+            }
+            var after = before
             after.append(Place(title: "Café Savoy", author: "Mia"))
             after.append(Place(title: "Strahov", author: "Mia"))
             if let index = after.firstIndex(where: { $0.franked }) { after[index].approvals.append("Mia") }
-            store.syncChange = SyncChange.between(before: store.places, after: after, me: store.me)
+            store.syncChange = SyncChange.between(before: before, after: after, me: store.me)
         }
         store.syncing = false
     }
     #endif
-}
-
-// MARK: Tagesstreifen
-
-/// Die sechs Reisetage nebeneinander. Der gewählte Tag ist breit und zeigt sein erstes Foto,
-/// die anderen sind schmale Marken mit senkrechter Beschriftung. Tippen oder seitlich wischen wählt.
-private struct DayStrip: View {
-    @Binding var selection: Int
-    let today: Int?
-    let photo: (Int) -> PlaceImageAsset?
-    @Environment(AlbumStore.self) private var store
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @ScaledMetric(relativeTo: .body) private var height: CGFloat = 150
-    private let narrow: CGFloat = 38
-    private let days = DayPlanGenerator.days
-
-    var body: some View {
-        GeometryReader { geo in
-            let gap: CGFloat = 6
-            let wide = max(narrow, geo.size.width - CGFloat(days.count - 1) * (narrow + gap))
-            HStack(spacing: gap) {
-                ForEach(days, id: \.self) { day in
-                    tile(day, width: day == selection ? wide : narrow)
-                }
-            }
-        }
-        .frame(height: height)
-        .animation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.42, dampingFraction: 0.82), value: selection)
-        .sensoryFeedback(.selection, trigger: selection)
-        .gesture(DragGesture(minimumDistance: 24).onEnded { value in
-            guard abs(value.translation.width) > abs(value.translation.height) else { return }
-            let step = value.translation.width < 0 ? 1 : -1
-            selection = min(max(selection + step, days.first!), days.last!)
-        })
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Reisetage")
-    }
-
-    private func tile(_ day: Int, width: CGFloat) -> some View {
-        let open = day == selection
-        let asset = photo(day)
-        let count = store.plan(for: day).count
-        return Button { selection = day } label: {
-            ZStack(alignment: open ? .bottomLeading : .center) {
-                if open, asset != nil {
-                    AlbumPhoto(asset: asset, root: store.root, thumbnailWidth: 640)
-                    LinearGradient(colors: [.clear, Stitch.scrim.opacity(0.55)], startPoint: .center, endPoint: .bottom)
-                } else {
-                    (open ? Stitch.card : Stitch.paperDeep)
-                }
-                if open {
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text(weekday(day, style: .wide)).font(.footnote.weight(.semibold))
-                        Text("\(day). Okt").font(Stitch.Face.place(34, relativeTo: .title)).lineLimit(1).minimumScaleFactor(0.7)
-                    }
-                    .foregroundStyle(asset != nil ? Stitch.onAccent : Stitch.ink)
-                    .padding(Stitch.Space.s)
-                    .transition(.opacity)
-                } else {
-                    VStack(spacing: Stitch.Space.xs) {
-                        Text("\(day)").font(Stitch.Face.place(24, relativeTo: .title3)).foregroundStyle(Stitch.ink)
-                        Text(weekday(day, style: .abbreviated).uppercased())
-                            .font(.caption2.weight(.semibold)).tracking(0.6).foregroundStyle(Stitch.inkSoft)
-                            .fixedSize()
-                            .rotationEffect(.degrees(-90))
-                            .frame(width: 16, height: 30)
-                        if count > 0 {
-                            Circle().fill(Stitch.red).frame(width: 5, height: 5).accessibilityHidden(true)
-                        }
-                    }
-                }
-            }
-            .frame(width: width, height: height)
-            .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous)
-                    .strokeBorder(day == today ? Stitch.red : Stitch.rule, lineWidth: day == today ? 2 : 1)
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(TripDates.dayTitle(day)), \(count == 0 ? "nichts geplant" : count == 1 ? "1 Ort" : "\(count) Orte")\(day == today ? ", heute" : "")")
-        .accessibilityAddTraits(open ? .isSelected : [])
-    }
-
-    private func weekday(_ day: Int, style: Date.FormatStyle.Symbol.Weekday) -> String {
-        let date = TripDates.calendar.date(from: DateComponents(year: 2026, month: 10, day: day))!
-        return date.formatted(.dateTime.weekday(style).locale(Locale(identifier: "de_DE")))
-            .replacingOccurrences(of: ".", with: "")
-    }
 }
 
 // MARK: Orte im Tagesplan
@@ -321,7 +478,7 @@ private struct NextStop: View {
                         AlbumPhoto(asset: stop.place.image, root: root, thumbnailWidth: 400).frame(width: 96, height: 112)
                     }
                     VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
-                        Text("Als Nächstes").font(.footnote.weight(.semibold)).foregroundStyle(Stitch.red)
+                        Text("Als Nächstes").font(.footnote.weight(.semibold)).foregroundStyle(Stitch.ink)
                         Text(stop.place.title).font(Stitch.Face.place(28, relativeTo: .title)).foregroundStyle(Stitch.ink)
                             .lineLimit(3).multilineTextAlignment(.leading)
                         Text([stop.place.category, stop.slot].filter { !$0.isEmpty }.joined(separator: " · "))
@@ -334,6 +491,7 @@ private struct NextStop: View {
             if stop.place.coordinate != nil {
                 Button { openWalkingRoute(to: stop.place) } label: { Label("Route", systemImage: "figure.walk") }
                     .buttonStyle(StitchButton(primary: true))
+                    .accessibilityLabel("Route zu \(stop.place.title)")
             }
         }
         .stitchCard(.pinned)
@@ -355,10 +513,11 @@ private struct StopRow: View {
                         AlbumPhoto(asset: place.image, root: root, thumbnailWidth: 160).frame(width: 44, height: 52)
                     }
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(place.title).font(Stitch.Face.place(21, relativeTo: .headline)).foregroundStyle(place.visited ? Stitch.inkSoft : Stitch.ink)
+                    Text(place.title).font(Stitch.Face.place(21, relativeTo: .headline)).foregroundStyle(place.visited ? Stitch.inkSoft : Stitch.ink)
                             .strikethrough(place.visited, color: Stitch.inkSoft)
                             .lineLimit(2).multilineTextAlignment(.leading)
                         Text(meta).font(.footnote).foregroundStyle(stop.note == nil ? Stitch.inkSoft : Stitch.red)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer(minLength: 0)
                 }
@@ -384,6 +543,7 @@ private struct StopRow: View {
 
 /// Ticket mit Abschnitt rechts: Symbol, Titel, Zeile darunter; der Abschnitt trägt einen Code.
 struct TicketRow: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let symbol: String
     let title: String
     let detail: String
@@ -396,14 +556,19 @@ struct TicketRow: View {
                 Image(systemName: symbol).font(.body.weight(.semibold)).foregroundStyle(Stitch.ink)
                     .frame(width: 36, height: 36).background(mat, in: Circle())
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.headline).foregroundStyle(Stitch.ink).lineLimit(1)
-                    Text(detail).font(.footnote).foregroundStyle(Stitch.inkSoft).lineLimit(2)
+                    Text(title).font(.headline).foregroundStyle(Stitch.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(detail).font(.footnote).foregroundStyle(Stitch.inkSoft)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
             }
             .padding(Stitch.Space.s)
             if let stub {
-                Text(stub).font(Stitch.Face.ticket).foregroundStyle(Stitch.ink).lineLimit(1).minimumScaleFactor(0.7)
+                Text(stub).font(Stitch.Face.ticket).foregroundStyle(Stitch.ink)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                    .minimumScaleFactor(dynamicTypeSize.isAccessibilitySize ? 1 : 0.7)
+                    .fixedSize(horizontal: false, vertical: true)
                     .frame(width: stubWidth).frame(maxHeight: .infinity)
                     .background(Stitch.paperDeep)
             }

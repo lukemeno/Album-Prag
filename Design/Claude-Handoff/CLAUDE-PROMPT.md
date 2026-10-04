@@ -1,0 +1,15 @@
+# Claude-Auftrag: Album als stimmiges, hochwertiges Reiseprodukt gestalten
+
+Arbeite eigenständig am bestehenden Album-Projekt. Schau dir zuerst die App, ihre Screens, Navigation, Gesten, Zustände und relevanten Implementierungen an. Nutze die Referenzen in `Design/Claude-Handoff/references/`, die aktuellen App-Aufnahmen in `Design/Claude-Handoff/current-app/`, die Bewegungsbeispiele in `Design/Claude-Handoff/motion/` und die vorhandenen Projektunterlagen als Kontext.
+
+Entwickle daraus deine eigene überzeugende gestalterische Richtung. Die Referenzen zeigen, was mir gefällt, sind aber keine Vorlage zum Kopieren. Du hast kreativen Spielraum: Entscheide selbst, wie Album als Produkt am klarsten, schönsten und natürlichsten wirken kann. Ich möchte eine erkennbare, durchgängige Designidentität statt einer Sammlung einzeln hübscher Screens.
+
+Nimm die gesamte Nutzung ernst: visuelle Hierarchie, Typografie, Farbe, Bildsprache, Rhythmus und Abstände, wiederverwendbare Komponenten, Navigation, Gesten, Übergänge, Animation und Haptik gehören zusammen. Erarbeite ein konsistentes System, das sich in der echten App sinnvoll durchzieht. Motion soll Interaktionen verständlicher und befriedigender machen, nicht bloß Bewegung hinzufügen. Die Screenrecordings sind Inspiration; die separaten Texte in `MOTION-PROMPTS.md` beschreiben, welche Qualitäten mir daran auffallen.
+
+Gestalte und verbessere das bestehende Produkt end-to-end. Dazu gehören insbesondere Reiseübersicht, Ideen und Ortskarten, Karte samt verschiebbarem/ausblendbarem Listenblatt, Ortsdetails, Tagesplan, Sammlung, Teilen, Unterlagen und Assistent. Prüfe, wie diese Bereiche miteinander zusammenhängen, und mache Übergänge und Zustandswechsel selbstverständlich. Die App muss sich auch in unterstützten Querformatausrichtungen wie ein bewusst gestaltetes Produkt anfühlen.
+
+Du darfst die visuelle Lösung, Komponentenstruktur und Motion-Ausführung selbst bestimmen. Erhalte dabei die vorhandenen Produktfunktionen, Daten, Navigation, Synchronisierung, Share Extension, Deep Links, Accessibility-Verträge und aussagekräftigen Tests. Prüfe vor Änderungen den bestehenden Git-Status und schütze bereits vorhandene Änderungen; sie gehören zum Nutzerprojekt. Entferne keine Funktion, nur weil sie gestalterisch unbequem ist.
+
+Arbeite direkt und zusammenhängend, mit gutem Urteil und ohne unnötige Rückfragen. Wenn eine größere Designentscheidung mehrere sinnvolle Wege hat, triff eine begründete Wahl, setze sie konsistent um und notiere kurz, warum. Verändere keine Snapshot-Baselines, nur damit Tests grün werden. Prüfe zum Schluss die geänderten Screens, Interaktionen, Barrierefreiheit, Hoch-/Querformat und die passenden Builds oder Tests. Berichte knapp, was sich für Nutzer sichtbar verbessert hat, welche Dateien zentral betroffen sind, was du geprüft hast und was noch offen ist.
+
+Der Auftrag ist bewusst offen: Entwickle Album mit eigener Handschrift und nutze die Referenzen als Geschmackssignal, nicht als pixelgenaue Spezifikation.

@@ -9,11 +9,11 @@ Native SwiftUI-App für die Reise nach Prag vom 4. bis 9. Oktober 2026. Daten bl
 3. Mit `⌘R` starten.
 4. Links aus Instagram oder TikTok kopieren und in Album über **+** einfügen.
 
-Die lokale App benötigt keine Zugangsdaten. Karte, Ortssuche und TikTok-oEmbed benötigen Internet. Instagram wird nicht ausgelesen.
+Das Projekt ist bereits mit dem Album-Supabase-Backend konfiguriert; für den normalen Start müssen keine Zugangsdaten eingegeben werden. Die App unterstützt Hoch- und Querformat sowie beide Drehrichtungen. Im Querformat wechselt das Ortsblatt auf die linke Seite. Karte, Ortssuche und TikTok-oEmbed benötigen Internet. Instagram wird nicht ausgelesen.
 
-## Supabase einrichten
+## Eigenes Supabase-Projekt (optional)
 
-Voraussetzungen sind ein kostenloses Supabase-Projekt und die installierte Supabase CLI.
+Das vorhandene Projekt kann direkt mit der mitgelieferten Konfiguration genutzt werden. Die folgenden Schritte sind nur nötig, wenn Album auf ein anderes Supabase-Projekt zeigen soll. Voraussetzung sind ein kostenloses Supabase-Projekt und die installierte Supabase CLI.
 
 1. Im Supabase Dashboard unter **Authentication → Providers → Anonymous Sign-Ins** anonyme Anmeldungen aktivieren.
 2. Im Terminal in den Ordner `Album` wechseln und das Projekt verbinden:

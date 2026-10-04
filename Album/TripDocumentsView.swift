@@ -22,14 +22,14 @@ struct TripDocumentsView: View {
                         } else {
                             Button { importing = true } label: {
                                 HStack(spacing: Stitch.Space.s) {
-                                    Image(systemName: "airplane").font(.title3).foregroundStyle(Stitch.red)
+                                    Image(systemName: "airplane").font(.title3).foregroundStyle(Stitch.ink)
                                     VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
                                         Text("Noch keine Flüge").font(.headline).foregroundStyle(Stitch.ink)
                                         Text("Füg deine Buchungsbestätigung als PDF hinzu, dann steht alles hier.")
                                             .font(.footnote).foregroundStyle(Stitch.inkSoft)
                                     }
                                     Spacer(minLength: 0)
-                                    Image(systemName: "plus").font(.body.weight(.semibold)).foregroundStyle(Stitch.red)
+                                    Image(systemName: "plus").font(.body.weight(.semibold)).foregroundStyle(Stitch.ink)
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .stitchCard()
@@ -80,14 +80,23 @@ struct TripDocumentsView: View {
                                 }
                                 .buttonStyle(.plain)
                                 Button("Auslesen") { extraction = store.extraction(from: doc) }
-                                    .buttonStyle(TextActionButton())
+                                    .buttonStyle(AlbumTextActionButtonStyle())
                                     .accessibilityLabel("Flüge und Hotel aus \(doc.name) übernehmen")
                             }
                         }
                         Button("PDF hinzufügen", systemImage: "plus") { importing = true }
-                            .buttonStyle(StitchButton(primary: !hasFlights))
+                            .buttonStyle(AlbumActionButtonStyle(primary: !hasFlights))
                         Text("Das Original bleibt gespeichert. Flüge und Hotel übernimmt Album aus dem Text.")
                             .font(.footnote).foregroundStyle(Stitch.inkSoft)
+                    }
+
+                    section("Wechsel zu Expo") {
+                        Text("Teile dieses Backup und öffne es anschließend in der Expo-App unter „Album übertragen“.")
+                            .font(.footnote).foregroundStyle(Stitch.inkSoft)
+                        ShareLink(item: store.root.appendingPathComponent("album.json")) {
+                            Label("Album-Backup exportieren", systemImage: "square.and.arrow.up")
+                        }
+                        .buttonStyle(AlbumActionButtonStyle(primary: false))
                     }
                 }
                 .padding(Stitch.Space.page)
@@ -129,7 +138,15 @@ struct DocumentDetail: View {
         NavigationStack {
             Group {
                 if showText {
-                    ScrollView { Text(document.extractedText.isEmpty ? "Dieses PDF enthält keinen auslesbaren Text. Bitte das Original ansehen." : document.extractedText).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading).padding() }
+                    ScrollView {
+                        Text(document.extractedText.isEmpty ? "Dieses PDF enthält keinen auslesbaren Text. Bitte das Original ansehen." : document.extractedText)
+                            .font(.body)
+                            .foregroundStyle(Stitch.ink)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .stitchCard()
+                            .padding(Stitch.Space.page)
+                    }
                 } else { PDFReader(url: store.root.appendingPathComponent(document.filename)) }
             }.navigationTitle(document.name).navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -158,13 +175,16 @@ struct TripEditor: View {
                     TextField("Ankunft, z. B. 15:55", text: $trip.arrival)
                     TextField("Route, z. B. CGN → PRG", text: $trip.route)
                     TextField("Flugnummer", text: $trip.flightNumber)
-                    TextField("Notizen", text: $trip.notes, axis: .vertical).lineLimit(4...10)
+                    TextField("Notizen", text: $trip.notes, axis: .vertical)
+                        .lineLimit(4...10)
+                        .accessibilityLabel("Notizen")
+                        .accessibilityIdentifier("TripEditor-Notes")
                 }
                 .listRowBackground(Stitch.card)
             }.scrollContentBackground(.hidden).background(PaperBackground()).navigationTitle("Reisedaten").navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }
-                    ToolbarItem(placement: .confirmationAction) { Button("Speichern") { store.updateTrip(trip); dismiss() } }
+                    ToolbarItem(placement: .confirmationAction) { Button("Speichern") { if store.updateTrip(trip) { dismiss() } } }
                 }
         }
     }

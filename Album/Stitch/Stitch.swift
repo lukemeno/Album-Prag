@@ -7,32 +7,36 @@ import UIKit
 enum Stitch {
     // MARK: Farben (Hell / Dunkel)
 
-    static let paper = dynamic(light: (244, 239, 228), dark: (26, 23, 20))
-    static let paperDeep = dynamic(light: (232, 223, 208), dark: (42, 37, 32))
-    /// Markenweiß: Karten, Marken, Felder.
-    static let card = dynamic(light: (251, 248, 242), dark: (37, 33, 29))
-    static let rule = dynamic(light: (221, 211, 194), dark: (62, 56, 49))
-    static let ink = dynamic(light: (28, 25, 21), dark: (242, 237, 227))
-    static let inkSoft = dynamic(light: (107, 100, 92), dark: (181, 172, 160))
-    /// Poststempel als Schrift und Linie. Auf Papier 4,7:1, auf Karte 5,1:1.
-    static let red = dynamic(light: (182, 69, 50), dark: (236, 134, 114))
-    /// Poststempel als Fläche, helle Schrift darauf mindestens 5,2:1.
-    static let redFill = dynamic(light: (182, 69, 50), dark: (166, 61, 44))
-    /// Zweite Tinte: Besucht, Hinweise, zweite Route.
-    static let teal = dynamic(light: (61, 92, 90), dark: (141, 179, 175))
+    static let paper = dynamic(light: (250, 249, 247), dark: (18, 24, 34))
+    static let paperDeep = dynamic(light: (237, 241, 246), dark: (28, 37, 50))
+    /// Helle Karten und Felder heben sich leise vom kühlen Reisehintergrund ab.
+    /// Warm white surfaces match the paper while remaining visibly raised from it.
+    static let card = dynamic(light: (255, 254, 251), dark: (28, 36, 49))
+    static let rule = dynamic(light: (224, 230, 237), dark: (54, 64, 80))
+    static let ink = dynamic(light: (15, 24, 49), dark: (243, 246, 251))
+    static let inkSoft = dynamic(light: (115, 115, 120), dark: (175, 187, 201))
+    /// Koralle für Text, Auswahl und primäre Aktionen mit ausreichendem Kontrast.
+    static let red = dynamic(light: (190, 70, 54), dark: (255, 145, 125))
+    /// Koralle als Aktionsfläche; heller Vordergrund bleibt gut lesbar.
+    static let redFill = dynamic(light: (190, 70, 54), dark: (159, 55, 43))
+    /// Zweite Tinte für besuchte Orte und bestätigte Zustände.
+    static let teal = dynamic(light: (40, 112, 128), dark: (117, 190, 194))
+    /// Sanfte hellblaue Auswahlfläche für die aktuell fokussierte Karte oder Listenzeile.
+    static let selection = dynamic(light: (231, 242, 253), dark: (37, 56, 79))
     /// Nur Zierde (Stempelring, Sterne), nie Schrift.
     static let gold = dynamic(light: (196, 165, 116), dark: (214, 186, 138))
-    static let onAccent = Color(red: 251 / 255, green: 248 / 255, blue: 242 / 255)
+    static let onAccent = Color(red: 1, green: 1, blue: 1)
+    static let actionFill = Color(red: 15 / 255, green: 24 / 255, blue: 49 / 255)
     /// Hintergrund hinter Vollbildfotos, in beiden Modi dunkel.
     static let scrim = Color(red: 20 / 255, green: 18 / 255, blue: 16 / 255)
 
     /// Pastellränder der Marken, fest je Kategorie. Nie für Schrift.
     enum Mat {
-        static let rose = dynamic(light: (240, 206, 198), dark: (94, 62, 57))
-        static let sky = dynamic(light: (203, 221, 235), dark: (52, 71, 88))
-        static let butter = dynamic(light: (242, 227, 178), dark: (88, 78, 47))
-        static let mint = dynamic(light: (207, 227, 209), dark: (50, 73, 58))
-        static let lilac = dynamic(light: (221, 211, 235), dark: (67, 59, 86))
+        static let rose = dynamic(light: (250, 220, 214), dark: (88, 54, 58))
+        static let sky = dynamic(light: (210, 231, 246), dark: (43, 65, 86))
+        static let butter = dynamic(light: (249, 235, 194), dark: (77, 67, 43))
+        static let mint = dynamic(light: (214, 237, 224), dark: (43, 69, 60))
+        static let lilac = dynamic(light: (230, 222, 247), dark: (62, 54, 85))
     }
 
     static func dynamic(light: (Int, Int, Int), dark: (Int, Int, Int)) -> Color {
@@ -77,9 +81,9 @@ enum Stitch {
     /// Eckenradien, immer mit kontinuierlicher Kurve. Marken haben fast keine Ecke.
     enum Radius {
         static let stamp: CGFloat = 4
-        static let thumb: CGFloat = 10
-        static let card: CGFloat = 18
-        static let floating: CGFloat = 26
+        static let thumb: CGFloat = 12
+        static let card: CGFloat = 22
+        static let floating: CGFloat = 28
     }
 
     /// Drei Höhen: flach, aufgeklebt (Marke auf Papier), schwebend (über der Karte).
@@ -97,8 +101,16 @@ enum Stitch {
         static let thumb: CGFloat = 48
     }
 
+    /// Gemeinsame Bewegungswerte. Besondere Choreografien behalten ihre eigenen Schwellen und Beats.
+    enum Motion {
+        static let press = Animation.spring(response: 0.25, dampingFraction: 0.7)
+        static let panel = Animation.spring(response: 0.42, dampingFraction: 0.88)
+        static let decisionReturn = Animation.spring(response: 0.4, dampingFraction: 0.72)
+        static let reducedFade = Animation.easeInOut(duration: 0.2)
+    }
+
     /// Warme Schattenfarbe statt Schwarz, damit Marken auf Papier liegen statt zu schweben.
-    static let shadow = Color(red: 0.24, green: 0.17, blue: 0.10)
+    static let shadow = Color(red: 0.12, green: 0.18, blue: 0.27)
 }
 
 // MARK: Flächen
@@ -108,7 +120,7 @@ struct PaperBackground: View {
 }
 
 extension View {
-    /// Einheitliche Karte: Markenweiß, Radius 18, feine Kontur; wahlweise mit Schatten.
+    /// Einheitliche Karte: Markenweiß, feine Kontur; wahlweise mit Schatten.
     func stitchCard(_ elevation: Stitch.Elevation = .flat, padding: CGFloat = Stitch.Space.m) -> some View {
         self.padding(padding)
             .background(Stitch.card, in: RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
@@ -252,10 +264,11 @@ extension Place {
 
 // MARK: Knöpfe
 
-/// Hauptknopf als Pille (Poststempel), Nebenknopf als helle Pille mit Kontur.
+/// Hauptknopf als navy Pille, Nebenknopf als helle Pille mit Kontur.
 struct StitchButton: ButtonStyle {
     var primary = false
     @Environment(\.isEnabled) private var enabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.subheadline.weight(.semibold))
@@ -266,34 +279,37 @@ struct StitchButton: ButtonStyle {
             .padding(.vertical, Stitch.Space.s)
             .frame(maxWidth: .infinity, minHeight: Stitch.Size.button, alignment: .center)
             .foregroundStyle(primary ? Stitch.onAccent : Stitch.ink)
-            .background(primary ? Stitch.redFill : Stitch.card, in: Capsule())
+            .background(primary ? Stitch.actionFill : Stitch.card, in: Capsule())
             .overlay(Capsule().strokeBorder(Stitch.rule, lineWidth: primary ? 0 : 1))
             .opacity(enabled ? 1 : 0.45)
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
+            .scaleEffect(!reduceMotion && configuration.isPressed ? 0.97 : 1)
+            .animation(reduceMotion ? nil : Stitch.Motion.press, value: configuration.isPressed)
     }
 }
 
 /// Runder Knopf nur mit Symbol, 44 × 44.
 struct HeaderIconButton: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.body.weight(.semibold)).foregroundStyle(Stitch.ink)
             .frame(width: Stitch.Size.touch, height: Stitch.Size.touch)
             .background(Stitch.card, in: Circle())
             .overlay(Circle().strokeBorder(Stitch.rule, lineWidth: 1))
-            .scaleEffect(configuration.isPressed ? 0.94 : 1)
-            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
+            .scaleEffect(!reduceMotion && configuration.isPressed ? 0.94 : 1)
+            .animation(reduceMotion ? nil : Stitch.Motion.press, value: configuration.isPressed)
     }
 }
 
-/// Stille Textaktion in Poststempel-Rot, 44 hoch.
+/// Stille Textaktion in Navy, 44 hoch.
 struct TextActionButton: ButtonStyle {
-    var tint = Stitch.red
+    var tint = Stitch.ink
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.subheadline.weight(.semibold)).foregroundStyle(tint)
-            .frame(minHeight: Stitch.Size.touch)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(minWidth: Stitch.Size.touch, minHeight: Stitch.Size.touch, alignment: .center)
             .contentShape(Rectangle())
             .opacity(configuration.isPressed ? 0.55 : 1)
     }
@@ -305,7 +321,7 @@ struct SectionTitle<Trailing: View>: View {
     @ViewBuilder var trailing: Trailing
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
-            Text(title).font(Stitch.Face.title(22, relativeTo: .title3)).foregroundStyle(Stitch.ink)
+            Text(title).font(Stitch.Face.title(20, relativeTo: .title3)).foregroundStyle(Stitch.ink)
                 .accessibilityAddTraits(.isHeader)
             Spacer(minLength: Stitch.Space.s)
             trailing

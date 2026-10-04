@@ -54,7 +54,6 @@ struct PhotoStack: View {
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("Foto-Stapel")
         .accessibilityAction(named: "Nächstes Foto") { advance(-1) }
-        .accessibilityAction(named: "Foto vergrößern") { onOpen(photos[front], frame) }
     }
 
     @ViewBuilder private func card(_ id: Int, position: Int) -> some View {
@@ -63,6 +62,10 @@ struct PhotoStack: View {
         Group {
             if position == 0 {
                 PhotoCard(asset: photos[id], root: root, title: title, subtitle: subtitle, thumbnailWidth: 960)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Foto von \(title), \(subtitle), \(id + 1) von \(photos.count)")
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityAction { onOpen(photos[id], frame) }
             } else {
                 AlbumPhoto(asset: photos[id], root: root, thumbnailWidth: 500)
                     .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
@@ -135,7 +138,7 @@ struct PhotoStack: View {
         if order.isEmpty { order = Array(photos.indices) }
         flip += 1
         if reduceMotion {
-            withAnimation(.easeInOut(duration: 0.2)) { order.append(order.removeFirst()) }
+            withAnimation(Stitch.Motion.reducedFade) { order.append(order.removeFirst()) }
             return
         }
         if flying != nil { landFlyingCard() }

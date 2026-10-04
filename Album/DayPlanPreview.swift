@@ -55,6 +55,7 @@ struct DayPlanPreview: View {
                     .listRowBackground(Stitch.card)
                 }
             }
+            .accessibilityIdentifier("day-plan-preview-list")
             .scrollContentBackground(.hidden)
             .background(PaperBackground())
             .navigationTitle("Vorschlag").navigationBarTitleDisplayMode(.inline)
@@ -62,15 +63,19 @@ struct DayPlanPreview: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Übernehmen") {
-                        if let proposal { store.apply(proposal); applied += 1 }
+                        guard let proposal, store.apply(proposal) else { return }
+                        applied += 1
                         dismiss()
                     }
                     .disabled(proposal == nil)
                 }
             }
             .task(id: keepAssigned) {
+                let requestedKeepAssigned = keepAssigned
                 proposal = nil
-                proposal = await store.proposeDayPlan(keepAssigned: keepAssigned)
+                let nextProposal = await store.proposeDayPlan(keepAssigned: requestedKeepAssigned)
+                guard !Task.isCancelled, requestedKeepAssigned == keepAssigned else { return }
+                proposal = nextProposal
             }
             .sensoryFeedback(.success, trigger: applied)
         }

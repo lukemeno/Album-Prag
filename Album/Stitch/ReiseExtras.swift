@@ -1,6 +1,12 @@
 import SwiftUI
 
 /// Reisezeitraum und „heute“. In Debug-Builds lässt sich heute per `ALBUM_TODAY=2026-10-05` festlegen.
+enum TripPhase: Equatable {
+    case before
+    case during
+    case after
+}
+
 enum TripDates {
     static let calendar = Calendar(identifier: .gregorian)
     static let start = calendar.date(from: DateComponents(year: 2026, month: 10, day: 4))!
@@ -23,6 +29,14 @@ enum TripDates {
         let day = calendar.startOfDay(for: date)
         guard day >= start, day <= end else { return nil }
         return calendar.component(.day, from: day)
+    }
+
+    /// Dieselbe Reise hat drei Zustände: planen, unterwegs sein und erinnern.
+    static func phase(on date: Date = today) -> TripPhase {
+        let day = calendar.startOfDay(for: date)
+        if day < start { return .before }
+        if day > end { return .after }
+        return .during
     }
 
     /// „Sonntag, 4. Oktober“ – Überschrift eines Reisetags.

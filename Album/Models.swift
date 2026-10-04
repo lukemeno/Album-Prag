@@ -38,12 +38,26 @@ struct ExternalPlaceImage: Codable, Equatable {
     var userSelected: Bool?
 }
 
+enum GeneratedPlaceImageSource: String, Codable, Equatable {
+    case lookAround
+    case mapSnapshot
+
+    var credit: String {
+        switch self {
+        case .lookAround: "Apple Karten · Straßenansicht"
+        case .mapSnapshot: "Apple Karten · Kartenansicht"
+        }
+    }
+}
+
 struct UploadedPlaceImage: Codable, Equatable {
     let id: String
     var storagePath: String?
     let pixelWidth: Int
     let pixelHeight: Int
     var resolvedFor: ResolvedPlaceIdentity?
+    /// Nur von der App erzeugte Ansichten tragen eine Quelle; eigene Fotos bleiben nil.
+    var generatedSource: GeneratedPlaceImageSource? = nil
 
     var filename: String { "place-image-\(id).jpg" }
 }
@@ -53,6 +67,11 @@ enum PlaceImageAsset: Codable, Equatable {
     case linkPreview(pageURL: String, thumbnailURL: String?, credit: String?)
     case external(ExternalPlaceImage)
     case uploaded(UploadedPlaceImage)
+
+    var isSourcePreview: Bool {
+        if case .linkPreview = self { return true }
+        return false
+    }
 
     var remoteURL: String? {
         switch self {
@@ -89,7 +108,16 @@ enum PlaceImageAsset: Codable, Equatable {
         switch self {
         case .linkPreview(_, _, let credit): credit
         case .external(let image): image.credit
+        case .uploaded(let image): image.generatedSource?.credit
         default: nil
+        }
+    }
+
+    var resolvedFor: ResolvedPlaceIdentity? {
+        switch self {
+        case .external(let image): image.resolvedFor
+        case .uploaded(let image): image.resolvedFor
+        case .bundled, .linkPreview: nil
         }
     }
 
@@ -119,7 +147,7 @@ struct Place: Codable, Identifiable, Equatable {
     var dayOrder: Int?
     /// Namen derer, die „Dafür“ gesagt haben.
     var approvals: [String] = []
-    /// Namen derer, die einen Vorschlag der anderen auf „Später“ gelegt haben.
+    /// Namen derer, die bei einem Vorschlag der anderen „Nein“ gesagt haben.
     var passedBy: [String] = []
     /// Öffnungszeiten aus OpenStreetMap; "" heißt: nachgesehen, nichts gefunden. Nil: noch nicht nachgesehen.
     var openingHours: String?
@@ -131,6 +159,18 @@ struct Place: Codable, Identifiable, Equatable {
               (-90...90).contains(lat), (-180...180).contains(lng) else { return nil }
         return .init(latitude: lat, longitude: lng)
     }
+    var mapLink: URL {
+        var components = URLComponents()
+        components.scheme = "https"
+        components.host = "maps.apple.com"
+        var items = [URLQueryItem(name: "q", value: [title, address.isEmpty ? "Prag" : address].filter { !$0.isEmpty }.joined(separator: ", "))]
+        if let coordinate {
+            items.append(URLQueryItem(name: "ll", value: "\(coordinate.latitude),\(coordinate.longitude)"))
+        }
+        components.queryItems = items
+        return components.url!
+    }
+
     var sourceLabel: String {
         guard let host = URL(string: sourceURL)?.host?.lowercased() else { return "Gesammelt" }
         if host == "tiktok.com" || host.hasSuffix(".tiktok.com") { return "TikTok" }
@@ -199,10 +239,101 @@ struct Place: Codable, Identifiable, Equatable {
     }
 
     static let examples: [Place] = [
-        Place(id: "example-letna", title: "Letná", note: "Park mit Blick über die Moldau.", category: "Aussicht", image: .bundled(name: "imgPhotoLetna"), lat: 50.0966, lng: 14.4165, updatedAt: .distantPast),
+        Place(id: "example-letna", title: "Letná Park", note: "Park mit Blick über die Moldau.", category: "Aussicht", image: .bundled(name: "imgPhotoLetna"), lat: 50.0966, lng: 14.4165, updatedAt: .distantPast),
         Place(id: "example-oldtown", title: "Altstädter Ring", note: "Route durch die Altstadt planen.", category: "Sehenswert", image: .bundled(name: "imgPhotoOldTown"), lat: 50.0875, lng: 14.4213, updatedAt: .distantPast),
-        Place(id: "example-cafe", title: "Café auswählen", note: "Café oder Restaurant als Idee ergänzen.", category: "Essen & Trinken", image: .bundled(name: "imgThumbCafe"), updatedAt: .distantPast)
+        Place(id: "example-cafe", title: "Café auswählen", note: "Café oder Restaurant als Idee ergänzen.", category: "Essen & Trinken", image: .bundled(name: "imgThumbCafe"), updatedAt: .distantPast),
+        Place(id: "prague-genesis-second-hand", title: "Genesis Second Hand", note: "Second-Hand-Laden; genaue Filiale noch auswählen.", sourceURL: "https://www.glamourcabaret.cz/m/nejlepsi-prazske-second-handy-obchody-s-vintage-recyklovanou-modou", category: "Shopping", updatedAt: .distantPast),
+        Place(id: "prague-3some-vintage", title: "3SOME Vintage", note: "Vintage-Shop; genaue Adresse vor dem Besuch prüfen.", sourceURL: "https://www.glamourcabaret.cz/m/nejlepsi-prazske-second-handy-obchody-s-vintage-recyklovanou-modou", category: "Shopping", updatedAt: .distantPast),
+        Place(id: "prague-old-czech-chimney-cake", title: "Old Czech Chimney Cake · Karlova 25", note: "Trdelník / Chimney Cake.", sourceURL: "https://www.oldczechchimney.com/", category: "Essen & Trinken", address: "Karlova 145/25, 110 00 Praha 1", updatedAt: .distantPast),
+        Place(id: "prague-our-lady-victorious", title: "Church of Our Lady Victorious", note: "Kirche mit dem Prager Jesulein (Infant Jesus of Prague).", sourceURL: "https://prague.eu/en/objevujte/church-of-our-lady-victorious-church-of-the-infant-jesus-kostel-panny-marie-vitezne/", category: "Sehenswert", address: "Karmelitská 9, 118 00 Praha 1", updatedAt: .distantPast),
+        Place(id: "prague-st-nicholas-old-town", title: "St Nicholas Church · Old Town", note: "Nikolauskirche am Altstädter Ring.", sourceURL: "https://prague.eu/en/objevujte/st-nicholas-church-kostel-sv-mikulase/", category: "Sehenswert", address: "Staroměstské náměstí, 110 00 Praha 1", updatedAt: .distantPast),
+        Place(id: "prague-orthodox-cathedral-cyril-methodius", title: "Orthodox Cathedral of Saints Cyril and Methodius", note: "Orthodoxe Kathedrale und Gedenkstätte der Heydrich-Attentäter.", sourceURL: "https://prague.eu/en/spiritual-prague/pilgrimage-routes/cyril-and-methodius-route/", category: "Sehenswert", address: "Resslova 9a, 120 00 Praha 2", updatedAt: .distantPast),
+        Place(id: "prague-venice-cruise", title: "Prague Venice · Čertovka", note: "Bootsfahrt durch die Prager Kanäle und Čertovka (Little Venice).", sourceURL: "https://www.prague-venice.cz/en/detail", category: "Idee", address: "Křižovnické náměstí, 110 00 Praha 1", updatedAt: .distantPast),
+        Place(id: "prague-planetum-program", title: "Planetarium Prag", note: "Planetarium mit modernisiertem LED-Dome.", sourceURL: "https://prague.eu/de/objevujte/planetarium-prag-planetarium-praha/", category: "Idee", address: "Královská obora 233, 170 21 Praha 7", updatedAt: .distantPast),
+        Place(id: "prague-alchemiae", title: "Speculum Alchemiae", note: "Alchemie-Museum in der Prager Altstadt.", sourceURL: "https://prague.eu/en/objevujte/speculum-alchemiae-mirror-of-alchemy-zrcadlo-alchymie/", category: "Sehenswert", address: "Haštalská 795/1, 110 00 Praha 1", lat: 50.0907544, lng: 14.4224672, updatedAt: .distantPast),
+        Place(id: "prague-ghost-legends-tour", title: "Geister- und Legenden-Tour", note: "Atmosphärischer Abendspaziergang; Treffpunkt Kožná 500/6 in der Altstadt.", sourceURL: "https://spectrumtours.cz/de/tours/ghost-and-legends-tour", category: "Idee", address: "Kožná 500/6, 110 00 Praha 1", updatedAt: .distantPast),
+        Place(id: "prague-premyslids-exhibition", title: "Die Přemysliden · Nationalmuseum", note: "Sonderausstellung vom 24. April bis 15. Oktober 2026.", sourceURL: "https://www.nm.cz/en/program/exhibitions/the-premyslids-a-ruling-dynasty-and-its-age", category: "Idee", address: "Václavské náměstí 68, 110 00 Praha 1", updatedAt: .distantPast),
+        Place(id: "prague-alchemists-magicians-museum", title: "Alchemisten- und Magiermuseum", note: "Museum nahe der Prager Burg im Haus, in dem Alchemist Edward Kelley lebte.", sourceURL: "https://prague.eu/de/objevujte/alchymisten-und-magier-museum-des-alten-prags-muzeum-alchymistu-a-magu-stare-prahy/", category: "Idee", address: "Jánský vršek 8, 118 00 Praha 1", updatedAt: .distantPast),
+        Place(id: "prague-franz-kafka-museum", title: "Franz Kafka Museum", note: "Ausstellung zu Leben und Werk Franz Kafkas in der Herget-Ziegelei.", sourceURL: "https://kafkamuseum.cz/de", category: "Idee", address: "Cihelná 2b, 118 00 Praha 1", updatedAt: .distantPast),
+        suggestion("knedelin", "Knedlín", category: "Essen & Trinken"),
+        suggestion("koncept-bar", "Koncept Bar", category: "Essen & Trinken", note: "Matcha"),
+        suggestion("pasta-fresca", "Pasta Fresca", category: "Essen & Trinken"),
+        suggestion("jun-matcha", "Jun Matcha", category: "Essen & Trinken", note: "Matcha"),
+        suggestion("na-prikope", "Na Příkopě", category: "Shopping", note: "Einkaufsstraße"),
+        suggestion("kolacherie", "Sweet Treat at Kolacherie", category: "Essen & Trinken"),
+        suggestion("prague-castle", "Prague Castle", category: "Sehenswert"),
+        suggestion("golden-lane", "Golden Lane", category: "Sehenswert"),
+        suggestion("charles-bridge-sunset", "Charles Bridge · Sunset", category: "Aussicht", note: "Sonnenuntergang an der Karlsbrücke"),
+        suggestion("pho-bar", "Pho Bar", category: "Essen & Trinken"),
+        suggestion("void-cafe", "Void Cafe", category: "Essen & Trinken"),
+        suggestion("bistro-monk", "Bistro Monk", category: "Essen & Trinken"),
+        suggestion("coffee-cube", "Coffee Cube", category: "Essen & Trinken"),
+        suggestion("coffee-room", "Coffee Room", category: "Essen & Trinken"),
+        suggestion("golden-egg", "Golden Egg", category: "Essen & Trinken"),
+        suggestion("v-zahrade", "V Zahradě Restaurant", category: "Essen & Trinken"),
+        Place(id: "prague-staromestske-namesti-cafe", title: "Café · Staroměstské náměstí 4/1", note: "Café an der angegebenen Adresse.", sourceURL: "https://www.google.com/maps/search/?api=1&query=Starom%C4%9Bstsk%C3%A9+n%C3%A1m%C4%9Bst%C3%AD+4%2F1+Prague", category: "Essen & Trinken", address: "Staroměstské náměstí 4/1, 110 00 Praha 1", updatedAt: .distantPast),
+        suggestion("national-museum", "National Museum", category: "Sehenswert"),
+        suggestion("state-opera", "State Opera", category: "Sehenswert"),
+        suggestion("u-mateje", "U Matěje", category: "Essen & Trinken"),
+        suggestion("historic-tram-42", "Historic Tram Line 42", category: "Idee", note: "Sightseeing mit der historischen Straßenbahn"),
+        suggestion("municipal-library", "Municipal Library of Prague", category: "Sehenswert"),
+        suggestion("anezsky-klaster", "Anežský klášter", category: "Sehenswert"),
+        suggestion("jan-hus-memorial", "Jan Hus Memorial", category: "Sehenswert"),
+        suggestion("astronomical-clock", "Prague Astronomical Clock", category: "Sehenswert"),
+        suggestion("our-lady-before-tyn", "Church of Our Lady before Týn", category: "Sehenswert"),
+        suggestion("head-of-franz-kafka", "Head of Franz Kafka", category: "Sehenswert"),
+        suggestion("sigmund-freud-sculpture", "Man Hanging Out · Sigmund Freud Sculpture", category: "Sehenswert"),
+        suggestion("havels-market", "Havels Market", category: "Shopping"),
+        suggestion("cafe-letka", "Café Letka", category: "Essen & Trinken"),
+        suggestion("natureza-vegetarian-house", "Natureza Vegetarian House", category: "Essen & Trinken"),
+        suggestion("bokovka", "Bokovka Bar", category: "Essen & Trinken"),
+        suggestion("etapa", "Etapa", category: "Essen & Trinken"),
+        suggestion("ema-espresso", "Ema Espresso", category: "Essen & Trinken"),
+        suggestion("bjukitchen", "Bjukitchen", category: "Essen & Trinken"),
+        suggestion("baracnicka-rychta", "Baráčnická rychta", category: "Essen & Trinken"),
+        suggestion("di-tutti", "di tutti", category: "Essen & Trinken"),
+        suggestion("cafe-savoy", "Café Savoy", category: "Essen & Trinken"),
+        suggestion("st-vitus-cathedral", "St Vitus Cathedral", category: "Sehenswert"),
+        suggestion("lennon-wall", "Lennon Wall", category: "Sehenswert"),
+        suggestion("eska", "Eska", category: "Essen & Trinken"),
+        suggestion("riegrovy-sady", "Riegrovy Sady", category: "Aussicht"),
+        suggestion("petrin-hill", "Petřín Hill", category: "Aussicht"),
+        suggestion("petrin-tower", "Petřín Tower", category: "Aussicht"),
+        suggestion("strahov-library", "Strahov Monastery Library", category: "Sehenswert"),
+        suggestion("the-vintage-prague", "The Vintage Prague", category: "Shopping"),
+        suggestion("vintage-therapy", "Vintage Therapy", category: "Shopping"),
+        suggestion("almo-vintage", "Almo Vintage", category: "Shopping"),
+        suggestion("old-town-hall-tower", "Old Town Hall Tower", category: "Aussicht"),
+        suggestion("jazz-republic", "Jazz Republic", category: "Essen & Trinken"),
+        suggestion("waldstein-gardens", "Waldstein Gardens · Valdštejnská zahrada", category: "Sehenswert"),
+        suggestion("strelecky-island", "Střelecký Island", category: "Sehenswert"),
+        suggestion("pilsner-urquell-experience", "Pilsner Urquell Experience", category: "Sehenswert"),
+        suggestion("st-wenceslas-vineyard", "St Wenceslas Vineyard", category: "Aussicht"),
+        suggestion("mala-strana", "Malá Strana", category: "Sehenswert"),
+        suggestion("havlickovy-sady-grebovka", "Havlíčkovy Sady · Grébovka", category: "Aussicht"),
+        suggestion("vysehrad-citadel", "Vyšehrad Citadel", category: "Sehenswert"),
+        suggestion("naplavka", "Náplavka", category: "Sehenswert"),
+        suggestion("josefov", "Josefov", category: "Sehenswert"),
+        suggestion("kampa-island", "Kampa Island", category: "Sehenswert"),
+        suggestion("dancing-house", "Dancing House", category: "Sehenswert"),
+        suggestion("stare-mesto", "Staré Město", category: "Sehenswert"),
+        suggestion("karlstejn-castle", "Karlštejn Castle", category: "Sehenswert", note: "Tagesausflug ab Prag", query: "Karlštejn Castle, Czechia"),
+        suggestion("kutna-hora", "Kutná Hora", category: "Sehenswert", note: "Tagesausflug ab Prag", query: "Kutná Hora, Czechia"),
+        suggestion("sedlec-ossuary", "Sedlec Ossuary", category: "Sehenswert", note: "Beinhaus in Sedlec bei Kutná Hora", query: "Sedlec Ossuary, Kutná Hora, Czechia")
     ]
+
+    private static func suggestion(_ id: String, _ title: String, category: String, note: String = "", query: String? = nil) -> Place {
+        let searchTerm = query ?? "\(title) Prague"
+        let encodedQuery = searchTerm.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? searchTerm
+        return Place(
+            id: "prague-\(id)",
+            title: title,
+            note: note,
+            sourceURL: "https://www.google.com/maps/search/?api=1&query=\(encodedQuery)",
+            category: category,
+            updatedAt: .distantPast
+        )
+    }
 }
 
 struct TripInfo: Codable {
@@ -260,11 +391,32 @@ struct CollaborationState: Codable, Equatable {
 }
 
 struct AlbumData: Codable {
+    var albumID = UUID().uuidString
     var places = Place.examples
     var trip = TripInfo()
     var documents: [TravelDocument] = []
     var dirty: Set<String> = []
     var collaboration: CollaborationState?
+    var collectionEntries: [CollectionEntry] = []
+    var collectionSync: [String: CollectionSyncMetadata] = [:]
+
+    private enum CodingKeys: String, CodingKey {
+        case albumID, places, trip, documents, dirty, collaboration, collectionEntries, collectionSync
+    }
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        albumID = try values.decodeIfPresent(String.self, forKey: .albumID) ?? UUID().uuidString
+        places = try values.decodeIfPresent([Place].self, forKey: .places) ?? Place.examples
+        trip = try values.decodeIfPresent(TripInfo.self, forKey: .trip) ?? TripInfo()
+        documents = try values.decodeIfPresent([TravelDocument].self, forKey: .documents) ?? []
+        dirty = try values.decodeIfPresent(Set<String>.self, forKey: .dirty) ?? []
+        collaboration = try values.decodeIfPresent(CollaborationState.self, forKey: .collaboration)
+        collectionEntries = try values.decodeIfPresent([CollectionEntry].self, forKey: .collectionEntries) ?? []
+        collectionSync = try values.decodeIfPresent([String: CollectionSyncMetadata].self, forKey: .collectionSync) ?? [:]
+    }
 }
 
 enum AlbumMerge {

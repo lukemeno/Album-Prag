@@ -1,8 +1,94 @@
 import XCTest
 import PDFKit
+import MapKit
 @testable import Album
 
 final class AlbumTests: XCTestCase {
+    func testPlaceMapLinkEncodesNamesAndUsesOnlyConfirmedCoordinate() throws {
+        let named = Place(title: "Café & Matcha", address: "Haštalská 1, Prag")
+        let query = try XCTUnwrap(URLComponents(url: named.mapLink, resolvingAgainstBaseURL: false)?.queryItems)
+        XCTAssertEqual(query.first { $0.name == "q" }?.value, "Café & Matcha, Haštalská 1, Prag")
+        XCTAssertNil(query.first { $0.name == "ll" })
+        var located = named
+        located.lat = 50.09; located.lng = 14.42
+        XCTAssertEqual(URLComponents(url: located.mapLink, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "ll" }?.value, "50.09,14.42")
+    }
+
+    func testShortInboxReleaseCannotVoteFromExtremeVelocity() {
+        for translation in [CGFloat(-50), -20, 0, 20, 50] {
+            XCTAssertNil(InboxSwipeResolver.horizontalDecision(actual: translation, predicted: 900, threshold: 96))
+            XCTAssertNil(InboxSwipeResolver.horizontalDecision(actual: translation, predicted: -900, threshold: 96))
+            XCTAssertFalse(InboxSwipeResolver.shouldOpen(actual: translation, predicted: -900, threshold: 96))
+        }
+    }
+
+    func testIntentionalInboxSwipeKeepsItsDirectionAtRelease() {
+        XCTAssertEqual(InboxSwipeResolver.horizontalDecision(actual: 130, predicted: -900, threshold: 96), true)
+        XCTAssertEqual(InboxSwipeResolver.horizontalDecision(actual: -130, predicted: 900, threshold: 96), false)
+        XCTAssertNil(InboxSwipeResolver.horizontalDecision(actual: 60, predicted: -900, threshold: 96))
+        XCTAssertTrue(InboxSwipeResolver.shouldOpen(actual: -130, predicted: 900, threshold: 96))
+    }
+
+    private let drawerExtents: [DrawerDetent: CGFloat] = [
+        .hidden: 0, .collapsed: 150, .half: 400, .full: 800
+    ]
+
+    func testShortDrawerDragDoesNotFollowAnExtremeSystemProjection() {
+        XCTAssertEqual(
+            DrawerDetentResolver.target(
+                from: .half,
+                actualTranslation: 66,
+                predictedTranslation: 560,
+                extents: drawerExtents
+            ),
+            .half
+        )
+    }
+
+    func testLongDrawerDragCanStillCrossMultipleDetents() {
+        XCTAssertEqual(
+            DrawerDetentResolver.target(
+                from: .half,
+                actualTranslation: 350,
+                predictedTranslation: 560,
+                extents: drawerExtents
+            ),
+            .hidden
+        )
+    }
+
+    func testCollapsedDrawerLongDragReachesHiddenWithRealHeaderExtent() {
+        let extents: [DrawerDetent: CGFloat] = [
+            .hidden: 0, .collapsed: 210, .half: 400, .full: 800
+        ]
+
+        XCTAssertEqual(
+            DrawerDetentResolver.target(
+                from: .collapsed,
+                actualTranslation: 130,
+                predictedTranslation: 130,
+                extents: extents
+            ),
+            .hidden
+        )
+    }
+
+    func testCollapsedDrawerShortDragStaysCollapsedWithRealHeaderExtent() {
+        let extents: [DrawerDetent: CGFloat] = [
+            .hidden: 0, .collapsed: 210, .half: 400, .full: 800
+        ]
+
+        XCTAssertEqual(
+            DrawerDetentResolver.target(
+                from: .collapsed,
+                actualTranslation: 32,
+                predictedTranslation: 32,
+                extents: extents
+            ),
+            .collapsed
+        )
+    }
+
     func testTripCountdownAndTodayPlan() {
         let date = { (day: Int, hour: Int) in TripDates.calendar.date(from: DateComponents(year: 2026, month: 10, day: day, hour: hour))! }
         let september = TripDates.calendar.date(from: DateComponents(year: 2026, month: 9, day: 23, hour: 23, minute: 59))!
@@ -13,6 +99,10 @@ final class AlbumTests: XCTestCase {
         XCTAssertEqual(TripDates.tripDay(on: date(4, 0)), 4)
         XCTAssertEqual(TripDates.tripDay(on: date(9, 23)), 9)
         XCTAssertNil(TripDates.tripDay(on: date(10, 0)))
+        XCTAssertEqual(TripDates.phase(on: date(3, 23)), .before)
+        XCTAssertEqual(TripDates.phase(on: date(4, 0)), .during)
+        XCTAssertEqual(TripDates.phase(on: date(9, 23)), .during)
+        XCTAssertEqual(TripDates.phase(on: date(10, 0)), .after)
     }
 
     /// Anonymisiertes Muster im Aufbau einer Voyage-Privé-Reisebestätigung, inklusive zerstückeltem PDF-Text.
@@ -114,6 +204,15 @@ final class AlbumTests: XCTestCase {
         place.lat = 100
         XCTAssertNil(place.coordinate)
     }
+
+    func testSpeculumAlchemiaeSeedHasVerifiedLocation() throws {
+        let place = try XCTUnwrap(Place.examples.first { $0.id == "prague-alchemiae" })
+        XCTAssertEqual(place.address, "Haštalská 795/1, 110 00 Praha 1")
+        XCTAssertEqual(place.lat ?? .nan, 50.0907544, accuracy: 0.000001)
+        XCTAssertEqual(place.lng ?? .nan, 14.4224672, accuracy: 0.000001)
+        XCTAssertNotNil(place.coordinate)
+    }
+
     func testSourceHostCannotSpoofTikTok() {
         let place = Place(title: "Test", sourceURL: "https://tiktok.com.evil.example/video")
         XCTAssertNotEqual(place.sourceLabel, "TikTok")
@@ -165,6 +264,30 @@ final class AlbumTests: XCTestCase {
         XCTAssertTrue(PlaceImageService.shouldSearch(for: movedPlace, force: false))
     }
 
+    func testMovingLocationDiscardsOnlyLocationBoundImages() {
+        let old = CLLocationCoordinate2D(latitude: 50.0819, longitude: 14.4185)
+        let new = CLLocationCoordinate2D(latitude: 50.0875, longitude: 14.4213)
+        XCTAssertTrue(PlaceImageService.locationMoved(from: old, to: new))
+        XCTAssertFalse(PlaceImageService.locationMoved(from: old, to: .init(latitude: 50.08195, longitude: 14.41855)))
+
+        let selected = PlaceImageAsset.external(.init(
+            imageURL: "https://example.com/photo.jpg", sourceURL: "https://example.com/source", credit: "A",
+            provider: .wikimedia, resolvedFor: .init(title: "Café Louvre", latitude: old.latitude, longitude: old.longitude),
+            userSelected: true
+        ))
+        XCTAssertTrue(PlaceImageService.shouldDiscardImageAfterLocationMove(selected))
+        XCTAssertTrue(PlaceImageService.shouldDiscardImageAfterLocationMove(.uploaded(.init(
+            id: "lookaround", storagePath: nil, pixelWidth: 1200, pixelHeight: 900,
+            resolvedFor: .init(title: "Café Louvre", latitude: old.latitude, longitude: old.longitude)
+        ))))
+        XCTAssertFalse(PlaceImageService.shouldDiscardImageAfterLocationMove(.uploaded(.init(
+            id: "own-photo", storagePath: nil, pixelWidth: 1200, pixelHeight: 900
+        ))))
+        XCTAssertFalse(PlaceImageService.shouldDiscardImageAfterLocationMove(.linkPreview(
+            pageURL: "https://example.com/post", thumbnailURL: "https://example.com/preview.jpg", credit: "example.com"
+        )))
+    }
+
     func testOwnPhotoIsNormalizedAndBounded() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -201,7 +324,7 @@ final class AlbumTests: XCTestCase {
         store.upsert(both)
         XCTAssertFalse(store.inbox.contains { $0.id == place.id })
 
-        // „Später“ auf einen Vorschlag der anderen Person nimmt ihn nicht von der Karte.
+        // „Nein“ auf einen Vorschlag der anderen Person nimmt ihn nicht von der Karte.
         store.myName = "Luke"
         var other = try XCTUnwrap(store.inbox.first { $0.id != place.id }); other.lat = 50.08; other.lng = 14.42
         store.myName = "Mia"; store.upsert(store.decided(other, approve: true))
@@ -254,6 +377,7 @@ final class AlbumTests: XCTestCase {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
         let store = AlbumStore(root: directory)
+        store.data.places = Array(store.data.places.prefix(3))
         let example = try XCTUnwrap(store.inbox.first)
         store.deferPlace(example)
         XCTAssertFalse(store.inbox.contains { $0.id == example.id })
@@ -341,6 +465,32 @@ final class AlbumTests: XCTestCase {
         XCTAssertEqual(AlbumStore(root: directory).data.collaboration?.tripID, service.tripID)
     }
 
+    @MainActor func testOfflineSyncFailureKeepsChangesForRetryAfterRestart() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = AlbumStore(root: directory)
+        let service = MockSyncService()
+        service.syncError = NSError(domain: "Album.Offline", code: -1009,
+                                    userInfo: [NSLocalizedDescriptionKey: "Keine Verbindung"])
+        store.syncService = service
+        store.data.collaboration = CollaborationState(tripID: service.tripID, inviteToken: service.token)
+
+        let place = Place(id: "offline-place", title: "Letná", author: "Luke")
+        store.data.places.append(place)
+        store.data.dirty.insert(place.id)
+        XCTAssertTrue(store.persist())
+
+        await store.sync()
+
+        XCTAssertEqual(store.syncStatus, "Lokal gespeichert · Synchronisierung nicht erreichbar")
+        XCTAssertFalse(store.syncing)
+        XCTAssertTrue(store.data.dirty.contains(place.id), "Der Änderungsauftrag bleibt für den nächsten Versuch erhalten")
+
+        let reopened = AlbumStore(root: directory)
+        XCTAssertTrue(reopened.data.places.contains { $0.id == place.id })
+        XCTAssertTrue(reopened.data.dirty.contains(place.id))
+    }
+
     func testExistingAlbumWithoutCollaborationStillDecodes() throws {
         let oldJSON = #"{"places":[],"trip":{"hotel":"Urban Crème","outbound":"","arrival":"","route":"","flightNumber":"","notes":"","updatedAt":0},"documents":[],"dirty":[]}"#.data(using: .utf8)!
         let decoded = try JSONDecoder().decode(AlbumData.self, from: oldJSON)
@@ -353,6 +503,7 @@ final class AlbumTests: XCTestCase {
     let token = String(repeating: "t", count: 43)
     var syncCount = 0
     var lastDirty: Set<String> = []
+    var syncError: Error?
 
     func createTrip(store: AlbumStore) async throws -> CollaborationState {
         try await sync(store: store)
@@ -363,12 +514,157 @@ final class AlbumTests: XCTestCase {
     }
     func sync(store: AlbumStore) async throws {
         syncCount += 1
+        if let syncError { throw syncError }
         lastDirty = store.data.dirty
     }
     func startRealtime(onChange: @escaping @MainActor @Sendable () async -> Void) {}
 }
 
 extension AlbumTests {
+    func testGooglePlaceNameFromObservedSearchRedirects() throws {
+        let direct = try XCTUnwrap(URL(string: "https://www.google.com/search?sca_esv=123&kgmid=/g/11b8t6x_p4&q=Cafe+No.+3&shndl=30&source=sh/x/loc/act/m1/3"))
+        XCTAssertEqual(PlaceLinkMetadata.placeName(from: direct), "Cafe No. 3")
+
+        let nativeConsent = try XCTUnwrap(URL(string: "https://consent.google.com/ml?continue=https://www.google.com/search%3Fsca_esv%3D123%26kgmid%3D/g/11b8t6x_p4%26q%3DCafe%2BNo.%2B3%26shndl%3D30%26source%3Dsh/x/loc/act/m1/3&gl=DE&m=0&pc=srp&cm=2&hl=de&src=1"))
+        XCTAssertEqual(PlaceLinkMetadata.placeName(from: nativeConsent), "Cafe No. 3")
+    }
+
+    func testMapPlaceNamesDecodeFromProviderURLs() throws {
+        XCTAssertEqual(
+            PlaceLinkMetadata.placeName(from: try XCTUnwrap(URL(string: "https://www.google.cz/maps/place/Caf%C3%A9+Savoy/@50.0755,14.4072,17z"))),
+            "Café Savoy"
+        )
+        XCTAssertEqual(
+            PlaceLinkMetadata.placeName(from: try XCTUnwrap(URL(string: "https://maps.apple.com/?q=Caf%C3%A9+Savoy"))),
+            "Café Savoy"
+        )
+    }
+
+    func testEncodedPlusInPlaceNamesAndGoogleDocumentsArePreserved() throws {
+        let name = try XCTUnwrap(URL(string: "https://maps.apple.com/?q=Caf%C3%A9+C%2B%2B"))
+        XCTAssertEqual(PlaceLinkMetadata.placeName(from: name), "Café C++")
+        let document = try XCTUnwrap(URL(string: "https://docs.google.com/document/d/example/edit"))
+        XCTAssertFalse(PlaceLinkMetadata.isMapProviderURL(document))
+    }
+
+    func testPlaceLinkMetadataRejectsDeceptiveGoogleHosts() throws {
+        let deceptive = try XCTUnwrap(URL(string: "https://google.com.evil.example/search?kgmid=/g/11b8t6x_p4&q=Falscher+Ort"))
+        XCTAssertNil(PlaceLinkMetadata.placeName(from: deceptive))
+
+        let spoofedConsent = try XCTUnwrap(URL(string: "https://consent.google.com/ml?continue=https%3A%2F%2Fwww.google.com.evil.example%2Fsearch%3Fkgmid%3D%2Fg%2F11b8t6x_p4%26q%3DFalscher%2BOrt"))
+        XCTAssertNil(PlaceLinkMetadata.placeName(from: spoofedConsent))
+    }
+
+    func testGoogleSearchMetadataRequiresPlaceIdentityAndText() throws {
+        let generic = try XCTUnwrap(URL(string: "https://www.google.com/search?q=Cafe+No.+3"))
+        XCTAssertNil(PlaceLinkMetadata.placeName(from: generic))
+
+        let coordinates = try XCTUnwrap(URL(string: "https://www.google.com/search?kgmid=/g/11b8t6x_p4&q=50.087%2C14.423"))
+        XCTAssertNil(PlaceLinkMetadata.placeName(from: coordinates))
+    }
+
+    func testSourceMetadataPrefillsSearchWithoutAssigningALocation() {
+        var place = Place(title: "", sourceURL: "https://www.tiktok.com/@user/video/123")
+        var query = ""
+        let shouldSearch = SourceMetadataPolicy.apply(
+            .init(title: "Café Savoy", thumbnail_url: "https://example.com/preview.jpg", author_name: "Prag Tipps"),
+            pageURL: URL(string: place.sourceURL)!,
+            to: &place,
+            query: &query,
+            queryWasUnchanged: true
+        )
+
+        XCTAssertEqual(place.title, "Café Savoy")
+        XCTAssertEqual(query, "Café Savoy")
+        XCTAssertTrue(shouldSearch)
+        XCTAssertNil(place.coordinate, "Metadaten dürfen keinen Ort automatisch zuweisen")
+        guard case .linkPreview(let pageURL, _, _) = place.image else { return XCTFail("Linkvorschau fehlt") }
+        XCTAssertEqual(pageURL, place.sourceURL)
+    }
+
+    func testSourceMetadataPreservesUserValuesAndChosenImage() {
+        let ownImage = PlaceImageAsset.uploaded(.init(id: "own", storagePath: nil, pixelWidth: 800, pixelHeight: 600))
+        var place = Place(
+            title: "Mein Café",
+            sourceURL: "https://example.com/post",
+            image: ownImage
+        )
+        var query = "Prag 1"
+        let shouldSearch = SourceMetadataPolicy.apply(
+            .init(title: "Langer fremder Caption-Text", thumbnail_url: "https://example.com/other.jpg", author_name: nil),
+            pageURL: URL(string: place.sourceURL)!,
+            to: &place,
+            query: &query,
+            queryWasUnchanged: false
+        )
+
+        XCTAssertEqual(place.title, "Mein Café")
+        XCTAssertEqual(place.image, ownImage)
+        XCTAssertEqual(query, "Prag 1")
+        XCTAssertFalse(shouldSearch)
+    }
+
+    func testSourceMetadataSearchesWithUntouchedManualTitle() {
+        var place = Place(title: "Kaffeehaus Savoy", sourceURL: "https://example.com/post")
+        var query = place.title
+
+        XCTAssertTrue(SourceMetadataPolicy.apply(
+            .init(title: "Langer Caption-Text", thumbnail_url: nil, author_name: nil),
+            pageURL: URL(string: place.sourceURL)!,
+            to: &place,
+            query: &query,
+            queryWasUnchanged: true
+        ))
+        XCTAssertEqual(place.title, "Kaffeehaus Savoy")
+        XCTAssertEqual(query, "Kaffeehaus Savoy")
+    }
+
+    func testHTMLPreviewReadsNestedStructuredPlaceImageAndResolvesSecureURL() throws {
+        let html = #"""
+        <script type="application/ld+json">
+        {"@context":"https://schema.org","@graph":[
+          {"@type":"Museum","name":"Museum","image":{"@type":"ImageObject","url":"/images/museum.jpg"}},
+          {"@type":"WebSite","name":"Museum","logo":{"url":"/images/logo.svg"}}
+        ]}
+        </script>
+        """#
+        let preview = try XCTUnwrap(OEmbedService.parseHTMLPreview(
+            Data(html.utf8),
+            baseURL: URL(string: "https://example.com/visit")!
+        ))
+        XCTAssertEqual(preview.thumbnail_url, "https://example.com/images/museum.jpg")
+    }
+
+    func testHTMLPreviewDoesNotUseOrganizationOrWebsiteLogoAsPlaceImage() {
+        let html = #"""
+        <script type="application/ld+json">
+        {"@context":"https://schema.org","@graph":[
+          {"@type":"Organization","name":"Museum","logo":{"url":"/images/logo.svg"}},
+          {"@type":"WebSite","name":"Museum","image":{"url":"/images/site.jpg"}}
+        ]}
+        </script>
+        """#
+        let preview = OEmbedService.parseHTMLPreview(
+            Data(html.utf8),
+            baseURL: URL(string: "https://example.com/visit")!
+        )
+        XCTAssertNil(preview)
+    }
+
+    func testSourceMetadataDoesNotSearchAgainAfterLocationSelection() {
+        var place = Place(title: "Café Savoy", sourceURL: "https://example.com/post", lat: 50.0755, lng: 14.4072)
+        var query = "Café Savoy"
+
+        XCTAssertFalse(SourceMetadataPolicy.apply(
+            .init(title: "Café Savoy", thumbnail_url: nil, author_name: nil),
+            pageURL: URL(string: place.sourceURL)!,
+            to: &place,
+            query: &query,
+            queryWasUnchanged: true
+        ))
+        XCTAssertNotNil(place.coordinate)
+    }
+
     func testImageSuggestionsNeverBecomeAutomaticByArrayPosition() throws {
         let json = #"{"selection_version":3,"image":null,"candidates":[{"image_url":"https://example.com/nearby.jpg","source_url":"https://example.com/source","credit":"A","provider":"wikimedia","confidence":"suggested"}]}"#.data(using: .utf8)!
         let result = try JSONDecoder().decode(PlaceImageSearchResult.self, from: json)
@@ -426,5 +722,43 @@ extension AlbumTests {
         XCTAssertFalse(PlaceImageService.shouldSearch(for: place, force: false))
         place.lat = 50.092
         XCTAssertTrue(PlaceImageService.shouldSearch(for: place, force: false))
+    }
+
+    func testGeneratedMapPreviewKeepsItsSourceAndCanLaterBeUpgraded() throws {
+        var photo = UploadedPlaceImage(id: "map", storagePath: nil, pixelWidth: 1200, pixelHeight: 900)
+        photo.resolvedFor = ResolvedPlaceIdentity(title: "Café Louvre", latitude: 50.0819, longitude: 14.4185)
+        photo.generatedSource = .mapSnapshot
+        let place = Place(title: "Café Louvre", image: .uploaded(photo), lat: 50.0819, lng: 14.4185)
+
+        let decoded = try JSONDecoder().decode(Place.self, from: JSONEncoder().encode(place))
+        guard case .uploaded(let decodedPhoto) = decoded.image else { return XCTFail("Kartenansicht fehlt") }
+        XCTAssertEqual(decodedPhoto.generatedSource, .mapSnapshot)
+        XCTAssertEqual(decoded.image?.credit, "Apple Karten · Kartenansicht")
+        XCTAssertTrue(PlaceImageService.shouldSearch(for: decoded, force: false))
+    }
+
+    func testFailedLookupRetainsOnlyImagesThatStillBelongToThePlace() {
+        let place = Place(title: "Café Louvre", category: "Essen & Trinken", lat: 50.0819, lng: 14.4185)
+        let sourcePreview = PlaceImageAsset.linkPreview(
+            pageURL: "https://example.com/post",
+            thumbnailURL: "https://example.com/preview.jpg",
+            credit: "example.com"
+        )
+        XCTAssertTrue(PlaceImageService.canRetain(sourcePreview, for: place))
+
+        var generated = UploadedPlaceImage(id: "map", storagePath: nil, pixelWidth: 1200, pixelHeight: 900)
+        generated.resolvedFor = ResolvedPlaceIdentity(title: place.title, latitude: 50.0819, longitude: 14.4185)
+        generated.generatedSource = .mapSnapshot
+        XCTAssertTrue(PlaceImageService.canRetain(.uploaded(generated), for: place))
+        XCTAssertFalse(PlaceImageService.isUserChosen(.uploaded(generated)))
+
+        var moved = place
+        moved.lat = 50.092
+        XCTAssertFalse(PlaceImageService.canRetain(.uploaded(generated), for: moved))
+        let own = PlaceImageAsset.uploaded(.init(
+            id: "own", storagePath: nil, pixelWidth: 1200, pixelHeight: 900
+        ))
+        XCTAssertTrue(PlaceImageService.canRetain(own, for: moved))
+        XCTAssertTrue(PlaceImageService.isUserChosen(own))
     }
 }

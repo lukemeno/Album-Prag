@@ -97,7 +97,7 @@ struct FlightTicket: View {
         toggles += 1
         let opening = !open
         if reduceMotion {
-            withAnimation(.easeInOut(duration: 0.2)) { open = opening; showsPass = opening }
+            withAnimation(Stitch.Motion.reducedFade) { open = opening; showsPass = opening }
             return
         }
         if opening {

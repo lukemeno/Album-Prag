@@ -1,15 +1,48 @@
 import SwiftUI
 
+/// Resolves a card release from the finger's actual travel and a bounded
+/// amount of predicted momentum. A short release must always return the card
+/// to center; prediction alone cannot cast a vote.
+enum InboxSwipeResolver {
+    static let minimumIntent: CGFloat = 50
+    static let maximumMomentum: CGFloat = 64
+
+    static func projectedTranslation(actual: CGFloat, predicted: CGFloat) -> CGFloat {
+        guard abs(actual) > minimumIntent else { return actual }
+        let momentum = (predicted - actual).clamped(to: -maximumMomentum...maximumMomentum)
+        return actual + momentum
+    }
+
+    static func horizontalDecision(actual: CGFloat, predicted: CGFloat, threshold: CGFloat) -> Bool? {
+        guard abs(actual) > minimumIntent else { return nil }
+        // Once the finger has crossed the full threshold, a late release
+        // velocity must not undo that deliberate swipe.
+        if actual > threshold { return true }
+        if actual < -threshold { return false }
+        let projected = projectedTranslation(actual: actual, predicted: predicted)
+        if projected > threshold { return true }
+        if projected < -threshold { return false }
+        return nil
+    }
+
+    static func shouldOpen(actual: CGFloat, predicted: CGFloat, threshold: CGFloat) -> Bool {
+        guard actual < -minimumIntent else { return false }
+        if actual <= -threshold { return true }
+        return projectedTranslation(actual: actual, predicted: predicted) < -threshold
+    }
+}
+
 struct InboxView: View {
     @Environment(AlbumStore.self) private var store
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     var add: () -> Void = {}
     @State private var offset: CGSize = .zero
     @State private var editing: Place?
     @State private var shouldFrank = false
     @State private var lastAction: Place?
-    @State private var lastActionWasLater = false
-    @State private var laterIDs: Set<String> = []
+    @State private var lastActionWasOpen = false
+    @State private var openThisPassIDs: Set<String> = []
     @State private var feedback = 0
     @State private var thresholdFeedback = 0
     @State private var thresholdArmed = false
@@ -29,18 +62,49 @@ struct InboxView: View {
     @State private var lastSample: (x: CGFloat, time: Date)?
     @State private var tiltDecay: Task<Void, Never>?
     @State private var viewer: PhotoViewerItem?
+    @State private var section: InboxSection = .discover
 
     private let decisionThreshold: CGFloat = 96
     private var progress: CGFloat { min(abs(offset.width) / decisionThreshold, 1) }
-    private var laterProgress: CGFloat { min(max(-offset.height, 0) / decisionThreshold, 1) }
+    private var openProgress: CGFloat { min(max(-offset.height, 0) / decisionThreshold, 1) }
 
-    private var undecided: [Place] { store.inbox.filter { !laterIDs.contains($0.id) } }
+    private var undecided: [Place] { store.inbox.filter { !openThisPassIDs.contains($0.id) } }
 
     var body: some View {
+        Group {
+            if dynamicTypeSize.isAccessibilitySize && section == .discover {
+                ScrollView(.vertical) { content }
+            } else {
+                content
+            }
+        }
+        .task(id: section == .discover ? undecided.first?.id : nil) {
+            guard section == .discover, let id = undecided.first?.id else { return }
+            #if DEBUG
+            if ProcessInfo.processInfo.environment["ALBUM_TEST_STORE"] != nil, ProcessInfo.processInfo.environment["ALBUM_IMAGE_RESPONSE_BASE64"] == nil { return }
+            #endif
+            await store.refreshPlaceImages(placeID: id)
+        }
+    }
+
+    private var content: some View {
         VStack(spacing: Stitch.Space.m) {
-            if let place = undecided.first {
-                GeometryReader { geo in
-                    ZStack {
+            Picker("Ideenbereich", selection: $section) {
+                ForEach(InboxSection.allCases) { section in Text(section.title).tag(section) }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("Ideas-Segment")
+
+            if section == .collection {
+                CollectionHomeView(add: add)
+            } else if let place = undecided.first {
+                if dynamicTypeSize.isAccessibilitySize {
+                    frontCard(place)
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: 420)
+                } else {
+                    GeometryReader { geo in
+                        ZStack {
                         ForEach(Array(undecided.dropFirst().prefix(2).enumerated()), id: \.element.id) { index, next in
                             let spread = reduceMotion ? 0 : fan
                             IdeaStamp(place: next, root: store.root)
@@ -51,45 +115,39 @@ struct InboxView: View {
                                 .accessibilityHidden(true)
                         }
 
-                        IdeaStamp(place: place, root: store.root, stamp: stamp, onPhotoTap: { openPhoto(place, from: $0) })
-                            .overlay(alignment: .topTrailing) {
-                                Button { shouldFrank = false; editing = place } label: { Image(systemName: "pencil") }
-                                    .buttonStyle(HeaderIconButton())
-                                    .padding(Stitch.Space.l)
-                                    .accessibilityLabel("Idee bearbeiten")
-                            }
-                            .overlay { DecisionHint(direction: hintDirection, progress: max(progress, laterProgress)) }
-                            .overlay { if magnet > 0 { MagnetHearts(progress: magnet) } }
-                            .rotation3DEffect(.degrees(reduceMotion ? 0 : tilt), axis: (x: 0, y: 1, z: 0), perspective: 0.5)
-                            .scaleEffect(reduceMotion ? 1 : 1 + 0.05 * lift)
-                            .offset(x: offset.width, y: min(offset.height, 0) + (reduceMotion ? 0 : -4 * progress))
-                            .rotationEffect(.degrees(reduceMotion ? 0 : Double(offset.width / 42).clamped(to: -6...6)))
-                            .shadow(color: Stitch.shadow.opacity(0.06 * lift + 0.08 * progress), radius: 10 + 8 * lift, y: 6 + 6 * lift)
-                            .gesture(dragGesture(for: place))
-                            .accessibilityElement(children: .contain)
-                            .accessibilityIdentifier("Inbox-Ticket")
-                            .accessibilityAction(named: "Ja") { act(place, frank: true) }
-                            .accessibilityAction(named: "Nein") { act(place, frank: false) }
-                            .accessibilityAction(named: "Offen") { later(place) }
+                        frontCard(place)
                     }
                     .frame(width: geo.size.width, height: geo.size.height)
                 }
-
-                if let line = authorLine(place) {
-                    Text(line).font(.footnote.weight(.medium)).foregroundStyle(Stitch.inkSoft)
                 }
 
-                HStack(spacing: Stitch.Space.s) {
-                    Button { act(place, frank: false) } label: { Label("Nein", systemImage: "xmark") }
-                        .buttonStyle(StitchButton())
-                    Button { act(place, frank: true) } label: { Label("Ja", systemImage: "checkmark") }
-                        .buttonStyle(StitchButton(primary: true))
+                if let line = authorLine(place) {
+                    Text(line)
+                        .font(.footnote.weight(.medium))
+                        .foregroundStyle(Stitch.inkSoft)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Group {
+                    if dynamicTypeSize.isAccessibilitySize {
+                        VStack(spacing: Stitch.Space.s) {
+                            decisionButton(place, frank: false)
+                            decisionButton(place, frank: true)
+                        }
+                    } else {
+                        HStack(spacing: Stitch.Space.s) {
+                            decisionButton(place, frank: false)
+                            decisionButton(place, frank: true)
+                        }
+                    }
                 }
                 HStack {
                     if let lastAction { undoButton(lastAction) }
                     Spacer()
-                    Button("Offen") { later(place) }.buttonStyle(TextActionButton(tint: Stitch.inkSoft))
+                    Button("Offen") { markOpen(place) }.buttonStyle(AlbumTextActionButtonStyle(tint: Stitch.inkSoft))
                 }
+                .padding(.trailing, Stitch.Size.touch + Stitch.Space.m)
             } else {
                 empty
             }
@@ -98,6 +156,13 @@ struct InboxView: View {
         .padding(.horizontal, Stitch.Space.page).padding(.bottom, Stitch.Space.xs)
         .background(PaperBackground())
         .navigationTitle("Ideen")
+        .toolbar {
+            if section == .discover {
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Idee einwerfen", systemImage: "plus", action: add)
+                }
+            }
+        }
         .sheet(item: $editing) { PlaceEditor(place: $0, frankOnSave: shouldFrank) }
         .sensoryFeedback(.impact(weight: .medium), trigger: feedback)
         .sensoryFeedback(.selection, trigger: thresholdFeedback)
@@ -108,8 +173,38 @@ struct InboxView: View {
         .fullScreenCover(item: $viewer) { PhotoViewer(place: $0.place, root: store.root, source: $0.source) }
     }
 
+    @ViewBuilder
+    private func frontCard(_ place: Place) -> some View {
+        let card = IdeaStamp(place: place, root: store.root, stamp: stamp, onPhotoTap: { openPhoto(place, from: $0) })
+            .overlay(alignment: .topTrailing) {
+                Button { shouldFrank = false; editing = place } label: { Image(systemName: "pencil") }
+                    .buttonStyle(HeaderIconButton())
+                    .padding(Stitch.Space.l)
+                    .accessibilityLabel("Idee bearbeiten")
+            }
+            .overlay { DecisionHint(direction: hintDirection, progress: max(progress, openProgress)) }
+            .overlay { if magnet > 0 { MagnetHearts(progress: magnet) } }
+            .rotation3DEffect(.degrees(reduceMotion ? 0 : tilt), axis: (x: 0, y: 1, z: 0), perspective: 0.5)
+            .scaleEffect(reduceMotion ? 1 : 1 + 0.05 * lift)
+            .offset(x: offset.width, y: min(offset.height, 0) + (reduceMotion ? 0 : -4 * progress))
+            .rotationEffect(.degrees(reduceMotion ? 0 : Double(offset.width / 42).clamped(to: -6...6)))
+            .shadow(color: Stitch.shadow.opacity(0.06 * lift + 0.08 * progress), radius: 10 + 8 * lift, y: 6 + 6 * lift)
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                card
+            } else {
+                card.gesture(dragGesture(for: place))
+            }
+        }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("Inbox-Ticket")
+            .accessibilityAction(named: "Ja") { act(place, frank: true) }
+            .accessibilityAction(named: "Nein") { act(place, frank: false) }
+            .accessibilityAction(named: "Offen") { markOpen(place) }
+    }
+
     private var hintDirection: InboxDecision? {
-        if laterProgress > progress, laterProgress > 0 { return .later }
+        if openProgress > progress, openProgress > 0 { return .open }
         if offset.width == 0 { return nil }
         return offset.width > 0 ? .frank : .shelve
     }
@@ -117,25 +212,25 @@ struct InboxView: View {
     private var empty: some View {
         VStack(spacing: Stitch.Space.s) {
             Spacer()
-            Postmark(top: "IDEEN", bottom: laterIDs.isEmpty ? "LEER" : "OFFEN", color: Stitch.inkSoft, size: 96)
+            Postmark(top: "IDEEN", bottom: openThisPassIDs.isEmpty ? "LEER" : "OFFEN", color: Stitch.inkSoft, size: 96)
                 .padding(.bottom, Stitch.Space.s)
-            Text(laterIDs.isEmpty ? "Alles entschieden" : "Noch offen")
+            Text(openThisPassIDs.isEmpty ? "Alles entschieden" : "Noch offen")
                 .font(Stitch.Face.title(28, relativeTo: .title)).foregroundStyle(Stitch.ink)
-            Text(laterIDs.isEmpty ? "Neue Links landen hier. Was ihr wollt, steht danach im Plan." : "Diese Ideen bleiben offen. Ihr könnt jederzeit neu entscheiden.")
+            Text(openThisPassIDs.isEmpty ? "Neue Links landen hier. Was ihr wollt, steht danach im Plan." : "Diese Ideen bleiben offen. Ihr könnt jederzeit neu entscheiden.")
                 .font(.body).multilineTextAlignment(.center).foregroundStyle(Stitch.inkSoft)
             VStack(spacing: Stitch.Space.xs) {
-                if !laterIDs.isEmpty {
-                    Button("Weitersehen") { laterIDs.removeAll(); lastAction = nil }
-                        .buttonStyle(StitchButton(primary: true))
+                if !openThisPassIDs.isEmpty {
+                    Button("Weitersehen") { openThisPassIDs.removeAll(); lastAction = nil }
+                        .buttonStyle(AlbumActionButtonStyle(primary: true))
                 } else {
                     Button(action: add) { Label("Idee einwerfen", systemImage: "plus") }
-                        .buttonStyle(StitchButton(primary: true))
+                        .buttonStyle(AlbumActionButtonStyle(primary: true))
                 }
                 if !store.deferred.isEmpty {
                     Button(store.deferred.count == 1 ? "1 abgelehnte Idee zurückholen" : "\(store.deferred.count) abgelehnte Ideen zurückholen") {
                         store.restoreDeferred()
                     }
-                    .buttonStyle(TextActionButton())
+                    .buttonStyle(AlbumTextActionButtonStyle())
                 }
             }
             .padding(.top, Stitch.Space.m).padding(.horizontal, Stitch.Space.l)
@@ -147,11 +242,23 @@ struct InboxView: View {
 
     private func undoButton(_ place: Place) -> some View {
         Button {
-            if lastActionWasLater { laterIDs.remove(place.id) } else { store.upsert(place) }
+            if lastActionWasOpen { openThisPassIDs.remove(place.id) } else { store.upsert(place) }
             lastAction = nil
         } label: { Label("Rückgängig", systemImage: "arrow.uturn.backward") }
-        .buttonStyle(TextActionButton())
+        .buttonStyle(AlbumTextActionButtonStyle())
         .accessibilityLabel("Letzte Entscheidung rückgängig")
+    }
+
+    @ViewBuilder
+    private func decisionButton(_ place: Place, frank: Bool) -> some View {
+        Button { act(place, frank: frank) } label: {
+            Label(frank ? "Ja" : "Nein", systemImage: frank ? "checkmark" : "xmark")
+                .font(.headline)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(AlbumActionButtonStyle(primary: frank))
     }
 
     /// Die hinteren Marken fächern kurz weiter auf und legen sich per Feder auf ihre Lage;
@@ -193,20 +300,29 @@ struct InboxView: View {
                 } else if t.height < 0 {
                     offset = CGSize(width: 0, height: rubberBanded(t.height))
                 }
-                let armed = progress >= 1 || laterProgress >= 1
+                let armed = progress >= 1 || openProgress >= 1
                 if armed && !thresholdArmed { thresholdFeedback += 1 }
                 thresholdArmed = armed
             }
             .onEnded { value in
                 release()
                 thresholdArmed = false
-                let projected = value.predictedEndTranslation
                 if offset.height < 0 {
-                    if min(projected.height, value.translation.height) < -decisionThreshold { later(place) }
+                    if InboxSwipeResolver.shouldOpen(
+                        actual: value.translation.height,
+                        predicted: value.predictedEndTranslation.height,
+                        threshold: decisionThreshold
+                    ) {
+                        markOpen(place)
+                    }
                 } else {
-                    let decision = abs(projected.width) > abs(value.translation.width) ? projected.width : value.translation.width
-                    if decision > decisionThreshold { act(place, frank: true) }
-                    else if decision < -decisionThreshold { act(place, frank: false) }
+                    if let decision = InboxSwipeResolver.horizontalDecision(
+                        actual: value.translation.width,
+                        predicted: value.predictedEndTranslation.width,
+                        threshold: decisionThreshold
+                    ) {
+                        act(place, frank: decision)
+                    }
                 }
                 if !committing {
                     withAnimation(reduceMotion ? nil : .spring(response: 0.36, dampingFraction: 0.78)) { offset = .zero }
@@ -238,7 +354,7 @@ struct InboxView: View {
 
     private func release() {
         tiltDecay?.cancel(); lastSample = nil
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.72)) { tilt = 0; lift = 0 }
+        withAnimation(reduceMotion ? nil : Stitch.Motion.decisionReturn) { tilt = 0; lift = 0 }
     }
 
     private func rubberBanded(_ value: CGFloat) -> CGFloat {
@@ -248,15 +364,15 @@ struct InboxView: View {
     }
 
     /// Offen: Die Marke geht nur für diesen Durchgang aus dem Weg, ohne Stimme und ohne Abgleich.
-    private func later(_ place: Place) {
+    private func markOpen(_ place: Place) {
         guard !committing else { return }
         lastAction = place
-        lastActionWasLater = true
+        lastActionWasOpen = true
         feedback += 1
-        if reduceMotion { laterIDs.insert(place.id); offset = .zero; return }
+        if reduceMotion { openThisPassIDs.insert(place.id); offset = .zero; return }
         committing = true
         withAnimation(.easeIn(duration: 0.24)) { offset = CGSize(width: 0, height: -700) } completion: {
-            laterIDs.insert(place.id)
+            openThisPassIDs.insert(place.id)
             offset = .zero
             committing = false
         }
@@ -266,7 +382,7 @@ struct InboxView: View {
         if frank && place.coordinate == nil { shouldFrank = true; editing = place; return }
         guard !committing else { return }
         lastAction = place
-        lastActionWasLater = false
+        lastActionWasOpen = false
         let changed = store.decided(place, approve: frank)
         let bothAgree = frank && store.isShared(changed)
         if reduceMotion { feedback += 1; if bothAgree { magnetTick += 1 }; store.upsert(changed); offset = .zero; return }
@@ -306,7 +422,13 @@ struct InboxView: View {
     }
 }
 
-private enum InboxDecision { case shelve, frank, later }
+private enum InboxSection: String, CaseIterable, Identifiable {
+    case discover, collection
+    var id: String { rawValue }
+    var title: String { self == .discover ? "Entdecken" : "Sammlung" }
+}
+
+private enum InboxDecision { case shelve, frank, open }
 
 /// Zwei Herzhälften (Rot und Teal), die von links und rechts zusammenschnappen.
 private struct MagnetHearts: View {
@@ -322,7 +444,7 @@ private struct MagnetHearts: View {
         .accessibilityHidden(true)
     }
     private func half(leading: Bool) -> some View {
-        Image(systemName: "heart.fill").font(.system(size: 96)).foregroundStyle(leading ? Stitch.red : Stitch.teal)
+        Image(systemName: "heart.fill").font(.system(size: 96)).foregroundStyle(leading ? Stitch.ink : Stitch.teal)
             .mask(alignment: leading ? .leading : .trailing) {
                 Rectangle().frame(width: 53)
             }
@@ -337,7 +459,7 @@ private struct DecisionHint: View {
     var body: some View {
         if let direction {
             let armed = progress >= 1
-            let ink = direction == .frank ? Stitch.redFill : direction == .shelve ? Stitch.ink : Stitch.teal
+            let ink = direction == .frank ? Stitch.ink : direction == .shelve ? Stitch.ink : Stitch.teal
             let word = direction == .frank ? "Ja" : direction == .shelve ? "Nein" : "Offen"
             Text(word + (armed ? "" : "?"))
                 .font(Stitch.Face.title(24, relativeTo: .title2))
@@ -377,50 +499,102 @@ struct IdeaStamp: View {
     let place: Place
     let root: URL
     var stamp: CGFloat = 0
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .body) private var captionBudget: CGFloat = 132
     /// Tippen auf das Foto; liefert dessen Rahmen auf dem Bildschirm.
     var onPhotoTap: ((CGRect) -> Void)?
 
     var body: some View {
-        GeometryReader { geo in
-            StampFrame(mat: place.mat, inset: 10, matWidth: 6) {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 0) {
+                photo(height: 180)
+                caption
+            }
+            .background(Stitch.card)
+            .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous).strokeBorder(Stitch.rule))
+        } else {
+            GeometryReader { geo in
                 VStack(alignment: .leading, spacing: 0) {
-                    AlbumPhoto(asset: place.image, root: root)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: max(160, geo.size.height - 132))
-                        .clipped()
-                        .overlay {
-                            if let onPhotoTap {
-                                GeometryReader { photo in
-                                    Color.clear.contentShape(Rectangle())
-                                        .onTapGesture { onPhotoTap(photo.frame(in: .global)) }
-                                }
-                                .accessibilityElement().accessibilityLabel("Foto vergrößern").accessibilityAddTraits(.isButton)
-                            }
-                        }
-                        .overlay(alignment: .bottomTrailing) {
-                            Postmark(bottom: "FRANKIERT", size: 92)
-                                .scaleEffect(1.8 - 0.8 * stamp)
-                                .opacity(Double(stamp))
-                                .padding(Stitch.Space.s)
-                                .allowsHitTesting(false)
-                        }
-                    VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
-                        Text(place.title.isEmpty ? "Neue Idee" : place.title)
-                            .font(Stitch.Face.place(30, relativeTo: .title)).foregroundStyle(Stitch.ink).lineLimit(2)
-                            .minimumScaleFactor(0.8)
-                        HStack(spacing: Stitch.Space.xs) {
-                            Image(systemName: sourceIcon).font(.footnote.weight(.semibold))
-                            Text(place.sourceURL.isEmpty ? place.category : "\(place.sourceLabel) · \(place.category)")
-                                .font(.subheadline)
-                        }
-                        .foregroundStyle(Stitch.inkSoft)
-                    }
-                    .padding(.horizontal, Stitch.Space.s).padding(.vertical, Stitch.Space.s)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .background(Stitch.card)
+                    photo(height: max(112, geo.size.height - captionBudget))
+                    caption
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 }
+                .background(Stitch.card)
+                .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous).strokeBorder(Stitch.rule))
             }
         }
+    }
+
+    private var caption: some View {
+        VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
+            Text(place.title.isEmpty ? "Neue Idee" : place.title)
+                .font(Stitch.Face.place(30, relativeTo: .title)).foregroundStyle(Stitch.ink)
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 2)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityLabel("\(place.title.isEmpty ? "Neue Idee" : place.title), \(place.sourceURL.isEmpty ? place.category : "\(place.sourceLabel), \(place.category)")")
+            HStack(spacing: Stitch.Space.xs) {
+                if let source = LinkValidation.url(place.sourceURL) {
+                    Link(destination: source) {
+                        Label("\(place.sourceLabel) · \(place.category)", systemImage: sourceIcon)
+                            .font(.subheadline)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, minHeight: Stitch.Size.touch, alignment: .leading)
+                            .contentShape(Rectangle())
+                    }
+                    .accessibilityLabel("Quelle öffnen: \(place.sourceLabel)")
+                    .accessibilityIdentifier("idea-source-link")
+                    Link(destination: place.mapLink) {
+                        Image(systemName: "map")
+                            .frame(width: Stitch.Size.touch, height: Stitch.Size.touch)
+                            .contentShape(Rectangle())
+                    }
+                    .accessibilityLabel("Ort in Karten öffnen")
+                    .accessibilityIdentifier("idea-map-link")
+                } else {
+                    Link(destination: place.mapLink) {
+                        Label("Ort ansehen · \(place.category)", systemImage: "map")
+                            .font(.subheadline)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, minHeight: Stitch.Size.touch, alignment: .leading)
+                    }
+                    .accessibilityLabel("Ort in Karten suchen: \(place.title)")
+                    .accessibilityIdentifier("idea-map-link")
+                }
+            }
+            .foregroundStyle(Stitch.inkSoft)
+            .layoutPriority(1)
+        }
+        .padding(.horizontal, Stitch.Space.s).padding(.vertical, Stitch.Space.s)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .background(Stitch.card)
+    }
+
+    private func photo(height: CGFloat) -> some View {
+        AlbumPhoto(asset: place.image, root: root, fallbackLocation: place.coordinate.map {
+            ResolvedPlaceIdentity(title: place.title, latitude: $0.latitude, longitude: $0.longitude, category: place.category, address: place.address)
+        })
+            .frame(maxWidth: .infinity)
+            .frame(height: height)
+            .clipped()
+            .overlay {
+                if let onPhotoTap {
+                    GeometryReader { photo in
+                        Color.clear.contentShape(Rectangle())
+                            .onTapGesture { onPhotoTap(photo.frame(in: .global)) }
+                    }
+                    .accessibilityElement().accessibilityLabel("Foto vergrößern").accessibilityAddTraits(.isButton)
+                }
+            }
+            .overlay(alignment: .bottomTrailing) {
+                Postmark(bottom: "FRANKIERT", size: 92)
+                    .scaleEffect(1.8 - 0.8 * stamp)
+                    .opacity(Double(stamp))
+                    .padding(Stitch.Space.s)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
     }
 
     private var sourceIcon: String {
@@ -455,44 +629,51 @@ struct PhotoViewer: View {
     @State private var closing = false
     /// 0…1 nach unten gezogen; 300 pt ziehen halbieren den Weg zurück zur Marke.
     private var shrink: CGFloat { min(max(pull.height / 300, 0), 1) }
+    private var fitProgress: CGFloat {
+        let reveal = min(max((open - 0.82) / 0.18, 0), 1)
+        return reveal * (1 - shrink)
+    }
 
     var body: some View {
-        ZStack {
-            GeometryReader { geo in
-                let full = CGRect(x: 0, y: 0, width: geo.size.width, height: min(geo.size.height * 0.72, geo.size.width * 1.3))
-                    .offsetBy(dx: 0, dy: geo.size.height * 0.46 - min(geo.size.height * 0.72, geo.size.width * 1.3) / 2)
-                let t = reduceMotion ? 1 : open * (1 - 0.5 * shrink)
-                let mix = { (a: CGFloat, b: CGFloat) in a + (b - a) * t }
-                ZStack {
-                    Stitch.scrim.opacity(reduceMotion ? open : t)
-                    AlbumPhoto(asset: asset, root: root)
-                        .frame(width: mix(source.width, full.width), height: mix(source.height, full.height))
-                        .position(x: mix(source.midX, full.midX) + pull.width * open, y: mix(source.midY, full.midY) + pull.height * open)
-                        .opacity(reduceMotion ? open : 1)
-                        .gesture(reduceMotion ? nil : drag)
-                        .accessibilityLabel("Foto von \(place.title)").accessibilityAddTraits(.isImage)
-                }
-            }
-            .ignoresSafeArea()
+        GeometryReader { geo in
+            let full = CGRect(x: 0, y: 0, width: geo.size.width, height: min(geo.size.height * 0.72, geo.size.width * 1.3))
+                .offsetBy(dx: 0, dy: geo.size.height * 0.46 - min(geo.size.height * 0.72, geo.size.width * 1.3) / 2)
+            let t = reduceMotion ? 1 : open * (1 - 0.5 * shrink)
+            let mix = { (a: CGFloat, b: CGFloat) in a + (b - a) * t }
+            ZStack {
+                Stitch.scrim.opacity(reduceMotion ? open : t)
+                AlbumPhoto(asset: asset, root: root, fitProgress: fitProgress)
+                    .frame(width: mix(source.width, full.width), height: mix(source.height, full.height))
+                    .position(x: mix(source.midX, full.midX) + pull.width * open, y: mix(source.midY, full.midY) + pull.height * open)
+                    .opacity(reduceMotion ? open : 1)
+                    .gesture(reduceMotion ? nil : drag)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Foto von \(place.title)").accessibilityAddTraits(.isImage)
 
-            VStack {
-                HStack {
+                VStack {
+                    HStack {
+                        Spacer()
+                        Button { close() } label: { Image(systemName: "xmark") }
+                            .buttonStyle(HeaderIconButton())
+                            .accessibilityLabel("Foto schließen")
+                    }
                     Spacer()
-                    Button { close() } label: { Image(systemName: "xmark") }
-                        .buttonStyle(HeaderIconButton())
-                        .accessibilityLabel("Foto schließen")
+                    if case .external(let image) = asset {
+                        Text("Foto: \(image.credit)\(image.licenseName.map { " · \($0)" } ?? "")")
+                            .font(.caption).foregroundStyle(Stitch.onAccent.opacity(0.85)).multilineTextAlignment(.center)
+                    }
                 }
-                Spacer()
-                if case .external(let image) = asset {
-                    Text("Foto: \(image.credit)\(image.licenseName.map { " · \($0)" } ?? "")")
-                        .font(.caption).foregroundStyle(Stitch.onAccent.opacity(0.85)).multilineTextAlignment(.center)
-                }
+                .safeAreaPadding()
+                .padding(Stitch.Space.page)
+                .opacity(Double(open * (1 - shrink)))
             }
-            .padding(Stitch.Space.page)
-            .opacity(Double(open * (1 - shrink)))
+            .frame(width: geo.size.width, height: geo.size.height)
         }
+        .ignoresSafeArea()
         .presentationBackground(.clear)
-        .onAppear { withAnimation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.42, dampingFraction: 0.86)) { open = 1 } }
+        .onAppear {
+            withAnimation(reduceMotion ? Stitch.Motion.reducedFade : .spring(response: 0.42, dampingFraction: 0.86)) { open = 1 }
+        }
         .accessibilityAction(.escape) { close() }
     }
 

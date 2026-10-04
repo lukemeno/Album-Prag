@@ -91,6 +91,20 @@ enum PlaceImageService {
               !place.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return .init(image: nil, candidates: [], selectionVersion: ranking) }
         #if DEBUG
         let environment = ProcessInfo.processInfo.environment
+        if let store = environment["ALBUM_TEST_STORE"], store.hasPrefix("slot-"),
+           let encoded = environment["ALBUM_IMAGE_RESPONSE_BASE64"] {
+            if let rawDelay = environment["ALBUM_IMAGE_RESPONSE_DELAY_MS"].flatMap(Int.init) {
+                let delay = min(max(rawDelay, 0), 15_000)
+                if delay > 0 {
+                    // QA-only late-result simulation: deliberately detached from caller cancellation.
+                    try await Task.detached {
+                        try await Task.sleep(for: .milliseconds(delay))
+                    }.value
+                }
+            }
+            guard let data = Data(base64Encoded: encoded) else { throw CocoaError(.fileReadCorruptFile) }
+            return try JSONDecoder().decode(PlaceImageSearchResult.self, from: data)
+        }
         if let store = environment["ALBUM_TEST_STORE"], store.hasPrefix("slot-"), let filename = environment["ALBUM_IMAGE_RESPONSE"] {
             let file = FileManager.default.temporaryDirectory.appendingPathComponent(store).appendingPathComponent(filename)
             return try JSONDecoder().decode(PlaceImageSearchResult.self, from: Data(contentsOf: file))
@@ -136,7 +150,10 @@ enum PlaceImageService {
             return image.provider == .legacy || image.resolvedFor == nil
         // Ein TikTok-Standbild zeigt meist Menschen, nicht den Ort: Sobald der Ort bestätigt ist, gewinnt ein echtes Ortsfoto.
         case .linkPreview: return place.coordinate != nil
-        case .uploaded(let image): return image.resolvedFor.map { !$0.matches(place) } ?? false
+        case .uploaded(let image):
+            if image.resolvedFor.map({ !$0.matches(place) }) == true { return true }
+            // Lokale Ersatzansichten dürfen in einem späteren App-Lauf durch ein verifiziertes Ortsfoto verbessert werden.
+            return image.generatedSource != nil
         }
     }
 
@@ -144,16 +161,97 @@ enum PlaceImageService {
         original.title == current.title && original.lat == current.lat && original.lng == current.lng
             && original.category == current.category && original.address == current.address
     }
+
+    static func locationMoved(from old: CLLocationCoordinate2D?, to new: CLLocationCoordinate2D) -> Bool {
+        guard let old else { return false }
+        return abs(old.latitude - new.latitude) > 0.0001 || abs(old.longitude - new.longitude) > 0.0001
+    }
+
+    /// External results and Look Around snapshots belong to their resolved location. A user photo and a link preview do not.
+    static func shouldDiscardImageAfterLocationMove(_ asset: PlaceImageAsset?) -> Bool {
+        switch asset {
+        case .external: true
+        case .uploaded(let image): image.resolvedFor != nil
+        case .bundled, .linkPreview, .none: false
+        }
+    }
+
+    /// Ein fehlgeschlagener Suchlauf darf nur ein Bild behalten, dessen Herkunft weiterhin zum Ort passt.
+    static func canRetain(_ asset: PlaceImageAsset?, for place: Place) -> Bool {
+        switch asset {
+        case .bundled, .linkPreview: return true
+        case .external(let image):
+            if let resolvedFor = image.resolvedFor { return resolvedFor.matches(place) }
+            return image.userSelected == true
+        case .uploaded(let image):
+            return image.resolvedFor?.matches(place) ?? true
+        case nil: return false
+        }
+    }
+
+    static func isUserChosen(_ asset: PlaceImageAsset?) -> Bool {
+        switch asset {
+        case .external(let image): image.userSelected == true
+        case .uploaded(let image): image.generatedSource == nil && image.resolvedFor == nil
+        case .bundled, .linkPreview, nil: false
+        }
+    }
 }
 
-/// Ersatz, wenn Wikimedia nichts hat: Apple Look Around an genau dieser Koordinate.
+struct LocalPlaceImage {
+    let data: Data
+    let source: GeneratedPlaceImageSource
+}
+
+/// Ortsgebundener Ersatz, wenn kein verifiziertes Foto verfügbar ist.
 enum PlaceImageResolver {
+    /// Apple Look Around zuerst; ohne Abdeckung folgt eine markierte Karte derselben Koordinate.
+    static func localSnapshot(at coordinate: CLLocationCoordinate2D) async -> LocalPlaceImage? {
+        if let data = await lookAroundSnapshot(at: coordinate) {
+            return LocalPlaceImage(data: data, source: .lookAround)
+        }
+        if let data = await mapSnapshot(at: coordinate) {
+            return LocalPlaceImage(data: data, source: .mapSnapshot)
+        }
+        return nil
+    }
+
     /// Straßenansicht von Apple Karten; läuft auf dem Gerät, ohne Schlüssel. Nil, wo es keine Aufnahmen gibt.
     static func lookAroundSnapshot(at coordinate: CLLocationCoordinate2D) async -> Data? {
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["ALBUM_DISABLE_LOOK_AROUND"] == "1" { return nil }
+        #endif
         guard let scene = try? await MKLookAroundSceneRequest(coordinate: coordinate).scene else { return nil }
         let options = MKLookAroundSnapshotter.Options()
         options.size = CGSize(width: 1200, height: 900)
         guard let snapshot = try? await MKLookAroundSnapshotter(scene: scene, options: options).snapshot else { return nil }
         return snapshot.image.jpegData(compressionQuality: 0.85)
+    }
+
+    /// Letzte sichere Stufe: eine Kartenansicht mit einer sichtbaren Marke exakt an der Ortskoordinate.
+    static func mapSnapshot(at coordinate: CLLocationCoordinate2D) async -> Data? {
+        let options = MKMapSnapshotter.Options()
+        options.region = MKCoordinateRegion(
+            center: coordinate,
+            span: MKCoordinateSpan(latitudeDelta: 0.006, longitudeDelta: 0.006)
+        )
+        options.size = CGSize(width: 1200, height: 900)
+        options.scale = 1
+        options.mapType = .standard
+        options.pointOfInterestFilter = .excludingAll
+        guard let snapshot = try? await MKMapSnapshotter(options: options).start() else { return nil }
+
+        let format = UIGraphicsImageRendererFormat.preferred()
+        format.scale = 1
+        format.opaque = true
+        let image = UIGraphicsImageRenderer(size: options.size, format: format).image { _ in
+            snapshot.image.draw(at: .zero)
+            let point = snapshot.point(for: coordinate)
+            let configuration = UIImage.SymbolConfiguration(pointSize: 78, weight: .bold)
+            let marker = UIImage(systemName: "mappin.circle.fill", withConfiguration: configuration)?
+                .withTintColor(.systemRed, renderingMode: .alwaysOriginal)
+            marker?.draw(in: CGRect(x: point.x - 45, y: point.y - 86, width: 90, height: 90))
+        }
+        return image.jpegData(compressionQuality: 0.85)
     }
 }
