@@ -1,6 +1,6 @@
 # Motion-, Haptik- und Flow-Plan (04.10.2026)
 
-Branch `claude/motion-flow`, baut auf `claude/ready-to-land` auf. **In der Cloud gebaut (GitHub Actions, Xcode 26.6):** Simulator- und iPhone-Build ohne Fehler, 162 Unit-Tests, 0 Fehler. Aussehen, Bewegung und Haptik sind damit noch nicht geprüft.
+Branch `claude/motion-flow`, baut auf `claude/ready-to-land` auf. **In der Cloud gebaut und geprüft (GitHub Actions, Xcode 26.6, iPhone 17 Pro / iOS 26.5):** Simulator- und iPhone-Build ohne Fehler, 162 Unit-Tests ohne Fehler, 37 Screenshots der Screen-Tour (hell, dunkel, quer, große Schrift) einzeln durchgesehen (Branch `ci-screens/claude-motion-flow`). Bewegung und Haptik lassen sich im Simulator nicht fühlen: dafür ist die Prüfliste unten.
 
 ## Ausgangslage
 
@@ -44,6 +44,20 @@ Album hat schon 18 Bewegungspfade und 15 Haptik-Auslöser (`QA-MOTION-INVENTORY.
 
 Neue Tests: `testVisitedMapFilterUsesStatusNotCategory`, `testRestoringOneRejectedIdeaLeavesTheOthers` (`DayPlanTests`).
 
+## Dritte Runde: Feinschliff nach Screenshot- und Testprüfung (05.10.2026)
+
+| # | Was | Wo |
+|---|---|---|
+| 17 | **Ja zählt sofort:** Nach rechts wischen oder „Ja“ entscheidet direkt, ohne Speichern. Fehlt ein Kartenort, steht daneben „Ort ergänzen“. | `InboxView` |
+| 18 | **Abgleich-Insel sichtbar:** Sie hing an der ausgeblendeten Leiste der Reise und war nie zu sehen. Jetzt schwebt sie über dem Kopf. | `ReiseView` |
+| 19 | **Querformat:** KI-Kreis im seitlichen Rand statt über „Einladen“ und „Route“; Apple-Karten-Logo frei neben dem Ortsblatt; Ortsdetail mit niedrigerem Foto. | `AlbumRoot`, `TripMapView` |
+| 20 | **Sehr große Schrift:** „Einladen“ als Symbol statt „Ein-laden“, Reiseplan-Kopf untereinander. | `ReiseView` |
+| 21 | **Nach der Reise:** kein „0 eigene Fotos“, vergangene Tage ohne Plan heißen „Ohne Plan“. | `ReiseView` |
+| 22 | **Kartenliste:** springt beim Öffnen sauber zu „Heute“; vorher lag die Überschrift halb unter dem Kopf. | `PlacesDrawer` |
+| 23 | **Barrierefreiheit:** unsichtbarer Stempel nicht mehr im Baum, „Offen“ in Tinte statt Grau. Die Audits auf Reise, Ideen und Editor laufen ohne Fund, auf der Karte blieb zuletzt nur herausgescrollter Text (Regel ergänzt, Lauf ausstehend); Messfehler (Text unter Leisten-Kantenblenden, herausgescrollter Text, Systemteile ohne Element) sind im Test einzeln begründet. | `InboxView`, `AlbumUITests` |
+
+Noch rot in der Cloud, alle auch auf dem Ausgangsstand: die Tests mit Apples Fotos-Auswahl und Teilen-Blatt (Automatisierung von Systemoberflächen) und `testMissingSeedPhotoShowsLocationFallback` (braucht einen vorbereiteten Datenstand vom Mac).
+
 ## Bewusst nicht gemacht
 
 - **Querformat-Tab-Leiste über dem Ortsblatt:** braucht Sichtprüfung im Simulator.
@@ -64,4 +78,6 @@ Neue Tests: `testVisitedMapFilterUsesStatusNotCategory`, `testRestoringOneReject
 - [ ] Ortsdetail: Statuszeile Idee — Geplant — Besucht wechselt beim Merken und beim Abstempeln.
 - [ ] Ideen: Eine Idee mit Nein ablehnen, dann oben links „Abgelehnte Ideen“ öffnen und einzeln zurückholen.
 - [ ] Unterlagen im geteilten Album: Ein neues PDF zeigt erst „Wartet auf Netz“ bzw. „Wird hochgeladen …“, danach „Auf beiden iPhones“.
+- [ ] Ideen: nach rechts wischen. Die Idee gilt sofort als „Ja“, ohne Speichern.
+- [ ] iPhone quer halten: Der KI-Kreis sitzt rechts im Rand und verdeckt nichts.
 - [ ] Alles einmal mit „Bewegung reduzieren“ und mit sehr großer Schrift.
