@@ -11,7 +11,14 @@ Stand 05.10.2026, Branch **`claude/motion-flow`**. Er enthält alles aus `claude
 
 ## Was in diesem Branch neu ist
 
-**In der Cloud gebaut und getestet (04.10.2026):** GitHub Actions auf macOS 26 mit Xcode 26.6 (`.github/workflows/ios-build.yml`). App und Share Extension bauen für Simulator und iPhone ohne Fehler. Unit-Tests auf iPhone 17 Pro / iOS 26.5: 162 ausgeführt, 0 Fehler, 4 übersprungen (optionale Live-Supabase- und PDF-Tests). Jeder Push auf `claude/**` baut automatisch neu. Nicht geprüft sind das Aussehen, die Bewegung und die Haptik auf dem echten iPhone: dafür ist die Prüfliste unten.
+**In der Cloud gebaut und getestet (05.10.2026):** GitHub Actions auf macOS 26 mit Xcode 26.6 (`.github/workflows/ios-build.yml`).
+- App und Share Extension bauen für Simulator und iPhone ohne Fehler.
+- Unit-Tests auf iPhone 17 Pro / iOS 26.5: 162 ausgeführt, 0 Fehler, 4 übersprungen (optionale Live-Supabase- und PDF-Tests).
+- Accessibility-Audits auf Reise, Ideen, Karte und Editor: ohne Fund.
+- 37 Screenshots (hell, dunkel, quer, große Schrift) einzeln durchgesehen.
+- Noch rot sind nur UI-Tests, die Apples Fotos-Auswahl und das Teilen-Blatt fernsteuern, und ein Test, der einen vorbereiteten Datenstand vom Mac braucht. Alle scheitern auch auf dem Ausgangsstand.
+
+Jeder Push auf `claude/**` baut automatisch neu. Bewegung und Haptik lassen sich nur auf dem echten iPhone prüfen: dafür ist die Prüfliste unten.
 
 1. **Fotos in Ideenkarte, Ortsdetail und Vollbild**
    - Diese großen Ansichten luden Wikimedia-Fotos in 1600 px Breite. Wikimedia liefert aber nur feste Breiten aus (120, 250, 330, 500, 960, 1280, 1920), andere enden mit HTTP 400. Das steht auch in `PROGRESS.md`.
