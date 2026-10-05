@@ -110,6 +110,8 @@ struct AlbumRoot: View {
                 // sonst verdeckt der Kreis z. B. „Einladen“ auf der Reise-Seite.
                 .padding(.trailing, verticalSizeClass == .compact ? Stitch.Space.m : Stitch.Space.page)
                 .padding(.bottom, verticalSizeClass == .compact ? 30 : 56)
+                // Erst eine volle Fläche kann in den Rand reichen; der Knopf selbst bleibt die einzige Trefferfläche.
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 .ignoresSafeArea(.container, edges: verticalSizeClass == .compact ? .trailing : [])
             }
         }
