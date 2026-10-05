@@ -1244,10 +1244,19 @@ extension AlbumUITests {
             pickerAX = candidate.debugDescription
             break
         }
-        let hostAX = app.debugDescription
-        let pickerVisibleInHost = hostAX.localizedCaseInsensitiveContains("photos")
-            || hostAX.localizedCaseInsensitiveContains("fotos")
-            || hostAX.localizedCaseInsensitiveContains("photospicker")
+        // Der eingebettete Picker braucht beim ersten Start in der Cloud einige Sekunden, bis seine
+        // Hierarchie sichtbar ist; einmaliges Nachsehen war zeitabhängig.
+        var hostAX = app.debugDescription
+        var pickerVisibleInHost = false
+        let deadline = Date().addingTimeInterval(12)
+        while pickerAX.isEmpty {
+            hostAX = app.debugDescription
+            pickerVisibleInHost = hostAX.localizedCaseInsensitiveContains("photos")
+                || hostAX.localizedCaseInsensitiveContains("fotos")
+                || hostAX.localizedCaseInsensitiveContains("photospicker")
+            if pickerVisibleInHost || Date() > deadline { break }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        }
         XCTAssertTrue(!pickerAX.isEmpty || pickerVisibleInHost, "Nach Eigenes Foto wählen muss eine beobachtbare native Picker-Hierarchie erscheinen")
 
         let observedAX = XCTAttachment(string: pickerAX.isEmpty ? hostAX : pickerAX)
