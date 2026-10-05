@@ -24,5 +24,11 @@ for test in manifest:
         for index, line in enumerate(lines):
             if re.search(r'\] suppressed=false$', line):
                 print('  -', line)
-                for extra in lines[index + 1:index + 5]:
+                for extra in lines[index + 1:index + 6]:
                     print('     ', extra[:300])
+                # Ohne Element steht direkt nach "<none>" die ausführliche Beschreibung von XCTest.
+                if index + 7 < len(lines) and lines[index + 7].strip() == '<none>':
+                    for extra in lines[index + 8:index + 11]:
+                        if not extra.strip():
+                            break
+                        print('      »', extra[:400])

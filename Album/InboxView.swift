@@ -149,7 +149,7 @@ struct InboxView: View {
                     if let lastAction { undoButton(lastAction) }
                     if let needsLocation { locationButton(needsLocation) }
                     Spacer()
-                    Button("Offen") { markOpen(place) }.buttonStyle(AlbumTextActionButtonStyle(tint: Stitch.inkSoft))
+                    Button("Offen") { markOpen(place) }.buttonStyle(AlbumTextActionButtonStyle(tint: Stitch.ink))
                 }
                 .padding(.trailing, Stitch.Size.touch + Stitch.Space.m)
             } else {
@@ -690,12 +690,15 @@ struct IdeaStamp: View {
                 }
             }
             .overlay(alignment: .bottomTrailing) {
-                Postmark(bottom: "FRANKIERT", size: 92)
-                    .scaleEffect(1.8 - 0.8 * stamp)
-                    .opacity(Double(stamp))
-                    .padding(Stitch.Space.s)
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(true)
+                // Erst beim Frankieren in der Ansicht: Ein unsichtbarer Stempel bliebe sonst als Text ohne Kontrast
+                // im Baum. Er fällt aus 1,8-facher Größe auf das Foto, wie vorher über `scaleEffect`.
+                if stamp > 0 {
+                    Postmark(bottom: "FRANKIERT", size: 92)
+                        .padding(Stitch.Space.s)
+                        .transition(.scale(scale: 1.8).combined(with: .opacity))
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
             }
     }
 
