@@ -496,7 +496,9 @@ struct PlacesDrawer: View {
         ScrollViewReader { proxy in
             ScrollView {
                 // Rhythmus wie überall: Überschrift → Inhalt 12, Karte → Karte 12, Abschnitt → Abschnitt 32.
-                LazyVStack(alignment: .leading, spacing: 0) {
+                // Kein Lazy-Stapel: Die Liste hat höchstens ein paar Dutzend Zeilen, und mit geschätzten Höhen
+                // landete „Heute“ beim Öffnen halb unter dem Kopf des Blatts.
+                VStack(alignment: .leading, spacing: 0) {
                     if includesHeader {
                         headerIdentity
                             .padding(.bottom, Stitch.Space.s)
