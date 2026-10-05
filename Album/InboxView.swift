@@ -86,6 +86,8 @@ struct InboxView: View {
             #if DEBUG
             if ProcessInfo.processInfo.environment["ALBUM_TEST_STORE"] != nil, ProcessInfo.processInfo.environment["ALBUM_IMAGE_RESPONSE_BASE64"] == nil { return }
             #endif
+            // Ohne Kartenort erst die Position finden, sonst kann die Fotosuche nichts zuordnen.
+            await store.locateUnplacedPlaces(placeID: id)
             await store.refreshPlaceImages(placeID: id)
         }
     }

@@ -35,7 +35,8 @@ struct CollectionHomeView: View {
         .toolbar { ToolbarItem(placement: .primaryAction) { Button("Sammeln", systemImage: "plus") { composing = true } } }
         .sheet(isPresented: $composing) { CollectionComposer() }
         .sheet(item: $selected) { CollectionDetailView(post: $0) }
-        .overlay(alignment: .bottom) { FailedShareQueueView() }
+        // Rechts Platz für den KI-Kreis, sonst liegt er über „Verwerfen“.
+        .overlay(alignment: .bottom) { FailedShareQueueView().padding(.trailing, Stitch.Size.touch + Stitch.Space.s) }
         .task { await store.refreshCollectionMetadataIfNeeded(limit: 12) }
     }
 }

@@ -304,6 +304,46 @@ final class StoreRegressionTests: XCTestCase {
         XCTAssertEqual(calls, 2, "Ein veraltetes Ergebnis darf den nächsten sichtbaren Versuch nicht sperren")
     }
 
+    func testIdeasWithoutCoordinatesGetLocatedByAddressOrUniqueName() async throws {
+        let store = makeStore(at: makeRoot())
+        let withAddress = Place(id: "kafka", title: "Franz Kafka Museum", address: "Cihelná 2b, 118 00 Praha 1")
+        let nameOnly = Place(id: "nicholas", title: "St Nicholas Church · Old Town")
+        let elsewhere = Place(id: "vienna", title: "Café Sacher")
+        store.data.places = [withAddress, nameOnly, elsewhere]
+        XCTAssertTrue(store.persist())
+        var askedAddresses: [String] = []
+        var askedNames: [String] = []
+        store.geocodeAddressResolver = { address in
+            askedAddresses.append(address)
+            return CLLocationCoordinate2D(latitude: 50.0886, longitude: 14.4106)
+        }
+        store.placeNameLocator = { name in
+            askedNames.append(name)
+            return name == "Café Sacher"
+                ? CLLocationCoordinate2D(latitude: 48.2038, longitude: 16.3698)
+                : CLLocationCoordinate2D(latitude: 50.0878, longitude: 14.4205)
+        }
+
+        await store.locateUnplacedPlaces()
+
+        let byID = Dictionary(uniqueKeysWithValues: store.data.places.map { ($0.id, $0) })
+        XCTAssertEqual(byID["kafka"]?.lat, 50.0886, "Mit Adresse zählt die Adresse")
+        XCTAssertEqual(askedAddresses, ["Cihelná 2b, 118 00 Praha 1"])
+        XCTAssertEqual(byID["nicholas"]?.lat, 50.0878, "Ohne Adresse sucht Apple Karten nach dem Namen")
+        XCTAssertTrue(askedNames.contains("St Nicholas Church"), "Der Zusatz nach „·“ gehört nicht in die Suche")
+        XCTAssertNil(byID["vienna"]?.coordinate, "Ein Treffer außerhalb Prags wird nicht übernommen")
+
+        await store.locateUnplacedPlaces()
+        XCTAssertEqual(askedAddresses.count, 1, "Ein zweiter Durchgang fragt nicht erneut")
+        XCTAssertEqual(askedNames.count, 2)
+    }
+
+    func testPhotoSearchUsesTheNameWithoutSuffix() {
+        XCTAssertEqual(PlaceImageService.searchTitle("St Nicholas Church · Old Town"), "St Nicholas Church")
+        XCTAssertEqual(PlaceImageService.searchTitle("Old Czech Chimney Cake · Karlova 25"), "Old Czech Chimney Cake")
+        XCTAssertEqual(PlaceImageService.searchTitle(" Letná Park "), "Letná Park")
+    }
+
     func testCancelledSourcePreviewResultIsIgnored() async throws {
         let store = makeStore(at: makeRoot())
         let place = Place(id: "cancelled-source", title: "Quelle", sourceURL: "http://example.com/place")

@@ -3,11 +3,6 @@ import MapKit
 import CoreLocation
 import UIKit
 
-struct AssistantBottomClearanceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
-}
-
 struct AssistantView: View {
     @Environment(AlbumStore.self) private var store
     @Environment(\.dismiss) private var dismiss

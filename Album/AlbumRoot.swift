@@ -5,17 +5,6 @@ import UIKit
 
 enum AlbumTab: String, CaseIterable { case reise = "Reise", ideen = "Ideen", karte = "Karte" }
 
-extension View {
-    /// Einheitliche Toolbar: genau eine Aktion, „Idee einwerfen“. Alles andere hat einen festen Platz in den Ansichten.
-    func albumToolbar(add: @escaping () -> Void) -> some View {
-        toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button("Idee einwerfen", systemImage: "plus", action: add)
-            }
-        }
-    }
-}
-
 struct AlbumRoot: View {
     @Environment(AlbumStore.self) private var store
     @Environment(\.scenePhase) private var scenePhase
@@ -30,6 +19,8 @@ struct AlbumRoot: View {
     @State private var askName = false
     @State private var assistantPresented = false
     @State private var assistantSession: AssistantSession?
+    /// Wie hoch das eingeklappte Ortsblatt der Karte reicht; der KI-Kreis setzt sich darüber.
+    @State private var assistantLift: CGFloat = 0
 #if DEBUG && targetEnvironment(simulator)
     @State private var nativeShareSheet = false
 #endif
@@ -69,7 +60,8 @@ struct AlbumRoot: View {
             NavigationStack { InboxView(add: add) }
                 .tabItem { Label("Ideen", systemImage: "tray") }.tag(AlbumTab.ideen)
                 .badge(store.inbox.count)
-            NavigationStack { TripMapView().albumToolbar(add: add) }
+            // Die Karte blendet ihre Leiste aus; neue Ideen kommen über Reise und Ideen.
+            NavigationStack { TripMapView(assistantLift: $assistantLift) }
                 .tabItem { Label("Karte", systemImage: "map") }.tag(AlbumTab.karte)
         }
         .tint(Stitch.ink)
@@ -109,7 +101,8 @@ struct AlbumRoot: View {
                 // Querformat: in der Zeile der Tab-Leiste und im seitlichen Rand neben dem Inhalt,
                 // sonst verdeckt der Kreis z. B. „Einladen“ auf der Reise-Seite.
                 .padding(.trailing, verticalSizeClass == .compact ? Stitch.Space.m : Stitch.Space.page)
-                .padding(.bottom, verticalSizeClass == .compact ? 30 : 56)
+                .padding(.bottom, (verticalSizeClass == .compact ? 30 : 56) + (tab == .karte ? assistantLift : 0))
+                .animation(reduceMotion ? nil : Stitch.Motion.panel, value: assistantLift)
                 // Erst eine volle Fläche kann in den Rand reichen; der Knopf selbst bleibt die einzige Trefferfläche.
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 .ignoresSafeArea(.container, edges: verticalSizeClass == .compact ? .trailing : [])
@@ -308,8 +301,18 @@ struct ClipboardNote: View {
             .buttonBorderShape(.capsule)
             .labelStyle(.titleOnly)
             .tint(Stitch.redFill)
+            // Wegwischen nach oben geht auch; dies ist der sichtbare Weg dafür.
+            Button(action: onDismiss) {
+                Image(systemName: "xmark")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Stitch.inkSoft)
+                    .frame(width: Stitch.Size.touch, height: Stitch.Size.touch)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Hinweis schließen")
         }
-        .padding(.leading, Stitch.Space.s).padding(.trailing, Stitch.Space.s).padding(.vertical, Stitch.Space.s)
+        .padding(.leading, Stitch.Space.s).padding(.trailing, Stitch.Space.xxs).padding(.vertical, Stitch.Space.xxs)
         .background(Stitch.card, in: RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous).strokeBorder(Stitch.rule, lineWidth: 1))
         .stitchElevation(.floating)

@@ -174,9 +174,8 @@ struct ReiseView: View {
 
     private var heroMenu: some View {
         Menu {
+            // Karte (Tab-Leiste) und Teilen („Einladen“ direkt darunter) haben schon ihren festen Platz.
             Button("Reiseunterlagen", systemImage: "doc.text", action: openDocuments)
-            Button("Karte", systemImage: "map", action: openMap)
-            Button("Teilen", systemImage: "square.and.arrow.up", action: openSharing)
             Link(destination: URL(string: "https://commons.wikimedia.org/wiki/File:Charles_Bridge_at_sunset.jpg")!) {
                 Label("Foto: Thomas Fabian · CC BY-SA 2.0", systemImage: "photo")
             }

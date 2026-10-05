@@ -521,7 +521,8 @@ struct PlacesDrawer: View {
                 .scrollTargetLayout()
                 .padding(.horizontal, Stitch.Space.page)
                 .padding(.top, Stitch.Space.s)
-                .padding(.bottom, Stitch.Space.xl)
+                // Die letzte Zeile lässt sich über den KI-Kreis schieben.
+                .padding(.bottom, Stitch.Space.xl + Stitch.Size.touch)
             }
             .scrollIndicators(.hidden)
             .accessibilityIdentifier("map-places-list")

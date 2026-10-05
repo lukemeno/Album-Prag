@@ -115,7 +115,7 @@ enum PlaceImageService {
         let response: PlaceImageSearchResult = try await client.functions.invoke(
             "place-photo",
             options: FunctionInvokeOptions(body: Request(
-                title: place.title,
+                title: searchTitle(place.title),
                 latitude: coordinate.latitude,
                 longitude: coordinate.longitude,
                 category: place.category,
@@ -123,6 +123,14 @@ enum PlaceImageService {
             ))
         )
         return response
+    }
+
+    /// Der Name ohne Zusatz nach „·“: „St Nicholas Church · Old Town“ sucht nach „St Nicholas Church“,
+    /// sonst findet der strenge Namensabgleich des Servers die Sehenswürdigkeit nicht.
+    static func searchTitle(_ title: String) -> String {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let head = trimmed.components(separatedBy: " · ").first?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return head.isEmpty ? trimmed : head
     }
 
     /// Weitere Fotos neben dem Hauptfoto: höchstens zwei, ohne Doppelte.
@@ -253,5 +261,34 @@ enum PlaceImageResolver {
             marker?.draw(in: CGRect(x: point.x - 45, y: point.y - 86, width: 90, height: 90))
         }
         return image.jpegData(compressionQuality: 0.85)
+    }
+}
+
+/// Findet die Kartenposition eines Orts, der nur einen Namen hat: Apple Karten in Prag, und nur ein Treffer,
+/// dessen Name wirklich passt. Lieber keine Position als ein falscher Pin.
+enum PlaceLocator {
+    static let prague = CLLocationCoordinate2D(latitude: 50.0875, longitude: 14.4213)
+
+    static func isInPrague(_ coordinate: CLLocationCoordinate2D) -> Bool {
+        CLLocation(latitude: prague.latitude, longitude: prague.longitude)
+            .distance(from: CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)) < 25_000
+    }
+
+    @MainActor static func locate(name: String) async -> CLLocationCoordinate2D? {
+        let query = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return nil }
+        let request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = query
+        request.region = MKCoordinateRegion(center: prague, span: MKCoordinateSpan(latitudeDelta: 0.25, longitudeDelta: 0.25))
+        request.resultTypes = .pointOfInterest
+        guard let response = try? await MKLocalSearch(request: request).start() else { return nil }
+        for item in response.mapItems {
+            let coordinate = item.placemark.location?.coordinate ?? item.placemark.coordinate
+            let itemName = item.name?.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current) ?? ""
+            if isInPrague(coordinate), CollectionPlaceResolver.namesMatch(name: itemName, query: query) {
+                return coordinate
+            }
+        }
+        return nil
     }
 }

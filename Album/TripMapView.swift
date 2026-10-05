@@ -14,6 +14,8 @@ struct TripMapView: View {
     @State private var lastTappedClusterID: String?
     @State private var filter = MapFilter.all
     @State private var searchQuery = ""
+    /// Hebt den KI-Kreis über das eingeklappte Ortsblatt (gesetzt von AlbumRoot).
+    var assistantLift: Binding<CGFloat> = .constant(0)
     @State private var detent = DrawerDetent.half
     @State private var coveredHeight: CGFloat = 0
     @State private var coveredWidth: CGFloat = 0
@@ -30,6 +32,11 @@ struct TripMapView: View {
     private var dayThreads: [(day: Int, coordinates: [CLLocationCoordinate2D])] {
         (4...9).map { day in (day, store.plan(for: day).filter { filter.matches($0) && $0.matchesMapSearch(searchQuery) }.compactMap(\.coordinate)) }
             .filter { $0.1.count > 1 }
+    }
+
+    private func updateAssistantLift() {
+        let lift = detent == .collapsed ? coveredHeight : 0
+        if assistantLift.wrappedValue != lift { assistantLift.wrappedValue = lift }
     }
 
     var body: some View {
@@ -120,7 +127,9 @@ struct TripMapView: View {
                 .allowsHitTesting(detent != .full || isLandscape)
             }
         }
-        .preference(key: AssistantBottomClearanceKey.self, value: coveredHeight)
+        // Eingeklappt liegt das Blatt mit seinem Schließen-Kreuz unten rechts; dort säße sonst der KI-Kreis.
+        .onChange(of: detent, initial: true) { _, _ in updateAssistantLift() }
+        .onChange(of: coveredHeight) { _, _ in updateAssistantLift() }
         .navigationTitle("Karte")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)
@@ -757,71 +766,60 @@ struct PlaceDetail: View {
     }
 
     @ViewBuilder private func detailActions(_ place: Place) -> some View {
-        // Four compact tiles fit the reference on regular sizes. Accessibility
-        // sizes use two columns so labels stay readable and tappable.
+        // Bis zu vier kompakte Kacheln wie in der Vorlage; bei sehr großer Schrift zwei Spalten,
+        // damit die Beschriftungen lesbar und antippbar bleiben.
         if dynamicTypeSize.isAccessibilitySize {
             LazyVGrid(columns: [GridItem(.flexible(), spacing: Stitch.Space.s), GridItem(.flexible(), spacing: Stitch.Space.s)], spacing: Stitch.Space.s) {
-                detailActionGridItems(place)
+                detailActionItems(place)
             }
         } else {
             HStack(spacing: Stitch.Space.xs) {
-                detailActionRowItems(place)
+                detailActionItems(place)
             }
         }
     }
 
-    @ViewBuilder private func detailActionRowItems(_ place: Place) -> some View {
+    /// Nur Aktionen, die gerade etwas tun: „Zum Plan“ für Ideen, „Plan ändern“ für Geplantes,
+    /// „Teilen“ mit Website oder Apple-Karten-Link, „Website“ nur, wenn es eine gibt.
+    @ViewBuilder private func detailActionItems(_ place: Place) -> some View {
         Button { openWalkingRoute(to: place) } label: {
             detailActionLabel("Route", symbol: "location", disabled: place.coordinate == nil)
         }
         .buttonStyle(.plain)
         .disabled(place.coordinate == nil)
 
-        Button { editing = true } label: {
-            detailActionLabel("Plan ändern", symbol: "plus", selected: true)
+        if place.franked {
+            Button { editing = true } label: {
+                detailActionLabel("Plan ändern", symbol: "calendar", selected: true)
+            }
+            .buttonStyle(.plain)
+        } else {
+            Button { addToPlan(place) } label: {
+                detailActionLabel("Zum Plan", symbol: "plus", selected: true)
+            }
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
 
-        if let url = LinkValidation.url(place.sourceURL) {
-            ShareLink(item: url) { detailActionLabel("Teilen", symbol: "square.and.arrow.up") }
+        if let url = shareURL(for: place) {
+            ShareLink(item: url, subject: Text(place.title)) { detailActionLabel("Teilen", symbol: "square.and.arrow.up") }
                 .buttonStyle(.plain)
+        }
+        if let url = LinkValidation.url(place.sourceURL) {
             Link(destination: url) { detailActionLabel("Website", symbol: "safari") }
                 .buttonStyle(.plain)
-        } else {
-            Button {} label: { detailActionLabel("Teilen", symbol: "square.and.arrow.up", disabled: true) }
-                .buttonStyle(.plain)
-                .disabled(true)
-            Button {} label: { detailActionLabel("Website", symbol: "safari", disabled: true) }
-                .buttonStyle(.plain)
-                .disabled(true)
         }
     }
 
-    @ViewBuilder private func detailActionGridItems(_ place: Place) -> some View {
-        Button { openWalkingRoute(to: place) } label: {
-            detailActionLabel("Route", symbol: "location", disabled: place.coordinate == nil)
-        }
-        .buttonStyle(.plain)
-        .disabled(place.coordinate == nil)
-
-        Button { editing = true } label: {
-            detailActionLabel("Plan ändern", symbol: "plus", selected: true)
-        }
-        .buttonStyle(.plain)
-
-        if let url = LinkValidation.url(place.sourceURL) {
-            ShareLink(item: url) { detailActionLabel("Teilen", symbol: "square.and.arrow.up") }
-                .buttonStyle(.plain)
-            Link(destination: url) { detailActionLabel("Website", symbol: "safari") }
-                .buttonStyle(.plain)
-        } else {
-            Button {} label: { detailActionLabel("Teilen", symbol: "square.and.arrow.up", disabled: true) }
-                .buttonStyle(.plain)
-                .disabled(true)
-            Button {} label: { detailActionLabel("Website", symbol: "safari", disabled: true) }
-                .buttonStyle(.plain)
-                .disabled(true)
-        }
+    /// Die Website des Orts oder, ohne Website, der Ort in Apple Karten.
+    private func shareURL(for place: Place) -> URL? {
+        if let url = LinkValidation.url(place.sourceURL) { return url }
+        guard let coordinate = place.coordinate else { return nil }
+        var components = URLComponents(string: "https://maps.apple.com/")
+        components?.queryItems = [
+            URLQueryItem(name: "q", value: place.title),
+            URLQueryItem(name: "ll", value: "\(coordinate.latitude),\(coordinate.longitude)")
+        ]
+        return components?.url
     }
 
     private func detailActionLabel(_ title: String, symbol: String, selected: Bool = false, disabled: Bool = false) -> some View {

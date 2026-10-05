@@ -42,6 +42,8 @@ private struct OpeningHoursFetchResult: Sendable {
     /// Test hooks keep the production services as the default while allowing paused, deterministic regressions.
     var openingHoursResolver: (@MainActor (Place) async -> String?)?
     var geocodeAddressResolver: (@MainActor (String) async -> CLLocationCoordinate2D?)?
+    /// Sucht einen Ort nur nach seinem Namen in Prag (Apple Karten); Tests setzen hier eine feste Antwort.
+    var placeNameLocator: (@MainActor (String) async -> CLLocationCoordinate2D?)?
     var sourcePreviewResolver: (@MainActor (URL) async -> OEmbedService.Preview?)?
     var placeImageSearchResolver: (@MainActor (Place) async throws -> PlaceImageSearchResult)?
     var places: [Place] { data.places.filter { !$0.deleted } }
@@ -573,6 +575,7 @@ private struct OpeningHoursFetchResult: Sendable {
 
     /// Orte, für die in diesem App-Lauf schon ein Bild gesucht wurde (Titel und Koordinate), damit nichts in Schleife läuft.
     private var imageLookupsTried: Set<String> = []
+    private var locationLookupsTried: Set<String> = []
 
     /// Repairs only untouched copies of bundled seed places whose coordinates
     /// were added after the copy was originally saved. User edits are identified
@@ -702,6 +705,46 @@ private struct OpeningHoursFetchResult: Sendable {
             } catch {
                 imageLookupsTried.remove(key)
             }
+        }
+    }
+
+    /// Ideen ohne Kartenort (die meisten mitgelieferten, alle aus dem Assistenten) bekommen ihre Position aus
+    /// der Adresse oder, ohne Adresse, aus einem eindeutigen Apple-Karten-Treffer gleichen Namens in Prag.
+    /// Erst mit Position kann die Fotosuche den richtigen Ort finden. Pro Durchgang höchstens zwölf Anfragen,
+    /// damit Apple die Suche nicht drosselt; der Rest folgt beim nächsten Öffnen.
+    func locateUnplacedPlaces(placeID: String? = nil) async {
+        #if DEBUG
+        // UI-Tests mit isoliertem Speicher bleiben ohne Netz deterministisch; Unit-Tests setzen eigene Antworten.
+        if ProcessInfo.processInfo.environment["ALBUM_TEST_STORE"] != nil,
+           geocodeAddressResolver == nil, placeNameLocator == nil { return }
+        #endif
+        let open = Set(inbox.map(\.id))
+        let unplaced = places
+            .filter { (placeID == nil || $0.id == placeID) && $0.coordinate == nil }
+            .filter { !$0.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            // Zuerst, was gerade auf dem Stapel liegt.
+            .sorted { open.contains($0.id) && !open.contains($1.id) }
+        var requests = 0
+        for place in unplaced {
+            guard requests < 12, !Task.isCancelled else { return }
+            let key = "\(place.id)|\(place.title)|\(place.address)"
+            guard locationLookupsTried.insert(key).inserted else { continue }
+            requests += 1
+            let address = place.address.trimmingCharacters(in: .whitespacesAndNewlines)
+            let found: CLLocationCoordinate2D? = if !address.isEmpty {
+                await geocodeAddress(address)
+            } else if let placeNameLocator {
+                await placeNameLocator(PlaceImageService.searchTitle(place.title))
+            } else {
+                await PlaceLocator.locate(name: PlaceImageService.searchTitle(place.title))
+            }
+            guard !Task.isCancelled else { locationLookupsTried.remove(key); return }
+            guard let found, PlaceLocator.isInPrague(found),
+                  var current = data.places.first(where: { $0.id == place.id }),
+                  current.title == place.title, current.address == place.address, current.coordinate == nil else { continue }
+            current.lat = found.latitude
+            current.lng = found.longitude
+            _ = upsert(current)
         }
     }
 
