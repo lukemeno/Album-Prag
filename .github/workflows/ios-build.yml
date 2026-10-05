@@ -8,14 +8,15 @@ on:
     paths-ignore: ['**/*.md', 'Design/**']
   workflow_dispatch:
 
-concurrency:
-  group: ios-build-${{ github.ref }}
-  # Ein neuer Push ersetzt den laufenden Lauf; es zählt immer der neueste Stand.
-  cancel-in-progress: true
+# Nebenläufigkeit pro Job: Ein neuer Push ersetzt Build, Screen-Tour und Audits sofort.
+# Die langen UI-Tests laufen dagegen zu Ende; der neueste Stand wartet dahinter.
 
 jobs:
   build:
     runs-on: macos-26
+    concurrency:
+      group: build-${{ github.ref }}
+      cancel-in-progress: true
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -77,6 +78,9 @@ jobs:
   # Die Bilder landen als JPEG im Branch ci-screens/<branch>, damit man sie ohne Xcode ansehen kann.
   screens:
     runs-on: macos-26
+    concurrency:
+      group: screens-${{ github.ref }}
+      cancel-in-progress: true
     timeout-minutes: 60
     permissions:
       contents: write
@@ -151,6 +155,9 @@ jobs:
   # Alle bestehenden UI-Tests (Abläufe, Bewegung, Barrierefreiheit) auf dem Simulator.
   uitests:
     runs-on: macos-26
+    concurrency:
+      group: uitests-${{ github.ref }}
+      cancel-in-progress: false
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
@@ -196,7 +203,12 @@ jobs:
   # Nur die Accessibility-Audits: Funde stehen nach etwa 15 Minuten im Log statt nach dem ganzen UI-Testlauf.
   a11y:
     runs-on: macos-26
+    concurrency:
+      group: a11y-${{ github.ref }}
+      cancel-in-progress: true
     timeout-minutes: 45
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -231,3 +243,21 @@ jobs:
         run: |
           xcrun xcresulttool export attachments --path logs/A11y.xcresult --output-path a11y || exit 0
           python3 .github/scripts/a11y_findings.py a11y
+
+      - name: Fundbilder in Branch ablegen
+        if: always()
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          [ -d a11y ] || exit 0
+          python3 .github/scripts/a11y_issue_shots.py a11y a11y-shots
+          python3 .github/scripts/a11y_findings.py a11y > a11y-shots/findings.txt
+          branch="ci-a11y/${GITHUB_REF_NAME//\//-}"
+          cd a11y-shots
+          echo "Accessibility-Funde von ${GITHUB_SHA} (${GITHUB_REF_NAME})" > README.md
+          git init -q -b main
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Accessibility-Funde ${GITHUB_SHA::7}"
+          git push -q --force "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:"refs/heads/${branch}"
