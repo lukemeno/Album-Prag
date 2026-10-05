@@ -103,14 +103,14 @@ final class AlbumMotionUITests: XCTestCase {
         shot("F-2-waechst-0")
         usleep(250_000); shot("F-2-waechst-1")
         usleep(900_000); shot("F-3-offen")
-        XCTAssertTrue(island.label.contains("Mia hat 2 Ideen eingeworfen"))
-        XCTAssertTrue(island.label.contains("1× Ja"))
-        XCTAssertGreaterThanOrEqual(island.frame.height, 44, "Die geöffnete Abgleich-Insel bleibt mindestens 44 Punkte hoch")
-        let expandedScreenshot = XCTAttachment(screenshot: app.screenshot())
-        expandedScreenshot.name = "F-4-Abgleich-Insel-geöffnet"
-        expandedScreenshot.lifetime = .keepAlways
-        add(expandedScreenshot)
+        // Die Insel klappt nach 5 s von selbst zu. Jede Abfrage und ein Bildschirmfoto kosten in der Cloud
+        // bis zu einer Sekunde; deshalb Werte einmal lesen, sofort tippen und erst danach prüfen.
+        let label = island.label
+        let height = island.frame.height
         island.tap()
+        XCTAssertTrue(label.contains("Mia hat 2 Ideen eingeworfen"))
+        XCTAssertTrue(label.contains("1× Ja"))
+        XCTAssertGreaterThanOrEqual(height, 44, "Die geöffnete Abgleich-Insel bleibt mindestens 44 Punkte hoch")
         usleep(300_000); shot("F-4-zuklappen")
         sleep(1); shot("F-5-zu")
         // Zugeklappt reagiert die Kapsel nicht mehr auf Tipps.
