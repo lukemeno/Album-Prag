@@ -26,7 +26,8 @@ final class AlbumUITests: XCTestCase {
 
     func testMissingSeedPhotoShowsLocationFallback() throws {
         let app = XCUIApplication()
-        app.launchEnvironment["ALBUM_TEST_STORE"] = "slot-photo-fallback"
+        // Frischer Speicher: Speculum liegt in den Beispielideen hinter Orten mit eingebautem Foto.
+        app.launchEnvironment["ALBUM_TEST_STORE"] = "slot-photo-fallback-\(UUID().uuidString.prefix(8))"
         app.launchEnvironment["ALBUM_MY_NAME"] = "Luke"
         app.launchEnvironment["ALBUM_IMAGE_RESPONSE_BASE64"] = "eyJpbWFnZSI6bnVsbCwiY2FuZGlkYXRlcyI6W10sInNlbGVjdGlvbl92ZXJzaW9uIjozfQ=="
         app.launchEnvironment["ALBUM_DISABLE_LOOK_AROUND"] = "1"
@@ -35,8 +36,17 @@ final class AlbumUITests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.buttons["Ideen"].waitForExistence(timeout: 10))
         app.buttons["Ideen"].tap()
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Speculum Alchemiae")).firstMatch.waitForExistence(timeout: 10))
-        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Apple Karten")).firstMatch.waitForExistence(timeout: 40))
+        // Über „Offen“ (ohne Stimme) nach vorn blättern, bis Speculum oben auf dem Stapel liegt.
+        // Nur die oberste Karte zählt; die Karten dahinter stehen ebenfalls im Accessibility-Baum.
+        let front = app.descendants(matching: .any).matching(identifier: "Inbox-Ticket").firstMatch
+        let speculum = front.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Speculum Alchemiae")).firstMatch
+        let open = app.buttons["Offen"]
+        for _ in 0..<30 where !speculum.waitForExistence(timeout: 1) {
+            XCTAssertTrue(open.waitForExistence(timeout: 5), "Jede Idee lässt sich ohne Stimme weiterlegen")
+            open.tap()
+        }
+        XCTAssertTrue(speculum.waitForExistence(timeout: 10), "Speculum liegt oben auf dem Stapel")
+        XCTAssertTrue(front.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Apple Karten")).firstMatch.waitForExistence(timeout: 40))
         let screenshot = app.screenshot()
         let attachment = XCTAttachment(screenshot: screenshot)
         attachment.name = "Speculum-location-fallback"
