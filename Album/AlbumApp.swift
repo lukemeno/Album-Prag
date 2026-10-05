@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 @main struct AlbumApp: App {
 #if DEBUG && targetEnvironment(simulator)
@@ -10,6 +11,18 @@ import SwiftUI
     init() {
         // Ortsfotos bleiben zwischengespeichert, damit Karte und Liste auch mit schwachem Netz in Prag Bilder zeigen.
         URLCache.shared = URLCache(memoryCapacity: 40_000_000, diskCapacity: 250_000_000)
+        // Große und kleine Leistentitel in Fraunces wie „Album“ und „Reiseplan“, nicht in der Systemschrift.
+        let ink = UIColor(Stitch.ink)
+        if let large = UIFont(name: "Fraunces-SemiBold", size: 34) {
+            UINavigationBar.appearance().largeTitleTextAttributes = [
+                .font: UIFontMetrics(forTextStyle: .largeTitle).scaledFont(for: large), .foregroundColor: ink
+            ]
+        }
+        if let inline = UIFont(name: "Fraunces-SemiBold", size: 18) {
+            UINavigationBar.appearance().titleTextAttributes = [
+                .font: UIFontMetrics(forTextStyle: .headline).scaledFont(for: inline), .foregroundColor: ink
+            ]
+        }
     }
     @State private var store: AlbumStore = {
         #if DEBUG

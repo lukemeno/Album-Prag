@@ -122,6 +122,12 @@ struct ReiseView: View {
 
             ZStack(alignment: .bottomLeading) {
                 AlbumPhoto(asset: .bundled(name: "imgPragueCover"))
+                    // Goldene Stunde wie im Referenzbild: ein warmer Schimmer von oben, das Foto selbst bleibt unverändert.
+                    .overlay {
+                        LinearGradient(colors: [Color(red: 1, green: 0.6, blue: 0.22).opacity(0.55), .clear],
+                                       startPoint: .top, endPoint: .center)
+                            .blendMode(.softLight)
+                    }
                     .accessibilityHidden(true)
                 if !dynamicTypeSize.isAccessibilitySize {
                     LinearGradient(
@@ -134,14 +140,14 @@ struct ReiseView: View {
                 }
             }
             // Im Querformat flacher, damit Titel und Daten über der Tab-Leiste stehen.
-            .frame(height: verticalSizeClass == .compact ? 220 : 300)
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .frame(height: verticalSizeClass == .compact ? 220 : 340)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay(alignment: .topTrailing) {
-                // Unterwegs: der Stempel des heutigen Tages, unter dem Menüknopf.
-                if let today, !dynamicTypeSize.isAccessibilitySize {
-                    DayPostmark(day: today)
-                        .padding(.top, Stitch.Size.touch + Stitch.Space.l)
-                        .padding(.trailing, Stitch.Space.l)
+                // Die Briefmarke klebt rechts oben, leicht über den Fotorand; unterwegs mit dem Stempel des Tages.
+                if !dynamicTypeSize.isAccessibilitySize {
+                    HeroStamp(day: today)
+                        .padding(.top, Stitch.Size.touch + Stitch.Space.m)
+                        .offset(x: 6)
                         .allowsHitTesting(false)
                 }
             }
@@ -161,7 +167,7 @@ struct ReiseView: View {
                 .font(Stitch.Face.display(40, relativeTo: .largeTitle))
                 .accessibilityAddTraits(.isHeader)
             Text(subtitle)
-                .font(.subheadline)
+                .font(Stitch.Face.place(21, relativeTo: .title3))
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -187,7 +193,7 @@ struct ReiseView: View {
     private var participants: some View {
         HStack(spacing: Stitch.Space.s) {
             HStack(spacing: -avatarSize * 0.24) {
-                ForEach(participantNames, id: \.self) { name in
+                ForEach(Array(participantNames.enumerated()), id: \.element) { index, name in
                     Text(initials(for: name))
                         .font(.caption2.weight(.bold))
                         .lineLimit(1)
@@ -195,7 +201,7 @@ struct ReiseView: View {
                         .padding(.horizontal, 3)
                         .foregroundStyle(Stitch.ink)
                         .frame(width: avatarSize, height: avatarSize)
-                        .background(Stitch.Mat.sky, in: Circle())
+                        .background(index == 0 ? Stitch.Mat.butter : Stitch.Mat.rose, in: Circle())
                         .overlay(Circle().stroke(Stitch.card, lineWidth: 2))
                         .accessibilityLabel(name)
                 }
@@ -247,15 +253,18 @@ struct ReiseView: View {
                 ? AnyLayout(VStackLayout(alignment: .leading, spacing: Stitch.Space.xs))
                 : AnyLayout(HStackLayout(alignment: .firstTextBaseline))
             header {
-                Text("Reiseplan")
-                    .font(Stitch.Face.title(20, relativeTo: .title2))
-                    .foregroundStyle(Stitch.ink)
-                    .accessibilityAddTraits(.isHeader)
-                if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: Stitch.Space.s) }
-                Button(action: openMap) {
-                    Label("Alle öffnen", systemImage: "calendar")
+                Label {
+                    Text("Reiseplan")
+                        .font(Stitch.Face.title(20, relativeTo: .title2))
+                } icon: {
+                    Image(systemName: "calendar")
+                        .font(.body.weight(.medium))
                 }
-                .buttonStyle(TextActionButton(tint: Stitch.ink))
+                .foregroundStyle(Stitch.ink)
+                .accessibilityAddTraits(.isHeader)
+                if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: Stitch.Space.s) }
+                Button("Alle öffnen", action: openMap)
+                    .buttonStyle(TextActionButton(tint: Stitch.red))
                 .accessibilityLabel("Alle Reisetage öffnen")
             }
 
@@ -682,23 +691,66 @@ private struct OfflinePill: View {
     }
 }
 
+/// Briefmarke auf dem Titelfoto wie in der Vorlage: gezähntes Markenweiß, ein Prag-Motiv in Sepia, „PRAHA“.
+/// Unterwegs liegt der Tagesstempel halb auf der Marke, halb auf dem Foto.
+private struct HeroStamp: View {
+    let day: Int?
+    var body: some View {
+        ZStack(alignment: .bottomLeading) {
+            VStack(spacing: 4) {
+                Image("imgThumbOldTown")
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 68, height: 58)
+                    .clipped()
+                    .grayscale(1)
+                    .contrast(1.2)
+                    .colorMultiply(Color(red: 0.95, green: 0.88, blue: 0.76))
+                    .overlay(Rectangle().strokeBorder(Stitch.night.opacity(0.25), lineWidth: 0.5))
+                Text("PRAHA")
+                    .font(.custom("Fraunces-SemiBold", size: 10))
+                    .tracking(2.2)
+                    .foregroundStyle(Stitch.night.opacity(0.78))
+            }
+            .padding(.horizontal, 7)
+            .padding(.top, 7)
+            .padding(.bottom, 5)
+            .background(Color(red: 0.99, green: 0.97, blue: 0.93))
+            .clipShape(StampShape(hole: 2.4, pitch: 8))
+            .compositingGroup()
+            .shadow(color: .black.opacity(0.28), radius: 6, y: 3)
+            .rotationEffect(.degrees(7))
+            if let day {
+                DayPostmark(day: day, color: Stitch.night.opacity(0.72), size: 62)
+                    .offset(x: -30, y: 18)
+            }
+        }
+        .padding(.leading, day == nil ? 0 : 30)
+        .padding(.bottom, day == nil ? 0 : 18)
+        .accessibilityHidden(true)
+    }
+}
+
 /// Unterwegs: Beim ersten Öffnen eines Reisetags drückt ein Poststempel mit dem Datum auf das Titelfoto.
 /// Danach liegt er still dort, bis der nächste Tag beginnt.
 private struct DayPostmark: View {
     static let storageKey = "album.postmarkedDay"
     let day: Int
+    var color: Color = .white
+    var size: CGFloat = 74
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var landed: Bool
     @State private var thump = 0
 
-    init(day: Int) {
+    init(day: Int, color: Color = .white, size: CGFloat = 74) {
         self.day = day
+        self.color = color
+        self.size = size
         _landed = State(initialValue: UserDefaults.standard.integer(forKey: Self.storageKey) == day)
     }
 
     var body: some View {
-        Postmark(bottom: String(format: "%d.10.26", day), color: .white, size: 74)
-            .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
+        Postmark(bottom: String(format: "%d.10.26", day), color: color, size: size)
             .scaleEffect(landed ? 1 : 1.7)
             .blur(radius: landed ? 0 : 5)
             .opacity(landed ? 0.94 : 0)

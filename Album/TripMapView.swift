@@ -684,13 +684,12 @@ struct PlaceDetail: View {
                                     .accessibilityLabel(place.franked ? "Plan ändern" : "Zum Reiseplan hinzufügen")
                                     .accessibilityValue(place.franked ? "Im Reiseplan" : "Nicht im Reiseplan")
                                 }
-                                Label(place.category, systemImage: "mappin.and.ellipse")
-                                    .font(.body)
+                                // Wie in der Vorlage: eine leise Zeile unter dem Namen, dann Beschreibung, dann Aktionen.
+                                Label(place.category, systemImage: place.symbol)
+                                    .font(.subheadline)
                                     .foregroundStyle(Stitch.inkSoft)
                                     .fixedSize(horizontal: false, vertical: true)
-                                PlaceStatusTrail(place: place)
-                                    .animation(reduceMotion ? Stitch.Motion.reducedFade : Stitch.Motion.panel, value: place.franked)
-                                    .animation(reduceMotion ? Stitch.Motion.reducedFade : Stitch.Motion.panel, value: place.visited)
+                                    .padding(.top, -Stitch.Space.xs)
                                 if !facts(place).isEmpty || !place.note.isEmpty {
                                     VStack(alignment: .leading, spacing: Stitch.Space.xs) {
                                         if !place.note.isEmpty {
@@ -708,10 +707,15 @@ struct PlaceDetail: View {
                                     }
                                 }
                                 detailActions(place)
+                                // Status und Abstempeln gehören zusammen: erst wo der Ort steht, dann der Schritt dorthin.
+                                PlaceStatusTrail(place: place)
+                                    .animation(reduceMotion ? Stitch.Motion.reducedFade : Stitch.Motion.panel, value: place.franked)
+                                    .animation(reduceMotion ? Stitch.Motion.reducedFade : Stitch.Motion.panel, value: place.visited)
                                 if place.franked {
                                     VisitedTrack(visited: place.visited) { var p = place; p.visited = true; store.upsert(p) }
                                 }
                                 if place.photoAssets.count > 1 {
+                                    Rectangle().fill(Stitch.rule).frame(height: 1)
                                     Text("Fotos")
                                         .font(Stitch.Face.place(22, relativeTo: .title3))
                                         .foregroundStyle(Stitch.ink)

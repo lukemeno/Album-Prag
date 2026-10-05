@@ -672,12 +672,12 @@ private struct PlaceRow: View {
             HStack(spacing: Stitch.Space.s) {
                 Button(action: onShow) {
                     HStack(spacing: Stitch.Space.s) {
-                        AlbumPhoto(asset: place.image, root: root, thumbnailWidth: 160, placeholderSymbol: place.symbol, placeholderTint: place.mat)
-                            .frame(width: 64, height: 66)
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                        AlbumPhoto(asset: place.image, root: root, thumbnailWidth: 250, placeholderSymbol: place.symbol, placeholderTint: place.mat)
+                            .frame(width: 78, height: 64)
+                            .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
                         VStack(alignment: .leading, spacing: 2) {
                             HStack(spacing: Stitch.Space.xs) {
-                                Text(place.title).font(.system(.headline, design: .serif)).foregroundStyle(Stitch.ink)
+                                Text(place.title).font(Stitch.Face.place(22, relativeTo: .headline)).foregroundStyle(Stitch.ink)
                                     .multilineTextAlignment(.leading)
                                     .fixedSize(horizontal: false, vertical: true)
                                 if place.visited {
@@ -700,7 +700,7 @@ private struct PlaceRow: View {
                 .accessibilityIdentifier("place-row-\(place.id)")
                 Button(action: onDetails) {
                     Image(systemName: "chevron.right")
-                        .font(.footnote.weight(.semibold)).foregroundStyle(DrawerAccessibilityColors.secondary)
+                        .font(.footnote.weight(.medium)).foregroundStyle(DrawerAccessibilityColors.secondary)
                         .frame(minWidth: Stitch.Size.touch, minHeight: Stitch.Size.touch)
                         .contentShape(Rectangle())
                 }
@@ -712,8 +712,10 @@ private struct PlaceRow: View {
                 }
             }
         }
-        .padding(Stitch.Space.s)
-        .background(selected ? Stitch.selection : Stitch.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .padding(.vertical, Stitch.Space.xs)
+        .padding(.horizontal, Stitch.Space.xs)
+        // Wie in der Vorlage liegen die Zeilen direkt auf dem Papier; nur die gewählte bekommt das hellblaue Feld.
+        .background(selected ? Stitch.selection : Color.clear, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous)
                 .strokeBorder(Color.clear, lineWidth: 0)
@@ -753,12 +755,18 @@ struct DayMenu: View {
         } label: {
             Group {
                 if compact {
-                    Image(systemName: "calendar")
+                    // Runder Knopf wie das Lesezeichen der Vorlage; gefüllt, sobald der Ort einen Tag hat.
+                    Image(systemName: place.day == nil ? "calendar.badge.plus" : "calendar")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Stitch.ink)
+                        .frame(width: 40, height: 40)
+                        .background(place.day == nil ? Stitch.card : Stitch.selection, in: Circle())
+                        .overlay(Circle().strokeBorder(Stitch.rule, lineWidth: 1))
                 } else {
                     Label(place.day.map { "\($0). Okt" } ?? "Tag festlegen", systemImage: "calendar")
+                        .font(.subheadline.weight(.semibold)).foregroundStyle(DrawerAccessibilityColors.accent)
                 }
             }
-            .font(.subheadline.weight(.semibold)).foregroundStyle(DrawerAccessibilityColors.accent)
             .frame(minWidth: Stitch.Size.touch, minHeight: Stitch.Size.touch)
         }
         .accessibilityLabel(place.day.map { "Tag ändern, jetzt \(TripDates.dayTitle($0))" } ?? "Tag festlegen")
