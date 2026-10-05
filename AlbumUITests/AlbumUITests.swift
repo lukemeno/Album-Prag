@@ -81,6 +81,9 @@ final class AlbumUITests: XCTestCase {
             // rechts und reichen über den Seitenrand (20 pt) hinaus, wo der Streifen sie abschneidet.
             let textScrolledOutSideways = measuresText && isText && !window.isEmpty
                 && frame.minX > window.midX && frame.maxX > window.maxX - 19
+            // Text, den eine Liste gerade oben oder unten abschneidet (z. B. „Sonntag“ über „Heute“ in der Ortsliste),
+            // ist nicht sichtbar und deshalb auch nicht antippbar; XCTest misst dort fremde Pixel.
+            let textScrolledOut = measuresText && isText && element?.isHittable == false
             // Das Suchfeld der Karte ist einzeilig wie jede Suchleiste; bei sehr großer Schrift läuft der
             // Platzhalter waagrecht weiter, statt umzubrechen.
             let singleLineSearch = issue.compactDescription == "Text clipped" && element?.identifier == "map-search"
@@ -110,7 +113,7 @@ final class AlbumUITests: XCTestCase {
 
             suppressed = mapAttribution || measuredHotelContrastFalsePositive || decorativeStamp || collapsedSyncLabel
                 || measuredPaletteContrastFalsePositive || textUnderScrollEdge || textScrolledOutSideways || disabledControl
-                || singleLineSearch || unresolvedSystemText || textUnderTopEdge
+                || singleLineSearch || unresolvedSystemText || textUnderTopEdge || textScrolledOut
             findings.append("""
             \(issue.compactDescription) [\(String(describing: issue.auditType))] suppressed=\(suppressed)
             Label: \(element?.label ?? "<none>")
