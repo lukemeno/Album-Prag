@@ -336,6 +336,31 @@ final class AlbumTests: XCTestCase {
         XCTAssertTrue(store.deferred.contains { $0.id == other.id })
     }
 
+    @MainActor func testVotesWithoutCoordinatesPersistAndMatchAcrossPhones() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = AlbumStore(root: directory)
+        store.myName = "Luke"
+        let idea = Place(id: "unlocated-vote", title: "Link ohne Kartenposition", sourceURL: "https://example.com/place")
+        store.data.places = [idea]
+        XCTAssertTrue(store.upsert(store.decided(idea, approve: true)))
+
+        let reopened = AlbumStore(root: directory)
+        reopened.myName = "Mia"
+        let waiting = try XCTUnwrap(reopened.inbox.first { $0.id == idea.id })
+        XCTAssertNil(waiting.coordinate)
+        XCTAssertEqual(waiting.approvals, ["Luke"])
+        XCTAssertFalse(reopened.isShared(waiting))
+        XCTAssertTrue(reopened.upsert(reopened.decided(waiting, approve: true)))
+
+        let matched = try XCTUnwrap(AlbumStore(root: directory).places.first { $0.id == idea.id })
+        XCTAssertEqual(Set(matched.approvals), ["Luke", "Mia"])
+        XCTAssertTrue(reopened.isShared(matched))
+        XCTAssertTrue(matched.franked)
+        XCTAssertNil(matched.coordinate)
+        XCTAssertFalse(reopened.inbox.contains { $0.id == idea.id })
+    }
+
     @MainActor func testNoVoteLeavesIdeaOpenForOtherPerson() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }

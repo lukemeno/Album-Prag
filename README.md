@@ -13,7 +13,7 @@ Das Projekt ist bereits mit dem Album-Supabase-Backend konfiguriert; für den no
 
 ## Ideen verwenden
 
-- **Entdecken**: neue Orte mit Ja, Nein oder Offen entscheiden.
+- **Entdecken**: neue Orte mit Ja, Nein oder Offen entscheiden. Ein Ja-Swipe speichert die Zusage direkt, auch wenn die Idee noch keine Kartenposition hat.
 - **Alle**: gespeicherte Ideen durchsuchen, ihren Status ansehen und die Ortsdetails öffnen. Auch Ja- und Nein-Entscheidungen bleiben hier auffindbar.
 - **Weggelegt**: zurückgestellte Ideen ansehen und bei Bedarf wieder zu Entdecken hinzufügen.
 - **+**: einen Ort manuell hinzufügen oder einen kopierten Link aus Instagram oder TikTok einfügen.

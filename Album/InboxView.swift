@@ -39,7 +39,7 @@ struct InboxView: View {
     var add: () -> Void = {}
     @State private var offset: CGSize = .zero
     @State private var editing: Place?
-    @State private var shouldFrank = false
+    @State private var departingPlace: Place?
     @State private var lastAction: Place?
     @State private var lastActionWasOpen = false
     @State private var openThisPassIDs: Set<String> = []
@@ -71,6 +71,10 @@ struct InboxView: View {
     private var openProgress: CGFloat { min(max(-offset.height, 0) / decisionThreshold, 1) }
 
     private var undecided: [Place] { store.inbox.filter { !openThisPassIDs.contains($0.id) } }
+    private var visibleStack: [Place] {
+        guard let departingPlace else { return undecided }
+        return [departingPlace] + undecided.filter { $0.id != departingPlace.id }
+    }
 
     var body: some View {
         Group {
@@ -109,7 +113,7 @@ struct InboxView: View {
                 } restoreAll: {
                     store.restoreDeferred()
                 }
-            } else if let place = undecided.first {
+            } else if let place = visibleStack.first {
                 if dynamicTypeSize.isAccessibilitySize {
                     frontCard(place)
                         .frame(maxWidth: .infinity)
@@ -117,7 +121,7 @@ struct InboxView: View {
                 } else {
                     GeometryReader { geo in
                         ZStack {
-                        ForEach(Array(undecided.dropFirst().prefix(2).enumerated()), id: \.element.id) { index, next in
+                        ForEach(Array(visibleStack.dropFirst().prefix(2).enumerated()), id: \.element.id) { index, next in
                             let spread = reduceMotion ? 0 : fan
                             IdeaStamp(place: next, root: store.root)
                                 .rotationEffect(.degrees((index == 0 ? -2.5 : 3) + (index == 0 ? -5 : 5) * spread))
@@ -175,7 +179,7 @@ struct InboxView: View {
                 }
             }
         }
-        .sheet(item: $editing) { PlaceEditor(place: $0, frankOnSave: shouldFrank) }
+        .sheet(item: $editing) { PlaceEditor(place: $0) }
         .sheet(isPresented: Binding(get: { detailPlaceID != nil }, set: { if !$0 { detailPlaceID = nil } })) {
             if let detailPlaceID { PlaceDetail(placeID: detailPlaceID) }
         }
@@ -184,7 +188,7 @@ struct InboxView: View {
         .sensoryFeedback(.impact(weight: .heavy, intensity: 0.9), trigger: stampTick)
         .sensoryFeedback(.success, trigger: magnetTick)
         .onAppear { spread() }
-        .onChange(of: undecided.first?.id) { spread() }
+        .onChange(of: visibleStack.first?.id) { spread() }
         .fullScreenCover(item: $viewer) { PhotoViewer(place: $0.place, root: store.root, source: $0.source) }
     }
 
@@ -192,10 +196,11 @@ struct InboxView: View {
     private func frontCard(_ place: Place) -> some View {
         let card = IdeaStamp(place: place, root: store.root, stamp: stamp, onPhotoTap: { openPhoto(place, from: $0) })
             .overlay(alignment: .topTrailing) {
-                Button { shouldFrank = false; editing = place } label: { Image(systemName: "pencil") }
+                Button { editing = place } label: { Image(systemName: "pencil") }
                     .buttonStyle(HeaderIconButton())
                     .padding(Stitch.Space.l)
                     .accessibilityLabel("Idee bearbeiten")
+                    .disabled(committing)
             }
             .overlay { DecisionHint(direction: hintDirection, progress: max(progress, openProgress)) }
             .overlay { if magnet > 0 { MagnetHearts(progress: magnet) } }
@@ -262,6 +267,7 @@ struct InboxView: View {
         } label: { Label("Rückgängig", systemImage: "arrow.uturn.backward") }
         .buttonStyle(AlbumTextActionButtonStyle())
         .accessibilityLabel("Letzte Entscheidung rückgängig")
+        .disabled(committing)
     }
 
     @ViewBuilder
@@ -394,43 +400,49 @@ struct InboxView: View {
     }
 
     private func act(_ place: Place, frank: Bool) {
-        if frank && place.coordinate == nil { shouldFrank = true; editing = place; return }
         guard !committing else { return }
+        let changed = store.decided(place, approve: frank)
+        departingPlace = reduceMotion ? nil : place
+        committing = !reduceMotion
+        guard store.upsert(changed) else {
+            departingPlace = nil
+            committing = false
+            offset = .zero
+            return
+        }
         lastAction = place
         lastActionWasOpen = false
-        let changed = store.decided(place, approve: frank)
         let bothAgree = frank && store.isShared(changed)
-        if reduceMotion { feedback += 1; if bothAgree { magnetTick += 1 }; store.upsert(changed); offset = .zero; return }
-        committing = true
+        if reduceMotion { feedback += 1; if bothAgree { magnetTick += 1 }; offset = .zero; return }
         if frank {
             // Frankieren: Der Poststempel wird mit Nachdruck aufs Foto gesetzt.
             withAnimation(.easeOut(duration: 0.2)) { offset = .zero }
             withAnimation(.spring(response: 0.26, dampingFraction: 0.55)) { stamp = 1 } completion: {
                 stampTick += 1
-                guard bothAgree else { fly(changed, to: 640); return }
+                guard bothAgree else { fly(to: 640); return }
                 // Ihr seid beide dafür: Die Herzhälften schnappen zusammen, dann fliegt die Marke.
                 withAnimation(.spring(response: 0.32, dampingFraction: 0.55)) { magnet = 1 } completion: {
                     magnetTick += 1
                     Task { @MainActor in
                         try? await Task.sleep(for: .milliseconds(450))
-                        fly(changed, to: 640)
+                        fly(to: 640)
                     }
                 }
             }
         } else {
             feedback += 1
-            fly(changed, to: -640)
+            fly(to: -640)
         }
     }
 
-    private func fly(_ changed: Place, to target: CGFloat) {
+    private func fly(to target: CGFloat) {
         Task { @MainActor in
             if target > 0 { try? await Task.sleep(for: .milliseconds(260)) }
             withAnimation(.easeIn(duration: 0.26)) { offset = CGSize(width: target, height: 0) } completion: {
-                store.upsert(changed)
                 offset = .zero
                 stamp = 0
                 magnet = 0
+                departingPlace = nil
                 committing = false
             }
         }

@@ -402,6 +402,39 @@ final class AlbumUITests: XCTestCase {
         XCTAssertTrue(reopened.otherElements["Inbox-Ticket"].waitForExistence(timeout: 5), "Der Reststapel muss erhalten bleiben")
     }
 
+    func testUnlocatedIdeasVoteByRightSwipeAndButtonWithoutEditor() {
+        let app = XCUIApplication()
+        app.launchEnvironment["ALBUM_TEST_STORE"] = "slot-unlocated-votes-\(UUID().uuidString)"
+        app.launchEnvironment["ALBUM_MY_NAME"] = "Luke"
+        app.launchEnvironment["ALBUM_START_TAB"] = "Ideen"
+        app.launchEnvironment["ALBUM_DEMO_INBOX"] = "1"
+        app.launchEnvironment["ALBUM_DEMO_INBOX_UNLOCATED"] = "1"
+        app.launch()
+
+        let card = app.otherElements["Inbox-Ticket"]
+        XCTAssertTrue(card.waitForExistence(timeout: 15))
+        let start = card.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.55))
+        start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 220, dy: 0)), withVelocity: .slow, thenHoldForDuration: 0)
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Café Slavia'")).firstMatch.waitForExistence(timeout: 8))
+        XCTAssertFalse(app.textFields["PlaceEditor-Title"].exists, "Ein Ja-Swipe darf auch ohne Kartenposition keinen Speichereditor öffnen")
+
+        app.buttons["Ja"].tap()
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Petřín'")).firstMatch.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.textFields["PlaceEditor-Title"].exists, "Die Ja-Schaltfläche muss dieselbe direkte Abstimmung ausführen")
+
+        app.terminate()
+        app.launchEnvironment.removeValue(forKey: "ALBUM_DEMO_INBOX")
+        app.launchEnvironment.removeValue(forKey: "ALBUM_DEMO_INBOX_UNLOCATED")
+        app.launch()
+        XCTAssertTrue(app.otherElements["Inbox-Ticket"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Petřín'")).firstMatch.waitForExistence(timeout: 5))
+        app.buttons["Alle"].tap()
+        let matched = app.buttons["Ideas-All-Row-motion-inbox-bridge"]
+        XCTAssertTrue(matched.waitForExistence(timeout: 5))
+        XCTAssertTrue(matched.label.contains("Im Reiseplan"))
+        XCTAssertTrue(app.buttons["Ideas-All-Row-motion-inbox-cafe"].exists)
+    }
+
     func testDeferredIdeasCanBeViewedAndRestoredFromArchive() {
         let store = "slot-deferred-archive-\(UUID().uuidString)"
         let app = XCUIApplication()

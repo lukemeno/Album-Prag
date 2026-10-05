@@ -159,6 +159,14 @@ private struct OpeningHoursFetchResult: Sendable {
                 Place(id: "motion-inbox-petrin", title: "Petřín", category: "Aussicht", author: "Mia",
                       image: .bundled(name: "imgPhotoLetna"), lat: 50.0831, lng: 14.3951)
             ]
+            if ProcessInfo.processInfo.environment["ALBUM_DEMO_INBOX_UNLOCATED"] == "1" {
+                for index in data.places.indices {
+                    data.places[index].lat = nil
+                    data.places[index].lng = nil
+                }
+                data.places[0].approvals = ["Mia"]
+                data.places[0].franked = true
+            }
         }
         if ProcessInfo.processInfo.environment["ALBUM_DEMO_IMAGE_CHOICE"] == "1",
            !data.places.contains(where: { $0.id == "image-choice-cafe" }) {

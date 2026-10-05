@@ -363,3 +363,10 @@
 - Aktueller Personal-Team-Gerätebuild erfolgreich erstellt, auf dem iPhone 15 Pro installiert und mit `devicectl` gestartet. Bundle-ID erhalten; die vorhandenen App-Daten wurden nicht gelöscht. Hauptsource bleibt unangetastet, isolierter Branch `design/album-visual-refresh`.
 - Weiterer Auftrag: Design/Claude-Spec/README.md lesen und Claude-Design auf separatem Branch pushen. Datei bisher in lokalen Album-Worktrees und vorhandenen GitHub-Branches nicht gefunden; Speicherort erfragt. Nicht umgesetzt/gepusht behaupten.
 - Finaler gezielter Simulator-Nachlauf: Alle Ideen + Autoplan 2/2; Bildsuche abbrechen + offene Ideen nach Neustart 2/2; Großschrift, Hoch-/Querformat und Karteneditor 1/1. Insgesamt 5 gezielte UI-Flows bestanden; der alte „Bearbeiten“-Locator ist durch `place-detail-edit` ersetzt. Vollständige UI-Suite nach diesen letzten Änderungen nicht erneut ausgeführt.
+
+## Ja-Swipe ohne zusätzlichen Speichereditor · 05.10.2026
+- Konkreter Nutzerfehler: fehlende Koordinaten öffneten bei Ja erst den Ortseditor. Bedingung entfernt; Swipe und Ja-Taste geben die Stimme ohne weitere Bestätigung ab.
+- Stimme vor der Animation atomar speichern und Sync anstoßen; ausgehende Karte nur für die Animation als Snapshot halten. Bei lokalem Speicherfehler bleibt die Idee offen. Undo und manuelles Bearbeiten während der Entscheidung gesperrt.
+- Regressionen für koordinatenlose Idee mit Partnerzusage, rechte Wischgeste, Ja-Taste, Neustart, Zwei-Personen-Stimmen, Merge, Undo und zu kurze Wischgesten: 6/6 bestanden, keine Fehler/Skips (`/tmp/album-direct-votes-20261005.xcresult`).
+- Signierter Personal-Team-Build erfolgreich (`/tmp/album-direct-votes-device-20261005.log`) und auf dem iPhone 15 Pro installiert. Remote-Start wegen fehlender XPC-Geräteverbindung abgelehnt; einmaliger Nachversuch lief in ein 20s-Timeout. App selbst auf dem iPhone öffnen; Installation bestätigt, Start nicht bestätigt.
+- Gemeinsame Zusage weiterhin bei zwei verschiedenen Ja-Stimmen erkannt. Nutzerentscheidung erfragt, ob Aufnahme in den Plan bereits beim ersten Ja oder erst beim gemeinsamen Ja erfolgen soll; bestehende Planregel bis zur Antwort erhalten.
