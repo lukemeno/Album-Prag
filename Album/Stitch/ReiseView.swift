@@ -147,7 +147,7 @@ struct ReiseView: View {
                 if !dynamicTypeSize.isAccessibilitySize {
                     HeroStamp(day: today)
                         .padding(.top, Stitch.Size.touch + Stitch.Space.m)
-                        .offset(x: 6)
+                        .padding(.trailing, Stitch.Space.s)
                         .allowsHitTesting(false)
                 }
             }
@@ -164,7 +164,7 @@ struct ReiseView: View {
     private var heroTitle: some View {
         VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
             Text("Prag")
-                .font(Stitch.Face.display(40, relativeTo: .largeTitle))
+                .font(Stitch.Face.display(46, relativeTo: .largeTitle))
                 .accessibilityAddTraits(.isHeader)
             Text(subtitle)
                 .font(Stitch.Face.place(21, relativeTo: .title3))
@@ -698,18 +698,20 @@ private struct HeroStamp: View {
     var body: some View {
         ZStack(alignment: .bottomLeading) {
             VStack(spacing: 4) {
+                // Hell wie ein alter Kupferstich: entsättigt, aufgehellt, auf warmem Markenpapier.
                 Image("imgThumbOldTown")
                     .resizable()
                     .scaledToFill()
-                    .frame(width: 68, height: 58)
+                    .frame(width: 80, height: 66)
                     .clipped()
                     .grayscale(1)
-                    .contrast(1.2)
-                    .colorMultiply(Color(red: 0.95, green: 0.88, blue: 0.76))
-                    .overlay(Rectangle().strokeBorder(Stitch.night.opacity(0.25), lineWidth: 0.5))
+                    .brightness(0.12)
+                    .contrast(0.95)
+                    .colorMultiply(Color(red: 0.97, green: 0.9, blue: 0.78))
+                    .overlay(Rectangle().strokeBorder(Stitch.night.opacity(0.2), lineWidth: 0.5))
                 Text("PRAHA")
-                    .font(.custom("Fraunces-SemiBold", size: 10))
-                    .tracking(2.2)
+                    .font(.custom("Fraunces-SemiBold", size: 11))
+                    .tracking(2.4)
                     .foregroundStyle(Stitch.night.opacity(0.78))
             }
             .padding(.horizontal, 7)

@@ -12,16 +12,29 @@ import UIKit
         // Ortsfotos bleiben zwischengespeichert, damit Karte und Liste auch mit schwachem Netz in Prag Bilder zeigen.
         URLCache.shared = URLCache(memoryCapacity: 40_000_000, diskCapacity: 250_000_000)
         // Große und kleine Leistentitel in Fraunces wie „Album“ und „Reiseplan“, nicht in der Systemschrift.
-        let ink = UIColor(Stitch.ink)
-        if let large = UIFont(name: "Fraunces-SemiBold", size: 34) {
-            UINavigationBar.appearance().largeTitleTextAttributes = [
+        // iOS 26 liest große Titel nur aus einer UINavigationBarAppearance; der Hintergrund bleibt der des Systems.
+        if let large = UIFont(name: "Fraunces-SemiBold", size: 34), let inline = UIFont(name: "Fraunces-SemiBold", size: 18) {
+            let ink = UIColor(Stitch.ink)
+            let largeAttributes: [NSAttributedString.Key: Any] = [
                 .font: UIFontMetrics(forTextStyle: .largeTitle).scaledFont(for: large), .foregroundColor: ink
             ]
-        }
-        if let inline = UIFont(name: "Fraunces-SemiBold", size: 18) {
-            UINavigationBar.appearance().titleTextAttributes = [
+            let inlineAttributes: [NSAttributedString.Key: Any] = [
                 .font: UIFontMetrics(forTextStyle: .headline).scaledFont(for: inline), .foregroundColor: ink
             ]
+            let appearance = UINavigationBarAppearance()
+            appearance.largeTitleTextAttributes = largeAttributes
+            appearance.titleTextAttributes = inlineAttributes
+            // Am oberen Rand wie üblich ohne Fläche, beim Scrollen die Systemfläche.
+            let edge = UINavigationBarAppearance()
+            edge.configureWithTransparentBackground()
+            edge.largeTitleTextAttributes = largeAttributes
+            edge.titleTextAttributes = inlineAttributes
+            let bar = UINavigationBar.appearance()
+            bar.standardAppearance = appearance
+            bar.compactAppearance = appearance
+            bar.scrollEdgeAppearance = edge
+            bar.largeTitleTextAttributes = largeAttributes
+            bar.titleTextAttributes = inlineAttributes
         }
     }
     @State private var store: AlbumStore = {

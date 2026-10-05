@@ -440,27 +440,26 @@ struct StampPin: View {
     var body: some View {
         // Pins bleiben echte Fotomarker und sind auf der Karte auch mit großen
         // Fingern zuverlässig erreichbar. Die blaue Kontur markiert die Auswahl.
-        let width: CGFloat = selected ? 82 : 70
-        VStack(spacing: 2) {
-            ZStack {
-                AlbumPhoto(asset: place.image, root: root, thumbnailWidth: 120, placeholderSymbol: place.symbol, placeholderTint: place.mat)
-                    .frame(width: width, height: width * 0.86)
-                    .overlay {
-                        if place.image == nil {
-                            Image(systemName: place.symbol).font(.footnote.weight(.semibold)).foregroundStyle(Stitch.ink)
-                        }
-                    }
-            }
-            .padding(4)
-            .background(Stitch.card, in: RoundedRectangle(cornerRadius: 10))
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-            .overlay {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(selected ? Color.blue : .white, lineWidth: selected ? 4 : 3)
-            }
-            .shadow(color: .black.opacity(0.15), radius: 4, y: 2)
-            Circle().fill(selected ? Color.blue : .white).frame(width: 9, height: 9)
-                .overlay(Circle().strokeBorder(selected ? Color.blue : Stitch.ink, lineWidth: 1.5))
+        // Wie in der Vorlage: Foto im weißen Rahmen, darunter eine kleine Spitze und der Punkt am Ort.
+        // Orte ohne Foto bekommen eine kleinere Marke mit ihrem Symbol statt einer großen leeren Fläche.
+        let hasPhoto = place.image != nil
+        let width: CGFloat = hasPhoto ? (selected ? 82 : 70) : (selected ? 54 : 46)
+        let frameColor: Color = selected ? .blue : .white
+        VStack(spacing: 0) {
+            AlbumPhoto(asset: place.image, root: root, thumbnailWidth: 120, placeholderSymbol: place.symbol, placeholderTint: place.mat)
+                .frame(width: width, height: hasPhoto ? width * 0.86 : width)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .padding(selected ? 4 : 3)
+                .background(frameColor, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+                .shadow(color: .black.opacity(0.18), radius: 5, y: 2)
+            PinPointer()
+                .fill(frameColor)
+                .frame(width: 14, height: 7)
+                .shadow(color: .black.opacity(0.12), radius: 1, y: 1)
+            Circle().fill(selected ? Color.blue : Stitch.night)
+                .frame(width: 8, height: 8)
+                .overlay(Circle().strokeBorder(.white, lineWidth: 1.5))
+                .padding(.top, 2)
         }
         .background(alignment: .bottom) {
             Ellipse().fill(.black.opacity(dent ? 0.28 : 0))
@@ -489,6 +488,18 @@ struct StampPin: View {
         .accessibilityHint(selected
                            ? "Ausgewählt; hebt den Ort in der Ortsliste hervor"
                            : "Wählt den Ort aus und zeigt ihn in der Ortsliste")
+    }
+}
+
+/// Spitze unter einer Kartenmarke.
+private struct PinPointer: Shape {
+    func path(in rect: CGRect) -> Path {
+        Path { path in
+            path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
+            path.closeSubpath()
+        }
     }
 }
 
