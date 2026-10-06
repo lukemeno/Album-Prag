@@ -1,0 +1,4 @@
+===== AlbumUITests/testAccessibilityAuditIdeasScreen() | Accessibility findings — Ideen_0_0BB10DC9-F4D3-4D29-9314-4E0779CA97A0.txt
+===== AlbumUITests/testAccessibilityAuditMapScreen() | Accessibility findings — Karte_0_705F4783-5CA3-45CB-AF69-1854DA02B4D6.txt
+===== AlbumUITests/testAccessibilityAuditPlaceEditorScreen() | Accessibility findings — Idee bearbeiten_0_6E941945-24F0-4E76-A73A-CAC07211B087.txt
+===== AlbumUITests/testAccessibilityAuditReiseScreen() | Accessibility findings — Reise_0_ACC581AC-49FC-4E95-92BF-E3F1CFB0D6EA.txt
