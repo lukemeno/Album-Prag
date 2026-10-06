@@ -446,6 +446,64 @@ final class AlbumUITests: XCTestCase {
         XCTAssertTrue(reopened.otherElements["Inbox-Ticket"].waitForExistence(timeout: 5), "Der Reststapel muss erhalten bleiben")
     }
 
+    /// Ja heißt: einem Tag geben. Die Tasche stempelt die Idee direkt in den Tagesplan; Rückgängig nimmt sie
+    /// wieder heraus, vergangene Tage nehmen nichts an, und der Tag bleibt nach dem Neustart erhalten.
+    func testInboxDayPocketStampsIdeaIntoDay() {
+        let store = "slot-ideas-day-\(UUID().uuidString)"
+        let app = XCUIApplication()
+        app.launchEnvironment["ALBUM_TEST_STORE"] = store
+        app.launchEnvironment["ALBUM_MY_NAME"] = "Luke"
+        app.launchEnvironment["ALBUM_START_TAB"] = "Ideen"
+        app.launchEnvironment["ALBUM_TODAY"] = "2026-10-05"
+        app.launchEnvironment["ALBUM_DEMO_INBOX"] = "1"
+        app.launch()
+
+        XCTAssertTrue(app.otherElements["Inbox-Ticket"].waitForExistence(timeout: 15))
+        let title = app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH 'Karlsbrücke'")).firstMatch
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+
+        let past = app.buttons["Sonntag, 4. Oktober, vorbei"]
+        XCTAssertTrue(past.waitForExistence(timeout: 5), "Vergangene Tage stehen im Streifen, nehmen aber nichts an")
+        XCTAssertFalse(past.isEnabled)
+
+        let wednesday = app.buttons["Ja, für Mittwoch, 7. Oktober"]
+        XCTAssertTrue(wednesday.waitForExistence(timeout: 5))
+        XCTAssertEqual(wednesday.value as? String, "frei")
+        wednesday.tap()
+
+        func waitForValue(_ element: XCUIElement, _ value: String, _ message: String) {
+            let match = expectation(for: NSPredicate(format: "value == %@", value), evaluatedWith: element)
+            if XCTWaiter().wait(for: [match], timeout: 6) != .completed { XCTFail(message + " (ist: \(element.value ?? "nil"))") }
+        }
+
+        let undo = app.buttons["Letzte Entscheidung rückgängig"]
+        XCTAssertTrue(undo.waitForExistence(timeout: 5))
+        waitForValue(wednesday, "1 Ort", "Die Tasche zeigt nach dem Stempel, dass der Tag gefüllt ist")
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "Ideen-Tagestasche-nach-Stempel"
+        shot.lifetime = .keepAlways
+        add(shot)
+
+        undo.tap()
+        XCTAssertTrue(title.waitForExistence(timeout: 5), "Rückgängig bringt dieselbe Idee zurück")
+        waitForValue(wednesday, "frei", "Rückgängig nimmt sie auch aus dem Tag")
+
+        wednesday.tap()
+        XCTAssertTrue(undo.waitForExistence(timeout: 5))
+        app.terminate()
+
+        let reopened = XCUIApplication()
+        reopened.launchEnvironment["ALBUM_TEST_STORE"] = store
+        reopened.launchEnvironment["ALBUM_MY_NAME"] = "Luke"
+        reopened.launchEnvironment["ALBUM_START_TAB"] = "Ideen"
+        reopened.launchEnvironment["ALBUM_TODAY"] = "2026-10-05"
+        reopened.launchEnvironment["ALBUM_EMPTY_TEST_STORE"] = "1"
+        reopened.launch()
+        XCTAssertTrue(reopened.otherElements["Inbox-Ticket"].waitForExistence(timeout: 10))
+        waitForValue(reopened.buttons["Ja, für Mittwoch, 7. Oktober"], "1 Ort", "Der Tag bleibt nach dem Neustart gesetzt")
+        XCTAssertFalse(reopened.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH 'Karlsbrücke'")).firstMatch.waitForExistence(timeout: 2))
+    }
+
     func testInboxSubthresholdOpposingReleasesKeepSameCardUndecided() {
         let app = XCUIApplication()
         app.launchEnvironment["ALBUM_TEST_STORE"] = "slot-ideas-abort-\(UUID().uuidString)"

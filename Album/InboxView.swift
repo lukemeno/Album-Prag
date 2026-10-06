@@ -55,6 +55,13 @@ struct InboxView: View {
     /// Wenn beide Ja sagen: zwei Herzhälften schnappen zusammen.
     @State private var magnet: CGFloat = 0
     @State private var magnetTick = 0
+    /// Ja mit Tag: Der Stempel trägt das Datum, danach fliegt die Marke klein in ihre Tagestasche.
+    @State private var stampDay: Int?
+    @State private var landingOffset: CGSize = .zero
+    @State private var landingScale: CGFloat = 1
+    @State private var landedTick = 0
+    @State private var cardFrame: CGRect = .zero
+    @State private var pocketFrames: [Int: CGRect] = [:]
     /// 1 = hintere Marken weit aufgefächert, 0 = ruhige Lage; federt beim Erscheinen des Stapels.
     @State private var fan: CGFloat = 1
     /// Oberste Marke in der Hand: 0…1 für Anheben (Größe, Schatten).
@@ -134,6 +141,8 @@ struct InboxView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
+                dayPockets(place)
+
                 Group {
                     if dynamicTypeSize.isAccessibilitySize {
                         VStack(spacing: Stitch.Space.s) {
@@ -159,6 +168,7 @@ struct InboxView: View {
             }
         }
         .allowsHitTesting(!committing)
+        .coordinateSpace(.named("inbox"))
         .padding(.horizontal, Stitch.Space.page).padding(.bottom, Stitch.Space.xs)
         .background(PaperBackground())
         .navigationTitle("Ideen")
@@ -181,6 +191,7 @@ struct InboxView: View {
         .sensoryFeedback(.selection, trigger: thresholdFeedback)
         .sensoryFeedback(.impact(weight: .heavy, intensity: 0.9), trigger: stampTick)
         .sensoryFeedback(.success, trigger: magnetTick)
+        .sensoryFeedback(.success, trigger: landedTick)
         .onAppear { spread() }
         .onChange(of: undecided.first?.id) { spread() }
         .fullScreenCover(item: $viewer) { PhotoViewer(place: $0.place, root: store.root, source: $0.source) }
@@ -188,7 +199,10 @@ struct InboxView: View {
 
     @ViewBuilder
     private func frontCard(_ place: Place) -> some View {
-        let card = IdeaStamp(place: place, root: store.root, stamp: stamp, onPhotoTap: { openPhoto(place, from: $0) })
+        let card = IdeaStamp(place: place, root: store.root, stamp: stamp,
+                             stampLabel: stampDay.map { "\(Self.weekdayShort($0).uppercased()) \($0).X." } ?? "FRANKIERT",
+                             onPhotoTap: { openPhoto(place, from: $0) })
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .named("inbox")) } action: { cardFrame = $0 }
             .overlay(alignment: .topTrailing) {
                 Button { shouldFrank = false; editing = place } label: { Image(systemName: "pencil") }
                     .buttonStyle(HeaderIconButton())
@@ -202,6 +216,8 @@ struct InboxView: View {
             .offset(x: offset.width, y: min(offset.height, 0) + (reduceMotion ? 0 : -4 * progress))
             .rotationEffect(.degrees(reduceMotion ? 0 : Double(offset.width / 42).clamped(to: -6...6)))
             .shadow(color: Stitch.shadow.opacity(0.06 * lift + 0.08 * progress), radius: 10 + 8 * lift, y: 6 + 6 * lift)
+            .scaleEffect(landingScale)
+            .offset(landingOffset)
         Group {
             if dynamicTypeSize.isAccessibilitySize {
                 card
@@ -407,28 +423,34 @@ struct InboxView: View {
         }
     }
 
-    private func act(_ place: Place, frank: Bool) {
+    private func act(_ place: Place, frank: Bool, day: Int? = nil) {
         guard !committing else { return }
         lastAction = place
         lastActionWasOpen = false
-        let changed = store.decided(place, approve: frank)
+        var changed = store.decided(place, approve: frank)
+        // Ja mit Tasche: Die Idee landet gleich am Ende dieses Tages.
+        if frank, let day { changed = store.placed(changed, on: day) }
         // Ja zählt sofort, auch ohne Kartenort; der Ort lässt sich danach in Ruhe ergänzen.
         needsLocation = frank && changed.coordinate == nil ? changed : nil
         let bothAgree = frank && store.isShared(changed)
-        if reduceMotion { feedback += 1; if bothAgree { magnetTick += 1 }; store.upsert(changed); offset = .zero; return }
+        if reduceMotion {
+            feedback += 1; if bothAgree { magnetTick += 1 }; if day != nil { landedTick += 1 }
+            store.upsert(changed); offset = .zero; return
+        }
         committing = true
         if frank {
+            stampDay = day
             // Frankieren: Der Poststempel wird mit Nachdruck aufs Foto gesetzt.
             withAnimation(.easeOut(duration: 0.2)) { offset = .zero }
             withAnimation(.spring(response: 0.26, dampingFraction: 0.55)) { stamp = 1 } completion: {
                 stampTick += 1
-                guard bothAgree else { fly(changed, to: 640); return }
+                guard bothAgree else { finish(changed, day: day); return }
                 // Ihr seid beide dafür: Die Herzhälften schnappen zusammen, dann fliegt die Marke.
                 withAnimation(.spring(response: 0.32, dampingFraction: 0.55)) { magnet = 1 } completion: {
                     magnetTick += 1
                     Task { @MainActor in
                         try? await Task.sleep(for: .milliseconds(450))
-                        fly(changed, to: 640)
+                        finish(changed, day: day)
                     }
                 }
             }
@@ -436,6 +458,93 @@ struct InboxView: View {
             feedback += 1
             fly(changed, to: -640)
         }
+    }
+
+    private func finish(_ changed: Place, day: Int?) {
+        if let day { land(changed, in: day) } else { fly(changed, to: 640) }
+    }
+
+    /// Die gestempelte Marke schrumpft in ihre Tagestasche; erst dann ist sie gespeichert.
+    private func land(_ changed: Place, in day: Int) {
+        let target = pocketFrames[day].map { CGSize(width: $0.midX - cardFrame.midX, height: $0.midY - cardFrame.midY) }
+            ?? CGSize(width: 0, height: cardFrame.height)
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(260))
+            withAnimation(.spring(response: 0.44, dampingFraction: 0.86)) {
+                landingOffset = target
+                landingScale = 0.12
+            } completion: {
+                store.upsert(changed)
+                landedTick += 1
+                var instant = Transaction(animation: nil); instant.disablesAnimations = true
+                withTransaction(instant) {
+                    landingOffset = .zero; landingScale = 1; offset = .zero
+                    stamp = 0; magnet = 0; stampDay = nil
+                }
+                committing = false
+            }
+        }
+    }
+
+    /// Ja heißt: einem Tag geben. Sechs Taschen wie im Album, jede zeigt, wie voll der Tag schon ist.
+    @ViewBuilder
+    private func dayPockets(_ place: Place) -> some View {
+        let today = TripDates.tripDay()
+        if today != nil || TripDates.daysUntilStart() > 0 {
+            VStack(alignment: .leading, spacing: Stitch.Space.xs) {
+                Text("Ja, und gleich für einen Tag")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Stitch.inkSoft)
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Stitch.Space.xs),
+                                         count: dynamicTypeSize.isAccessibilitySize ? 3 : 6),
+                          spacing: Stitch.Space.xs) {
+                    ForEach(4...9, id: \.self) { day in
+                        dayPocket(day, place: place, past: today.map { day < $0 } ?? false, isToday: today == day)
+                    }
+                }
+            }
+        }
+    }
+
+    private func dayPocket(_ day: Int, place: Place, past: Bool, isToday: Bool) -> some View {
+        let count = store.plan(for: day).count
+        return Button { act(place, frank: true, day: day) } label: {
+            VStack(spacing: 2) {
+                Text(isToday ? "heute" : Self.weekdayShort(day))
+                    .font(.caption2.weight(.semibold))
+                    .textCase(.uppercase)
+                    .foregroundStyle(isToday ? Stitch.red : Stitch.inkSoft)
+                Text("\(day)")
+                    .font(Stitch.Face.title(22, relativeTo: .title3))
+                    .foregroundStyle(past ? Stitch.inkSoft : Stitch.ink)
+                HStack(spacing: 3) {
+                    ForEach(0..<min(count, 4), id: \.self) { _ in
+                        Circle().fill(Stitch.teal).frame(width: 5, height: 5)
+                    }
+                }
+                .frame(height: 5)
+            }
+            .frame(maxWidth: .infinity, minHeight: 64)
+            .background {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .strokeBorder(style: StrokeStyle(lineWidth: 1.2, dash: count == 0 ? [3, 3] : []))
+                    .foregroundStyle(isToday ? Stitch.red : Stitch.inkSoft.opacity(0.55))
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(past)
+        .opacity(past ? 0.45 : 1)
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .named("inbox")) } action: { pocketFrames[day] = $0 }
+        .accessibilityLabel(past ? "\(TripDates.dayTitle(day)), vorbei" : "Ja, für \(TripDates.dayTitle(day))")
+        .accessibilityValue(count == 0 ? "frei" : count == 1 ? "1 Ort" : "\(count) Orte")
+        .accessibilityHint(past ? "" : "Stempelt die Idee und legt sie in diesen Tag")
+    }
+
+    private static func weekdayShort(_ day: Int) -> String {
+        let date = TripDates.calendar.date(from: DateComponents(year: 2026, month: 10, day: day))!
+        return date.formatted(.dateTime.weekday(.abbreviated).locale(Locale(identifier: "de_DE")))
+            .replacingOccurrences(of: ".", with: "")
     }
 
     private func fly(_ changed: Place, to target: CGFloat) {
@@ -603,6 +712,8 @@ struct IdeaStamp: View {
     let place: Place
     let root: URL
     var stamp: CGFloat = 0
+    /// Untere Zeile des Poststempels; mit Tag das Datum, sonst „FRANKIERT“.
+    var stampLabel = "FRANKIERT"
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ScaledMetric(relativeTo: .body) private var captionBudget: CGFloat = 132
     /// Tippen auf das Foto; liefert dessen Rahmen auf dem Bildschirm.
@@ -695,7 +806,7 @@ struct IdeaStamp: View {
                 // Erst beim Frankieren in der Ansicht: Ein unsichtbarer Stempel bliebe sonst als Text ohne Kontrast
                 // im Baum. Er fällt aus 1,8-facher Größe auf das Foto, wie vorher über `scaleEffect`.
                 if stamp > 0 {
-                    Postmark(bottom: "FRANKIERT", size: 92)
+                    Postmark(bottom: stampLabel, size: 92)
                         .padding(Stitch.Space.s)
                         .transition(.scale(scale: 1.8).combined(with: .opacity))
                         .allowsHitTesting(false)

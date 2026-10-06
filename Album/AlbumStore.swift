@@ -400,10 +400,15 @@ private struct OpeningHoursFetchResult: Sendable {
 
     /// Setzt einen Ort ans Ende eines Tages (oder nimmt ihn aus der Tagesplanung).
     func assign(_ place: Place, to day: Int?) {
+        upsert(placed(place, on: day))
+    }
+
+    /// Derselbe Ort am Ende des Tages, noch nicht gespeichert.
+    func placed(_ place: Place, on day: Int?) -> Place {
         var p = place
         p.day = day
         p.dayOrder = day.map { d in (franked.filter { $0.day == d && $0.id != place.id }.compactMap(\.dayOrder).max() ?? -1) + 1 }
-        upsert(p)
+        return p
     }
 
     /// Neue Reihenfolge eines Tages nach dem Verschieben in der Liste.
