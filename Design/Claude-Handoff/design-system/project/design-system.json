@@ -1,0 +1,71 @@
+{
+  "v": 3,
+  "layout": "files",
+  "createdOnFiles": {
+    "v": 1,
+    "at": "2026-10-04T09:51:13Z"
+  },
+  "title": "Album – Prag",
+  "namespace": "Album",
+  "libraries": [],
+  "sections": {},
+  "groups": [
+    "Fotos"
+  ],
+  "assetGroups": {
+    "Fotos": {
+      "name": "Fotos",
+      "tile": "l",
+      "order": [
+        "cover-charles-bridge-sunset.jpg",
+        "charles-bridge.jpg",
+        "old-town.jpg",
+        "letna.jpg",
+        "cafe.jpg"
+      ],
+      "files": {
+        "cover-charles-bridge-sunset.jpg": {
+          "name": "cover-charles-bridge-sunset.jpg",
+          "blob": "d96ce5b4af7bc0e3235d71b1e291ed10",
+          "size": 86302,
+          "type": "image/jpeg"
+        },
+        "charles-bridge.jpg": {
+          "name": "charles-bridge.jpg",
+          "blob": "12bd731b2c4ef10b148cfadcfaa06d92",
+          "size": 148744,
+          "type": "image/jpeg"
+        },
+        "old-town.jpg": {
+          "name": "old-town.jpg",
+          "blob": "632bd7fba453c6b00d3c4afaec62bddc",
+          "size": 256957,
+          "type": "image/jpeg"
+        },
+        "letna.jpg": {
+          "name": "letna.jpg",
+          "blob": "0cb9dbd029776913d652efc75416bfc5",
+          "size": 378295,
+          "type": "image/jpeg"
+        },
+        "cafe.jpg": {
+          "name": "cafe.jpg",
+          "blob": "9a5302d55f68eca26aa14e22e425912d",
+          "size": 82706,
+          "type": "image/jpeg"
+        }
+      }
+    }
+  },
+  "blobs": {},
+  "docs": {
+    "readme": "project/README.md",
+    "sections": []
+  },
+  "lastChange": {
+    "by": "Luke",
+    "at": "2026-10-04T10:10:00Z",
+    "via": "GitHub · lukemeno/Album-Prag@design/album-visual-refresh",
+    "note": "Erstes Designsystem: Tokens aus Stitch.swift, 30 Komponenten, 14 Screen-Tafeln nach den Referenzscreens"
+  }
+}
