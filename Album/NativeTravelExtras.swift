@@ -5,8 +5,10 @@ import AVFoundation
 
 public struct NativeExpensesView: View {
     @Environment(AlbumStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
     @State private var showingEditor = false
     @State private var showingSettlement = false
+    @State private var feedbackTick = 0
 
     public init() {}
 
@@ -46,6 +48,12 @@ public struct NativeExpensesView: View {
             .navigationTitle("Ausgaben")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark").frame(minWidth: 44, minHeight: 44)
+                    }
+                    .accessibilityLabel("Ausgaben schließen")
+                }
                 ToolbarItem(placement: .primaryAction) {
                     Button { showingEditor = true } label: { Image(systemName: "plus") }
                         .accessibilityLabel("Ausgabe hinzufügen")
@@ -56,16 +64,21 @@ public struct NativeExpensesView: View {
                 NativeExpenseEditor(participants: participants) { expense in
                     var trip = store.data.trip
                     trip.expenses = (trip.expenses ?? []) + [expense]
-                    return store.updateTrip(trip)
+                    let saved = store.updateTrip(trip)
+                    if saved { feedbackTick += 1 }
+                    return saved
                 }
             }
             .sheet(isPresented: $showingSettlement) {
                 NativeSettlementView(transfers: transfers) { entries in
                     var trip = store.data.trip
                     trip.settlements = (trip.settlements ?? []) + entries
-                    return store.updateTrip(trip)
+                    let saved = store.updateTrip(trip)
+                    if saved { feedbackTick += 1 }
+                    return saved
                 }
             }
+            .sensoryFeedback(.success, trigger: feedbackTick)
         }
         .accessibilityIdentifier("NativeExpensesView")
     }
@@ -310,6 +323,7 @@ private struct NativeSettlementView: View {
 
 public struct NativeMemoriesView: View {
     @Environment(AlbumStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
     @State private var targetPicker = false
     @State private var addPlace = false
     @State private var source: MemoryCaptureSource?
@@ -322,6 +336,7 @@ public struct NativeMemoriesView: View {
     @State private var photoLoadTask: Task<Void, Never>?
     @State private var viewing: NativeMemoryPhoto?
     @State private var error: String?
+    @State private var feedbackTick = 0
 
     public init() {}
 
@@ -342,6 +357,12 @@ public struct NativeMemoriesView: View {
             .navigationTitle("Erinnerungen")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark").frame(minWidth: 44, minHeight: 44)
+                    }
+                    .accessibilityLabel("Erinnerungen schließen")
+                }
                 ToolbarItem(placement: .primaryAction) {
                     Button { beginCapture(.library) } label: { Label("Foto aus Mediathek", systemImage: "photo.on.rectangle") }
                         .accessibilityIdentifier("memories-library")
@@ -549,6 +570,7 @@ public struct NativeMemoriesView: View {
                 error = "Das Foto konnte nicht gespeichert werden."
                 return
             }
+            feedbackTick += 1
             source = nil; self.targetID = nil
         } catch {
             self.error = error.localizedDescription
