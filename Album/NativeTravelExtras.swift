@@ -84,7 +84,7 @@ public struct NativeExpensesView: View {
 
     private var balanceHeader: some View {
         VStack(alignment: .leading, spacing: Stitch.Space.xs) {
-            Text("Euer Ledger")
+            Text("Eure Reisekosten")
                 .font(Stitch.Face.display(34, relativeTo: .largeTitle))
                 .foregroundStyle(Stitch.ink)
                 .accessibilityAddTraits(.isHeader)

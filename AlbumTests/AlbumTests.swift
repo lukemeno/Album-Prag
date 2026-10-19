@@ -343,17 +343,19 @@ final class AlbumTests: XCTestCase {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
         let store = AlbumStore(root: directory)
+        let initialInboxCount = store.inbox.count
         let example = try XCTUnwrap(store.inbox.first)
         store.deferPlace(example)
         XCTAssertFalse(store.inbox.contains { $0.id == example.id })
         XCTAssertEqual(store.deferred.count, 1)
         store.restoreDeferred()
-        XCTAssertEqual(store.inbox.count, 3)
+        XCTAssertEqual(store.inbox.count, initialInboxCount)
+        XCTAssertTrue(store.inbox.contains { $0.id == example.id })
         var place = example; place.franked = true; place.lat = 50.087; place.lng = 14.423
         store.upsert(place)
         let reopened = AlbumStore(root: directory)
         XCTAssertEqual(reopened.franked.count, 1)
-        XCTAssertEqual(reopened.inbox.count, 2)
+        XCTAssertEqual(reopened.inbox.count, initialInboxCount - 1)
         XCTAssertTrue(reopened.data.dirty.contains(example.id))
         var deleted = place; deleted.deleted = true; reopened.upsert(deleted)
         XCTAssertFalse(reopened.places.contains { $0.id == place.id })

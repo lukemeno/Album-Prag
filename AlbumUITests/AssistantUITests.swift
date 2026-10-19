@@ -1,6 +1,11 @@
 import XCTest
 
 final class AssistantUITests: XCTestCase {
+    private func openTripIfNeeded(_ app: XCUIApplication) {
+        let trip = app.buttons["native-trip-prag"]
+        if trip.waitForExistence(timeout: 3) { trip.tap() }
+    }
+
     func testAssistantFixtureConversation() {
         let app = XCUIApplication()
         app.launchEnvironment["ALBUM_TEST_STORE"] = "slot-assistant-ui-\(UUID().uuidString)"
@@ -8,6 +13,7 @@ final class AssistantUITests: XCTestCase {
         app.launchEnvironment["ALBUM_ASSISTANT_FIXTURE"] = #"{"answer":"Morgen passt die Altstadt gut.","sources":[],"places":[],"plan":[],"preferences":[],"usage":{"used_usd":0,"limit_usd":10,"remaining_requests":99}}"#
         app.launchArguments += ["-AppleLanguages", "(de)", "-AppleLocale", "de_DE"]
         app.launch()
+        openTripIfNeeded(app)
 
         if app.buttons["Los geht’s"].waitForExistence(timeout: 3) { app.buttons["Los geht’s"].tap() }
         let assistantButton = app.buttons["Reise-Assistent"]
@@ -26,6 +32,7 @@ final class AssistantUITests: XCTestCase {
         app.launchEnvironment["ALBUM_MY_NAME"] = "QA"
         app.launchEnvironment["ALBUM_ASSISTANT_FIXTURE"] = "Antwort aus dem Test"
         app.launch()
+        openTripIfNeeded(app)
         XCTAssertFalse(app.buttons["Los geht’s"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["Reise-Assistent"].waitForExistence(timeout: 5))
         app.buttons["Reise-Assistent"].tap()
@@ -37,6 +44,7 @@ final class AssistantUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Schließen"].waitForExistence(timeout: 3))
         app.buttons["Schließen"].tap()
         app.terminate(); app.launch()
+        openTripIfNeeded(app)
         XCTAssertTrue(app.buttons["Reise-Assistent"].waitForExistence(timeout: 5))
         app.buttons["Reise-Assistent"].tap()
         XCTAssertTrue(app.staticTexts["Antwort aus dem Test"].waitForExistence(timeout: 5))
