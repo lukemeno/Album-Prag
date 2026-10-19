@@ -666,6 +666,7 @@ struct NativeArcFAB: View {
                 .shadow(color: Stitch.ink.opacity(0.18), radius: 8, y: 4)
         }
         .buttonStyle(.plain)
+        .frame(width: 52, height: 52)
         .contentShape(Circle())
         .overlay(alignment: .trailing) {
             Text(spec.title)
@@ -679,7 +680,7 @@ struct NativeArcFAB: View {
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
         }
-        .offset(x: positions[index].0, y: positions[index].1)
+        .position(x: 192 + positions[index].0, y: 192 + positions[index].1)
         .opacity(mode == .closed ? 0 : 1)
         .scaleEffect(mode == .closed ? 0.84 : 1)
         .allowsHitTesting(mode != .closed)
