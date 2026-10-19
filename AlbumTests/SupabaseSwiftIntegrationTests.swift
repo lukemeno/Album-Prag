@@ -5,7 +5,8 @@ import UIKit
 import XCTest
 @testable import Album
 
-/// Opt-in only: this test talks to the configured Supabase project and owns no cleanup.
+/// Opt-in only: this test talks to the configured Supabase project. It removes its
+/// image object in teardown; the PDF path stays in the receipt for guarded parent cleanup.
 @MainActor
 final class SupabaseSwiftIntegrationTests: XCTestCase {
     private static let storagePDFText = "Album QA storage roundtrip"
@@ -312,9 +313,8 @@ final class SupabaseSwiftIntegrationTests: XCTestCase {
         try makeSyntheticPDF(at: pdfURL)
         let plannedImagePath = "\(created.tripID.uuidString)/\(placeID)/\(uploaded.id).jpg"
         let plannedDocumentPath = "\(created.tripID.uuidString)/\(pdfID).pdf"
-        addTeardownBlock { [clientA, plannedImagePath, plannedDocumentPath] in
+        addTeardownBlock { [clientA, plannedImagePath] in
             try await clientA.storage.from("trip-images").remove(paths: [plannedImagePath])
-            try await clientA.storage.from("trip-files").remove(paths: [plannedDocumentPath])
         }
         receipt.bucketPaths = [["trip-images", plannedImagePath], ["trip-files", plannedDocumentPath]]
         try writeReceipt(receipt, to: receiptURL)
