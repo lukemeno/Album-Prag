@@ -689,6 +689,8 @@ struct NativeArcFAB: View {
                 .accessibilityAction(named: Text("Regen")) {
                     commit(.assistant("Was können wir heute bei Regen in Prag unternehmen?"))
                 }
+                .accessibilityIdentifier(id)
+                .accessibilityAddTraits(.isButton)
         } else {
             node
         }
