@@ -692,6 +692,7 @@ struct NativeArcFAB: View {
         .scaleEffect(mode == .closed ? 0.84 : 1)
         .allowsHitTesting(mode != .closed)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.28), value: mode)
+        .accessibilityHidden(mode == .closed)
         node
     }
 
