@@ -604,6 +604,8 @@ struct NativeArcFAB: View {
     @State private var holdActivated = false
     @State private var cancelled = false
     @State private var candidate: Int?
+    @State private var tapHandledByDrag = false
+    @State private var tapWaitingForDragEnd = false
     private let hold: TimeInterval = 0.35
     private let dwell: TimeInterval = 0.48
 
@@ -635,7 +637,8 @@ struct NativeArcFAB: View {
                     fanNode("cloud.rain", title: "Regen", id: "native-fan-sub-rain", index: 3) { commit(.assistant("Was können wir heute bei Regen in Prag unternehmen?")) }
                 }
             }
-            Image(systemName: mode == .closed ? "plus" : "xmark")
+            Button(action: buttonTap) {
+                Image(systemName: mode == .closed ? "plus" : "xmark")
                     .font(.title3.weight(.bold))
                     .frame(width: 56, height: 56)
                     .foregroundStyle(Stitch.onAccent)
@@ -643,12 +646,13 @@ struct NativeArcFAB: View {
                     .shadow(color: Stitch.ink.opacity(0.24), radius: 14, y: 8)
                     .rotationEffect(.degrees(mode == .closed ? 0 : 90))
                     .contentShape(Circle())
-                    .gesture(dragGesture)
-                    .accessibilityLabel(mode == .closed ? "Aktionen öffnen" : "Aktionen schließen")
+            }
+            .buttonStyle(.plain)
+            .highPriorityGesture(dragGesture)
+            .accessibilityLabel(mode == .closed ? "Aktionen öffnen" : "Aktionen schließen")
             .accessibilityHint("Öffnet Assistent, Erinnerungen, Ausgaben und Unterlagen")
             .accessibilityIdentifier("native-fab")
             .accessibilityAddTraits(.isButton)
-            .accessibilityAction { toggleByAccessibility() }
         }
         .frame(width: 220, height: 220, alignment: .bottomTrailing)
         .sensoryFeedback(.impact(weight: .light), trigger: mode != .closed)
@@ -707,6 +711,8 @@ struct NativeArcFAB: View {
                     pointerStart = Date()
                     holdActivated = false
                     cancelled = false
+                    tapHandledByDrag = false
+                    tapWaitingForDragEnd = false
                     holdTask = Task { @MainActor in
                         try? await Task.sleep(for: .milliseconds(Int(hold * 1_000)))
                         guard !Task.isCancelled, pointerStart != nil, !cancelled else { return }
@@ -737,12 +743,29 @@ struct NativeArcFAB: View {
                 holdTask?.cancel(); holdTask = nil
                 dwellTask?.cancel(); dwellTask = nil
                 if wasHold, let hovered, moved { commitCandidate(hovered) }
-                else if !wasHold && !cancelled && !moved { toggleByAccessibility() }
+                else if !wasHold && !cancelled && !moved {
+                    if tapWaitingForDragEnd {
+                        tapWaitingForDragEnd = false
+                    } else {
+                        tapHandledByDrag = true
+                    }
+                    toggleByAccessibility()
+                }
                 pointerStart = nil
                 holdActivated = false
                 cancelled = false
                 candidate = nil
             }
+    }
+
+    private func buttonTap() {
+        if tapHandledByDrag {
+            tapHandledByDrag = false
+        } else if pointerStart != nil {
+            tapWaitingForDragEnd = true
+        } else {
+            toggleByAccessibility()
+        }
     }
 
     private func openMain() {
@@ -808,6 +831,7 @@ struct NativeArcFAB: View {
     private func cancelGestures() {
         holdTask?.cancel(); dwellTask?.cancel()
         pointerStart = nil; candidate = nil; holdActivated = false; cancelled = true
+        tapHandledByDrag = false; tapWaitingForDragEnd = false
         mode = .closed
         isOpen = false
         onOpenStateChanged(false)
