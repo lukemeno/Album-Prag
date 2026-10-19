@@ -680,6 +680,8 @@ struct NativeArcFAB: View {
             Text(spec.title)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(Stitch.ink)
+                .fixedSize(horizontal: true, vertical: false)
+                .lineLimit(1)
                 .padding(.horizontal, 10)
                 .frame(minHeight: 32)
                 .background(Stitch.card, in: Capsule())
