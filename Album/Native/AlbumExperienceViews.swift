@@ -80,15 +80,20 @@ struct NativeTripExperience: View {
     let onHome: () -> Void
     let onAssistant: (String?) -> Void
     let onNativeShare: () -> Void
+    let onFanOpenChanged: (Bool) -> Void
+    @State private var fanOpen = false
 
     var body: some View {
         ZStack {
-            switch section {
-            case .plan: NativePlanView(sheet: $sheet)
-            case .ideas: NativeIdeasView(sheet: $sheet)
-            case .map: TripMapView().ignoresSafeArea(edges: .bottom)
-            case .group: NativeGroupView(sheet: $sheet, onAssistant: onAssistant)
+            Group {
+                switch section {
+                case .plan: NativePlanView(sheet: $sheet)
+                case .ideas: NativeIdeasView(sheet: $sheet)
+                case .map: TripMapView().ignoresSafeArea(edges: .bottom)
+                case .group: NativeGroupView(sheet: $sheet, onAssistant: onAssistant)
+                }
             }
+            .accessibilityHidden(fanOpen)
         }
         .safeAreaInset(edge: .top, spacing: 0) {
             HStack(spacing: Stitch.Space.s) {
@@ -139,18 +144,29 @@ struct NativeTripExperience: View {
             .background(Stitch.card.opacity(0.96))
         }
         .background(Stitch.paper.ignoresSafeArea())
+        .overlay {
+            if fanOpen {
+                Color.black.opacity(0.10)
+                    .ignoresSafeArea()
+                    .contentShape(Rectangle())
+                    .onTapGesture { fanOpen = false }
+                    .accessibilityHidden(true)
+            }
+        }
         .overlay(alignment: .bottomTrailing) {
-            NativeArcFAB { action in
+            NativeArcFAB(isOpen: $fanOpen, onAction: { action in
                 switch action {
                 case .memories: sheet = .memories
                 case .expenses: sheet = .expenses
                 case .documents: sheet = .documents
                 case .assistant(let prompt): onAssistant(prompt)
                 }
-            }
+            }, onOpenStateChanged: onFanOpenChanged)
             .padding(.trailing, Stitch.Space.m)
             .padding(.bottom, 92)
         }
+        .onExitCommand { fanOpen = false }
+        .onChange(of: fanOpen) { _, isOpen in onFanOpenChanged(isOpen) }
     }
 }
 
@@ -493,7 +509,6 @@ struct NativeGroupView: View {
     private var travelers: [String] {
         var names = store.data.trip.travelers ?? []
         names.append(store.me)
-        names += store.places.flatMap { [$0.author] + $0.approvals }
         return Array(Set(names.filter { !$0.isEmpty && $0.caseInsensitiveCompare("Wir") != .orderedSame })).sorted()
     }
 
@@ -580,7 +595,9 @@ enum NativeFABAction {
 
 struct NativeArcFAB: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Binding var isOpen: Bool
     let onAction: (NativeFABAction) -> Void
+    let onOpenStateChanged: (Bool) -> Void
     @State private var mode: FanMode = .closed
     @State private var pointerStart: Date?
     @State private var holdTask: Task<Void, Never>?
@@ -594,11 +611,21 @@ struct NativeArcFAB: View {
     private enum FanMode: Equatable { case closed, main, sub }
     private let positions: [(CGFloat, CGFloat)] = [(-41, -165), (-130, -110), (-161, -55), (-170, 0)]
 
+    init(
+        isOpen: Binding<Bool>,
+        onAction: @escaping (NativeFABAction) -> Void,
+        onOpenStateChanged: @escaping (Bool) -> Void = { _ in }
+    ) {
+        _isOpen = isOpen
+        self.onAction = onAction
+        self.onOpenStateChanged = onOpenStateChanged
+    }
+
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
             if mode != .closed {
                 if mode == .main {
-                    fanNode("sparkles", title: "Assistent", id: "native-fan-ai", index: 0, green: true) { commit(.assistant(nil)) }
+                    fanNode("sparkles", title: "Assistent", id: "native-fan-ai", index: 0, green: true) { switchToSub() }
                     fanNode("photo.stack", title: "Erinnerungen", id: "native-fan-mem", index: 1) { commit(.memories) }
                     fanNode("eurosign.circle", title: "Ausgaben", id: "native-fan-exp", index: 2) { commit(.expenses) }
                     fanNode("doc.text", title: "Unterlagen", id: "native-fan-doc", index: 3) { commit(.documents) }
@@ -627,10 +654,13 @@ struct NativeArcFAB: View {
         .frame(width: 220, height: 220, alignment: .bottomTrailing)
         .sensoryFeedback(.impact(weight: .light), trigger: mode != .closed)
         .onDisappear { cancelGestures() }
+        .onChange(of: isOpen) { _, open in
+            if !open, mode != .closed { closeMenu() }
+        }
     }
 
     @ViewBuilder private func fanNode(_ icon: String, title: String, id: String, index: Int, green: Bool = false, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+        let node = Button(action: action) {
             HStack(spacing: 6) {
                 Text(title).font(.caption.weight(.semibold)).foregroundStyle(Stitch.ink)
                     .padding(.horizontal, 10).frame(minHeight: 32)
@@ -647,6 +677,22 @@ struct NativeArcFAB: View {
         .accessibilityLabel(title)
         .accessibilityIdentifier(id)
         .transition(reduceMotion ? .opacity : .scale.combined(with: .opacity))
+
+        if id == "native-fan-ai" {
+            node
+                .accessibilityHint("Öffnet Plan heute, Essen und Regen")
+                .accessibilityAction(named: Text("Plan heute")) {
+                    commit(.assistant("Plane den heutigen Tag für uns."))
+                }
+                .accessibilityAction(named: Text("Essen")) {
+                    commit(.assistant("Welche Essenstipps aus unseren Ideen passen heute?"))
+                }
+                .accessibilityAction(named: Text("Regen")) {
+                    commit(.assistant("Was können wir heute bei Regen in Prag unternehmen?"))
+                }
+        } else {
+            node
+        }
     }
 
     private func toggleByAccessibility() {
@@ -678,8 +724,7 @@ struct NativeArcFAB: View {
                     dwellTask = Task { @MainActor in
                         try? await Task.sleep(for: .milliseconds(Int(dwell * 1_000)))
                         guard !Task.isCancelled, holdActivated, candidate == 0, mode == .main else { return }
-                        mode = .sub
-                        candidate = nil
+                        switchToSub()
                         dwellTask = nil
                     }
                 }
@@ -701,12 +746,23 @@ struct NativeArcFAB: View {
 
     private func openMain() {
         withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.28)) { mode = .main }
+        isOpen = true
+        onOpenStateChanged(true)
+    }
+
+    private func switchToSub() {
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.28)) { mode = .sub }
+        isOpen = true
+        onOpenStateChanged(true)
+        candidate = nil
     }
 
     private func closeMenu() {
         holdTask?.cancel(); dwellTask?.cancel()
         withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.28)) { mode = .closed }
         candidate = nil
+        isOpen = false
+        onOpenStateChanged(false)
     }
 
     private func updateHover(_ translation: CGSize) {
@@ -730,7 +786,7 @@ struct NativeArcFAB: View {
     private func commitCandidate(_ index: Int) {
         switch mode {
         case .main:
-            switch index { case 0: commit(.assistant(nil)); case 1: commit(.memories); case 2: commit(.expenses); case 3: commit(.documents); default: break }
+            switch index { case 0: switchToSub(); case 1: commit(.memories); case 2: commit(.expenses); case 3: commit(.documents); default: break }
         case .sub:
             switch index {
             case 0: commit(.assistant(nil))
@@ -752,5 +808,7 @@ struct NativeArcFAB: View {
         holdTask?.cancel(); dwellTask?.cancel()
         pointerStart = nil; candidate = nil; holdActivated = false; cancelled = true
         mode = .closed
+        isOpen = false
+        onOpenStateChanged(false)
     }
 }

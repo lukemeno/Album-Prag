@@ -13,6 +13,7 @@ struct AlbumExperienceRoot: View {
     @State private var sheet: NativeSheet?
     @State private var assistantSession: AssistantSession?
     @State private var assistantPrompt: String?
+    @State private var fanOpen = false
 #if DEBUG && targetEnvironment(simulator)
     @State private var nativeShareSheet = false
 #endif
@@ -45,7 +46,8 @@ struct AlbumExperienceRoot: View {
 #if DEBUG && targetEnvironment(simulator)
                                          nativeShareSheet = true
 #endif
-                                     })
+                                     },
+                                     onFanOpenChanged: { fanOpen = $0 })
                     .environment(store)
                     .transition(reduceMotion ? .opacity : .asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
             } else {
@@ -60,6 +62,8 @@ struct AlbumExperienceRoot: View {
                 NativeTripPillBar(selection: $section)
                     .padding(.horizontal, Stitch.Space.m)
                     .padding(.bottom, 10)
+                    .accessibilityHidden(fanOpen)
+                    .allowsHitTesting(!fanOpen)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
