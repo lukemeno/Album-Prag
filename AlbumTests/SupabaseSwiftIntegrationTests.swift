@@ -131,6 +131,56 @@ final class SupabaseSwiftIntegrationTests: XCTestCase {
         XCTAssertEqual(storeB.places.first?.lat, qaPlace.lat)
         XCTAssertEqual(storeB.places.first?.lng, qaPlace.lng)
 
+        // Two clients add independent ledger records while offline. Each sync must
+        // preserve the other client's record, including its per-entry amount.
+        let expenseAUpdatedAt = Date(timeIntervalSince1970: 1_000)
+        let expenseBUpdatedAt = Date(timeIntervalSince1970: 2_000)
+        let expenseA = TravelExpense(
+            id: "qa-expense-a-\(runID)",
+            title: "Offline A",
+            amountCents: 1_250,
+            payer: "Swift A",
+            participants: ["Swift A"],
+            createdAt: expenseAUpdatedAt,
+            updatedAt: expenseAUpdatedAt
+        )
+        let expenseB = TravelExpense(
+            id: "qa-expense-b-\(runID)",
+            title: "Offline B",
+            amountCents: 2_300,
+            payer: "Swift B",
+            participants: ["Swift B"],
+            createdAt: expenseBUpdatedAt,
+            updatedAt: expenseBUpdatedAt
+        )
+
+        storeA.data.trip.expenses = (storeA.data.trip.expenses ?? []) + [expenseA]
+        storeA.data.trip.updatedAt = expenseAUpdatedAt
+        storeA.data.dirty.insert("trip")
+        XCTAssertTrue(storeA.persist())
+        storeB.data.trip.expenses = (storeB.data.trip.expenses ?? []) + [expenseB]
+        storeB.data.trip.updatedAt = expenseBUpdatedAt
+        storeB.data.dirty.insert("trip")
+        XCTAssertTrue(storeB.persist())
+
+        try await syncAndAssert(syncA, client: clientA, expected: sessionA.user.id, store: storeA, receipt: &receipt, receiptURL: receiptURL)
+        try await syncAndAssert(syncB, client: clientB, expected: sessionB.user.id, store: storeB, receipt: &receipt, receiptURL: receiptURL)
+        try await syncAndAssert(syncA, client: clientA, expected: sessionA.user.id, store: storeA, receipt: &receipt, receiptURL: receiptURL)
+        try await syncAndAssert(syncB, client: clientB, expected: sessionB.user.id, store: storeB, receipt: &receipt, receiptURL: receiptURL)
+
+        let expectedExpenseAmounts = [expenseA.id: expenseA.amountCents, expenseB.id: expenseB.amountCents]
+        for expenses in [storeA.data.trip.expenses ?? [], storeB.data.trip.expenses ?? []] {
+            let amounts = Dictionary(uniqueKeysWithValues: expenses.map { ($0.id, $0.amountCents) })
+            XCTAssertEqual(amounts, expectedExpenseAmounts)
+        }
+        XCTAssertFalse(storeA.data.dirty.contains("trip"), "A muss den Ledger nach dem Roundtrip als sauber markieren")
+        XCTAssertFalse(storeB.data.dirty.contains("trip"), "B muss den Ledger nach dem Roundtrip als sauber markieren")
+        XCTAssertGreaterThanOrEqual(storeA.data.trip.updatedAt, expenseBUpdatedAt)
+
+        let reloadedA = AlbumStore(root: rootA, shareInbox: ShareInbox(root: inboxA))
+        let persistedAmounts = Dictionary(uniqueKeysWithValues: (reloadedA.data.trip.expenses ?? []).map { ($0.id, $0.amountCents) })
+        XCTAssertEqual(persistedAmounts, expectedExpenseAmounts)
+
         let post = try storeA.addCollectionPost(text: "Swift client post \(runID)", deterministicID: runID)
         try await syncAndAssert(syncA, client: clientA, expected: sessionA.user.id, store: storeA, receipt: &receipt, receiptURL: receiptURL)
         let postMarker = "collection:\(post.id)"
