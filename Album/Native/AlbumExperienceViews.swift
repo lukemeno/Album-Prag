@@ -656,6 +656,7 @@ struct NativeArcFAB: View {
     @ViewBuilder private func fanNode(index: Int) -> some View {
         let isSubmenu = mode == .sub
         let spec = fanNodeSpec(index: index, submenu: isSubmenu)
+        let hint = !isSubmenu && index == 0 ? "Öffnet Plan heute, Essen und Regen" : ""
         let node = Button(action: { commitFanNode(index) }) {
             Image(systemName: spec.icon)
                 .font(.body.weight(.semibold))
@@ -668,6 +669,12 @@ struct NativeArcFAB: View {
         .buttonStyle(.plain)
         .frame(width: 52, height: 52)
         .contentShape(Circle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(spec.title)
+        .accessibilityIdentifier(spec.id)
+        .accessibilityHint(hint)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityHidden(mode == .closed)
         .overlay(alignment: .trailing) {
             Text(spec.title)
                 .font(.caption.weight(.semibold))
@@ -684,18 +691,8 @@ struct NativeArcFAB: View {
         .opacity(mode == .closed ? 0 : 1)
         .scaleEffect(mode == .closed ? 0.84 : 1)
         .allowsHitTesting(mode != .closed)
-        .accessibilityHidden(mode == .closed)
-        .accessibilityLabel(spec.title)
-        .accessibilityIdentifier(spec.id)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.28), value: mode)
-
-        if !isSubmenu && index == 0 {
-            node
-                .accessibilityHint("Öffnet Plan heute, Essen und Regen")
-                .accessibilityAddTraits(.isButton)
-        } else {
-            node
-        }
+        node
     }
 
     private func fanNodeSpec(index: Int, submenu: Bool) -> (icon: String, title: String, id: String, green: Bool) {
