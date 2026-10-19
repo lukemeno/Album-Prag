@@ -328,7 +328,7 @@ struct Place: Codable, Identifiable, Equatable {
     }
 }
 
-struct TripInfo: Codable {
+struct TripInfo: Codable, Equatable {
     var hotel = "Hotel Urban Crème"
     var outbound = ""
     var arrival = ""
@@ -341,6 +341,9 @@ struct TripInfo: Codable {
     var hotelDetails: HotelDetails?
     var bookingNumber: String?
     var travelers: [String]?
+    /// Optional ledger fields keep older album JSON files decodable.
+    var expenses: [TravelExpense]?
+    var settlements: [TravelSettlement]?
 }
 
 struct FlightLeg: Codable, Equatable, Identifiable {
@@ -428,7 +431,29 @@ enum AlbumMerge {
     }
 
     static func trip(local: TripInfo, remote: TripInfo) -> TripInfo {
-        remote.updatedAt > local.updatedAt ? remote : local
+        var merged = remote.updatedAt > local.updatedAt ? remote : local
+        // Expenses and settlements are independent entries. Union them even when
+        // another trip field was changed more recently on one device.
+        merged.expenses = ledgerUnion(local.expenses, remote.expenses)
+        merged.settlements = ledgerUnion(local.settlements, remote.settlements)
+        merged.updatedAt = max(local.updatedAt, remote.updatedAt)
+        return merged
+    }
+
+    private static func ledgerUnion(_ local: [TravelExpense]?, _ remote: [TravelExpense]?) -> [TravelExpense]? {
+        let all = (local ?? []) + (remote ?? [])
+        guard !all.isEmpty else { return nil }
+        var byID: [String: TravelExpense] = [:]
+        for entry in all where (byID[entry.id]?.updatedAt ?? .distantPast) <= entry.updatedAt { byID[entry.id] = entry }
+        return byID.values.sorted { $0.id < $1.id }
+    }
+
+    private static func ledgerUnion(_ local: [TravelSettlement]?, _ remote: [TravelSettlement]?) -> [TravelSettlement]? {
+        let all = (local ?? []) + (remote ?? [])
+        guard !all.isEmpty else { return nil }
+        var byID: [String: TravelSettlement] = [:]
+        for entry in all where (byID[entry.id]?.updatedAt ?? .distantPast) <= entry.updatedAt { byID[entry.id] = entry }
+        return byID.values.sorted { $0.id < $1.id }
     }
 
     static func document(local: TravelDocument?, remote: TravelDocument) -> TravelDocument {

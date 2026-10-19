@@ -465,8 +465,18 @@ private struct LocalFileState: Equatable {
 
         if let remoteTrip = tripRows.first {
             let localDate = store.data.trip.updatedAt
-            store.data.trip = AlbumMerge.trip(local: store.data.trip, remote: remoteTrip.payload)
-            if remoteTrip.updatedAt > localDate { store.data.dirty.remove("trip") }
+            let localTrip = store.data.trip
+            let mergedTrip = AlbumMerge.trip(local: localTrip, remote: remoteTrip.payload)
+            store.data.trip = mergedTrip
+            let ledgerNeedsUpload = mergedTrip.expenses != remoteTrip.payload.expenses
+                || mergedTrip.settlements != remoteTrip.payload.settlements
+            if ledgerNeedsUpload {
+                // Independent offline ledger entries were unioned into the remote
+                // winner; publish that union without changing scalar LWW fields.
+                store.data.dirty.insert("trip")
+            } else if remoteTrip.updatedAt > localDate {
+                store.data.dirty.remove("trip")
+            }
         }
 
         for row in remotePlaces {
