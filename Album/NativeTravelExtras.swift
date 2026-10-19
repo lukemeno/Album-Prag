@@ -80,7 +80,6 @@ public struct NativeExpensesView: View {
             }
             .sensoryFeedback(.success, trigger: feedbackTick)
         }
-        .accessibilityIdentifier("NativeExpensesView")
     }
 
     private var balanceHeader: some View {
@@ -443,7 +442,6 @@ public struct NativeMemoriesView: View {
                 photoLoadTask = nil
             }
         }
-        .accessibilityIdentifier("NativeMemoriesView")
     }
 
     private var emptyState: some View {
