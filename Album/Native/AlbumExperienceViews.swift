@@ -624,9 +624,11 @@ struct NativeArcFAB: View {
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
-            ForEach(0..<4, id: \.self) { index in
-                fanNode(index: index)
-                    .id("native-fan-node-\(index)")
+            if mode != .closed {
+                ForEach(0..<4, id: \.self) { index in
+                    fanNode(index: index)
+                        .id("native-fan-node-\(index)")
+                }
             }
             Button(action: buttonTap) {
                 Image(systemName: mode == .closed ? "plus" : "xmark")
@@ -674,7 +676,6 @@ struct NativeArcFAB: View {
         .accessibilityIdentifier(spec.id)
         .accessibilityHint(hint)
         .accessibilityAddTraits(.isButton)
-        .accessibilityHidden(mode == .closed)
         .overlay(alignment: .trailing) {
             Text(spec.title)
                 .font(.caption.weight(.semibold))
@@ -692,7 +693,6 @@ struct NativeArcFAB: View {
         .scaleEffect(mode == .closed ? 0.84 : 1)
         .allowsHitTesting(mode != .closed)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.28), value: mode)
-        .accessibilityHidden(mode == .closed)
         node
     }
 
