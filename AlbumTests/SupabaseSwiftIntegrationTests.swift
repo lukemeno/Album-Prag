@@ -313,8 +313,8 @@ final class SupabaseSwiftIntegrationTests: XCTestCase {
         let plannedImagePath = "\(created.tripID.uuidString)/\(placeID)/\(uploaded.id).jpg"
         let plannedDocumentPath = "\(created.tripID.uuidString)/\(pdfID).pdf"
         addTeardownBlock { [clientA, plannedImagePath, plannedDocumentPath] in
-            try? await clientA.storage.from("trip-images").remove(paths: [plannedImagePath])
-            try? await clientA.storage.from("trip-files").remove(paths: [plannedDocumentPath])
+            try await clientA.storage.from("trip-images").remove(paths: [plannedImagePath])
+            try await clientA.storage.from("trip-files").remove(paths: [plannedDocumentPath])
         }
         receipt.bucketPaths = [["trip-images", plannedImagePath], ["trip-files", plannedDocumentPath]]
         try writeReceipt(receipt, to: receiptURL)
