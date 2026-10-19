@@ -48,16 +48,16 @@ enum Stitch {
     /// Alle wachsen mit Dynamic Type.
     enum Face {
         static func display(_ size: CGFloat = 34, relativeTo style: Font.TextStyle = .largeTitle) -> Font {
-            .custom("Inter", size: size, relativeTo: style).weight(.semibold)
+            .custom("Inter-Regular", size: size, relativeTo: style).weight(.semibold)
         }
         static func title(_ size: CGFloat = 22, relativeTo style: Font.TextStyle = .title2) -> Font {
-            .custom("Inter", size: size, relativeTo: style).weight(.semibold)
+            .custom("Inter-Regular", size: size, relativeTo: style).weight(.semibold)
         }
         static func place(_ size: CGFloat = 22, relativeTo style: Font.TextStyle = .title2) -> Font {
-            .custom("Inter", size: size, relativeTo: style).weight(.medium)
+            .custom("Inter-Regular", size: size, relativeTo: style).weight(.medium)
         }
         static func wordmark(_ size: CGFloat = 28, relativeTo style: Font.TextStyle = .title) -> Font {
-            .custom("Lora", size: size, relativeTo: style)
+            .custom("Lora-Regular", size: size, relativeTo: style)
         }
         static let ticket = Font.system(.footnote, design: .monospaced).weight(.medium)
         static func code(_ style: Font.TextStyle) -> Font { Font.system(style, design: .monospaced).weight(.medium) }
