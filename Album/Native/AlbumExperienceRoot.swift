@@ -121,7 +121,6 @@ struct AlbumExperienceRoot: View {
                     .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
             }
         }
-        .accessibilityIdentifier("album-native-root")
     }
 
     private func closeTrip() {
