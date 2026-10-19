@@ -165,7 +165,6 @@ struct NativeTripExperience: View {
             .padding(.trailing, Stitch.Space.m)
             .padding(.bottom, 92)
         }
-        .onExitCommand { fanOpen = false }
         .onChange(of: fanOpen) { _, isOpen in onFanOpenChanged(isOpen) }
     }
 }
