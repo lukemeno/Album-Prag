@@ -42,6 +42,7 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         UIAppFonts: [Fraunces-SemiBold.ttf, InstrumentSerif-Regular.ttf]
+        NSCameraUsageDescription: Album darf die Kamera verwenden, um eigene Reiseerinnerungen zu speichern.
         UIFileSharingEnabled: false
         LSSupportsOpeningDocumentsInPlace: true
         SupabaseURL: $(SUPABASE_URL)

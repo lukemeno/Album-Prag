@@ -32,7 +32,7 @@ import SwiftUI
     private let isIsolatedStoreTest = ProcessInfo.processInfo.environment["ALBUM_TEST_STORE"] != nil
     var body: some Scene {
         WindowGroup {
-            AlbumRoot().environment(store).tint(Stitch.redFill)
+            AlbumExperienceRoot().environment(store).tint(Stitch.redFill)
                 #if DEBUG
                 .transformEnvironment(\._accessibilityReduceMotion) { value in
                     let isolatedStore = ProcessInfo.processInfo.environment["ALBUM_TEST_STORE"] != nil

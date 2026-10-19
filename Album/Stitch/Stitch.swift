@@ -7,22 +7,22 @@ import UIKit
 enum Stitch {
     // MARK: Farben (Hell / Dunkel)
 
-    static let paper = dynamic(light: (244, 239, 228), dark: (26, 23, 20))
-    static let paperDeep = dynamic(light: (232, 223, 208), dark: (42, 37, 32))
+    static let paper = dynamic(light: (245, 247, 243), dark: (25, 37, 33))
+    static let paperDeep = dynamic(light: (235, 239, 232), dark: (38, 55, 48))
     /// Markenweiß: Karten, Marken, Felder.
-    static let card = dynamic(light: (251, 248, 242), dark: (37, 33, 29))
-    static let rule = dynamic(light: (221, 211, 194), dark: (62, 56, 49))
-    static let ink = dynamic(light: (28, 25, 21), dark: (242, 237, 227))
-    static let inkSoft = dynamic(light: (104, 97, 89), dark: (181, 172, 160))
+    static let card = dynamic(light: (255, 255, 255), dark: (31, 48, 41))
+    static let rule = dynamic(light: (226, 231, 223), dark: (64, 82, 72))
+    static let ink = dynamic(light: (18, 48, 42), dark: (235, 242, 237))
+    static let inkSoft = dynamic(light: (92, 104, 98), dark: (174, 190, 181))
     /// Poststempel als Schrift und Linie. Auf Papier 4,7:1, auf Karte 5,1:1.
-    static let red = dynamic(light: (182, 69, 50), dark: (236, 134, 114))
+    static let red = dynamic(light: (22, 75, 60), dark: (122, 190, 158))
     /// Poststempel als Fläche, helle Schrift darauf mindestens 5,2:1.
-    static let redFill = dynamic(light: (182, 69, 50), dark: (166, 61, 44))
+    static let redFill = dynamic(light: (22, 75, 60), dark: (27, 93, 72))
     /// Zweite Tinte: Besucht, Hinweise, zweite Route.
-    static let teal = dynamic(light: (61, 92, 90), dark: (141, 179, 175))
+    static let teal = dynamic(light: (31, 90, 73), dark: (126, 187, 157))
     /// Nur Zierde (Stempelring, Sterne), nie Schrift.
-    static let gold = dynamic(light: (196, 165, 116), dark: (214, 186, 138))
-    static let onAccent = Color(red: 251 / 255, green: 248 / 255, blue: 242 / 255)
+    static let gold = dynamic(light: (123, 142, 119), dark: (176, 205, 185))
+    static let onAccent = Color.white
     /// Hintergrund hinter Vollbildfotos, in beiden Modi dunkel.
     static let scrim = Color(red: 20 / 255, green: 18 / 255, blue: 16 / 255)
 
