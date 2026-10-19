@@ -624,18 +624,9 @@ struct NativeArcFAB: View {
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
-            if mode != .closed {
-                if mode == .main {
-                    fanNode("sparkles", title: "Assistent", id: "native-fan-ai", index: 0, green: true) { switchToSub() }
-                    fanNode("photo.stack", title: "Erinnerungen", id: "native-fan-mem", index: 1) { commit(.memories) }
-                    fanNode("eurosign.circle", title: "Ausgaben", id: "native-fan-exp", index: 2) { commit(.expenses) }
-                    fanNode("doc.text", title: "Unterlagen", id: "native-fan-doc", index: 3) { commit(.documents) }
-                } else {
-                    fanNode("sparkles", title: "Assistent", id: "native-fan-sub-ai", index: 0, green: true) { commit(.assistant(nil)) }
-                    fanNode("calendar", title: "Plan heute", id: "native-fan-sub-plan", index: 1) { commit(.assistant("Plane den heutigen Tag für uns.")) }
-                    fanNode("fork.knife", title: "Essen", id: "native-fan-sub-food", index: 2) { commit(.assistant("Welche Essenstipps aus unseren Ideen passen heute?")) }
-                    fanNode("cloud.rain", title: "Regen", id: "native-fan-sub-rain", index: 3) { commit(.assistant("Was können wir heute bei Regen in Prag unternehmen?")) }
-                }
+            ForEach(0..<4, id: \.self) { index in
+                fanNode(index: index)
+                    .id("native-fan-node-\(index)")
             }
             Button(action: buttonTap) {
                 Image(systemName: mode == .closed ? "plus" : "xmark")
@@ -662,26 +653,41 @@ struct NativeArcFAB: View {
         }
     }
 
-    @ViewBuilder private func fanNode(_ icon: String, title: String, id: String, index: Int, green: Bool = false, action: @escaping () -> Void) -> some View {
-        let node = Button(action: action) {
-            HStack(spacing: 6) {
-                Text(title).font(.caption.weight(.semibold)).foregroundStyle(Stitch.ink)
-                    .padding(.horizontal, 10).frame(minHeight: 32)
-                    .background(Stitch.card, in: Capsule())
-                    .overlay(Capsule().strokeBorder(Stitch.rule))
-                Image(systemName: icon).font(.body.weight(.semibold)).foregroundStyle(green ? Stitch.onAccent : Stitch.red)
-                    .frame(width: 52, height: 52).background(green ? Stitch.redFill : Stitch.card, in: Circle())
-                    .overlay(Circle().strokeBorder(candidate == index ? Stitch.red : Stitch.rule, lineWidth: candidate == index ? 2 : 1))
-                    .shadow(color: Stitch.ink.opacity(0.18), radius: 8, y: 4)
-            }
+    @ViewBuilder private func fanNode(index: Int) -> some View {
+        let isSubmenu = mode == .sub
+        let spec = fanNodeSpec(index: index, submenu: isSubmenu)
+        let node = Button(action: { commitFanNode(index) }) {
+            Image(systemName: spec.icon)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(spec.green ? Stitch.onAccent : Stitch.red)
+                .frame(width: 52, height: 52)
+                .background(spec.green ? Stitch.redFill : Stitch.card, in: Circle())
+                .overlay(Circle().strokeBorder(candidate == index ? Stitch.red : Stitch.rule, lineWidth: candidate == index ? 2 : 1))
+                .shadow(color: Stitch.ink.opacity(0.18), radius: 8, y: 4)
         }
         .buttonStyle(.plain)
-        .offset(x: positions[index].0, y: positions[index].1)
-        .accessibilityLabel(title)
-        .accessibilityIdentifier(id)
-        .transition(reduceMotion ? .opacity : .scale.combined(with: .opacity))
+        .overlay(alignment: .trailing) {
+            Text(spec.title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Stitch.ink)
+                .padding(.horizontal, 10)
+                .frame(minHeight: 32)
+                .background(Stitch.card, in: Capsule())
+                .overlay(Capsule().strokeBorder(Stitch.rule))
+                .offset(x: -62)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
+        .position(x: 192 + positions[index].0, y: 192 + positions[index].1)
+        .opacity(mode == .closed ? 0 : 1)
+        .scaleEffect(mode == .closed ? 0.84 : 1)
+        .allowsHitTesting(mode != .closed)
+        .accessibilityHidden(mode == .closed)
+        .accessibilityLabel(spec.title)
+        .accessibilityIdentifier(spec.id)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.28), value: mode)
 
-        if id == "native-fan-ai" {
+        if !isSubmenu && index == 0 {
             node
                 .accessibilityHint("Öffnet Plan heute, Essen und Regen")
                 .accessibilityAction(named: Text("Plan heute")) {
@@ -693,10 +699,49 @@ struct NativeArcFAB: View {
                 .accessibilityAction(named: Text("Regen")) {
                     commit(.assistant("Was können wir heute bei Regen in Prag unternehmen?"))
                 }
-                .accessibilityIdentifier(id)
+                .accessibilityIdentifier(spec.id)
                 .accessibilityAddTraits(.isButton)
         } else {
             node
+        }
+    }
+
+    private func fanNodeSpec(index: Int, submenu: Bool) -> (icon: String, title: String, id: String, green: Bool) {
+        if submenu {
+            switch index {
+            case 0: return ("sparkles", "Assistent", "native-fan-sub-ai", true)
+            case 1: return ("calendar", "Plan heute", "native-fan-sub-plan", false)
+            case 2: return ("fork.knife", "Essen", "native-fan-sub-food", false)
+            default: return ("cloud.rain", "Regen", "native-fan-sub-rain", false)
+            }
+        }
+        switch index {
+        case 0: return ("sparkles", "Assistent", "native-fan-ai", true)
+        case 1: return ("photo.stack", "Erinnerungen", "native-fan-mem", false)
+        case 2: return ("eurosign.circle", "Ausgaben", "native-fan-exp", false)
+        default: return ("doc.text", "Unterlagen", "native-fan-doc", false)
+        }
+    }
+
+    private func commitFanNode(_ index: Int) {
+        switch mode {
+        case .main:
+            switch index {
+            case 0: switchToSub()
+            case 1: commit(.memories)
+            case 2: commit(.expenses)
+            case 3: commit(.documents)
+            default: break
+            }
+        case .sub:
+            switch index {
+            case 0: commit(.assistant(nil))
+            case 1: commit(.assistant("Plane den heutigen Tag für uns."))
+            case 2: commit(.assistant("Welche Essenstipps aus unseren Ideen passen heute?"))
+            case 3: commit(.assistant("Was können wir heute bei Regen in Prag unternehmen?"))
+            default: break
+            }
+        case .closed: break
         }
     }
 
