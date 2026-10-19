@@ -39,3 +39,12 @@ Abhängigkeiten: Paket1 und2 haben getrennte Dateien; Paket3 integriert beide. K
 5. Bogen-Menü mit dem Daumen sowie VoiceOver auf dem Gerät prüfen.
 
 Am 19.10. war das bekannte physische iPhone nicht verfügbar. Kein Gerätetest oder Deployment behauptet.
+
+## Zusätzliche Simulator-/Backend-Abnahme · 19.10.2026
+- Nutzer hat bestätigt, dass keine physischen iPhones verfügbar sind, und Xcode-Simulator-MCP als Prüfweg gewählt. Kein Gerätebuild installiert.
+- Drei Oberflächenabläufe direkt über Xcode MCP erneut erfolgreich: Reisekosten nach Neustart, getrennte Kamera-/Mediathekaktionen und Halten/Ziehen zu Unterlagen. Ergebnis: 3 bestanden,0 Fehler,0 übersprungen. MCP-Bundle: `/var/folders/3x/t03s50bd15lfw10pksk6tts40000gn/T/ActionArtifacts/default/RunSomeTests/Test-Album-2026.10.19_18-39-01-+0200.xcresult`.
+- Eigene Bilder/PDFs mit zwei unabhängigen authentifizierten Swift-Sitzungen gegen Supabase hoch-/heruntergeladen und lokale Cache-Reparatur erfolgreich geprüft.
+- Zwei unabhängig offline angelegte Ausgaben nach A→B→A→B-Abgleich auf beiden Seiten sowie nach Reload vollständig erhalten. Separate Testalben; keine echten Reisedaten für diese Tests geändert.
+- Echte Kameraaufnahme und fühlbare Haptik lassen sich im Simulator nicht abnehmen. Zwei physische iPhones bleiben ein gesonderter Geräte-Endtest, kein offener Implementierungsauftrag.
+
+- Finale Live-Realtime-Prüfung ebenfalls bestanden: automatische Callbacks/Abgleich sowie Stop-Lifecycle (15,485s), `/tmp/album-live-final-20261019/realtime.xcresult`. Eigene Testdaten entfernt; Endbaseline bestätigt, keine QA-Storageobjekte oder temporären QA-Policies verbleiben.

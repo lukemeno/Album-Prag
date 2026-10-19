@@ -348,3 +348,12 @@
 - Ansichten im Simulator visuell geprüft; QA-Bilder unter .qa-shots/native-20261019/. MapKit-Kacheln in der Aufnahme nicht nachgewiesen.
 - Isolierte Testdaten und Assistenten-Fixtures; kein Schreiben in die echte gemeinsame Reise, kein Backend-Deployment und keine kostenpflichtigen KI-Aufrufe für diese Prüfung.
 - Gerätetest offen: bekanntes physisches iPhone unavailable, nur Simulatoren erreichbar. Kameraaufnahme, VoiceOver, Daumenbedienung und Foto-/Ausgabensync mit zwei echten Geräten inklusive Offline-Rückkehr müssen dort geprüft werden.
+
+
+## Zusätzliche Simulator-/Sync-Abnahme · 19.10.2026
+- Nutzer: keine echten Geräte verfügbar, Xcode-Simulator-MCP verwenden. Gekoppeltes iPhone nach Details-Prüfung unavailable; kein Geräte-Deployment. Neu angelegter ungenutzter Geräte-DerivedData-Ordner wieder entfernt.
+- Xcode MCP RunSomeTests: 3/3 bestanden (Ausgaben-Neustart, getrennte Fotoaktionen, Fan-Halten/Ziehen). Exaktes Bundle und Grenzen stehen in NATIVE-PORT.md.
+- Live Swift Storage-Gate bestanden: eigenes JPEG/PDF, zwei unabhängige Sessions, persistierter Download und Cache-Reparatur. Live Mehrclient-Gate mit neuer Offline-Ledger-Regression bestanden. Belege /tmp/album-live-final-20261019/{storage,ledger}.xcresult.
+- Luna ergänzte Ledger-Test und Bild-Teardown. Für PDFs besteht keine allgemeine DELETE-Policy; exakter erster QA-PDF-Pfad mittels kurzlebiger, danach widerrufener Policy über Storage-API bereinigt. Keine Storage-SQL-Löschung. QA-User/Trips/Cleanup-Session entfernt; Baseline wieder 2/5/5/0/0,0 QA-User. Details in QA-BACKEND-CLIENTS.md.
+- Live-Realtime-Gate bestanden (15,485s): Callback-Abgleich und Stop-Lifecycle, /tmp/album-live-final-20261019/realtime.xcresult. Dessen eigene Reise/Teilnehmer/Auth-User guardiert bereinigt. Endbaseline bestätigt: 2 Reisen,5 Mitglieder,5 Orte,0 Dokumente,0 Collection-Einträge;0 QA-User,0 QA-Storageobjekte,0 temporäre QA-Policies.
+- Alle drei Live-Gates und drei Xcode-MCP-UI-Tests bestanden. Echte Kamera/Haptik und Zwei-Geräte-Abnahme bleiben hardwarebedingt offen; kein Simulatorbeleg dafür behauptet.

@@ -53,7 +53,7 @@ guarded bereinigt; Baseline wieder 1 Reise, 3 Mitglieder, keine Collection-Eintr
 und keine verbleibenden markierten Swift-Testnutzer. Realtime und Storage bleiben
 getrennte offene Gates.
 
-### W1-B-015: isolierter Storage-Roundtrip (opt-in, noch nicht runtimeverifiziert)
+### W1-B-015: isolierter Storage-Roundtrip (Runtime bestanden am 19.10.2026)
 
 `testTwoSwiftClientsUploadDownloadAndRepairStorage` verwendet zwei Swift-Clients
 mit getrennten Auth-/Store-/Inbox-Wurzeln, identischen Produktions-
@@ -95,3 +95,13 @@ Genuine-Event bewertet. Die Zusatzphasen bleiben bis zum neuen Lauf
 source-ready; Dokumente bleiben als Realtime-Gate offen.
 
 Echtzeittest 2026-10-03: work/swift-realtime-v6-ready.xcresult bestätigt mit Runtime-Revision realtime-v6-place-delta initialen Abgleich sowie Place, CollectionPost, Comment/Heart und Trip. Exakt zwei Teilnehmer, Stop entfernt Kanal und verhindert weitere Callbacks. Dokument-Ereignisse und echte Wiederverbindung nach Netzunterbrechung bleiben separate offene Gates. QA-Daten exakt bereinigt.
+
+
+## Native Abschlussprüfung · 19.10.2026
+- Storage-Roundtrip mit zwei unabhängigen Swift-Clients erfolgreich: Upload eines synthetischen JPEGs/PDFs, Download auf Client B, persistierter Reload und Reparatur lokaler fehlender/beschädigter Dateien. Beleg: `/tmp/album-live-final-20261019/storage.xcresult`, TEST SUCCEEDED.
+- Mehrclient-Gate um zwei unabhängig offline gespeicherte Ausgaben erweitert. A→B→A→B konvergiert auf dieselben IDs/Beträge, beide Trip-Marker sind sauber, persistierter Reload erhält beide Einträge. Beleg: `/tmp/album-live-final-20261019/ledger.xcresult`, TEST SUCCEEDED.
+- Echte Reise unverändert; eigene Test-Reisen/Auth-IDs anhand der jeweiligen Receipt bereinigt. Baseline vor/nach diesen beiden Gates: 2 Reisen,5 Mitglieder,5 Orte,0 Dokumente,0 Collection-Einträge,0 markierte QA-User.
+- Wichtig für künftige Storage-Gates: `trip-images` erlaubt Mitgliedern DELETE, `trip-files` dagegen absichtlich nicht. Der Test bereinigt sein Bild per Storage-API im async Teardown; die PDF verbleibt im Receipt für Parent-Cleanup. Ein leeres Storage-DELETE-Ergebnis beweist keine Löschung.
+- Der erste Storage-Lauf benötigte nachträglich einen eigenen, kurzlebigen QA-Cleanup-Client. Nur diesem Client und genau dem Receipt-PDF wurde temporär DELETE erlaubt; anschließend über die Storage-API gelöscht und die temporäre Policy sofort entfernt. Zwei Audit-Migrationen `qa_storage_cleanup_grant_20261019` / `qa_storage_cleanup_revoke_20261019` halten dies fest. Keine allgemeine Löschberechtigung ergänzt; keine Storage-Metadaten per SQL gelöscht. Cleanup-Client, Testreise, Testuser und lokale Sitzungsdatei sind entfernt.
+
+- Finale Live-Realtime-Prüfung ebenfalls bestanden: automatische Callbacks/Abgleich sowie Stop-Lifecycle (15,485s), `/tmp/album-live-final-20261019/realtime.xcresult`. Eigene Testdaten entfernt; Endbaseline bestätigt, keine QA-Storageobjekte oder temporären QA-Policies verbleiben.
