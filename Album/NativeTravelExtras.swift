@@ -1,6 +1,7 @@
 import SwiftUI
 import PhotosUI
 import UIKit
+import AVFoundation
 
 public struct NativeExpensesView: View {
     @Environment(AlbumStore.self) private var store
@@ -81,7 +82,7 @@ public struct NativeExpensesView: View {
             } else {
                 let mine = balances[store.me, default: 0]
                 Text(balanceText(mine))
-                    .font(.title3.weight(.semibold)).foregroundStyle(mine == 0 ? Stitch.ink : (mine > 0 ? Stitch.green : Stitch.red))
+                    .font(.title3.weight(.semibold)).foregroundStyle(mine == 0 ? Stitch.ink : Stitch.red)
                 Text("Gesamt \(money(expenses.reduce(0) { $0 + $1.amountCents })) · \(expenses.count) \(expenses.count == 1 ? "Ausgabe" : "Ausgaben")")
                     .font(.subheadline).foregroundStyle(Stitch.inkSoft)
             }
@@ -99,7 +100,7 @@ public struct NativeExpensesView: View {
     private var emptyState: some View {
         VStack(alignment: .leading, spacing: Stitch.Space.s) {
             Image(systemName: "wallet.bifold")
-                .font(.title2).foregroundStyle(Stitch.green).accessibilityHidden(true)
+                .font(.title2).foregroundStyle(Stitch.red).accessibilityHidden(true)
             Text("Noch keine Ausgaben")
                 .font(.headline).foregroundStyle(Stitch.ink)
             Text("Tragt die erste Ausgabe ein, sobald ihr unterwegs etwas gemeinsam bezahlt habt.")
@@ -121,7 +122,7 @@ public struct NativeExpensesView: View {
             ForEach(expenses) { expense in
                 HStack(spacing: Stitch.Space.m) {
                     Image(systemName: "fork.knife")
-                        .font(.title3).foregroundStyle(Stitch.green)
+                        .font(.title3).foregroundStyle(Stitch.red)
                         .frame(width: 44, height: 44)
                         .background(Stitch.paperDeep, in: Circle())
                     VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
@@ -157,7 +158,6 @@ public struct NativeExpensesView: View {
 
 private struct NativeExpenseEditor: View {
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let initialParticipants: [String]
     let onSave: (TravelExpense) -> Bool
     @State private var title = ""
@@ -167,6 +167,7 @@ private struct NativeExpenseEditor: View {
     @State private var payer: String
     @State private var selected: Set<String>
     @State private var newParticipant = ""
+    @State private var addedParticipants: [String] = []
     @State private var error: String?
 
     init(participants: [String], onSave: @escaping (TravelExpense) -> Bool) {
@@ -178,7 +179,7 @@ private struct NativeExpenseEditor: View {
 
     private var participantList: [String] {
         var names = initialParticipants
-        if !newParticipant.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { names.append(newParticipant.trimmingCharacters(in: .whitespacesAndNewlines)) }
+        names.append(contentsOf: addedParticipants)
         var seen = Set<String>()
         return names.filter { seen.insert($0).inserted }
     }
@@ -218,12 +219,18 @@ private struct NativeExpenseEditor: View {
                     }
                     HStack {
                         TextField("Person hinzufügen", text: $newParticipant)
+                            .accessibilityIdentifier("expense-person-name")
                         Button("Hinzufügen") {
                             let name = newParticipant.trimmingCharacters(in: .whitespacesAndNewlines)
                             guard !name.isEmpty else { return }
-                            selected.insert(name); if payer.isEmpty { payer = name }; newParticipant = ""
+                            guard !participantList.contains(name) else { newParticipant = ""; return }
+                            addedParticipants.append(name)
+                            selected.insert(name)
+                            if !participantList.contains(payer) { payer = initialParticipants.first ?? name }
+                            newParticipant = ""
                         }
                         .disabled(newParticipant.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .accessibilityIdentifier("expense-add-person")
                     }
                 }
                 if let error { Text(error).font(.footnote).foregroundStyle(Stitch.red) }
@@ -251,7 +258,7 @@ private struct NativeExpenseEditor: View {
             guard onSave(expense) else { error = "Die Ausgabe konnte nicht gespeichert werden."; return }
             dismiss()
         } catch let value as TravelExpenseError { error = value.localizedDescription }
-        catch { error = error.localizedDescription }
+        catch { self.error = error.localizedDescription }
     }
 }
 
@@ -312,23 +319,23 @@ public struct NativeMemoriesView: View {
     @State private var cameraUnavailable = false
     @State private var photoPickerPresented = false
     @State private var photoItem: PhotosPickerItem?
+    @State private var photoLoadTask: Task<Void, Never>?
     @State private var viewing: NativeMemoryPhoto?
     @State private var error: String?
 
     public init() {}
 
+    private var photoPlaces: [Place] {
+        store.places.filter { $0.image != nil }
+    }
+
     public var body: some View {
         NavigationStack {
             ScrollView {
-                if store.places.isEmpty {
+                if photoPlaces.isEmpty {
                     emptyState
                 } else {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: Stitch.Space.s)], spacing: Stitch.Space.s) {
-                        ForEach(store.places) { place in memoryCard(place) }
-                    }
-                    .padding(.horizontal, Stitch.Space.page)
-                    .padding(.top, Stitch.Space.s)
-                    .padding(.bottom, 110)
+                    photoGrid
                 }
             }
             .background(PaperBackground())
@@ -344,14 +351,19 @@ public struct NativeMemoriesView: View {
                 Button { beginCapture(.camera) } label: {
                     Image(systemName: "camera.fill").font(.title2.weight(.semibold)).frame(width: 72, height: 72)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Stitch.green)
-                .clipShape(Circle())
+                .buttonStyle(.plain)
+                .foregroundStyle(Stitch.onAccent)
+                .background(Stitch.redFill, in: Circle())
+                .frame(width: 72, height: 72)
+                .contentShape(Circle())
                 .accessibilityLabel("Mit Kamera fotografieren")
                 .accessibilityIdentifier("memories-camera")
                 .padding(.bottom, Stitch.Space.s)
             }
-            .sheet(isPresented: $targetPicker) { targetPickerView }
+            .sheet(isPresented: $targetPicker, onDismiss: {
+                guard targetID != nil else { source = nil; return }
+                openCaptureAfterConfirmation()
+            }) { targetPickerView }
             .sheet(isPresented: $addPlace) { PlaceEditor(place: Place(title: "Neue Reiseidee")) }
             .sheet(isPresented: $cameraPresented) {
                 CameraImagePicker { imageData in
@@ -362,14 +374,27 @@ public struct NativeMemoriesView: View {
             .photosPicker(isPresented: $photoPickerPresented, selection: $photoItem, matching: .images)
             .onChange(of: photoItem) { _, item in
                 guard let item else { return }
-                Task {
+                photoLoadTask?.cancel()
+                let capturedTargetID = targetID
+                photoLoadTask = Task {
                     do {
                         let data = try await item.loadTransferable(type: Data.self)
-                        await MainActor.run { save(data: data) }
+                        guard !Task.isCancelled else { return }
+                        await MainActor.run {
+                            guard self.targetID == capturedTargetID, self.photoItem != nil else { return }
+                            save(data: data, targetID: capturedTargetID)
+                        }
                     } catch {
-                        await MainActor.run { self.error = "Das Foto konnte nicht geladen werden." }
+                        guard !Task.isCancelled else { return }
+                        await MainActor.run {
+                            guard self.targetID == capturedTargetID else { return }
+                            self.error = "Das Foto konnte nicht geladen werden."
+                        }
                     }
-                    await MainActor.run { photoItem = nil }
+                    await MainActor.run {
+                        if self.targetID == capturedTargetID { photoItem = nil }
+                        photoLoadTask = nil
+                    }
                 }
             }
             .confirmationDialog("Vorhandenes Foto ersetzen?", isPresented: $replaceConfirmation, titleVisibility: .visible) {
@@ -392,23 +417,42 @@ public struct NativeMemoriesView: View {
             .fullScreenCover(item: $viewing) { photo in
                 NativeMemoryZoom(place: photo.place, asset: photo.asset, root: store.root)
             }
+            .onDisappear {
+                photoLoadTask?.cancel()
+                photoLoadTask = nil
+            }
         }
         .accessibilityIdentifier("NativeMemoriesView")
     }
 
     private var emptyState: some View {
         VStack(alignment: .leading, spacing: Stitch.Space.s) {
-            Image(systemName: "photo.on.rectangle.angled").font(.title2).foregroundStyle(Stitch.green)
-            Text("Noch keine Orte")
+            Image(systemName: "photo.on.rectangle.angled").font(.title2).foregroundStyle(Stitch.red)
+            Text(store.places.isEmpty ? "Noch keine Orte" : "Noch keine Fotos")
                 .font(.headline).foregroundStyle(Stitch.ink)
-            Text("Füge zuerst einen Ort hinzu, damit du ein Foto damit verbinden kannst.")
+            Text(store.places.isEmpty
+                 ? "Füge zuerst einen Ort hinzu, damit du ein Foto damit verbinden kannst."
+                 : "Füge einem bestehenden Ort ein eigenes Foto hinzu.")
                 .font(.subheadline).foregroundStyle(Stitch.inkSoft)
                 .fixedSize(horizontal: false, vertical: true)
-            Button("Ort hinzufügen") { addPlace = true }
+            Button(store.places.isEmpty ? "Ort hinzufügen" : "Foto hinzufügen") {
+                if store.places.isEmpty { addPlace = true } else { beginCapture(.camera) }
+            }
                 .buttonStyle(TextActionButton())
         }
         .padding(Stitch.Space.page)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var photoGrid: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: Stitch.Space.s)], spacing: Stitch.Space.s) {
+            ForEach(photoPlaces) { place in
+                memoryCard(place)
+            }
+        }
+        .padding(.horizontal, Stitch.Space.page)
+        .padding(.top, Stitch.Space.s)
+        .padding(.bottom, 110)
     }
 
     private func memoryCard(_ place: Place) -> some View {
@@ -442,7 +486,6 @@ public struct NativeMemoriesView: View {
                     ForEach(store.places) { place in
                         Button {
                             targetID = place.id; targetPicker = false
-                            DispatchQueue.main.async { openCaptureAfterConfirmation() }
                         } label: {
                             HStack {
                                 Image(systemName: place.image == nil ? "photo" : "photo.fill")
@@ -458,7 +501,7 @@ public struct NativeMemoriesView: View {
             .scrollContentBackground(.hidden).background(PaperBackground())
             .navigationTitle("Ort auswählen")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { targetPicker = false } } }
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { targetID = nil; source = nil; targetPicker = false } } }
         }
         .presentationDetents([.medium, .large])
     }
@@ -477,12 +520,26 @@ public struct NativeMemoriesView: View {
         case .library: photoPickerPresented = true
         case .camera:
             guard UIImagePickerController.isSourceTypeAvailable(.camera) else { cameraUnavailable = true; return }
-            cameraPresented = true
+            switch AVCaptureDevice.authorizationStatus(for: .video) {
+            case .denied, .restricted:
+                cameraUnavailable = true
+            case .notDetermined:
+                AVCaptureDevice.requestAccess(for: .video) { granted in
+                    Task { @MainActor in
+                        if granted { cameraPresented = true } else { cameraUnavailable = true }
+                    }
+                }
+            case .authorized:
+                cameraPresented = true
+            @unknown default:
+                cameraUnavailable = true
+            }
         }
     }
 
-    private func save(data: Data?) {
-        guard let data, let targetID, let place = store.places.first(where: { $0.id == targetID }) else { return }
+    private func save(data: Data?, targetID capturedTargetID: String? = nil) {
+        guard let data, let targetID = capturedTargetID ?? targetID,
+              let place = store.places.first(where: { $0.id == targetID }) else { return }
         do {
             let uploaded = try PlaceImageStorage.save(data, root: store.root)
             var updated = place
@@ -519,6 +576,7 @@ private struct NativeMemoryZoom: View {
     let asset: PlaceImageAsset
     let root: URL
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var scale: CGFloat = 1
     @State private var baseScale: CGFloat = 1
 
@@ -528,9 +586,9 @@ private struct NativeMemoryZoom: View {
             AlbumPhoto(asset: asset, root: root, fitProgress: 1)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .scaleEffect(scale)
-                .gesture(MagnificationGesture().onChanged { value in scale = min(max(baseScale * value, 1), 4) }.onEnded { _ in baseScale = scale })
+                .gesture(reduceMotion ? nil : MagnificationGesture().onChanged { value in scale = min(max(baseScale * value, 1), 4) }.onEnded { _ in baseScale = scale })
                 .accessibilityLabel("Foto von \(place.title)")
-            VStack { HStack { Spacer(); Button("Schließen", systemImage: "xmark") { dismiss() }.buttonStyle(.bordered).tint(.white) }; Spacer() }
+            VStack { HStack { Spacer(); Button("Schließen", systemImage: "xmark") { dismiss() }.buttonStyle(.bordered).tint(.white).frame(minWidth: 44, minHeight: 44) }; Spacer() }
                 .padding()
         }
         .statusBarHidden(true)

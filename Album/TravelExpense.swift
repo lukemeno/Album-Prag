@@ -107,21 +107,25 @@ enum TravelExpenseError: LocalizedError, Equatable {
 }
 
 enum GermanMoneyParser {
+    static let maximumMinorUnits = 99_999_999
     static func parse(_ input: String) -> Int? { parseMinorUnits(input) }
 
     /// Strictly parses German notation into minor units. Thousands use dots,
     /// decimals use one comma and have one or two digits.
     static func parseMinorUnits(_ input: String) -> Int? {
         let value = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !value.isEmpty, value.range(of: #"^[0-9]+(?:\.[0-9]{3})*(?:,[0-9]{1,2})?$"#, options: .regularExpression) != nil else { return nil }
+        guard !value.isEmpty,
+              value.range(of: #"^(?:[0-9]+|[0-9]{1,3}(?:\.[0-9]{3})+)(?:,[0-9]{1,2})?$"#, options: .regularExpression) != nil else { return nil }
         let pieces = value.split(separator: ",", omittingEmptySubsequences: false)
         let integer = pieces[0].replacingOccurrences(of: ".", with: "")
         guard let whole = Int(integer), whole <= (Int.max / 100) else { return nil }
         let decimal = pieces.count == 2 ? String(pieces[1]) : ""
         let minor = Int(decimal.padding(toLength: 2, withPad: "0", startingAt: 0)) ?? 0
-        guard whole < (Int.max / 100) || minor <= (Int.max % 100) else { return nil }
+        guard whole < (Int.max / 100) || minor <= (Int.max % 100),
+              whole <= maximumMinorUnits / 100,
+              whole * 100 + minor <= maximumMinorUnits else { return nil }
         let result = whole * 100 + minor
-        return result >= 0 ? result : nil
+        return result > 0 ? result : nil
     }
 
     static func parseRateHundredths(_ input: String) -> Int? {
