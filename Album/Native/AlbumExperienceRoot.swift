@@ -12,6 +12,10 @@ struct AlbumExperienceRoot: View {
     @State private var section: NativeTripSection = .plan
     @State private var sheet: NativeSheet?
     @State private var assistantSession: AssistantSession?
+    @State private var assistantPrompt: String?
+#if DEBUG && targetEnvironment(simulator)
+    @State private var nativeShareSheet = false
+#endif
     @State private var clipboardOffer = false
     @State private var offeredChangeCount = -1
     @State private var fanRequest = 0
@@ -36,7 +40,12 @@ struct AlbumExperienceRoot: View {
                 NativeTripExperience(section: $section, sheet: $sheet,
                                      namespace: tripCardNamespace,
                                      onHome: { closeTrip() },
-                                     onAssistant: { prompt in openAssistant(prompt) })
+                                     onAssistant: { prompt in openAssistant(prompt) },
+                                     onNativeShare: {
+#if DEBUG && targetEnvironment(simulator)
+                                         nativeShareSheet = true
+#endif
+                                     })
                     .environment(store)
                     .transition(reduceMotion ? .opacity : .asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
             } else {
@@ -60,12 +69,20 @@ struct AlbumExperienceRoot: View {
             case .add(let place): PlaceEditor(place: place)
             case .detail(let id): PlaceDetail(placeID: id)
             case .documents: TripDocumentsView()
+            case .inbox:
+                NavigationStack { InboxView(add: { sheet = .add(Place(title: "", author: store.me)) }) }
+            case .collection:
+                NavigationStack { CollectionHomeView(add: { sheet = .add(Place(title: "", author: store.me)) }) }
             case .sharing: AlbumSettings()
             case .name: NamePrompt()
             case .extraction(let extraction): ExtractedTripSheet(extracted: extraction)
             case .assistant:
                 if let assistantSession {
-                    AssistantView(session: assistantSession).environment(store)
+                    AssistantView(session: assistantSession).environment(store).task {
+                        guard let prompt = assistantPrompt else { return }
+                        assistantPrompt = nil
+                        assistantSession.send(prompt)
+                    }
                 } else {
                     ProgressView().task { self.assistantSession = AssistantSession(store: store) }
                 }
@@ -82,6 +99,17 @@ struct AlbumExperienceRoot: View {
         .onChange(of: store.pendingExtraction) { _, extraction in
             if let extraction { sheet = .extraction(extraction) }
         }
+        .onChange(of: sheet?.id) { oldID, newID in
+            if oldID == "extraction", newID == nil { store.pendingExtraction = nil }
+        }
+#if DEBUG && targetEnvironment(simulator)
+        .sheet(isPresented: $nativeShareSheet) {
+            NativeQAShareSheet(item: URL(string: "https://example.com/album-qa-share")!, onComplete: {
+                store.drainShareQueue()
+                nativeShareSheet = false
+            })
+        }
+#endif
         .overlay(alignment: .top) {
             if clipboardOffer {
                 NativeClipboardNote(onPaste: pasteClipboard, onDismiss: { clipboardOffer = false })
@@ -98,18 +126,18 @@ struct AlbumExperienceRoot: View {
 
     private func openAssistant(_ prompt: String? = nil) {
         if assistantSession == nil { assistantSession = AssistantSession(store: store) }
+        assistantPrompt = prompt
         sheet = .assistant
-        guard let prompt else { return }
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(180))
-            assistantSession?.send(prompt)
-        }
     }
 
     private func pasteClipboard() {
-        guard let url = UIPasteboard.general.url else { return }
+        let board = UIPasteboard.general
+        let raw = board.url?.absoluteString ?? board.string
         clipboardOffer = false
-        sheet = .add(Place(title: "", sourceURL: url.absoluteString, author: store.me))
+        guard let raw else { return }
+        let value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let parsed = URL(string: value), ["http", "https"].contains(parsed.scheme?.lowercased()) else { return }
+        sheet = .add(Place(title: "", sourceURL: value, author: store.me))
     }
 
     /// Looking at pasteboard metadata is permission safe. Contents are read only after the user taps Einfügen.
@@ -128,18 +156,23 @@ struct AlbumExperienceRoot: View {
 enum NativeTripSection: String, CaseIterable, Identifiable {
     case plan = "Plan", ideas = "Ideen", map = "Karte", group = "Gruppe"
     var id: String { rawValue }
+    var accessibilityID: String {
+        switch self { case .plan: "native-tab-plan"; case .ideas: "native-tab-ideas"; case .map: "native-tab-map"; case .group: "native-tab-group" }
+    }
     var icon: String {
         switch self { case .plan: "calendar"; case .ideas: "lightbulb"; case .map: "map"; case .group: "person.2" }
     }
 }
 
 enum NativeSheet: Identifiable {
-    case add(Place), detail(String), documents, sharing, name, extraction(ExtractedTrip), assistant, expenses, memories
+    case add(Place), detail(String), documents, inbox, collection, sharing, name, extraction(ExtractedTrip), assistant, expenses, memories
     var id: String {
         switch self {
         case .add(let place): "add-\(place.id)"
         case .detail(let id): "detail-\(id)"
         case .documents: "documents"
+        case .inbox: "inbox"
+        case .collection: "collection"
         case .sharing: "sharing"
         case .name: "name"
         case .extraction: "extraction"
@@ -173,3 +206,16 @@ private struct NativeClipboardNote: View {
         .padding(.horizontal, Stitch.Space.page)
     }
 }
+
+#if DEBUG && targetEnvironment(simulator)
+private struct NativeQAShareSheet: UIViewControllerRepresentable {
+    let item: URL
+    let onComplete: () -> Void
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let controller = UIActivityViewController(activityItems: [item], applicationActivities: nil)
+        controller.completionWithItemsHandler = { _, _, _, _ in onComplete() }
+        return controller
+    }
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+#endif

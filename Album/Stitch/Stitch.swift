@@ -7,10 +7,10 @@ import UIKit
 enum Stitch {
     // MARK: Farben (Hell / Dunkel)
 
-    static let paper = dynamic(light: (245, 247, 243), dark: (25, 37, 33))
-    static let paperDeep = dynamic(light: (235, 239, 232), dark: (38, 55, 48))
-    /// Markenweiß: Karten, Marken, Felder.
-    static let card = dynamic(light: (255, 255, 255), dark: (31, 48, 41))
+    static let paper = dynamic(light: (255, 255, 255), dark: (25, 37, 33))
+    static let paperDeep = dynamic(light: (245, 247, 243), dark: (38, 55, 48))
+    /// Canvas für Karten und Felder; die App-Fläche bleibt weiß.
+    static let card = dynamic(light: (245, 247, 243), dark: (31, 48, 41))
     static let rule = dynamic(light: (226, 231, 223), dark: (64, 82, 72))
     static let ink = dynamic(light: (18, 48, 42), dark: (235, 242, 237))
     static let inkSoft = dynamic(light: (92, 104, 98), dark: (174, 190, 181))
@@ -44,17 +44,20 @@ enum Stitch {
 
     // MARK: Schrift
 
-    /// Fraunces für Titel, Instrument Serif für Ortsnamen, SF für alles Lesbare, SF Mono für Codes und Zeiten.
+    /// System sans für Überschriften und Lesetext; der Wordmark bleibt separat serif.
     /// Alle wachsen mit Dynamic Type.
     enum Face {
         static func display(_ size: CGFloat = 34, relativeTo style: Font.TextStyle = .largeTitle) -> Font {
-            .custom("Fraunces-SemiBold", size: size, relativeTo: style)
+            .custom("Inter", size: size, relativeTo: style).weight(.semibold)
         }
         static func title(_ size: CGFloat = 22, relativeTo style: Font.TextStyle = .title2) -> Font {
-            .custom("Fraunces-SemiBold", size: size, relativeTo: style)
+            .custom("Inter", size: size, relativeTo: style).weight(.semibold)
         }
         static func place(_ size: CGFloat = 22, relativeTo style: Font.TextStyle = .title2) -> Font {
-            .custom("InstrumentSerif-Regular", size: size, relativeTo: style)
+            .custom("Inter", size: size, relativeTo: style).weight(.medium)
+        }
+        static func wordmark(_ size: CGFloat = 28, relativeTo style: Font.TextStyle = .title) -> Font {
+            .custom("Lora", size: size, relativeTo: style)
         }
         static let ticket = Font.system(.footnote, design: .monospaced).weight(.medium)
         static func code(_ style: Font.TextStyle) -> Font { Font.system(style, design: .monospaced).weight(.medium) }

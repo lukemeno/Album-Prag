@@ -60,6 +60,8 @@
 	<array>
 		<string>Fraunces-SemiBold.ttf</string>
 		<string>InstrumentSerif-Regular.ttf</string>
+		<string>Inter-Variable.ttf</string>
+		<string>Lora-Variable.ttf</string>
 	</array>
 	<key>UIFileSharingEnabled</key>
 	<false/>
