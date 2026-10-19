@@ -666,6 +666,7 @@ struct NativeArcFAB: View {
                 .shadow(color: Stitch.ink.opacity(0.18), radius: 8, y: 4)
         }
         .buttonStyle(.plain)
+        .contentShape(Circle())
         .overlay(alignment: .trailing) {
             Text(spec.title)
                 .font(.caption.weight(.semibold))
@@ -678,7 +679,7 @@ struct NativeArcFAB: View {
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
         }
-        .position(x: 192 + positions[index].0, y: 192 + positions[index].1)
+        .offset(x: positions[index].0, y: positions[index].1)
         .opacity(mode == .closed ? 0 : 1)
         .scaleEffect(mode == .closed ? 0.84 : 1)
         .allowsHitTesting(mode != .closed)
@@ -690,16 +691,6 @@ struct NativeArcFAB: View {
         if !isSubmenu && index == 0 {
             node
                 .accessibilityHint("Öffnet Plan heute, Essen und Regen")
-                .accessibilityAction(named: Text("Plan heute")) {
-                    commit(.assistant("Plane den heutigen Tag für uns."))
-                }
-                .accessibilityAction(named: Text("Essen")) {
-                    commit(.assistant("Welche Essenstipps aus unseren Ideen passen heute?"))
-                }
-                .accessibilityAction(named: Text("Regen")) {
-                    commit(.assistant("Was können wir heute bei Regen in Prag unternehmen?"))
-                }
-                .accessibilityIdentifier(spec.id)
                 .accessibilityAddTraits(.isButton)
         } else {
             node
