@@ -17,6 +17,7 @@ final class NativePrototypeUITests: XCTestCase {
     private func tap(_ id: String, in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
         let button = app.buttons[id]
         XCTAssertTrue(button.waitForExistence(timeout: 10), "Fehlt: \(id)", file: file, line: line)
+        XCTAssertEqual(app.buttons.matching(identifier: id).count, 1, app.debugDescription, file: file, line: line)
         if button.exists { button.tap() }
     }
 
@@ -54,7 +55,7 @@ final class NativePrototypeUITests: XCTestCase {
         tap("native-fab", in: app)
         capture("fan")
         tap("native-fan-doc", in: app)
-        XCTAssertTrue(app.buttons["Schließen"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Schließen"].waitForExistence(timeout: 5), app.debugDescription)
         app.buttons["Schließen"].tap()
         XCTAssertTrue(app.buttons["native-fab"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["native-fan-doc"].exists)
@@ -77,6 +78,7 @@ final class NativePrototypeUITests: XCTestCase {
         tap("native-trip-prag", in: app)
         tap("native-fab", in: app)
         tap("native-fan-ai", in: app)
+        XCTAssertTrue(app.buttons["native-fan-sub-food"].waitForExistence(timeout: 5))
         capture("fan-submenu")
         tap("native-fan-sub-food", in: app)
         XCTAssertTrue(app.staticTexts["Antwort aus dem Testalbum."].waitForExistence(timeout: 12))

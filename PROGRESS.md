@@ -336,3 +336,15 @@
 - Nutzer meldete Fehler ausschließlich mit Webtoggle. Request fehlte include:web_search_call.action.sources; Extractor erkannte action.sources nicht. Strict source validation wurde zudem als generischer provider_error maskiert.
 - Request fordert echte Suchquellen an; Extractor akzeptiert action.sources nur unter echten web_search_call Items, erfundene Messagequellen bleiben gesperrt. Validierungsfehler jetzt gezielte deutsche Meldung und Diagnose ohne Prompt/Secret.
 - 7 Deno-Regressionstests +deno check bestanden, assistant-chat erneut veröffentlicht. Echter Backend-Webtest HTTP200: Café Savoy, Adresse/Ortsvorschlag und geprüfte prague.eu-Webquelle. Eigene QA-Identität gezielt entfernt. Kein iPhone-Neubuild nötig. Luna weiterhinlow.
+
+
+## Native Übertragung des geprüften Prototyps · 19.10.2026 – Simulatorstand abgeschlossen
+- Freigegebene Swift-Übertragung integriert: Home → Prag-Reise mit Plan, Ideen, MapKit und Gruppe; Bogen-Menü, bestehende Unterlagen/Assistent/Teilen, Reisekosten und Kamera/Mediathek. Vorlage HTML22e2176; native Basis aa223ce. Umfang und Gerätecheckliste: NATIVE-PORT.md.
+- Sol plante und prüfte; Luna implementierte in zwei getrennten Arbeitskopien. Benutzeränderungen in AlbumStore.swift/InboxView.swift per SHA256 unverändert; Expo nicht bearbeitet.
+- Xcode-Projekt/Schriften aktualisiert, Simulatorbuild erfolgreich. Unit-Suite AlbumTests.xctest: 151 Tests,4 übersprungen,0 Fehler (147 bestanden), /tmp/album-native-core-qa.log.
+- UI-Endprüfung: fünf unveränderte Abläufe bestanden in /tmp/album-native-completion-qa.log (Navigation/Unterlagen, Ausgaben-Neustart, Fotoaktionen, zwei Assistentenabläufe). Nach Fan-Korrektur alle drei betroffenen Tests gemeinsam bestanden: /tmp/album-native-fan-verified.log und .xcresult, TEST SUCCEEDED. Damit acht unterschiedliche UI-Abläufe erfolgreich geprüft; kein einzelner kompletter 8/8-Lauf nach der letzten Fan-Änderung behauptet.
+- Sol diagnostizierte AX-Duplikate und Trefferflächen; Luna setzte Semantik direkt auf feste52pt-Buttons und entfernt geschlossene Nodes vollständig. Tippen, AI→Essen mit Fixture, Halten/Ziehen sowie Schließen/Rückkehr bestehen. Menü-Pills bleiben einzeilig; finale Screenshots visuell geprüft.
+- Implementierung, Projektdatei und Tests committet; Dokumentation mit diesem Abschluss gesichert. Keine zusätzliche Funktionsausweitung.
+- Ansichten im Simulator visuell geprüft; QA-Bilder unter .qa-shots/native-20261019/. MapKit-Kacheln in der Aufnahme nicht nachgewiesen.
+- Isolierte Testdaten und Assistenten-Fixtures; kein Schreiben in die echte gemeinsame Reise, kein Backend-Deployment und keine kostenpflichtigen KI-Aufrufe für diese Prüfung.
+- Gerätetest offen: bekanntes physisches iPhone unavailable, nur Simulatoren erreichbar. Kameraaufnahme, VoiceOver, Daumenbedienung und Foto-/Ausgabensync mit zwei echten Geräten inklusive Offline-Rückkehr müssen dort geprüft werden.
