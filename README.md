@@ -1,5 +1,7 @@
 # Album, unser Prag-Album
 
+**Hauptprojekt für die weitere iOS-Entwicklung.** Die Abgrenzung zum HTML-Prototyp und separaten W0-Gerüst steht in [PROJECT-MAP.md](PROJECT-MAP.md). Aktueller Prüfstand: [NATIVE-PORT.md](NATIVE-PORT.md).
+
 Native SwiftUI-App für die Reise nach Prag vom 4. bis 9. Oktober 2026. Daten bleiben offline auf jedem iPhone verfügbar und können über ein privates Supabase-Projekt zwischen zwei Geräten synchronisiert werden.
 
 ## Lokal starten

@@ -1,4 +1,13 @@
-# Album – Stand, 02.10.2026
+# Album – aktueller Einstieg, 20.10.2026
+
+## Projektzuordnung geklärt
+- Dieses Repository ist das Hauptprojekt für die iOS-Entwicklung. `Album.xcodeproj` / Schema `Album`, Einstieg `AlbumExperienceRoot`.
+- Der HTML-Scratch-Ordner bleibt Design-/Interaktionsreferenz; sein separates iOS-W0-Gerüst (`aa40422`) wird nicht als zweite App weiterentwickelt.
+- Keine Codebasen zusammengeführt, keine Dateien verschoben oder gelöscht, keine Nutzerdaten geändert. Vorhandene uncommittete Nutzerarbeit bleibt erhalten.
+- Verbindliche Pfade, Zuständigkeiten und Prüfgrenzen: `PROJECT-MAP.md`. Native Umsetzung und zusätzliche Simulator-/Sync-Abnahme sind in den Checkpoints vom 19.10.2026 dokumentiert.
+- Die folgenden älteren Design- und Testangaben sind historisch; für den aktuellen Port gelten `PROJECT-MAP.md` und `NATIVE-PORT.md`.
+
+## Historischer Stand vom 02.10.2026
 - Native SwiftUI-App für die gemeinsame Prag-Reise (4.–9.10.2026): Ideen sammeln und abstimmen, Orte auf Karte und Tagesplan verbinden, Flüge/Hotel/PDFs ablegen, offline verfügbar halten und nach der Reise Fotos ansehen.
 - Supabase ist im Projekt konfiguriert; gemeinsame Einladungen, lokale Warteschlange, Realtime und private PDF-Dateien sind implementiert. Die Ortsbildsuche wurde im bestehenden Backend aktualisiert und live geprüft.
 - Aktuelles Designsystem: Briefmarken-Album, dokumentierte Farben/Typografie/Abstände/Radien, komponierte Text- und Flächenbuttons sowie Bewegungsmuster A–F mit gemeinsamen Timings in `Stitch.Motion` und Reduce-Motion-Varianten. Die kreative Motion-Richtung ist sichtbar in Kartenstapeln mit Fächerung/Neigung (Ideen und Fotos), gefülltem Wischfortschritt (Entscheidungen) und dem gemeinsamen Kapsel-zu-Blatt-Übergang (Karte).
