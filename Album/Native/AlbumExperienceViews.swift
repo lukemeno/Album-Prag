@@ -83,6 +83,13 @@ struct NativeTripExperience: View {
     let onFanOpenChanged: (Bool) -> Void
     @State private var fanOpen = false
 
+    /// Kontext des KI-Untermenüs: Reise, heutiger Reisetag und Anzahl der geplanten Orte.
+    private var fanContext: String {
+        guard let day = TripDates.tripDay() else { return "Prag · 4.–9. Okt" }
+        let count = store.plan(for: day).count
+        return "Prag · \(TripDates.weekdayShort(day)), \(day). Okt · \(count == 1 ? "1 Ort" : "\(count) Orte")"
+    }
+
     var body: some View {
         ZStack {
             Group {
@@ -145,16 +152,20 @@ struct NativeTripExperience: View {
         }
         .background(Stitch.paper.ignoresSafeArea())
         .overlay {
-            if fanOpen {
-                Color.black.opacity(0.10)
-                    .ignoresSafeArea()
-                    .contentShape(Rectangle())
-                    .onTapGesture { fanOpen = false }
-                    .accessibilityHidden(true)
+            ZStack {
+                if fanOpen {
+                    Stitch.paper.opacity(0.78)
+                        .ignoresSafeArea()
+                        .contentShape(Rectangle())
+                        .onTapGesture { fanOpen = false }
+                        .accessibilityHidden(true)
+                        .transition(.opacity)
+                }
             }
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: fanOpen)
         }
         .overlay(alignment: .bottomTrailing) {
-            NativeArcFAB(isOpen: $fanOpen, onAction: { action in
+            NativeArcFAB(isOpen: $fanOpen, contextLabel: fanContext, onAction: { action in
                 switch action {
                 case .memories: sheet = .memories
                 case .expenses: sheet = .expenses
@@ -592,9 +603,19 @@ enum NativeFABAction {
     case assistant(String?)
 }
 
+/// Kurzer Wochentag eines Reisetags im Oktober, ohne Abkürzungspunkt: „So“.
+private extension TripDates {
+    static func weekdayShort(_ day: Int) -> String {
+        let date = calendar.date(from: DateComponents(year: 2026, month: 10, day: day))!
+        return date.formatted(.dateTime.weekday(.abbreviated).locale(Locale(identifier: "de_DE")))
+            .replacingOccurrences(of: ".", with: "")
+    }
+}
+
 struct NativeArcFAB: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var isOpen: Bool
+    let contextLabel: String
     let onAction: (NativeFABAction) -> Void
     let onOpenStateChanged: (Bool) -> Void
     @State private var mode: FanMode = .closed
@@ -614,10 +635,12 @@ struct NativeArcFAB: View {
 
     init(
         isOpen: Binding<Bool>,
+        contextLabel: String,
         onAction: @escaping (NativeFABAction) -> Void,
         onOpenStateChanged: @escaping (Bool) -> Void = { _ in }
     ) {
         _isOpen = isOpen
+        self.contextLabel = contextLabel
         self.onAction = onAction
         self.onOpenStateChanged = onOpenStateChanged
     }
@@ -648,7 +671,32 @@ struct NativeArcFAB: View {
             .accessibilityAddTraits(.isButton)
         }
         .frame(width: 220, height: 220, alignment: .bottomTrailing)
-        .sensoryFeedback(.impact(weight: .light), trigger: mode != .closed)
+        .overlay(alignment: .topTrailing) {
+            if mode == .sub {
+                Label(contextLabel, systemImage: "map")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Stitch.ink)
+                    .fixedSize()
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 32)
+                    .background(Stitch.card, in: Capsule())
+                    .overlay(Capsule().strokeBorder(Stitch.rule))
+                    .offset(y: -40)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+                    .transition(.opacity)
+            }
+        }
+        // Haptik wie im Prototyp: Öffnen und Wechsel ins KI-Untermenü mittel, Schließen leicht,
+        // Überfahren eines Knotens als Auswahl.
+        .sensoryFeedback(trigger: mode) { old, new in
+            switch (old, new) {
+            case (.closed, .main), (.main, .sub): .impact(weight: .medium)
+            case (_, .closed): .impact(weight: .light)
+            default: nil
+            }
+        }
+        .sensoryFeedback(.selection, trigger: candidate) { _, new in new != nil }
         .onDisappear { cancelGestures() }
         .onChange(of: isOpen) { _, open in
             if !open, mode != .closed { closeMenu() }
@@ -677,15 +725,27 @@ struct NativeArcFAB: View {
         .accessibilityHint(hint)
         .accessibilityAddTraits(.isButton)
         .overlay(alignment: .trailing) {
-            Text(spec.title)
+            // Im KI-Untermenü ist der KI-Knoten aktiv: Schildchen grün gefüllt, wie im Prototyp.
+            let active = isSubmenu && spec.green
+            HStack(spacing: 6) {
+                Text(spec.title)
+                if spec.green {
+                    Text("KI")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(active ? Stitch.redFill : Stitch.onAccent)
+                        .padding(.horizontal, 6)
+                        .frame(minHeight: 18)
+                        .background(active ? Stitch.onAccent : Stitch.redFill, in: Capsule())
+                }
+            }
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(Stitch.ink)
+                .foregroundStyle(active ? Stitch.onAccent : Stitch.ink)
                 .fixedSize(horizontal: true, vertical: false)
                 .lineLimit(1)
                 .padding(.horizontal, 10)
                 .frame(minHeight: 32)
-                .background(Stitch.card, in: Capsule())
-                .overlay(Capsule().strokeBorder(Stitch.rule))
+                .background(active ? Stitch.redFill : Stitch.card, in: Capsule())
+                .overlay(Capsule().strokeBorder(active ? Stitch.redFill : Stitch.rule))
                 .offset(x: -62)
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
@@ -701,14 +761,14 @@ struct NativeArcFAB: View {
     private func fanNodeSpec(index: Int, submenu: Bool) -> (icon: String, title: String, id: String, green: Bool) {
         if submenu {
             switch index {
-            case 0: return ("sparkles", "Assistent", "native-fan-sub-ai", true)
-            case 1: return ("calendar", "Plan heute", "native-fan-sub-plan", false)
-            case 2: return ("fork.knife", "Essen", "native-fan-sub-food", false)
-            default: return ("cloud.rain", "Regen", "native-fan-sub-rain", false)
+            case 0: return ("sparkles", "Reise fragen", "native-fan-sub-ai", true)
+            case 1: return ("calendar", "Plan für heute", "native-fan-sub-plan", false)
+            case 2: return ("fork.knife", "Essen in der Nähe", "native-fan-sub-food", false)
+            default: return ("cloud.rain", "Falls es regnet", "native-fan-sub-rain", false)
             }
         }
         switch index {
-        case 0: return ("sparkles", "Assistent", "native-fan-ai", true)
+        case 0: return ("sparkles", "Reise fragen", "native-fan-ai", true)
         case 1: return ("photo.stack", "Erinnerungen", "native-fan-mem", false)
         case 2: return ("eurosign.circle", "Ausgaben", "native-fan-exp", false)
         default: return ("doc.text", "Unterlagen", "native-fan-doc", false)
