@@ -193,7 +193,7 @@ struct NativeTripPillBar: View {
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(selection == item ? Stitch.red : Stitch.inkSoft)
                         .frame(maxWidth: .infinity, minHeight: 44)
-                        .background(selection == item ? Stitch.paperDeep : .clear, in: Capsule())
+                        .background(selection == item ? Stitch.red.opacity(0.12) : .clear, in: Capsule())
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier(item.accessibilityID)
@@ -201,7 +201,7 @@ struct NativeTripPillBar: View {
             }
         }
         .padding(4)
-        .background(.ultraThinMaterial, in: Capsule())
+        .background(Stitch.paper, in: Capsule())
         .overlay(Capsule().strokeBorder(Stitch.rule))
         .stitchElevation(.floating)
     }
@@ -654,7 +654,7 @@ struct NativeArcFAB: View {
                 }
             }
             Button(action: buttonTap) {
-                Image(systemName: mode == .closed ? "plus" : "xmark")
+                Image(systemName: mode == .closed ? "sparkles" : "xmark")
                     .font(.title3.weight(.bold))
                     .frame(width: 56, height: 56)
                     .foregroundStyle(Stitch.onAccent)

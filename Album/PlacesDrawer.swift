@@ -522,7 +522,7 @@ struct PlacesDrawer: View {
                 .scrollTargetLayout()
                 .padding(.horizontal, Stitch.Space.page)
                 .padding(.top, Stitch.Space.s)
-                .padding(.bottom, Stitch.Space.xl)
+                .padding(.bottom, 128)
             }
             .scrollIndicators(.hidden)
             .accessibilityIdentifier("map-places-list")
