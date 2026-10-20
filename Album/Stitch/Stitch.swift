@@ -237,17 +237,9 @@ struct Postmark: View {
 // MARK: Kategorien
 
 extension Place {
-    /// Pastellrand der Marke.
-    var mat: Color {
-        switch category {
-        case "Essen & Trinken": Stitch.Mat.rose
-        case "Sehenswert": Stitch.Mat.sky
-        case "Aussicht": Stitch.Mat.butter
-        case "Unterkunft": Stitch.Mat.lilac
-        case "Shopping": Stitch.Mat.mint
-        default: Stitch.paperDeep
-        }
-    }
+    /// Rand der Marke: für alle Kategorien ein ruhiger Neutralton. Grün bleibt der einzige Akzent;
+    /// die Kategorie zeigt `symbol`.
+    var mat: Color { Stitch.rule }
 
     var symbol: String {
         switch category {

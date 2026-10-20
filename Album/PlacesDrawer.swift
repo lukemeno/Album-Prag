@@ -36,7 +36,7 @@ private enum DrawerDragAxis: Equatable { case horizontal, vertical }
 
 // Local drawer text colors remain readable on the deeper paper surface.
 private enum DrawerAccessibilityColors {
-    static let accent = Stitch.dynamic(light: (160, 50, 34), dark: (236, 134, 114))
+    static let accent = Stitch.red
     static let secondary = Stitch.dynamic(light: (84, 77, 70), dark: (181, 172, 160))
 }
 
