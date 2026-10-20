@@ -123,13 +123,6 @@ struct NativeTripExperience: View {
                         .accessibilityIdentifier("qa-native-share")
                 }
 #endif
-                Button { onAssistant(nil) } label: {
-                    Image(systemName: "sparkles").frame(width: Stitch.Size.touch, height: Stitch.Size.touch)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(Stitch.red)
-                .accessibilityLabel("Reise-Assistent")
-                .accessibilityIdentifier("assistant-launch")
                 Menu {
                     Button("Neue Idee", systemImage: "plus") { sheet = .add(Place(title: "", author: store.me)) }
                     Button("Assistent", systemImage: "sparkles") { onAssistant(nil) }
