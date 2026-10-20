@@ -222,11 +222,13 @@ struct NativePlanView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Stitch.Space.xl) {
                 VStack(alignment: .leading, spacing: Stitch.Space.xs) {
-                    Text("Dein Plan").font(Stitch.Face.display(32, relativeTo: .largeTitle)).foregroundStyle(Stitch.ink)
+                    Text(TripDates.tripDay() == day ? "Heute in Prag" : "Dein Plan")
+                        .font(Stitch.Face.display(32, relativeTo: .largeTitle)).foregroundStyle(Stitch.ink)
                     Text("Orte, die ihr gemeinsam beschlossen habt.").font(.subheadline).foregroundStyle(Stitch.inkSoft)
                 }
                 dayStrip
-                if let next = stops.first(where: { !$0.place.visited }) {
+                let next = stops.first(where: { !$0.place.visited })
+                if let next {
                     NativeNextStopCard(stop: next, root: store.root,
                                        onOpen: { sheet = .detail(next.place.id) },
                                        onVisited: { var copy = next.place; copy.visited = true; _ = store.upsert(copy) },
@@ -248,6 +250,7 @@ struct NativePlanView: View {
                             let previous = index == 0 ? store.hotelCoordinate : (stops[index - 1].place.coordinate ?? store.hotelCoordinate)
                             let walkingMinutes = stop.place.coordinate.map { DayPlanGenerator.walkingMinutes(DayPlanGenerator.distance(previous, $0)) }
                             NativeTimelineRow(number: index + 1, stop: stop, root: store.root, walkingMinutes: walkingMinutes,
+                                              showsActions: stop.id != next?.id,
                                               onOpen: { sheet = .detail(stop.place.id) },
                                               onVisited: { var copy = stop.place; copy.visited = true; _ = store.upsert(copy) },
                                               onRoute: { openWalkingRoute(to: stop.place) })
@@ -269,7 +272,7 @@ struct NativePlanView: View {
                 ForEach(DayPlanGenerator.days, id: \.self) { value in
                     Button { day = value } label: {
                         VStack(spacing: 2) {
-                            Text("Okt").font(.caption2.weight(.medium))
+                            Text(TripDates.weekdayShort(value).uppercased()).font(.caption2.weight(.medium))
                             Text(String(value)).font(.headline.weight(.semibold))
                         }
                         .foregroundStyle(day == value ? Stitch.onAccent : Stitch.ink)
@@ -334,6 +337,8 @@ struct NativeTimelineRow: View {
     let stop: PlanStop
     let root: URL
     let walkingMinutes: Int?
+    /// Der nächste Ort trägt Route und „Besucht“ schon in der Karte darüber.
+    var showsActions = true
     let onOpen: () -> Void
     let onVisited: () -> Void
     let onRoute: () -> Void
@@ -359,14 +364,16 @@ struct NativeTimelineRow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .buttonStyle(.plain)
-            HStack(spacing: Stitch.Space.l) {
-                if stop.place.coordinate != nil {
-                    Button("Route", systemImage: "figure.walk", action: onRoute).buttonStyle(TextActionButton())
-                        .accessibilityIdentifier("native-stop-route")
-                }
-                if stop.place.franked && !stop.place.visited {
-                    Button("Besucht", systemImage: "checkmark", action: onVisited).buttonStyle(TextActionButton())
-                        .accessibilityIdentifier("native-stop-visited")
+            if showsActions {
+                HStack(spacing: Stitch.Space.l) {
+                    if stop.place.coordinate != nil {
+                        Button("Route", systemImage: "figure.walk", action: onRoute).buttonStyle(TextActionButton())
+                            .accessibilityIdentifier("native-stop-route")
+                    }
+                    if stop.place.franked && !stop.place.visited {
+                        Button("Besucht", systemImage: "checkmark", action: onVisited).buttonStyle(TextActionButton())
+                            .accessibilityIdentifier("native-stop-visited")
+                    }
                 }
             }
         }
