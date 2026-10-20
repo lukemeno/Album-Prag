@@ -368,3 +368,11 @@
 - Alle drei Live-Gates und drei Xcode-MCP-UI-Tests bestanden. Echte Kamera/Haptik und Zwei-Geräte-Abnahme bleiben hardwarebedingt offen; kein Simulatorbeleg dafür behauptet.
 
 - Realtime erzeugt zusätzlich ein synthetisches Test-PDF. Auch dessen exakter Receipt-Pfad wurde über einen kurzlebigen QA-Cleanup-Client und die sofort wieder entfernte Policy bereinigt (Audit-Migrationen `qa_realtime_cleanup_grant_20261019` / `qa_realtime_cleanup_revoke_20261019`). Abschließende unabhängige DB-Prüfung: Baseline 2/5/5/0/0;0 QA-User,0 QA-Objekte,0 temporäre Policies. Lokale Cleanup-Sitzungsdatei entfernt.
+
+## Vergleich HTML-Prototyp ↔ Swift-App · 20.10.2026 – Befund und Umsetzung der Top 5
+- Repository `Album`, HEAD `29af4c2`, iPhone-17-Simulator, isolierte Teststores; HTML-Referenz mit `screens/shoot.sh 874`. Bericht: [VERGLEICH-HTML-NATIV.md](VERGLEICH-HTML-NATIV.md); Bilder lokal unter `.qa-shots/vergleich-20261020/` (ignoriert).
+- 13 Abweichungen mit Beleg, Top 5: Bogen-Menü inkl. Haptik (1 statt 35 Aufrufe), Ausgaben-Layout/Formular, Tab-Leiste/FAB, ein Akzent (Rot/Rosa), Plan-Kopf. Nach Freigabe umgesetzt in fünf Commits `aeec53f`…`4554789` (Bogen-Menü+Haptik, Ausgaben, Tab-Leiste/FAB, ein Akzent, Plan-Kopf). Bewusste Abweichungen vom Plan-Wortlaut stehen im Bericht.
+- Gegenproben ohne Befund: Route-Aktion (bei Koordinaten vorhanden), MapKit-Kacheln heute sichtbar, Halten→Ziehen→Loslassen auf Plan und Karte erfolgreich.
+- Ungeprüft: Ausgaben mit Daten, Peek, Sheet-Drag/Rand-Wisch, Zoom, VoiceOver, Dark Mode, fühlbare Haptik am Gerät.
+- Die drei uncommitteten Nutzerdateien (Store, Inbox, Expo-Layout) per SHA-256 unverändert bestätigt.
+- Prüfung nach Umsetzung: Build je Punkt; 151 Unit-Tests ohne Fehler (4 übersprungen, Live-Gates), `NativePrototypeUITests` 6/6 bestanden. Haptik am Gerät, Dark Mode der neuen Farben und Ausgaben mit Daten per Hand ungeprüft.
