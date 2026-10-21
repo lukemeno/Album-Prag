@@ -2,7 +2,7 @@ import { clients, jsonHeaders } from "../_shared/album.ts";
 import { assistantSystemPrompt, assistantUserPrompt } from "../_shared/assistant_prompt.ts";
 import { AssistantMembershipError, verifyAssistantTripContext } from "../_shared/assistant_membership.ts";
 import {
-  ASSISTANT_RESPONSE_SCHEMA,
+  assistantResponseSchema,
   AssistantValidationError,
   excerptMatchesDocument,
   extractActualWebSources,
@@ -118,7 +118,7 @@ function providerRequestBody(request: AssistantRequest, model: string): Record<s
         type: "json_schema",
         name: "album_assistant_reply",
         strict: true,
-        schema: ASSISTANT_RESPONSE_SCHEMA,
+        schema: assistantResponseSchema(request.protocol_version),
       },
     },
   };

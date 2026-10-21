@@ -21,7 +21,7 @@ const request = parseAssistantRequest({
   message: "Plane einen ruhigen Tag",
   history: [],
   context: {
-    trip: { hotel: "Test" },
+    trip: { title: "Prag", hotel: "Test" },
     places: [{ id: "place-1", title: "Museum", note: "", category: "Kultur", address: "A 1", lat: 48, lng: 11, day: 4, franked: false, opening_hours: "" }],
     documents: [{ id: "doc-1", name: "Ticket", text: "Abflug 09:30" }],
     collection: [],
@@ -33,6 +33,7 @@ const request = parseAssistantRequest({
 
 Deno.test("assistant output keeps only known IDs and deduplicates plan places", () => {
   const reply = sanitizeAssistantReply({
+    protocol_version: 1,
     answer: "Museum passt.",
     sources: [{ title: "Ticket", url: null, document_id: "doc-1", quote: "Abflug 09:30" }],
     places: [{ existing_id: "place-1", title: "Museum", address: "A 1", query: "Museum", source_url: null }],
@@ -45,6 +46,7 @@ Deno.test("assistant output keeps only known IDs and deduplicates plan places", 
 Deno.test("assistant rejects forged web citations and foreign places", async (test) => {
   await assertRejects(
     async () => sanitizeAssistantReply({
+      protocol_version: 1,
       answer: "Quelle",
       sources: [{ title: "Fake", url: "https://evil.example", document_id: null, quote: null }],
       places: [], plan: [], preferences: [],
@@ -53,6 +55,7 @@ Deno.test("assistant rejects forged web citations and foreign places", async (te
   );
   await assertRejects(
     async () => sanitizeAssistantReply({
+      protocol_version: 1,
       answer: "Plan",
       sources: [], places: [],
       plan: [{ day: 4, place_ids: ["foreign-place"], note: "" }], preferences: [],
@@ -102,7 +105,7 @@ Deno.test("web search action sources validate JSON citations without text annota
   const url = "https://example.com/cafe";
   const sources = extractActualWebSources({output: [{type: "web_search_call", action: {type: "search", sources: [{type: "url", url}]}}]});
   assertEquals(sources.map(source => source.url), [url]);
-  const reply = sanitizeAssistantReply({answer: "Ein Café", sources: [{title: "Café",url,document_id:null,quote:null}],places:[{existing_id:null,title:"Café",address:"Prag",query:"Café Prag",source_url:url}],plan:[],preferences:[]},request,sources);
+  const reply = sanitizeAssistantReply({protocol_version: 1, answer: "Ein Café", sources: [{title: "Café",url,document_id:null,quote:null}],places:[{existing_id:null,title:"Café",address:"Prag",query:"Café Prag",source_url:url}],plan:[],preferences:[]},request,sources);
   assertEquals(reply.places[0].source_url,url);
 });
 Deno.test("model JSON source lists are never accepted as web tool evidence", () => {

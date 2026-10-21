@@ -23,6 +23,7 @@ export type AssistantContextPlace = {
   lat: number | null;
   lng: number | null;
   day: number | null;
+  planned_date: string | null;
   franked: boolean;
   opening_hours: string;
 };
@@ -31,6 +32,7 @@ export type AssistantContextDocument = { id: string; name: string; text: string 
 export type AssistantContextCollection = { id: string; text: string; url: string | null };
 
 export type AssistantRequest = {
+  protocol_version: 1 | 2;
   request_id: string;
   trip_id: string | null;
   message: string;
@@ -61,7 +63,8 @@ export type AssistantReply = {
     query: string;
     source_url: string | null;
   }>;
-  plan: Array<{ day: number; place_ids: string[]; note: string }>;
+  protocol_version: 1 | 2;
+  plan: Array<{ date?: string; day?: number; place_ids: string[]; note: string }>;
   preferences: string[];
   usage?: { used_usd: number; limit_usd: number; remaining_requests: number };
 };
@@ -135,8 +138,42 @@ function jsonSize(value: unknown): number {
   }
 }
 
+export function isISOCalendarDate(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]), month = Number(match[2]), day = Number(match[3]);
+  if (year < 1 || month < 1 || month > 12 || day < 1) return false;
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const monthDays = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return day <= monthDays[month - 1];
+}
+
+function isExplicitLegacyPrague(trip: Record<string, unknown>): boolean {
+  const title = typeof trip.title === "string" ? trip.title.toLocaleLowerCase() : "";
+  const destination = typeof trip.destination === "string" ? trip.destination.toLocaleLowerCase() : "";
+  const hotel = typeof trip.hotel === "string" ? trip.hotel.toLocaleLowerCase() : "";
+  const matchesCity = [title, destination].some((value) => value === "prag" || value === "prague" || value === "praha");
+  const seededLegacyTrip = hotel === "hotel urban crème";
+  return (matchesCity || seededLegacyTrip)
+    && (trip.startDate === undefined || trip.startDate === null || trip.startDate === "2026-10-04")
+    && (trip.endDate === undefined || trip.endDate === null || trip.endDate === "2026-10-09");
+}
+
+function validDateRange(trip: Record<string, unknown>): { start: string; end: string } | null {
+  const start = trip.startDate;
+  const end = trip.endDate;
+  if (start === undefined && end === undefined) return null;
+  if (!isISOCalendarDate(start) || !isISOCalendarDate(end) || start > end) {
+    throw new AssistantValidationError("Ungültiger Reisezeitraum");
+  }
+  return { start, end };
+}
+
 export function parseAssistantRequest(value: unknown): AssistantRequest {
   const body = objectValue(value, "body");
+  const protocolVersion = body.protocol_version === undefined ? 1 : body.protocol_version;
+  if (protocolVersion !== 1 && protocolVersion !== 2) throw new AssistantValidationError("Nicht unterstützte Protokollversion");
   if (!isUuid(body.request_id)) throw new AssistantValidationError("Ungültige Anfrage-ID");
   if (body.trip_id !== null && body.trip_id !== undefined && !isUuid(body.trip_id)) {
     throw new AssistantValidationError("Ungültige Reise-ID");
@@ -160,11 +197,18 @@ export function parseAssistantRequest(value: unknown): AssistantRequest {
 
   const contextInput = objectValue(body.context, "context");
   const tripValue = objectValue(contextInput.trip, "context.trip");
+  if (protocolVersion === 1 && !isExplicitLegacyPrague(tripValue)) {
+    throw new AssistantValidationError("Alte Planversion ist nur für die eindeutig erkannte Prag-Reise zulässig.", "protocol_upgrade_required", 409);
+  }
+  const dateRange = protocolVersion === 2 ? validDateRange(tripValue) : null;
   if (!Array.isArray(contextInput.places) || contextInput.places.length > MAX_PLACES) {
     throw new AssistantValidationError("Ungültige Orte");
   }
   const places = contextInput.places.map((item, index) => {
     const row = objectValue(item, `context.places[${index}]`);
+    if (protocolVersion === 2 && row.day !== undefined && row.day !== null) {
+      throw new AssistantValidationError(`Legacy-Tagesnummer in v2-Kontext: context.places[${index}].day`);
+    }
     const id = stringValue(row.id, `context.places[${index}].id`, 200);
     return {
       id,
@@ -174,7 +218,14 @@ export function parseAssistantRequest(value: unknown): AssistantRequest {
       address: stringValue(row.address ?? "", `context.places[${index}].address`, 500, false),
       lat: optionalCoordinate(row.lat, `context.places[${index}].lat`, -90, 90),
       lng: optionalCoordinate(row.lng, `context.places[${index}].lng`, -180, 180),
-      day: row.day === null || row.day === undefined ? null : finiteNumber(row.day, `context.places[${index}].day`, 1, 31),
+      day: protocolVersion === 1 && row.day !== null && row.day !== undefined ? finiteNumber(row.day, `context.places[${index}].day`, 1, 31) : null,
+      planned_date: protocolVersion === 2 && row.planned_date !== null && row.planned_date !== undefined
+        ? (() => {
+          if (!isISOCalendarDate(row.planned_date)) throw new AssistantValidationError(`Ungültiges Datum: context.places[${index}].planned_date`);
+          if (!dateRange || row.planned_date < dateRange.start || row.planned_date > dateRange.end) throw new AssistantValidationError(`Ort außerhalb des Reisezeitraums: context.places[${index}].planned_date`);
+          return row.planned_date;
+        })()
+        : null,
       franked: row.franked === undefined ? false : row.franked === true,
       opening_hours: stringValue(row.opening_hours ?? "", `context.places[${index}].opening_hours`, 1_000, false),
     };
@@ -220,6 +271,7 @@ export function parseAssistantRequest(value: unknown): AssistantRequest {
   }
   if (typeof body.web_search !== "boolean") throw new AssistantValidationError("Ungültige Websuche");
   return {
+    protocol_version: protocolVersion,
     request_id: body.request_id,
     trip_id: (body.trip_id as string | null | undefined) ?? null,
     message,
@@ -235,6 +287,7 @@ export const ASSISTANT_RESPONSE_SCHEMA = {
   type: "object",
   additionalProperties: false,
   properties: {
+    protocol_version: { type: "integer", enum: [2] },
     answer: { type: "string" },
     sources: {
       type: "array",
@@ -271,11 +324,11 @@ export const ASSISTANT_RESPONSE_SCHEMA = {
         type: "object",
         additionalProperties: false,
         properties: {
-          day: { type: "integer", minimum: 4, maximum: 9 },
+          date: { type: "string", format: "date" },
           place_ids: { type: "array", items: { type: "string" } },
           note: { type: "string" },
         },
-        required: ["day", "place_ids", "note"],
+        required: ["date", "place_ids", "note"],
       },
     },
     preferences: { type: "array", items: { type: "string" } },
@@ -290,8 +343,32 @@ export const ASSISTANT_RESPONSE_SCHEMA = {
       required: ["used_usd", "limit_usd", "remaining_requests"],
     },
   },
-  required: ["answer", "sources", "places", "plan", "preferences", "usage"],
+  required: ["protocol_version", "answer", "sources", "places", "plan", "preferences", "usage"],
 } as const;
+
+export function assistantResponseSchema(protocolVersion: 1 | 2): unknown {
+  if (protocolVersion === 2) return ASSISTANT_RESPONSE_SCHEMA;
+  return {
+    ...ASSISTANT_RESPONSE_SCHEMA,
+    properties: {
+      ...ASSISTANT_RESPONSE_SCHEMA.properties,
+      protocol_version: { type: "integer", enum: [1] },
+      plan: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            day: { type: "integer", minimum: 4, maximum: 9 },
+            place_ids: { type: "array", items: { type: "string" } },
+            note: { type: "string" },
+          },
+          required: ["day", "place_ids", "note"],
+        },
+      },
+    },
+  };
+}
 
 function outputString(value: unknown, field: string, max: number, required = true): string {
   return stringValue(value, field, max, required);
@@ -303,6 +380,8 @@ function outputNullableString(value: unknown, field: string, max: number): strin
 
 export function sanitizeAssistantReply(value: unknown, request: AssistantRequest, actualWebSources: ActualWebSource[] = []): AssistantReply {
   const body = objectValue(value, "reply");
+  if (body.protocol_version !== request.protocol_version) throw new AssistantValidationError("Antwortversion stimmt nicht mit der Anfrage überein.", "provider_invalid", 502);
+  const dateRange = request.protocol_version === 2 ? validDateRange(request.context.trip) : null;
   const placeIds = new Set(request.context.places.map((place) => place.id));
   const documents = new Map(request.context.documents.map((document) => [document.id, document]));
   const webSources = new Map(actualWebSources.map((source) => [source.url, source]));
@@ -346,22 +425,40 @@ export function sanitizeAssistantReply(value: unknown, request: AssistantRequest
   });
 
   if (!Array.isArray(body.plan) || body.plan.length > 30) throw new AssistantValidationError("Ungültiger Tagesplan", "provider_invalid", 502);
+  const seenDays = new Set<string>();
+  const seenPlanPlaces = new Set<string>();
   const plan = body.plan.map((item, index) => {
     const row = objectValue(item, `plan[${index}]`);
-    const day = finiteNumber(row.day, `plan[${index}].day`, 4, 9);
-    if (!Number.isInteger(day)) throw new AssistantValidationError("Ungültiger Tag", "provider_invalid", 502);
+    let date: string | undefined;
+    let day: number | undefined;
+    if (request.protocol_version === 2) {
+      if (!isISOCalendarDate(row.date) || !dateRange || row.date < dateRange.start || row.date > dateRange.end) {
+        throw new AssistantValidationError("Ungültiges oder außerhalb liegendes Plandatum", "provider_invalid", 502);
+      }
+      date = row.date;
+      if (seenDays.has(date)) throw new AssistantValidationError("Doppelte Plantage", "provider_invalid", 502);
+      seenDays.add(date);
+    } else {
+      day = finiteNumber(row.day, `plan[${index}].day`, 4, 9);
+      if (!Number.isInteger(day) || !isExplicitLegacyPrague(request.context.trip)) throw new AssistantValidationError("Ungültiger alter Reisetag", "provider_invalid", 502);
+      if (seenDays.has(String(day))) throw new AssistantValidationError("Doppelter alter Reisetag", "provider_invalid", 502);
+      seenDays.add(String(day));
+    }
     if (!Array.isArray(row.place_ids)) throw new AssistantValidationError("Ungültige Ortsliste", "provider_invalid", 502);
     const uniqueIds: string[] = [];
     for (const [placeIndex, id] of row.place_ids.entries()) {
       const placeId = outputString(id, `plan[${index}].place_ids[${placeIndex}]`, 200);
       if (!placeIds.has(placeId)) throw new AssistantValidationError("Unbekannter Ort im Plan", "provider_invalid", 502);
-      if (!uniqueIds.includes(placeId)) uniqueIds.push(placeId);
+      if (uniqueIds.includes(placeId)) continue;
+      if (seenPlanPlaces.has(placeId)) throw new AssistantValidationError("Ort mehrfach im Plan", "provider_invalid", 502);
+      uniqueIds.push(placeId);
+      seenPlanPlaces.add(placeId);
     }
-    return { day, place_ids: uniqueIds, note: outputString(row.note, `plan[${index}].note`, 1_000, false) };
+    return { ...(request.protocol_version === 2 ? { date } : { day }), place_ids: uniqueIds, note: outputString(row.note, `plan[${index}].note`, 1_000, false) };
   });
   if (!Array.isArray(body.preferences) || body.preferences.length > MAX_PREFERENCES) throw new AssistantValidationError("Ungültige Vorlieben", "provider_invalid", 502);
   const preferences = body.preferences.map((item, index) => outputString(item, `preferences[${index}]`, MAX_PREFERENCE_CHARS));
-  return { answer, sources, places, plan, preferences };
+  return { protocol_version: request.protocol_version, answer, sources, places, plan, preferences };
 }
 
 export function extractResponseText(response: unknown): string {

@@ -1,6 +1,6 @@
 # Plan: Assistenten-Nutzung fair begrenzen · Entwurf 21.10.2026
 
-Status 21.10.2026: **Welle 1 lokal umgesetzt** (Migration `202610210001_assistant_usage_hardening.sql`, Edge Function, Tests), aber **nicht auf Live-Supabase angewendet und nicht deployt**. Reihenfolge beim Ausrollen: erst Migration, dann Function. Statt Pflicht-`trip_id` gibt es ein Solo-Kontingent (20 Anfragen/Monat), weil nicht geteilte Alben keine `trip_id` senden. Wellen 2–4 offen. Auth-, Abrechnungs- und Sicherheitslogik ändern wir erst nach ausdrücklicher Freigabe je Welle.
+Status 21.10.2026: **Welle 1 ist live** auf `prag-album` (Migration `202610210001` angewendet, Edge Function `assistant-chat` neu deployt, Ende-zu-Ende-Aufruf erfolgreich). Statt Pflicht-`trip_id` gibt es ein Solo-Kontingent (20 Anfragen/Monat), weil nicht geteilte Alben keine `trip_id` senden. Wellen 2–4 offen. Auth-, Abrechnungs- und Sicherheitslogik ändern wir erst nach ausdrücklicher Freigabe je Welle.
 
 ## 1. Ist-Stand (im Code geprüft)
 

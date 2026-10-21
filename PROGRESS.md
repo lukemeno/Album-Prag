@@ -376,3 +376,10 @@
 - Ungeprüft: Ausgaben mit Daten, Peek, Sheet-Drag/Rand-Wisch, Zoom, VoiceOver, Dark Mode, fühlbare Haptik am Gerät.
 - Die drei uncommitteten Nutzerdateien (Store, Inbox, Expo-Layout) per SHA-256 unverändert bestätigt.
 - Prüfung nach Umsetzung: Build je Punkt; 151 Unit-Tests ohne Fehler (4 übersprungen, Live-Gates), `NativePrototypeUITests` 6/6 bestanden. Haptik am Gerät, Dark Mode der neuen Farben und Ausgaben mit Daten per Hand ungeprüft.
+
+## Design, Web-Recherche, Assistenten-Limits · 21.10.2026
+- Web-Recherche im Assistenten fest an, Schalter entfernt (`f07ca5c`). Neue Palette **Terrakotta** (`5cbdd10`). 19 Screens und Paletten-Vorschau unter `.qa-shots/screens-20261021/` (ignoriert).
+- **Assistenten-Limits Welle 1 live** auf `prag-album` (`b801af2`, Plan: [PLAN-NUTZUNGSLIMITS.md](PLAN-NUTZUNGSLIMITS.md)): Limits und Preise als Tabellen, Not-Aus, Rückbuchung bei Fehlern, Freigabe hängender Reservierungen, Solo-Kontingent ohne geteilte Reise.
+- Geprüft: auf separatem Supabase-Testprojekt 13 Verhaltensprüfungen und 6 REST-Angriffe mit öffentlichem Schlüssel (alle abgewiesen); live danach Rechte, Limits, 401 ohne Anmeldung und ein echter Ende-zu-Ende-Aufruf (HTTP 200, Buchung `completed`, Testnutzer gelöscht).
+- **Achtung Drift:** Die Live-Function war neuer als das Repo (Kalender-Protokoll v2). Deployt wurde Live-Code + Welle-1-Patch; das Repo ist jetzt auf diesem Stand. Live hat außerdem 12 Migrationen vom 10.–19.10. (Bewertungen, Anreicherung, Gruppen, Ausgaben u. a.), die im Repo fehlen.
+- Offen: Testprojekt `prag-album-test-welle1` ist pausiert, bitte im Supabase-Dashboard löschen (Werkzeug kann nicht löschen). Wellen 2–4 (Sign in with Apple, App Attest, Reise-Pass) offen.
