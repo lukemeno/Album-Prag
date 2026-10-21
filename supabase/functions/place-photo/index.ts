@@ -5,8 +5,8 @@ import { resolveWikimedia, WikimediaUnavailable } from "../_shared/wikimedia_pho
 import { createPhotoCache } from "../_shared/place_photo_cache.ts";
 
 const cachedWikimedia = createPhotoCache(async key => {
-  const [title, category, latitude, longitude, address] = JSON.parse(key);
-  return await resolveWikimedia(title, category, latitude, longitude, address);
+  const [title, category, latitude, longitude, address, region] = JSON.parse(key);
+  return await resolveWikimedia(title, category, latitude, longitude, address, region);
 });
 
 Deno.serve(async request => {
@@ -17,11 +17,13 @@ Deno.serve(async request => {
     const title = typeof body.title === "string" ? body.title.trim() : "";
     const address = typeof body.address === "string" ? body.address.trim() : "";
     const category = typeof body.category === "string" ? body.category : "Idee";
+    // Reiseregion steuert die Wikipedia-Sprache; ältere App-Versionen senden keine und sind Prag-Alben.
+    const region = typeof body.region === "string" && body.region.trim() ? body.region.trim().slice(0, 200) : "Prag";
     const latitude = Number(body.latitude);
     const longitude = Number(body.longitude);
     if (!title || !validCoordinate(latitude, longitude)) return json({ error: "Ort oder Koordinaten fehlen" }, 400);
 
-    const photos = await cachedWikimedia(JSON.stringify([title, category, latitude, longitude, address]));
+    const photos = await cachedWikimedia(JSON.stringify([title, category, latitude, longitude, address, region]));
     const candidates = body.selection_version >= 3 ? photos : photos.filter(photo => photo.confidence === "verified");
     const image = photos.find(photo => photo.confidence === "verified");
     if (image) return json({ image, candidates, selection_version: 3 });

@@ -1,23 +1,24 @@
-import { choosePlace, distanceMeters, firstArray, rankPhotos, stripHTML, type PhotoCandidate, type PlaceCandidate } from "./place_photo.ts";
+import { choosePlace, distanceMeters, firstArray, normalize, rankPhotos, stripHTML, type PhotoCandidate, type PlaceCandidate } from "./place_photo.ts";
 
-const wikimediaHeaders = { "User-Agent": Deno.env.get("WIKIMEDIA_USER_AGENT") || "Album-Prague/1.0 (private travel app)" };
+const wikimediaHeaders = { "User-Agent": Deno.env.get("WIKIMEDIA_USER_AGENT") || "Album/1.0 (private travel app)" };
 
 /// Sammelt Fotos aus drei Quellen (Hauptbild, Commons-Kategorie, Umgebung) und gibt die typischsten zuerst zurück.
-export async function resolveWikimedia(title: string, category: string, latitude: number, longitude: number, address = "") {
+export async function resolveWikimedia(title: string, category: string, latitude: number, longitude: number, address = "", regionName = "") {
   let failure: unknown;
   const entities: Array<{ id: string; value: any }> = [];
   let place: PlaceCandidate | undefined;
-  for (const language of ["de", "cs", "en"]) {
+  const languages = wikimediaLanguages(regionName);
+  for (const language of languages) {
     try {
       const matches = await wikidataSearch(title, language);
       const ids = matches.map(item => item.id).filter(id => !entities.some(entity => entity.id === id)).slice(0, 12);
-      entities.push(...await wikidataEntities(ids));
+      entities.push(...await wikidataEntities(ids, languages));
       place = choosePlace(entities.flatMap(entityCandidate), title, latitude, longitude, address);
       if (place) break;
     } catch (error) { failure = error; break; }
   }
   if (!place) {
-    for (const language of ["cs", "en"] as const) {
+    for (const language of languages) {
       try {
         place = choosePlace(await wikipediaPlaces(language, latitude, longitude), title, latitude, longitude, address);
         if (place) break;
@@ -77,6 +78,23 @@ export async function resolveWikimedia(title: string, category: string, latitude
   });
 }
 
+/// English plus one region-derived language keeps international lookups bounded.
+export function wikimediaLanguages(regionName: string): Array<"en" | "pt" | "de" | "cs" | "es" | "fr" | "it" | "ja" | "zh"> {
+  const region = normalize(regionName);
+  const hints: Array<["pt" | "de" | "cs" | "es" | "fr" | "it" | "ja" | "zh", string[]]> = [
+    ["pt", ["brazil", "brasil", "portugal", "rio de janeiro", "sao paulo", "lisbon"]],
+    ["de", ["germany", "deutschland", "berlin", "austria", "osterreich", "wien", "vienna", "switzerland", "schweiz"]],
+    ["cs", ["czech", "cesko", "prague", "praha", "prag"]],
+    ["es", ["spain", "espana", "mexico", "argentina", "madrid", "buenos aires"]],
+    ["fr", ["france", "paris", "belgium", "bruxelles", "brussels"]],
+    ["it", ["italy", "italia", "rome", "roma"]],
+    ["ja", ["japan", "tokyo", "kyoto"]],
+    ["zh", ["china", "taiwan", "hong kong", "beijing", "shanghai"]],
+  ];
+  const preferred = hints.find(([, values]) => values.some(value => region.includes(normalize(value))))?.[0];
+  return preferred ? ["en", preferred] : ["en"];
+}
+
 /// Eine Anfrage an Wikidata oder Commons. Bei 429 (zu viele Anfragen) einmal kurz warten, dann ehrlich scheitern,
 /// statt still „kein Bild“ zu melden.
 export class WikimediaUnavailable extends Error {
@@ -85,7 +103,7 @@ export class WikimediaUnavailable extends Error {
   }
 }
 
-async function wikimedia(host: "www.wikidata.org" | "commons.wikimedia.org" | "cs.wikipedia.org" | "en.wikipedia.org", params: Record<string, string>) {
+async function wikimedia(host: "www.wikidata.org" | "commons.wikimedia.org" | "cs.wikipedia.org" | "en.wikipedia.org" | "pt.wikipedia.org" | "de.wikipedia.org" | "es.wikipedia.org" | "fr.wikipedia.org" | "it.wikipedia.org" | "ja.wikipedia.org" | "zh.wikipedia.org", params: Record<string, string>) {
   const url = new URL(`https://${host}/w/api.php`);
   Object.entries({ format: "json", ...params }).forEach(([key, value]) => url.searchParams.set(key, value));
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -158,9 +176,9 @@ async function wikidataSearch(title: string, language: string) {
 }
 
 /// Alle Einträge in einer Anfrage (statt einer pro Eintrag).
-async function wikidataEntities(ids: string[]) {
+async function wikidataEntities(ids: string[], languages: string[]) {
   if (!ids.length) return [];
-  const payload = await wikimedia("www.wikidata.org", { action: "wbgetentities", ids: ids.join("|"), props: "claims|labels|aliases", languages: "cs|de|en" });
+  const payload = await wikimedia("www.wikidata.org", { action: "wbgetentities", ids: ids.join("|"), props: "claims|labels|aliases", languages: [...new Set([...languages, "cs", "de", "en"])].join("|") });
   return ids.flatMap(id => payload?.entities?.[id]?.claims ? [{ id, value: payload.entities[id] }] : []);
 }
 
@@ -177,7 +195,7 @@ function entityCandidate(entity: { id: string; value: any } | null): PlaceCandid
     image: typeof image === "string" ? image : undefined, commonsCategory: typeof commonsCategory === "string" ? commonsCategory : undefined }));
 }
 
-async function wikipediaPlaces(language: "cs" | "en", latitude: number, longitude: number): Promise<PlaceCandidate[]> {
+async function wikipediaPlaces(language: "cs" | "en" | "pt" | "de" | "es" | "fr" | "it" | "ja" | "zh", latitude: number, longitude: number): Promise<PlaceCandidate[]> {
   const payload = await wikimedia(`${language}.wikipedia.org`, {
     action: "query", generator: "geosearch", ggscoord: `${latitude}|${longitude}`,
     ggsradius: "350", ggsnamespace: "0", ggslimit: "10",

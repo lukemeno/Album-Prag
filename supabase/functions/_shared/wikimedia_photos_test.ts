@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertRejects } from "jsr:@std/assert";
-import { resolveWikimedia } from "./wikimedia_photos.ts";
+import { resolveWikimedia, wikimediaLanguages } from "./wikimedia_photos.ts";
 
 async function aliasFixture(optionalFailure: string | null = null) {
   const original = globalThis.fetch;
@@ -201,6 +201,8 @@ Deno.test("Wikipedia falls back with exact name and coordinates when Wikidata is
       "Essen & Trinken",
       50.0819,
       14.4185,
+      "",
+      "Prag",
     );
     assertEquals(images[0].confidence, "verified");
     assertEquals(images[0].provider_place_id, "Q12879009");
@@ -246,4 +248,10 @@ Deno.test("Wikipedia never auto-selects a nearby differently named venue", async
   } finally {
     globalThis.fetch = original;
   }
+});
+
+Deno.test("Wikipedia-Sprache folgt der Reiseregion, Englisch immer dabei", () => {
+  assertEquals(wikimediaLanguages("Prag"), ["en", "cs"]);
+  assertEquals(wikimediaLanguages("Lissabon, Portugal"), ["en", "pt"]);
+  assertEquals(wikimediaLanguages(""), ["en"]);
 });

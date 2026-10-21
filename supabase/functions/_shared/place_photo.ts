@@ -55,7 +55,7 @@ function houseNumbers(address: string): string[] {
 }
 
 export function normalize(value: string) {
-  return value.normalize("NFD").replace(/\p{Diacritic}/gu, "").replace(/[^a-zA-Z0-9]+/g, " ").trim().toLocaleLowerCase("en");
+  return value.normalize("NFD").replace(/\p{Diacritic}/gu, "").replace(/[^\p{L}\p{N}]+/gu, " ").trim().toLowerCase();
 }
 
 export function tokenSimilarity(left: string, right: string) {
