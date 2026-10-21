@@ -108,7 +108,8 @@ import CoreLocation
     func applyPlan(_ plan: [AssistantDay], messageID: String) async throws {
         guard let action = actions[messageID] else { throw AssistantActions.ActionError.noUndo }
         try await action.refreshBeforeApply(to: store)
-        try action.apply(plan, to: store)
+        let protocolVersion = messages.first { $0.id == messageID }?.reply?.protocolVersion ?? AssistantProtocol.version
+        try action.apply(plan, protocolVersion: protocolVersion, to: store)
         actionRevision += 1
     }
 

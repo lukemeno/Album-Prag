@@ -242,7 +242,7 @@ struct AssistantView: View {
     private func planCard(_ day: AssistantDay) -> some View {
         let names = day.placeIDs.compactMap { id in store.places.first(where: { $0.id == id })?.title }
         return VStack(alignment: .leading, spacing: Stitch.Space.xs) {
-            Text(TripDates.dayTitle(day.day)).font(.headline).foregroundStyle(Stitch.ink)
+            Text(day.date.map(store.tripCalendar.dayTitle) ?? day.day.map { "Alter Reisetag \($0)" } ?? "Reisetag").font(.headline).foregroundStyle(Stitch.ink)
             Text(names.isEmpty ? day.note : names.joined(separator: " · ")).font(.subheadline).foregroundStyle(Stitch.ink)
             if !day.note.isEmpty && !names.isEmpty { Text(day.note).font(.footnote).foregroundStyle(Stitch.inkSoft) }
         }

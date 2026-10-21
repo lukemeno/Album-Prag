@@ -13,14 +13,14 @@ struct TripMemoriesView: View {
 
     private var visitedPlaces: [Place] {
         store.franked.filter(\.visited).sorted {
-            ($0.day ?? .max, $0.dayOrder ?? .max, $0.title)
-                < ($1.day ?? .max, $1.dayOrder ?? .max, $1.title)
+            ($0.plannedDate?.rawValue ?? "9999-99-99", $0.dayOrder ?? .max, $0.title)
+                < ($1.plannedDate?.rawValue ?? "9999-99-99", $1.dayOrder ?? .max, $1.title)
         }
     }
 
-    private var groups: [(day: Int?, places: [Place])] {
-        let grouped = Dictionary(grouping: visitedPlaces, by: \.day)
-        return grouped.keys.sorted { ($0 ?? .max) < ($1 ?? .max) }
+    private var groups: [(day: TripDay?, places: [Place])] {
+        let grouped = Dictionary(grouping: visitedPlaces, by: \.plannedDate)
+        return grouped.keys.sorted { ($0?.rawValue ?? "9999-99-99") < ($1?.rawValue ?? "9999-99-99") }
             .compactMap { day in grouped[day].map { (day, $0) } }
     }
 
@@ -113,9 +113,10 @@ struct TripMemoriesView: View {
         .stitchCard(.pinned)
     }
 
-    private func daySection(_ day: Int?, places: [Place]) -> some View {
+    private func daySection(_ day: TripDay?, places: [Place]) -> some View {
         VStack(alignment: .leading, spacing: Stitch.Space.s) {
-            SectionTitle(title: day.map(TripDates.dayTitle) ?? "Ohne Reisetag") {
+            SectionTitle(title: day.map(store.tripCalendar.dayTitle)
+                         ?? (places.contains(where: { $0.day != nil }) ? "Alter Reisetag prüfen" : "Ohne Reisetag")) {
                 Text(places.count == 1 ? "1 Ort" : "\(places.count) Orte")
                     .font(.footnote).foregroundStyle(Stitch.inkSoft)
             }
@@ -123,7 +124,7 @@ struct TripMemoriesView: View {
         }
     }
 
-    private func placeMemory(_ place: Place, day: Int?) -> some View {
+    private func placeMemory(_ place: Place, day: TripDay?) -> some View {
         VStack(alignment: .leading, spacing: Stitch.Space.s) {
             if place.photoAssets.count > 1 {
                 PhotoStack(photos: place.photoAssets, root: store.root, title: place.title,
@@ -176,7 +177,7 @@ struct TripMemoriesView: View {
         .padding(.bottom, Stitch.Space.xs)
     }
 
-    private func shortDate(_ day: Int) -> String { "\(day). Oktober" }
+    private func shortDate(_ day: TripDay) -> String { store.tripCalendar.dayMonth(day) }
 }
 
 private struct MemoryPhoto: Identifiable {

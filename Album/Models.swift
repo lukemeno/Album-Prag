@@ -137,7 +137,12 @@ struct Place: Codable, Identifiable, Equatable {
     var deferred = false
     var deleted = false
     var visited = false
+    /// Geplanter Reisetag. `day` bleibt nur zum Lesen und Migrieren alter Daten.
+    var plannedDate: TripDay?
+    var planningSchemaVersion: Int?
     var day: Int?
+    /// Von neueren Clients gesetzte Google-Auswahl; unverändert weitergeben, damit der Server sie nicht verliert.
+    var selectedGooglePlace: PreservedJSON?
     /// Reihenfolge innerhalb eines Tages (kleiner = früher).
     var dayOrder: Int?
     /// Namen derer, die „Dafür“ gesagt haben.
@@ -170,15 +175,16 @@ struct Place: Codable, Identifiable, Equatable {
         return .linkPreview(pageURL: url.absoluteString, thumbnailURL: nil, credit: sourceLabel)
     }
 
-    init(id: String = UUID().uuidString, title: String, note: String = "", sourceURL: String = "", category: String = "Idee", author: String = "Wir", image: PlaceImageAsset? = nil, address: String = "", lat: Double? = nil, lng: Double? = nil, franked: Bool = false, deferred: Bool = false, deleted: Bool = false, visited: Bool = false, day: Int? = nil, dayOrder: Int? = nil, approvals: [String] = [], passedBy: [String] = [], updatedAt: Date = Date()) {
+    init(id: String = UUID().uuidString, title: String, note: String = "", sourceURL: String = "", category: String = "Idee", author: String = "Wir", image: PlaceImageAsset? = nil, address: String = "", lat: Double? = nil, lng: Double? = nil, franked: Bool = false, deferred: Bool = false, deleted: Bool = false, visited: Bool = false, plannedDate: TripDay? = nil, planningSchemaVersion: Int? = nil, day: Int? = nil, dayOrder: Int? = nil, approvals: [String] = [], passedBy: [String] = [], updatedAt: Date = Date()) {
         self.id = id; self.title = title; self.note = note; self.sourceURL = sourceURL; self.category = category; self.author = author
         self.image = image; self.address = address; self.lat = lat; self.lng = lng; self.franked = franked; self.deferred = deferred
-        self.deleted = deleted; self.visited = visited; self.day = day; self.dayOrder = dayOrder
+        self.deleted = deleted; self.visited = visited; self.plannedDate = plannedDate
+        self.planningSchemaVersion = planningSchemaVersion; self.day = day; self.dayOrder = dayOrder
         self.approvals = approvals; self.passedBy = passedBy; self.updatedAt = updatedAt
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, title, note, sourceURL, category, author, image, address, lat, lng, franked, deferred, deleted, visited, day, dayOrder, approvals, passedBy, openingHours, gallery, updatedAt
+        case id, title, note, sourceURL, category, author, image, address, lat, lng, selectedGooglePlace, franked, deferred, deleted, visited, plannedDate, planningSchemaVersion, day, dayOrder, approvals, passedBy, openingHours, gallery, updatedAt
         case imageName, remoteImage, imageSourceURL, imageCredit
     }
 
@@ -197,7 +203,10 @@ struct Place: Codable, Identifiable, Equatable {
         deferred = try values.decodeIfPresent(Bool.self, forKey: .deferred) ?? false
         deleted = try values.decodeIfPresent(Bool.self, forKey: .deleted) ?? false
         visited = try values.decodeIfPresent(Bool.self, forKey: .visited) ?? false
+        plannedDate = try values.decodeIfPresent(TripDay.self, forKey: .plannedDate)
+        planningSchemaVersion = try values.decodeIfPresent(Int.self, forKey: .planningSchemaVersion)
         day = try values.decodeIfPresent(Int.self, forKey: .day)
+        selectedGooglePlace = try values.decodeIfPresent(PreservedJSON.self, forKey: .selectedGooglePlace)
         dayOrder = try values.decodeIfPresent(Int.self, forKey: .dayOrder)
         approvals = try values.decodeIfPresent([String].self, forKey: .approvals) ?? []
         passedBy = try values.decodeIfPresent([String].self, forKey: .passedBy) ?? []
@@ -224,7 +233,9 @@ struct Place: Codable, Identifiable, Equatable {
         try values.encode(sourceURL, forKey: .sourceURL); try values.encode(category, forKey: .category); try values.encode(author, forKey: .author)
         try values.encodeIfPresent(image, forKey: .image); try values.encode(address, forKey: .address); try values.encodeIfPresent(lat, forKey: .lat)
         try values.encodeIfPresent(lng, forKey: .lng); try values.encode(franked, forKey: .franked); try values.encode(deferred, forKey: .deferred)
-        try values.encode(deleted, forKey: .deleted); try values.encode(visited, forKey: .visited); try values.encodeIfPresent(day, forKey: .day)
+        try values.encode(deleted, forKey: .deleted); try values.encode(visited, forKey: .visited)
+        try values.encodeIfPresent(plannedDate, forKey: .plannedDate); try values.encodeIfPresent(planningSchemaVersion, forKey: .planningSchemaVersion)
+        try values.encodeIfPresent(day, forKey: .day); try values.encodeIfPresent(selectedGooglePlace, forKey: .selectedGooglePlace)
         try values.encodeIfPresent(dayOrder, forKey: .dayOrder); try values.encode(approvals, forKey: .approvals); try values.encode(passedBy, forKey: .passedBy)
         try values.encodeIfPresent(openingHours, forKey: .openingHours); try values.encodeIfPresent(gallery, forKey: .gallery)
         try values.encode(updatedAt, forKey: .updatedAt)
@@ -329,6 +340,13 @@ struct Place: Codable, Identifiable, Equatable {
 }
 
 struct TripInfo: Codable, Equatable {
+    // Reisekalender (Planungsschema 2). Optional, damit ältere Daten weiter geladen werden.
+    var title: String? = nil
+    var destination: String? = nil
+    var startDate: TripDay? = nil
+    var endDate: TripDay? = nil
+    var timeZoneIdentifier: String? = nil
+    var planningSchemaVersion: Int? = nil
     var hotel = "Hotel Urban Crème"
     var outbound = ""
     var arrival = ""
@@ -344,6 +362,84 @@ struct TripInfo: Codable, Equatable {
     /// Optional ledger fields keep older album JSON files decodable.
     var expenses: [TravelExpense]?
     var settlements: [TravelSettlement]?
+
+    private enum CodingKeys: String, CodingKey {
+        case title, destination, startDate, endDate, timeZoneIdentifier, planningSchemaVersion
+        case hotel, outbound, arrival, route, flightNumber, notes, updatedAt, flights, hotelDetails, bookingNumber, travelers
+        case expenses, settlements
+    }
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        title = try values.decodeIfPresent(String.self, forKey: .title)
+        destination = try values.decodeIfPresent(String.self, forKey: .destination)
+        startDate = try values.decodeIfPresent(TripDay.self, forKey: .startDate)
+        endDate = try values.decodeIfPresent(TripDay.self, forKey: .endDate)
+        timeZoneIdentifier = try values.decodeIfPresent(String.self, forKey: .timeZoneIdentifier)
+        planningSchemaVersion = try values.decodeIfPresent(Int.self, forKey: .planningSchemaVersion)
+        hotel = try values.decodeIfPresent(String.self, forKey: .hotel) ?? ""
+        outbound = try values.decodeIfPresent(String.self, forKey: .outbound) ?? ""
+        arrival = try values.decodeIfPresent(String.self, forKey: .arrival) ?? ""
+        route = try values.decodeIfPresent(String.self, forKey: .route) ?? ""
+        flightNumber = try values.decodeIfPresent(String.self, forKey: .flightNumber) ?? ""
+        notes = try values.decodeIfPresent(String.self, forKey: .notes) ?? ""
+        updatedAt = try values.decodeIfPresent(Date.self, forKey: .updatedAt) ?? .distantPast
+        flights = try values.decodeIfPresent([FlightLeg].self, forKey: .flights)
+        hotelDetails = try values.decodeIfPresent(HotelDetails.self, forKey: .hotelDetails)
+        bookingNumber = try values.decodeIfPresent(String.self, forKey: .bookingNumber)
+        travelers = try values.decodeIfPresent([String].self, forKey: .travelers)
+        expenses = try values.decodeIfPresent([TravelExpense].self, forKey: .expenses)
+        settlements = try values.decodeIfPresent([TravelSettlement].self, forKey: .settlements)
+    }
+
+    /// Die ursprüngliche Prag-Reise, auf die alte Tageszahlen 4…9 verweisen.
+    static let legacyPragueStart = TripDay(rawValue: "2026-10-04")!
+    static let legacyPragueEnd = TripDay(rawValue: "2026-10-09")!
+
+    static func legacyPrague() -> TripInfo {
+        var trip = TripInfo()
+        trip.title = "Prag"
+        trip.destination = "Prag"
+        trip.startDate = legacyPragueStart
+        trip.endDate = legacyPragueEnd
+        trip.timeZoneIdentifier = "Europe/Prague"
+        trip.planningSchemaVersion = 2
+        return trip
+    }
+}
+
+/// Beliebiger JSON-Wert, der nur gelesen und unverändert wieder geschrieben wird.
+enum PreservedJSON: Codable, Equatable {
+    case null
+    case bool(Bool)
+    case number(Double)
+    case string(String)
+    case array([PreservedJSON])
+    case object([String: PreservedJSON])
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if container.decodeNil() { self = .null }
+        else if let value = try? container.decode(Bool.self) { self = .bool(value) }
+        else if let value = try? container.decode(Double.self) { self = .number(value) }
+        else if let value = try? container.decode(String.self) { self = .string(value) }
+        else if let value = try? container.decode([PreservedJSON].self) { self = .array(value) }
+        else { self = .object(try container.decode([String: PreservedJSON].self)) }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .null: try container.encodeNil()
+        case .bool(let value): try container.encode(value)
+        case .number(let value): try container.encode(value)
+        case .string(let value): try container.encode(value)
+        case .array(let value): try container.encode(value)
+        case .object(let value): try container.encode(value)
+        }
+    }
 }
 
 struct FlightLeg: Codable, Equatable, Identifiable {
@@ -387,6 +483,8 @@ struct CollaborationState: Codable, Equatable {
 
 struct AlbumData: Codable {
     var albumID = UUID().uuidString
+    /// 2 = Orte planen mit `plannedDate`; nil = alte Tageszahlen, einmalig zu migrieren.
+    var schemaVersion: Int? = nil
     var places = Place.examples
     var trip = TripInfo()
     var documents: [TravelDocument] = []
@@ -396,7 +494,7 @@ struct AlbumData: Codable {
     var collectionSync: [String: CollectionSyncMetadata] = [:]
 
     private enum CodingKeys: String, CodingKey {
-        case albumID, places, trip, documents, dirty, collaboration, collectionEntries, collectionSync
+        case albumID, schemaVersion, places, trip, documents, dirty, collaboration, collectionEntries, collectionSync
     }
 
     init() {}
@@ -404,6 +502,7 @@ struct AlbumData: Codable {
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         albumID = try values.decodeIfPresent(String.self, forKey: .albumID) ?? UUID().uuidString
+        schemaVersion = try values.decodeIfPresent(Int.self, forKey: .schemaVersion)
         places = try values.decodeIfPresent([Place].self, forKey: .places) ?? Place.examples
         trip = try values.decodeIfPresent(TripInfo.self, forKey: .trip) ?? TripInfo()
         documents = try values.decodeIfPresent([TravelDocument].self, forKey: .documents) ?? []

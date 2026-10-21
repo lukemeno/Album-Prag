@@ -85,9 +85,10 @@ struct NativeTripExperience: View {
 
     /// Kontext des KI-Untermenüs: Reise, heutiger Reisetag und Anzahl der geplanten Orte.
     private var fanContext: String {
-        guard let day = TripDates.tripDay() else { return "Prag · 4.–9. Okt" }
+        let calendar = store.tripCalendar
+        guard let day = calendar.todayInTrip else { return ["Prag", calendar.rangeLabel()].compactMap { $0 }.joined(separator: " · ") }
         let count = store.plan(for: day).count
-        return "Prag · \(TripDates.weekdayShort(day)), \(day). Okt · \(count == 1 ? "1 Ort" : "\(count) Orte")"
+        return "Prag · \(calendar.weekday(day)), \(calendar.shortDate(day)) · \(count == 1 ? "1 Ort" : "\(count) Orte")"
     }
 
     var body: some View {
@@ -204,18 +205,24 @@ struct NativePlanView: View {
     @Environment(AlbumStore.self) private var store
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var sheet: NativeSheet?
-    @State private var day = TripDates.tripDay() ?? 4
+    @State private var chosenDay: TripDay?
+
+    private var calendar: TripCalendar { store.tripCalendar }
+    private var day: TripDay? {
+        if let chosenDay, calendar.contains(chosenDay) { return chosenDay }
+        return calendar.todayInTrip ?? calendar.days.first
+    }
 
     private var stops: [PlanStop] {
-        let window = DayPlanGenerator.windows(flights: store.data.trip.flights ?? [])[day] ?? .init(start: 10 * 60, end: 22 * 60)
-        return DayPlanGenerator.timeline(store.plan(for: day), day: day, window: window, hotel: store.hotelCoordinate)
+        guard let day else { return [] }
+        return store.stops(for: day)
     }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Stitch.Space.xl) {
                 VStack(alignment: .leading, spacing: Stitch.Space.xs) {
-                    Text(TripDates.tripDay() == day ? "Heute in Prag" : "Dein Plan")
+                    Text(day != nil && calendar.todayInTrip == day ? "Heute in Prag" : "Dein Plan")
                         .font(Stitch.Face.display(32, relativeTo: .largeTitle)).foregroundStyle(Stitch.ink)
                     Text("Orte, die ihr gemeinsam beschlossen habt.").font(.subheadline).foregroundStyle(Stitch.inkSoft)
                 }
@@ -228,7 +235,7 @@ struct NativePlanView: View {
                                        onRoute: { openWalkingRoute(to: next.place) })
                 }
                 VStack(alignment: .leading, spacing: Stitch.Space.s) {
-                    Text(TripDates.dayTitle(day)).font(.headline).foregroundStyle(Stitch.ink)
+                    Text(day.map(calendar.dayTitle) ?? "Noch kein Reisezeitraum").font(.headline).foregroundStyle(Stitch.ink)
                     if stops.isEmpty {
                         VStack(alignment: .leading, spacing: Stitch.Space.s) {
                             Image(systemName: "calendar.badge.plus").font(.title2).foregroundStyle(Stitch.red)
@@ -261,12 +268,12 @@ struct NativePlanView: View {
 
     private var dayStrip: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: Stitch.Space.xs) {
-                ForEach(DayPlanGenerator.days, id: \.self) { value in
-                    Button { day = value } label: {
+            LazyHStack(spacing: Stitch.Space.xs) {
+                ForEach(calendar.days) { value in
+                    Button { chosenDay = value } label: {
                         VStack(spacing: 2) {
-                            Text(TripDates.weekdayShort(value).uppercased()).font(.caption2.weight(.medium))
-                            Text(String(value)).font(.headline.weight(.semibold))
+                            Text(calendar.weekday(value).uppercased()).font(.caption2.weight(.medium))
+                            Text(String(value.dayOfMonth)).font(.headline.weight(.semibold))
                         }
                         .foregroundStyle(day == value ? Stitch.onAccent : Stitch.ink)
                         .frame(width: 52, height: 54)
@@ -274,7 +281,7 @@ struct NativePlanView: View {
                         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Stitch.rule))
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(TripDates.dayTitle(value))
+                    .accessibilityLabel(calendar.dayTitle(value))
                     .accessibilityAddTraits(day == value ? .isSelected : [])
                 }
             }
@@ -383,7 +390,8 @@ struct NativeIdeasView: View {
 
     private var ideas: [Place] {
         var seen = Set<String>()
-        return (store.inbox + store.franked.filter { $0.day == nil })
+        // Ungelöste alte Tageszahlen bleiben hier sichtbar, bis jemand ein Datum wählt.
+        return (store.inbox + store.franked.filter { $0.plannedDate == nil })
             .filter { category == "Alle" || $0.category == category }
             .filter { seen.insert($0.id).inserted }
     }
@@ -492,7 +500,11 @@ private struct NativeIdeaRow: View {
 
     private func approve() {
         var decided = store.decided(place, approve: true)
-        if decided.day == nil { decided.day = TripDates.tripDay() ?? 4 }
+        let calendar = store.tripCalendar
+        if decided.plannedDate == nil, decided.day == nil, let day = calendar.todayInTrip ?? calendar.days.first {
+            decided.plannedDate = day
+            decided.planningSchemaVersion = 2
+        }
         _ = store.upsert(decided)
     }
 }
@@ -503,8 +515,8 @@ private struct NativeDayPicker: View {
     let close: () -> Void
     var body: some View {
         NavigationStack {
-            List(DayPlanGenerator.days, id: \.self) { day in
-                Button(TripDates.dayTitle(day)) { store.assign(place, to: day); close() }
+            List(store.tripCalendar.days) { day in
+                Button(store.tripCalendar.dayTitle(day)) { store.assign(place, toDate: day); close() }
             }
             .navigationTitle("Tag wählen")
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Schließen", action: close) } }
@@ -601,15 +613,6 @@ enum NativeFABAction {
     case expenses
     case documents
     case assistant(String?)
-}
-
-/// Kurzer Wochentag eines Reisetags im Oktober, ohne Abkürzungspunkt: „So“.
-private extension TripDates {
-    static func weekdayShort(_ day: Int) -> String {
-        let date = calendar.date(from: DateComponents(year: 2026, month: 10, day: day))!
-        return date.formatted(.dateTime.weekday(.abbreviated).locale(Locale(identifier: "de_DE")))
-            .replacingOccurrences(of: ".", with: "")
-    }
 }
 
 struct NativeArcFAB: View {
