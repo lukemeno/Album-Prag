@@ -7,21 +7,22 @@ import UIKit
 enum Stitch {
     // MARK: Farben (Hell / Dunkel)
 
-    static let paper = dynamic(light: (255, 255, 255), dark: (25, 37, 33))
-    static let paperDeep = dynamic(light: (245, 247, 243), dark: (38, 55, 48))
-    /// Canvas für Karten und Felder; die App-Fläche bleibt weiß.
-    static let card = dynamic(light: (245, 247, 243), dark: (31, 48, 41))
-    static let rule = dynamic(light: (226, 231, 223), dark: (64, 82, 72))
-    static let ink = dynamic(light: (18, 48, 42), dark: (235, 242, 237))
-    static let inkSoft = dynamic(light: (92, 104, 98), dark: (174, 190, 181))
-    /// Poststempel als Schrift und Linie. Auf Papier 4,7:1, auf Karte 5,1:1.
-    static let red = dynamic(light: (22, 75, 60), dark: (122, 190, 158))
-    /// Poststempel als Fläche, helle Schrift darauf mindestens 5,2:1.
-    static let redFill = dynamic(light: (22, 75, 60), dark: (27, 93, 72))
+    // Palette „Terrakotta“ (21.10.2026): warmer Sand, Ziegel als einziger Akzent.
+    static let paper = dynamic(light: (255, 253, 250), dark: (32, 26, 23))
+    static let paperDeep = dynamic(light: (250, 245, 238), dark: (45, 37, 32))
+    /// Canvas für Karten und Felder; die App-Fläche bleibt warmes Weiß.
+    static let card = dynamic(light: (250, 245, 238), dark: (40, 33, 29))
+    static let rule = dynamic(light: (236, 227, 215), dark: (76, 64, 56))
+    static let ink = dynamic(light: (43, 34, 32), dark: (245, 238, 230))
+    static let inkSoft = dynamic(light: (112, 98, 90), dark: (190, 176, 166))
+    /// Akzent als Schrift und Linie. Auf Papier 5,7:1, auf Karte 5,4:1 (dunkel: 7,5:1).
+    static let red = dynamic(light: (168, 71, 42), dark: (235, 150, 120))
+    /// Akzent als Fläche, weiße Schrift darauf 5,8:1 (dunkel: 5,1:1).
+    static let redFill = dynamic(light: (168, 71, 42), dark: (178, 80, 48))
     /// Zweite Tinte: Besucht, Hinweise, zweite Route.
-    static let teal = dynamic(light: (31, 90, 73), dark: (126, 187, 157))
+    static let teal = dynamic(light: (150, 64, 38), dark: (235, 160, 130))
     /// Nur Zierde (Stempelring, Sterne), nie Schrift.
-    static let gold = dynamic(light: (123, 142, 119), dark: (176, 205, 185))
+    static let gold = dynamic(light: (190, 140, 100), dark: (225, 185, 150))
     static let onAccent = Color.white
     /// Hintergrund hinter Vollbildfotos, in beiden Modi dunkel.
     static let scrim = Color(red: 20 / 255, green: 18 / 255, blue: 16 / 255)
