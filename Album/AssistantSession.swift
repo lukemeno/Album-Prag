@@ -6,7 +6,7 @@ import CoreLocation
     let store: AlbumStore
     var messages: [AssistantMessage] = []
     var preferences: [String] = []
-    var webSearch = false
+    var webSearch = true
     var isLoading = false
     var lastError: String?
     var lastUserText = ""
