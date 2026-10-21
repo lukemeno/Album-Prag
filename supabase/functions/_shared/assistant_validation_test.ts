@@ -1,12 +1,19 @@
-import { assert, assertEquals, assertRejects } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { assert, assertAlmostEquals, assertEquals, assertRejects } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { verifyAssistantTripContext, AssistantMembershipError } from "./assistant_membership.ts";
 import { assistantUserPrompt } from "./assistant_prompt.ts";
 import {
   extractActualWebSources,
   AssistantValidationError,
   parseAssistantRequest,
+  providerCostUsd,
   sanitizeAssistantReply,
 } from "./assistant_validation.ts";
+
+const DEFAULT_PRICES = { input_usd_per_million: 0.10, output_usd_per_million: 0.50, web_search_usd: 0.01 };
+const SEARCH_RESPONSE = {
+  usage: { input_tokens: 1_000_000, output_tokens: 1_000_000 },
+  output: [{ type: "web_search_call" }],
+};
 
 const request = parseAssistantRequest({
   request_id: "11111111-1111-4111-8111-111111111111",
@@ -100,4 +107,15 @@ Deno.test("web search action sources validate JSON citations without text annota
 });
 Deno.test("model JSON source lists are never accepted as web tool evidence", () => {
   assertEquals(extractActualWebSources({output:[{type:"message",sources:[{url:"https://example.com/forged"}]}]}),[]);
+});
+
+Deno.test("provider cost uses the configured model prices", () => {
+  assertAlmostEquals(providerCostUsd(SEARCH_RESPONSE, DEFAULT_PRICES) as number, 0.61, 1e-9);
+});
+
+Deno.test("provider cost follows other configured prices and rejects invalid ones", () => {
+  const prices = { input_usd_per_million: 2, output_usd_per_million: 8, web_search_usd: 0.025 };
+  assertAlmostEquals(providerCostUsd(SEARCH_RESPONSE, prices) as number, 10.025, 1e-9);
+  assertEquals(providerCostUsd(SEARCH_RESPONSE, { ...prices, output_usd_per_million: Number.NaN }), null);
+  assertEquals(providerCostUsd(SEARCH_RESPONSE, { ...prices, web_search_usd: -1 }), null);
 });

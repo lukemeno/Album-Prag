@@ -10,6 +10,7 @@ import {
   parseAssistantRequest,
   providerCostUsd,
   sanitizeAssistantReply,
+  type AssistantModelPrices,
   type AssistantRequest,
 } from "../_shared/assistant_validation.ts";
 
@@ -25,6 +26,35 @@ class AssistantError extends Error {
     this.status = status;
     this.code = code;
   }
+}
+
+function assistantModel(): string {
+  return Deno.env.get("OPENAI_MODEL") || "gpt-6-luna";
+}
+
+/** Fail closed: without a configured price for the model, no request is reserved or sent. */
+async function loadModelPrices(admin: any, model: string): Promise<AssistantModelPrices> {
+  const unavailable = () => new AssistantError("Der Assistent ist vorübergehend nicht verfügbar.", "price_missing", 503);
+  let row: Record<string, unknown> | null = null;
+  try {
+    const result = await admin
+      .from("assistant_model_prices")
+      .select("input_usd_per_million,output_usd_per_million,web_search_usd")
+      .eq("model", model)
+      .maybeSingle();
+    if (result.error) throw unavailable();
+    row = result.data && typeof result.data === "object" ? result.data as Record<string, unknown> : null;
+  } catch {
+    throw unavailable();
+  }
+  if (!row) throw unavailable();
+  const prices = {
+    input_usd_per_million: Number(row.input_usd_per_million),
+    output_usd_per_million: Number(row.output_usd_per_million),
+    web_search_usd: Number(row.web_search_usd),
+  };
+  if (!Object.values(prices).every((price) => Number.isFinite(price) && price >= 0)) throw unavailable();
+  return prices;
 }
 
 function errorResponse(error: unknown): Response {
@@ -54,6 +84,10 @@ function quotaError(code: string): AssistantError {
   if (code === "monthly_limit" || code === "user_monthly_limit") {
     return new AssistantError("Das monatliche Assistentenlimit ist erreicht.", code, 429);
   }
+  if (code === "solo_monthly_limit") {
+    return new AssistantError("Ohne geteilte Reise ist das Monatslimit erreicht. Teile das Album, um weiterzufragen.", code, 429);
+  }
+  if (code === "disabled") return new AssistantError("Der Assistent ist vorübergehend pausiert.", code, 503);
   return new AssistantError("Der Assistent ist vorübergehend nicht verfügbar.", "quota_error", 503);
 }
 
@@ -99,7 +133,7 @@ function providerRequestBody(request: AssistantRequest, model: string): Record<s
 async function callProvider(request: AssistantRequest, requestSignal: AbortSignal): Promise<{ reply: ReturnType<typeof sanitizeAssistantReply>; raw: unknown }> {
   const key = Deno.env.get("OPENAI_API_KEY");
   if (!key) throw new AssistantError("Der Assistent ist nicht eingerichtet.", "provider_unavailable", 503);
-  const model = Deno.env.get("OPENAI_MODEL") || "gpt-6-luna";
+  const model = assistantModel();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
   const abortFromClient = () => controller.abort();
@@ -176,11 +210,13 @@ Deno.serve(async (request) => {
     requestData = parseAssistantRequest(parsed);
     requestId = requestData.request_id;
     await verifyAssistantTripContext(admin, auth.user.id, requestData);
+    const prices = await loadModelPrices(admin, assistantModel());
 
     const reservation = await admin.rpc("assistant_reserve_usage", {
       p_user_id: auth.user.id,
       p_request_id: requestData.request_id,
       p_reservation_usd: RESERVATION_USD,
+      p_has_trip: Boolean(requestData.trip_id),
     });
     if (reservation.error) throw new AssistantError("Nutzungsstatus nicht verfügbar.", "quota_error", 503);
     const reservationData = reservation.data as Record<string, unknown>;
@@ -188,7 +224,7 @@ Deno.serve(async (request) => {
     reserved = true;
 
     const provider = await callProvider(requestData, request.signal);
-    const cost = providerCostUsd(provider.raw);
+    const cost = providerCostUsd(provider.raw, prices);
     if (cost === null) throw new AssistantError("Ungültige Nutzungsdaten des Anbieters.", "provider_invalid", 502);
     const reconciled = await admin.rpc("assistant_reconcile_usage", {
       p_request_id: requestData.request_id,

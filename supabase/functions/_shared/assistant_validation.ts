@@ -424,13 +424,23 @@ export function countWebSearchCalls(response: unknown): number {
   return Math.min(count, 2);
 }
 
-export function providerCostUsd(response: unknown): number | null {
+export type AssistantModelPrices = {
+  input_usd_per_million: number;
+  output_usd_per_million: number;
+  web_search_usd: number;
+};
+
+export function providerCostUsd(response: unknown, prices: AssistantModelPrices): number | null {
   if (!response || typeof response !== "object") return null;
+  const priceValues = [prices.input_usd_per_million, prices.output_usd_per_million, prices.web_search_usd];
+  if (!priceValues.every((price) => Number.isFinite(price) && price >= 0)) return null;
   const usage = (response as Record<string, unknown>).usage;
   if (!usage || typeof usage !== "object") return null;
   const row = usage as Record<string, unknown>;
   const input = typeof row.input_tokens === "number" ? row.input_tokens : 0;
   const output = typeof row.output_tokens === "number" ? row.output_tokens : 0;
   if (!Number.isFinite(input) || !Number.isFinite(output) || input < 0 || output < 0) return null;
-  return input * 0.10 / 1_000_000 + output * 0.50 / 1_000_000 + countWebSearchCalls(response) * 0.01;
+  return input * prices.input_usd_per_million / 1_000_000
+    + output * prices.output_usd_per_million / 1_000_000
+    + countWebSearchCalls(response) * prices.web_search_usd;
 }
