@@ -65,19 +65,26 @@ final class AlbumTests: XCTestCase {
     }
 
     func testTripCountdownAndTodayPlan() {
-        let date = { (day: Int, hour: Int) in TripDates.calendar.date(from: DateComponents(year: 2026, month: 10, day: day, hour: hour))! }
-        let september = TripDates.calendar.date(from: DateComponents(year: 2026, month: 9, day: 23, hour: 23, minute: 59))!
-        XCTAssertEqual(TripDates.daysUntilStart(from: september), 11)
-        XCTAssertEqual(TripDates.daysUntilStart(from: date(3, 22)), 1)
-        XCTAssertEqual(TripDates.daysUntilStart(from: date(4, 6)), 0)
-        XCTAssertNil(TripDates.tripDay(on: date(3, 23)))
-        XCTAssertEqual(TripDates.tripDay(on: date(4, 0)), 4)
-        XCTAssertEqual(TripDates.tripDay(on: date(9, 23)), 9)
-        XCTAssertNil(TripDates.tripDay(on: date(10, 0)))
-        XCTAssertEqual(TripDates.phase(on: date(3, 23)), .before)
-        XCTAssertEqual(TripDates.phase(on: date(4, 0)), .during)
-        XCTAssertEqual(TripDates.phase(on: date(9, 23)), .during)
-        XCTAssertEqual(TripDates.phase(on: date(10, 0)), .after)
+        var prague = Calendar(identifier: .gregorian)
+        prague.timeZone = TimeZone(identifier: "Europe/Prague")!
+        let date = { (month: Int, day: Int, hour: Int, minute: Int) in
+            prague.date(from: DateComponents(year: 2026, month: month, day: day, hour: hour, minute: minute))!
+        }
+        let calendar = { (now: Date) in TripCalendar(trip: .legacyPrague(), now: { now }) }
+        XCTAssertEqual(calendar(date(9, 23, 23, 59)).daysUntilStart, 11)
+        XCTAssertEqual(calendar(date(10, 3, 22, 0)).daysUntilStart, 1)
+        XCTAssertEqual(calendar(date(10, 4, 6, 0)).daysUntilStart, 0)
+        XCTAssertNil(calendar(date(10, 3, 23, 0)).todayInTrip)
+        XCTAssertEqual(calendar(date(10, 4, 0, 0)).todayInTrip?.rawValue, "2026-10-04")
+        XCTAssertEqual(calendar(date(10, 9, 23, 0)).todayInTrip?.rawValue, "2026-10-09")
+        XCTAssertNil(calendar(date(10, 10, 0, 0)).todayInTrip)
+        XCTAssertEqual(calendar(date(10, 3, 23, 0)).phase, .before)
+        XCTAssertEqual(calendar(date(10, 4, 0, 0)).phase, .during)
+        XCTAssertEqual(calendar(date(10, 9, 23, 0)).phase, .during)
+        XCTAssertEqual(calendar(date(10, 10, 0, 0)).phase, .after)
+        XCTAssertEqual(calendar(date(10, 6, 12, 0)).dayTitle(TripDay(rawValue: "2026-10-04")!), "Sonntag, 4. Oktober")
+        XCTAssertEqual(calendar(date(10, 6, 12, 0)).rangeLabel(), "4.–9. Okt")
+        XCTAssertEqual(calendar(date(10, 6, 12, 0)).rangeLabel(wideMonth: true), "4.–9. Oktober")
     }
 
     /// Anonymisiertes Muster im Aufbau einer Voyage-Privé-Reisebestätigung, inklusive zerstückeltem PDF-Text.
@@ -333,10 +340,12 @@ final class AlbumTests: XCTestCase {
         let store = AlbumStore(root: directory)
         for var place in store.places { place.franked = true; store.upsert(place) }
         let ids = store.franked.map(\.id)
-        for id in ids { store.assign(try XCTUnwrap(store.places.first { $0.id == id }), to: 5) }
-        XCTAssertEqual(store.plan(for: 5).map(\.id), ids)
-        store.reorder(day: 5, ids: ids.reversed())
-        XCTAssertEqual(AlbumStore(root: directory).plan(for: 5).map(\.id), ids.reversed(), "Reihenfolge bleibt gespeichert")
+        let day = try XCTUnwrap(TripDay(rawValue: "2026-10-05"))
+        for id in ids { store.assign(try XCTUnwrap(store.places.first { $0.id == id }), toDate: day) }
+        XCTAssertEqual(store.plan(for: day).map(\.id), ids)
+        store.reorder(date: day, ids: ids.reversed())
+        XCTAssertEqual(AlbumStore(root: directory).plan(for: day).map(\.id), ids.reversed(), "Reihenfolge bleibt gespeichert")
+        XCTAssertTrue(store.franked.allSatisfy { $0.day == nil }, "Neue Zuordnungen schreiben keine Tageszahl")
     }
 
     @MainActor func testPersistenceAndInboxDecisions() throws {
