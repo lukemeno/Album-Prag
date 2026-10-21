@@ -306,8 +306,6 @@ struct AssistantView: View {
                     .font(.caption)
                     .foregroundStyle(Stitch.inkSoft)
                 Spacer()
-                Toggle("Web-Recherche", isOn: $session.webSearch).font(.caption).tint(Stitch.red)
-                    .accessibilityHint("Nutzt zusätzlich aktuelle Quellen aus dem Web.")
             }
         }
         .padding(.horizontal, Stitch.Space.page)

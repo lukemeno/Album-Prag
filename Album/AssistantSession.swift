@@ -6,7 +6,8 @@ import CoreLocation
     let store: AlbumStore
     var messages: [AssistantMessage] = []
     var preferences: [String] = []
-    var webSearch = true
+    /// Der Assistent recherchiert immer auch im Web; es gibt bewusst keinen Schalter.
+    let webSearch = true
     var isLoading = false
     var lastError: String?
     var lastUserText = ""
