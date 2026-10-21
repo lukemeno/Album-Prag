@@ -352,8 +352,15 @@ private struct OpeningHoursFetchResult: Sendable {
     }
 
     func deferPlace(_ place: Place) { var p = place; p.deferred = true; upsert(p) }
+    func restoreDeferred(_ place: Place) {
+        guard deferred.contains(where: { $0.id == place.id }),
+              var current = places.first(where: { $0.id == place.id }) else { return }
+        current.deferred = false
+        current.passedBy.removeAll { $0 == me }
+        upsert(current)
+    }
     func restoreDeferred() {
-        for var p in deferred { p.deferred = false; p.passedBy.removeAll { $0 == me }; upsert(p) }
+        for place in deferred { restoreDeferred(place) }
     }
 
     /// Setzt einen Ort ans Ende eines Tages (oder nimmt ihn aus der Tagesplanung).

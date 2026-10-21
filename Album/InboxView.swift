@@ -58,6 +58,8 @@ struct InboxView: View {
 
             if section == .collection {
                 CollectionHomeView(add: add)
+            } else if section == .dismissed {
+                dismissedIdeas
             } else if let place = undecided.first {
                 if dynamicTypeSize.isAccessibilitySize {
                     frontCard(place)
@@ -115,7 +117,7 @@ struct InboxView: View {
         .allowsHitTesting(!committing)
         .padding(.horizontal, Stitch.Space.page).padding(.bottom, Stitch.Space.xs)
         .background(PaperBackground())
-        .navigationTitle("Ideen")
+        .navigationTitle(section == .dismissed ? "Weggewischt" : "Ideen")
         .toolbar {
             if section == .discover {
                 ToolbarItem(placement: .primaryAction) {
@@ -187,8 +189,8 @@ struct InboxView: View {
                         .buttonStyle(StitchButton(primary: true))
                 }
                 if !store.deferred.isEmpty {
-                    Button(store.deferred.count == 1 ? "1 abgelehnte Idee zurückholen" : "\(store.deferred.count) abgelehnte Ideen zurückholen") {
-                        store.restoreDeferred()
+                    Button("\(store.deferred.count) weggewischte Ideen ansehen") {
+                        section = .dismissed
                     }
                     .buttonStyle(TextActionButton())
                 }
@@ -198,6 +200,79 @@ struct InboxView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private var dismissedIdeas: some View {
+        Group {
+            if store.deferred.isEmpty {
+                VStack(spacing: Stitch.Space.s) {
+                    Spacer()
+                    Postmark(top: "IDEEN", bottom: "LEER", color: Stitch.inkSoft, size: 88)
+                    Text("Nichts weggewischt")
+                        .font(Stitch.Face.title(26, relativeTo: .title)).foregroundStyle(Stitch.ink)
+                    Text("Ideen, die du mit Nein wegwischst, findest du hier wieder.")
+                        .font(.body).multilineTextAlignment(.center).foregroundStyle(Stitch.inkSoft)
+                    Button("Ideen entdecken") { section = .discover }
+                        .buttonStyle(StitchButton(primary: true))
+                        .padding(.top, Stitch.Space.s)
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: Stitch.Space.s) {
+                        Text("Hier kannst du weggewischte Ideen noch einmal ansehen und einzeln zurückholen.")
+                            .font(.subheadline).foregroundStyle(Stitch.inkSoft)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.bottom, Stitch.Space.xxs)
+                        ForEach(store.deferred.sorted { $0.updatedAt > $1.updatedAt }) { place in
+                            dismissedIdeaRow(place)
+                        }
+                    }
+                    .padding(.vertical, Stitch.Space.xs)
+                }
+                .accessibilityIdentifier("Ideas-Dismissed-List")
+            }
+        }
+    }
+
+    private func dismissedIdeaRow(_ place: Place) -> some View {
+        VStack(alignment: .leading, spacing: Stitch.Space.s) {
+            HStack(alignment: .top, spacing: Stitch.Space.s) {
+                AlbumPhoto(asset: place.displayImage, root: store.root, thumbnailWidth: 160)
+                    .frame(width: 76, height: 88)
+                    .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
+                    Text(place.title)
+                        .font(Stitch.Face.place(21, relativeTo: .headline)).foregroundStyle(Stitch.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(place.category)
+                        .font(.footnote.weight(.medium)).foregroundStyle(Stitch.inkSoft)
+                    if !place.note.isEmpty {
+                        Text(place.note)
+                            .font(.footnote).foregroundStyle(Stitch.inkSoft)
+                            .lineLimit(3).fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            Button {
+                store.restoreDeferred(place)
+            } label: {
+                Label("Zurück zu Ideen", systemImage: "arrow.uturn.backward")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: Stitch.Size.touch)
+            }
+            .buttonStyle(StitchButton())
+            .accessibilityIdentifier("restore-dismissed-\(place.id)")
+        }
+        .padding(Stitch.Space.s)
+        .background(Stitch.card, in: RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous)
+                .strokeBorder(Stitch.rule, lineWidth: 1).allowsHitTesting(false)
+        }
     }
 
     private func undoButton(_ place: Place) -> some View {
@@ -374,9 +449,15 @@ struct InboxView: View {
 }
 
 private enum InboxSection: String, CaseIterable, Identifiable {
-    case discover, collection
+    case discover, dismissed, collection
     var id: String { rawValue }
-    var title: String { self == .discover ? "Entdecken" : "Sammlung" }
+    var title: String {
+        switch self {
+        case .discover: "Entdecken"
+        case .dismissed: "Weggewischt"
+        case .collection: "Sammlung"
+        }
+    }
 }
 
 private enum InboxDecision { case shelve, frank, open }
