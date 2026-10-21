@@ -35,7 +35,7 @@ struct NativeHomeView: View {
                                 VStack(alignment: .leading, spacing: Stitch.Space.xs) {
                                     HStack(alignment: .top) {
                                         VStack(alignment: .leading, spacing: 2) {
-                                            Text("Prag").font(Stitch.Face.display(38, relativeTo: .largeTitle)).foregroundStyle(.white)
+                                            Text(store.tripName).font(Stitch.Face.display(38, relativeTo: .largeTitle)).foregroundStyle(.white)
                                                 .matchedGeometryEffect(id: "trip-title", in: namespace)
                                             Text("4.–9. Oktober 2026").font(.subheadline).foregroundStyle(.white.opacity(0.9))
                                         }
@@ -86,9 +86,9 @@ struct NativeTripExperience: View {
     /// Kontext des KI-Untermenüs: Reise, heutiger Reisetag und Anzahl der geplanten Orte.
     private var fanContext: String {
         let calendar = store.tripCalendar
-        guard let day = calendar.todayInTrip else { return ["Prag", calendar.rangeLabel()].compactMap { $0 }.joined(separator: " · ") }
+        guard let day = calendar.todayInTrip else { return [store.tripName, calendar.rangeLabel()].compactMap { $0 }.joined(separator: " · ") }
         let count = store.plan(for: day).count
-        return "Prag · \(calendar.weekday(day)), \(calendar.shortDate(day)) · \(count == 1 ? "1 Ort" : "\(count) Orte")"
+        return "\(store.tripName) · \(calendar.weekday(day)), \(calendar.shortDate(day)) · \(count == 1 ? "1 Ort" : "\(count) Orte")"
     }
 
     var body: some View {
@@ -110,7 +110,7 @@ struct NativeTripExperience: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Album-Übersicht")
-                Text(section == .map ? "Karte" : "Prag")
+                Text(section == .map ? "Karte" : store.tripName)
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(Stitch.ink)
                     .matchedGeometryEffect(id: "trip-title", in: namespace)
@@ -935,5 +935,15 @@ struct NativeArcFAB: View {
         mode = .closed
         isOpen = false
         onOpenStateChanged(false)
+    }
+}
+
+extension AlbumStore {
+    /// Reisename für Überschriften und Chips. Das Modell kennt noch keinen Namen; mit den flexiblen Reisen (B1)
+    /// kommt er aus der Reise selbst. Bis dahin gibt es genau eine Reise.
+    /// Name der Reise aus den Reisedaten; "Prag" für Alben ohne Titel.
+    var tripName: String {
+        let title = data.trip.title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return title.isEmpty ? "Prag" : title
     }
 }
