@@ -1,0 +1,1 @@
+create policy "qa_storage_cleanup_20261019" on storage.objects for delete to authenticated using (bucket_id = 'trip-files' and name = '1AC8091E-020A-4D13-A9B4-730B4B2CFF9E/document-storage-roundtrip-C34F52A1-689C-4E95-A027-28E2F36D15FA.pdf' and auth.uid() = '463b7160-2b6c-4c80-a9e8-55b7a2a35463'::uuid and public.is_trip_member('1ac8091e-020a-4d13-a9b4-730b4b2cff9e'::uuid));

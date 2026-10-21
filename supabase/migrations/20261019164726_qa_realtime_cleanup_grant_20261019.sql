@@ -1,0 +1,1 @@
+create policy "qa_realtime_cleanup_20261019" on storage.objects for delete to authenticated using (bucket_id='trip-files' and name='D6A2B324-C85D-47BA-8D8B-9AF307892B4B/realtime-document-realtime-roundtrip-DB9B590D-A16B-44B7-AD42-871842541F82.pdf' and auth.uid()='33a56b3b-32eb-4fe1-8323-d953c7dad6b7'::uuid and public.is_trip_member('d6a2b324-c85d-47ba-8d8b-9af307892b4b'::uuid));
