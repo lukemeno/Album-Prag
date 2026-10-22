@@ -384,3 +384,14 @@
 - **Achtung Drift:** Die Live-Function war neuer als das Repo (Kalender-Protokoll v2). Deployt wurde Live-Code + Welle-1-Patch; das Repo ist jetzt auf diesem Stand. Live hat außerdem 12 Migrationen vom 10.–19.10. (Bewertungen, Anreicherung, Gruppen, Ausgaben u. a.), die im Repo fehlen.
 - Offen: Testprojekt `prag-album-test-welle1` ist pausiert, bitte im Supabase-Dashboard löschen (Werkzeug kann nicht löschen). Wellen 2–4 (Sign in with Apple, App Attest, Reise-Pass) offen.
 - **Repo/Live-Abgleich (21.10.2026):** 12 Live-Migrationen (MD5 12/12 gleich) und die Functions `place-rating`, `place-enrichment`, `place-enrichment-worker` liegen jetzt im Repo. `create-trip`, `join-trip`, `place-photo` waren schon gleich. Offen: `place-enrichment` läuft live mit neuerer `wikimedia_photos.ts`/`place_photo.ts` (regionsabhängige Sprachen); siehe `supabase/live-snapshots/README.md`, vor einem Neu-Deploy entscheiden. Lokale Versionsnamen der zwei älteren Migrationen (`202610020001`, `202610030001`, `202610210001`) weichen von den Live-Versionen ab, Inhalt identisch.
+
+## App-Store-Plan · 21.10.2026
+- Nutzer: Ziel ist öffentlicher App Store mit Reise-Pass (Wellen 2 bis 4). Noch kein bezahltes Apple-Developer-Konto; bis dahin alles Kontofreie fertigstellen.
+- Plan [PLAN-APPSTORE.md](PLAN-APPSTORE.md), 10 PRs (A1, C1, B1, B2, B3, B4, C2, C3, C4, D1), Ausführung per autopilot-stack, check-plan 0 Probleme. Noch nicht gestartet, wartet auf Go.
+- Befund: Mehrreisen-, Ausgaben-Sidecar- und Google-Bewertungs-Client liegen fertig getestet aber uncommittet im Worktree Album-visual-refresh (128 Dateien). Lokaler Branch 46 Commits vor, 4 hinter origin; kein origin/main. Cloud-VMs können kein iOS bauen.
+
+## Go und Start · 21.10.2026 (Cursor)
+- Gesichert: visual-refresh als `0f02198` (vorher Secret-Scan ohne Fund) gepusht; Weggewischt als `55baad9` committet (Simulator-Build grün); `design/designsystem-v2` als neuer `origin/main` gepusht; alter Remote-Branch unverändert; `git gc` garbage 0.
+- A1 auf Nutzerwunsch geparkt („nimm das was da ist“): lokaler Commit `17ef72b` auf `pr/a1-verify-scripts`, nicht gepusht. Prüfung mit vorhandenem `xcodebuild`-Befehl; Simulator heißt jetzt „iPhone 17“ (kein 17 Pro vorhanden). `verify-backend.sh` dort lief: 7 Functions, 42 Deno-Tests grün.
+- B1 läuft im Worktree `/tmp/album-b1` (Branch `pr/b1-flexible-trips` ab `origin/main`): TripDay/TripCalendar, Place.plannedDate, Migration mit Backup, datumsbasierter Planer, Assistent v2, Sync `sync_trip_v2`. UI bleibt main/Terrakotta.
+- Risiko: Live-Reise wurde am 16.10. von visual-refresh auf v2 gehoben; main kennt die v2-Felder nicht und kann sie beim Speichern der Reise verlieren. B1 schließt das. Bis dahin main nicht gegen die echte Reise speichern lassen.
