@@ -395,3 +395,11 @@
 - A1 auf Nutzerwunsch geparkt („nimm das was da ist“): lokaler Commit `17ef72b` auf `pr/a1-verify-scripts`, nicht gepusht. Prüfung mit vorhandenem `xcodebuild`-Befehl; Simulator heißt jetzt „iPhone 17“ (kein 17 Pro vorhanden). `verify-backend.sh` dort lief: 7 Functions, 42 Deno-Tests grün.
 - B1 läuft im Worktree `/tmp/album-b1` (Branch `pr/b1-flexible-trips` ab `origin/main`): TripDay/TripCalendar, Place.plannedDate, Migration mit Backup, datumsbasierter Planer, Assistent v2, Sync `sync_trip_v2`. UI bleibt main/Terrakotta.
 - Risiko: Live-Reise wurde am 16.10. von visual-refresh auf v2 gehoben; main kennt die v2-Felder nicht und kann sie beim Speichern der Reise verlieren. B1 schließt das. Bis dahin main nicht gegen die echte Reise speichern lassen.
+
+## Verbesserungsrunde 1 · 22.10.2026 (Codex)
+- Nutzerauftrag: Xcode-Blockade beheben, Ausgaben bearbeiten/löschen, dynamische Reisedaten, Zustimmung und Tagesplanung trennen. Sol plante und prüfte; zwei Luna-Agenten implementierten; Hauptagent integrierte und testete. Weiterhin ein Ordner, nur main.
+- Xcode-Ursache: DerivedData unter Documents/Codex enthielt ausgelagerte dataless-Paketdateien. Vollständiger Cache unter ~/Library/Developer/Xcode/DerivedData/Album-cjjfafycoualizgshgnastorleed baut/testet erfolgreich. Kein SDK-/App-Daten-Reset.
+- Ausgaben-Korrektur bewahrt Identität und Erstellzeit. Löschen mit Bestätigung und persistierter Löschmarkierung; Ledger ignoriert gelöschte Einträge, LWW-Merge schützt vor alten Einträgen. Ausgleichszahlungen bleiben erhalten.
+- Startkarte zeigt Datumsbereich/Jahr und VoiceOver-Daten aus der Reise; leeres Hotel ausgeblendet. Zustimmung plant nicht, ungeplante Zustimmungen bleiben an ihrer Listenposition. Tageswahl ist explizit; Rückkehr zu Ideen bewahrt Stimmen. Planstempel und Merge bei dirty Places erhalten parallele Plan-/Stimmänderungen.
+- Final TEST SUCCEEDED: 196 Unit-Tests, davon 4 übersprungen, 0 Fehler; 10 UI-Tests bestanden inklusive neuer Korrektur/Lösch-/Neustart- und Zustimmung/Tagwahl-/Neustart-Abläufe. Resultat: ~/Library/Developer/Xcode/DerivedData/Album-Verbesserungsrunde1-Final.xcresult. Sol-Review ohne offene Befunde, git diff --check sauber.
+- Kein Live-Deploy/Push. Geräte-Haptik/Kamera, Zwei-iPhone-Abgleich und Mischbetrieb mit älteren App-Versionen nicht frisch geprüft.

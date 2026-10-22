@@ -12,6 +12,14 @@ struct NativeHomeView: View {
             ?? .bundled(name: "imgPhotoCharlesBridge")
     }
 
+    private var tripDateLabel: String {
+        let calendar = store.tripCalendar
+        if let range = calendar.rangeLabel(wideMonth: true, includeYear: true) { return range }
+        return calendar.trip.startDate == nil && calendar.trip.endDate == nil
+            ? "Reisedaten noch offen"
+            : "Reisezeitraum prüfen"
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -37,13 +45,15 @@ struct NativeHomeView: View {
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text(store.tripName).font(Stitch.Face.display(38, relativeTo: .largeTitle)).foregroundStyle(.white)
                                                 .matchedGeometryEffect(id: "trip-title", in: namespace)
-                                            Text("4.–9. Oktober 2026").font(.subheadline).foregroundStyle(.white.opacity(0.9))
+                                            Text(tripDateLabel).font(.subheadline).foregroundStyle(.white.opacity(0.9))
                                         }
                                         Spacer()
                                         Image(systemName: "arrow.up.right").font(.headline.weight(.semibold)).foregroundStyle(.white)
                                     }
-                                    Label(store.data.trip.hotel, systemImage: "bed.double")
-                                        .font(.footnote).foregroundStyle(.white.opacity(0.9))
+                                    if !store.data.trip.hotel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                        Label(store.data.trip.hotel, systemImage: "bed.double")
+                                            .font(.footnote).foregroundStyle(.white.opacity(0.9))
+                                    }
                                 }
                                 .padding(Stitch.Space.l)
                             }
@@ -55,7 +65,7 @@ struct NativeHomeView: View {
                         .buttonStyle(.plain)
                         .matchedGeometryEffect(id: "trip-card", in: namespace)
                         .accessibilityIdentifier("native-trip-prag")
-                        .accessibilityLabel("Prag, 4. bis 9. Oktober 2026")
+                        .accessibilityLabel("\(store.tripName), \(tripDateLabel)")
                     }
 
                     Text("Ein Album, das euch durch die Reise begleitet.")
@@ -389,11 +399,15 @@ struct NativeIdeasView: View {
     private let categories = ["Alle", "Essen & Trinken", "Sehenswert", "Aussicht", "Shopping", "Idee"]
 
     private var ideas: [Place] {
-        var seen = Set<String>()
         // Ungelöste alte Tageszahlen bleiben hier sichtbar, bis jemand ein Datum wählt.
-        return (store.inbox + store.franked.filter { $0.plannedDate == nil })
+        let approvedButUnplanned = store.places.filter {
+            $0.plannedDate == nil && $0.approvals.contains(store.me)
+                && !$0.deferred && !$0.passedBy.contains(store.me)
+        }
+        let visibleIDs = Set((store.inbox + store.franked.filter { $0.plannedDate == nil } + approvedButUnplanned).map(\.id))
+        return store.places
+            .filter { visibleIDs.contains($0.id) }
             .filter { category == "Alle" || $0.category == category }
-            .filter { seen.insert($0.id).inserted }
     }
 
     var body: some View {
@@ -496,15 +510,11 @@ private struct NativeIdeaRow: View {
                 .presentationDetents([.medium])
         }
         .accessibilityLabel("\(place.title), \(place.category)")
+        .accessibilityIdentifier("native-idea-\(place.id)")
     }
 
     private func approve() {
-        var decided = store.decided(place, approve: true)
-        let calendar = store.tripCalendar
-        if decided.plannedDate == nil, decided.day == nil, let day = calendar.todayInTrip ?? calendar.days.first {
-            decided.plannedDate = day
-            decided.planningSchemaVersion = 2
-        }
+        let decided = store.decided(place, approve: true)
         _ = store.upsert(decided)
     }
 }
@@ -516,7 +526,11 @@ private struct NativeDayPicker: View {
     var body: some View {
         NavigationStack {
             List(store.tripCalendar.days) { day in
-                Button(store.tripCalendar.dayTitle(day)) { store.assign(place, toDate: day); close() }
+                Button(store.tripCalendar.dayTitle(day)) {
+                    store.assign(place, toDate: day)
+                    close()
+                }
+                .accessibilityIdentifier("native-day-\(day.rawValue)")
             }
             .navigationTitle("Tag wählen")
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Schließen", action: close) } }
@@ -793,7 +807,7 @@ struct NativeArcFAB: View {
             case 0: commit(.assistant(nil))
             case 1: commit(.assistant("Plane den heutigen Tag für uns."))
             case 2: commit(.assistant("Welche Essenstipps aus unseren Ideen passen heute?"))
-            case 3: commit(.assistant("Was können wir heute bei Regen in Prag unternehmen?"))
+            case 3: commit(.assistant("Was können wir heute bei Regen unternehmen?"))
             default: break
             }
         case .closed: break
@@ -916,7 +930,7 @@ struct NativeArcFAB: View {
             case 0: commit(.assistant(nil))
             case 1: commit(.assistant("Plane den heutigen Tag für uns."))
             case 2: commit(.assistant("Welche Essenstipps aus unseren Ideen passen heute?"))
-            case 3: commit(.assistant("Was können wir heute bei Regen in Prag unternehmen?"))
+            case 3: commit(.assistant("Was können wir heute bei Regen unternehmen?"))
             default: break
             }
         case .closed: break

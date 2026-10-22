@@ -286,7 +286,7 @@ final class AlbumTests: XCTestCase {
         store.myName = "Luke"
         var place = try XCTUnwrap(store.inbox.first); place.lat = 50.087; place.lng = 14.423
         store.upsert(store.decided(place, approve: true))
-        XCTAssertTrue(store.franked.contains { $0.id == place.id })
+        XCTAssertFalse(store.franked.contains { $0.id == place.id }, "Eine Stimme plant den Ort nicht automatisch")
         XCTAssertFalse(store.inbox.contains { $0.id == place.id }, "Eigene Stimme ist abgegeben")
 
         store.myName = "Mia" // dasselbe Album auf dem zweiten iPhone
@@ -295,6 +295,7 @@ final class AlbumTests: XCTestCase {
         let both = store.decided(open, approve: true)
         XCTAssertTrue(store.isShared(both))
         store.upsert(both)
+        XCTAssertFalse(store.franked.contains { $0.id == place.id }, "Auch zwei Stimmen planen nicht automatisch")
         XCTAssertFalse(store.inbox.contains { $0.id == place.id })
 
         // „Nein“ auf einen Vorschlag der anderen Person nimmt ihn nicht von der Karte.
@@ -304,9 +305,51 @@ final class AlbumTests: XCTestCase {
         store.myName = "Luke"
         let passed = store.decided(try XCTUnwrap(store.places.first { $0.id == other.id }), approve: false)
         store.upsert(passed)
-        XCTAssertTrue(store.franked.contains { $0.id == other.id })
+        XCTAssertFalse(store.franked.contains { $0.id == other.id })
         XCTAssertFalse(store.inbox.contains { $0.id == other.id })
         XCTAssertTrue(store.deferred.contains { $0.id == other.id })
+    }
+
+    @MainActor func testExplicitPlanAssignmentPlansWithoutChangingVotes() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = AlbumStore(root: directory)
+        store.myName = "Luke"
+        let day = try XCTUnwrap(store.tripCalendar.days.first)
+        var place = Place(id: "plan-vote", title: "Museum", approvals: ["Mia"], passedBy: ["Luke"])
+        XCTAssertTrue(store.upsert(place))
+        place = try XCTUnwrap(store.places.first { $0.id == place.id })
+        store.assign(place, toDate: day)
+        let planned = try XCTUnwrap(store.places.first { $0.id == place.id })
+        XCTAssertTrue(planned.franked)
+        XCTAssertEqual(planned.plannedDate, day)
+        XCTAssertEqual(planned.approvals, ["Mia"])
+        XCTAssertEqual(planned.passedBy, ["Luke"])
+        XCTAssertNotNil(planned.planningUpdatedAt)
+    }
+
+    func testLegacyPlanFieldsDecodeAndRemainMergeable() throws {
+        let json = Data(#"{"id":"legacy-plan","title":"Museum","franked":true,"day":6,"dayOrder":2,"updatedAt":10}"#.utf8)
+        let legacy = try JSONDecoder().decode(Place.self, from: json)
+        XCTAssertNil(legacy.planningUpdatedAt)
+        XCTAssertEqual(legacy.day, 6)
+        let remote = Place(id: "legacy-plan", title: "Museum neu", franked: false, day: nil, dayOrder: nil, updatedAt: Date(timeIntervalSinceReferenceDate: 20))
+        let merged = AlbumMerge.place(local: legacy, remote: remote)
+        XCTAssertFalse(merged.franked)
+        XCTAssertNil(merged.day)
+    }
+
+    func testPlanStampWinsIndependentlyFromNewerVote() {
+        let old = Date(timeIntervalSince1970: 10)
+        let planTime = Date(timeIntervalSince1970: 20)
+        let voteTime = Date(timeIntervalSince1970: 30)
+        let local = Place(id: "separate-fields", title: "Museum", franked: true, plannedDate: TripDay(rawValue: "2026-10-05"), planningUpdatedAt: planTime, approvals: ["Luke"], updatedAt: old)
+        let remote = Place(id: "separate-fields", title: "Museum", franked: false, approvals: ["Mia"], updatedAt: voteTime)
+        let merged = AlbumMerge.place(local: local, remote: remote)
+        XCTAssertTrue(merged.franked)
+        XCTAssertEqual(merged.plannedDate, TripDay(rawValue: "2026-10-05"))
+        XCTAssertEqual(Set(merged.approvals), ["Luke", "Mia"])
+        XCTAssertEqual(merged.planningUpdatedAt, planTime)
     }
 
     @MainActor func testNoVoteLeavesIdeaOpenForOtherPerson() throws {

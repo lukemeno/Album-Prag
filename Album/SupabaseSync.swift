@@ -1012,9 +1012,9 @@ private struct V2RevisionCache: Codable {
         let index = store.data.places.firstIndex { $0.id == row.id }
         let local = index.map { store.data.places[$0] }
         let dirty = store.data.dirty.contains(row.id)
-        let mayAdoptRemote = local == nil || (!dirty && row.updatedAt > (local?.updatedAt ?? .distantPast))
+        let shouldApplyRemote = local == nil || dirty || row.updatedAt > (local?.updatedAt ?? .distantPast)
         let mayRepairCache = !dirty && (local == nil || row.updatedAt >= (local?.updatedAt ?? .distantPast))
-        let merged = mayAdoptRemote ? AlbumMerge.place(local: local, remote: row.payload) : (local ?? row.payload)
+        let merged = shouldApplyRemote ? AlbumMerge.place(local: local, remote: row.payload) : (local ?? row.payload)
         let destination = downloadDestination(for: merged, root: store.root)
         let fileState = localFileState(at: destination)
         let downloaded = try await downloadImageIfNeeded(merged, tripID: tripID, into: store.root, allowRemoteOverwrite: mayRepairCache)
@@ -1022,13 +1022,13 @@ private struct V2RevisionCache: Codable {
               store.data.dirty.contains(row.id) == dirty,
               localFileState(at: destination) == fileState else { return }
         if let downloaded { try commit(downloaded) }
-        guard mayAdoptRemote else { return }
+        guard shouldApplyRemote else { return }
         if let currentIndex = store.data.places.firstIndex(where: { $0.id == row.id }) {
             store.data.places[currentIndex] = merged
         } else {
             store.data.places.append(merged)
         }
-        store.data.dirty.remove(row.id)
+        if !dirty { store.data.dirty.remove(row.id) }
     }
 
     private func applyDocumentRow(_ row: DocumentRow, store: AlbumStore) async throws {

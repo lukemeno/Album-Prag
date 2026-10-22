@@ -7,7 +7,6 @@ struct InboxView: View {
     var add: () -> Void = {}
     @State private var offset: CGSize = .zero
     @State private var editing: Place?
-    @State private var shouldFrank = false
     @State private var lastAction: Place?
     @State private var lastActionWasOpen = false
     @State private var openThisPassIDs: Set<String> = []
@@ -125,7 +124,7 @@ struct InboxView: View {
                 }
             }
         }
-        .sheet(item: $editing) { PlaceEditor(place: $0, frankOnSave: shouldFrank) }
+        .sheet(item: $editing) { PlaceEditor(place: $0) }
         .sensoryFeedback(.impact(weight: .medium), trigger: feedback)
         .sensoryFeedback(.selection, trigger: thresholdFeedback)
         .sensoryFeedback(.impact(weight: .heavy, intensity: 0.9), trigger: stampTick)
@@ -139,7 +138,7 @@ struct InboxView: View {
     private func frontCard(_ place: Place) -> some View {
         let card = IdeaStamp(place: place, root: store.root, stamp: stamp, onPhotoTap: { openPhoto(place, from: $0) })
             .overlay(alignment: .topTrailing) {
-                Button { shouldFrank = false; editing = place } label: { Image(systemName: "pencil") }
+                Button { editing = place } label: { Image(systemName: "pencil") }
                     .buttonStyle(HeaderIconButton())
                     .padding(Stitch.Space.l)
                     .accessibilityLabel("Idee bearbeiten")
@@ -178,7 +177,7 @@ struct InboxView: View {
                 .padding(.bottom, Stitch.Space.s)
             Text(openThisPassIDs.isEmpty ? "Alles entschieden" : "Noch offen")
                 .font(Stitch.Face.title(28, relativeTo: .title)).foregroundStyle(Stitch.ink)
-            Text(openThisPassIDs.isEmpty ? "Neue Links landen hier. Was ihr wollt, steht danach im Plan." : "Diese Ideen bleiben offen. Ihr könnt jederzeit neu entscheiden.")
+            Text(openThisPassIDs.isEmpty ? "Neue Links landen hier. Eure Ja-Stimmen zeigen eure Favoriten; im Plan könnt ihr Orte danach einem Tag zuordnen." : "Diese Ideen bleiben offen. Ihr könnt jederzeit neu entscheiden.")
                 .font(.body).multilineTextAlignment(.center).foregroundStyle(Stitch.inkSoft)
             VStack(spacing: Stitch.Space.xs) {
                 if !openThisPassIDs.isEmpty {
@@ -405,7 +404,6 @@ struct InboxView: View {
     }
 
     private func act(_ place: Place, frank: Bool) {
-        if frank && place.coordinate == nil { shouldFrank = true; editing = place; return }
         guard !committing else { return }
         lastAction = place
         lastActionWasOpen = false

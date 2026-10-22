@@ -75,7 +75,7 @@ private struct OpeningHoursFetchResult: Sendable {
         if approve {
             if !changed.approvals.contains(me) { changed.approvals.append(me) }
             changed.passedBy.removeAll { $0 == me }
-            changed.franked = true; changed.deferred = false
+            changed.deferred = false
         } else {
             changed.approvals.removeAll { $0 == me }
             if !changed.passedBy.contains(me) { changed.passedBy.append(me) }
@@ -360,6 +360,12 @@ private struct OpeningHoursFetchResult: Sendable {
         let previous = data
         var oldImageToRemove: UploadedPlaceImage?
         if let index = data.places.firstIndex(where: { $0.id == place.id }) {
+            let existing = data.places[index]
+            if place.franked != existing.franked || place.plannedDate != existing.plannedDate
+                || place.day != existing.day || place.dayOrder != existing.dayOrder
+                || place.planningSchemaVersion != existing.planningSchemaVersion {
+                place.planningUpdatedAt = Date()
+            }
             if !place.deleted, case .uploaded(let oldImage) = data.places[index].image,
                case .uploaded(let newImage) = place.image, oldImage.id == newImage.id {
             } else if case .uploaded(let oldImage) = data.places[index].image {
@@ -368,7 +374,12 @@ private struct OpeningHoursFetchResult: Sendable {
                 if place.deleted { place.image = nil }
             }
             data.places[index] = place
-        } else { data.places.append(place) }
+        } else {
+            if place.franked || place.plannedDate != nil || place.day != nil || place.dayOrder != nil {
+                place.planningUpdatedAt = place.planningUpdatedAt ?? Date()
+            }
+            data.places.append(place)
+        }
         data.dirty.insert(place.id)
         let saved = persist()
         if saved {
@@ -462,7 +473,9 @@ private struct OpeningHoursFetchResult: Sendable {
         if let date, !tripCalendar.contains(date) { return }
         var p = place
         p.plannedDate = date
+        p.franked = true
         p.planningSchemaVersion = 2
+        p.planningUpdatedAt = Date()
         p.day = nil
         p.dayOrder = date.map { day in
             (franked.filter { $0.plannedDate == day && $0.id != place.id }.compactMap(\.dayOrder).max() ?? -1) + 1
@@ -581,6 +594,7 @@ private struct OpeningHoursFetchResult: Sendable {
                 place.planningSchemaVersion = 2
                 place.day = nil
                 place.dayOrder = index
+                place.planningUpdatedAt = commitDate
                 place.updatedAt = commitDate
                 if let placeIndex = data.places.firstIndex(where: { $0.id == place.id }) {
                     data.places[placeIndex] = place
@@ -629,6 +643,7 @@ private struct OpeningHoursFetchResult: Sendable {
             data.places[index].planningSchemaVersion = 2
             data.places[index].day = assignment.legacyDay
             data.places[index].dayOrder = assignment.dayOrder
+            data.places[index].planningUpdatedAt = commitDate
             data.places[index].updatedAt = commitDate
             data.dirty.insert(assignment.placeID)
             changed = true
@@ -652,6 +667,36 @@ private struct OpeningHoursFetchResult: Sendable {
         let window = DayPlanGenerator.windows(flights: data.trip.flights ?? [], calendar: calendar)[date]
             ?? DayPlanGenerator.Window(start: 10 * 60, end: 22 * 60)
         return DayPlanGenerator.timeline(plan(for: date), day: date, window: window, start: hotelCoordinate, calendar: calendar)
+    }
+
+    @discardableResult func saveExpense(_ expense: TravelExpense) -> Bool {
+        var trip = data.trip
+        var entries = trip.expenses ?? []
+        var saved = expense
+        if let index = entries.firstIndex(where: { $0.id == expense.id }) {
+            let existing = entries[index]
+            guard existing.deletedAt == nil else { return false }
+            saved.createdAt = existing.createdAt
+            saved.deletedAt = nil
+            saved.updatedAt = max(Date(), existing.updatedAt.addingTimeInterval(0.001))
+            entries[index] = saved
+        } else {
+            saved.updatedAt = Date()
+            entries.append(saved)
+        }
+        trip.expenses = entries
+        return updateTrip(trip)
+    }
+
+    @discardableResult func deleteExpense(id: String, now: Date = Date()) -> Bool {
+        var trip = data.trip
+        guard var entries = trip.expenses,
+              let index = entries.firstIndex(where: { $0.id == id }), entries[index].deletedAt == nil else { return false }
+        let timestamp = max(now, entries[index].updatedAt.addingTimeInterval(0.001))
+        entries[index].deletedAt = timestamp
+        entries[index].updatedAt = timestamp
+        trip.expenses = entries
+        return updateTrip(trip)
     }
 
     @discardableResult func updateTrip(_ trip: TripInfo) -> Bool {

@@ -21,11 +21,12 @@ struct TravelExpense: Codable, Identifiable, Equatable {
     var participants: [String]
     var createdAt = Date()
     var updatedAt = Date()
+    var deletedAt: Date?
 
     init(id: String = UUID().uuidString, title: String, amountCents: Int,
          originalMinor: Int? = nil, currency: TravelCurrency = .eur,
          exchangeRateHundredths: Int = 100, payer: String, participants: [String],
-         createdAt: Date = Date(), updatedAt: Date = Date()) {
+         createdAt: Date = Date(), updatedAt: Date = Date(), deletedAt: Date? = nil) {
         self.id = id
         self.title = title
         self.amountCents = amountCents
@@ -36,6 +37,7 @@ struct TravelExpense: Codable, Identifiable, Equatable {
         self.participants = participants
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.deletedAt = deletedAt
     }
 
     var amount: Decimal { Decimal(amountCents) / 100 }
@@ -142,8 +144,13 @@ struct TravelTransfer: Equatable, Identifiable {
 }
 
 enum TravelLedger {
+    static func visibleExpenses(_ expenses: [TravelExpense]) -> [TravelExpense] {
+        expenses.filter { $0.deletedAt == nil }
+    }
+
     static func shareCents(for expense: TravelExpense, participant: String) -> Int {
-        guard let index = expense.participants.firstIndex(of: participant), !expense.participants.isEmpty else { return 0 }
+        guard expense.deletedAt == nil,
+              let index = expense.participants.firstIndex(of: participant), !expense.participants.isEmpty else { return 0 }
         let base = expense.amountCents / expense.participants.count
         let remainder = expense.amountCents % expense.participants.count
         return base + (index < remainder ? 1 : 0)
@@ -151,7 +158,7 @@ enum TravelLedger {
 
     static func balances(expenses: [TravelExpense], settlements: [TravelSettlement] = []) -> [String: Int] {
         var result: [String: Int] = [:]
-        for expense in expenses {
+        for expense in visibleExpenses(expenses) {
             result[expense.payer, default: 0] += expense.amountCents
             for participant in expense.participants {
                 result[participant, default: 0] -= shareCents(for: expense, participant: participant)

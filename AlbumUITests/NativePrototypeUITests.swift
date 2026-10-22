@@ -106,6 +106,72 @@ final class NativePrototypeUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", "Testrechnung")).firstMatch.waitForExistence(timeout: 5))
     }
 
+    func testApprovalDoesNotPlanUntilDayIsChosen() {
+        let app = launch()
+        tap("native-trip-prag", in: app)
+        tap("native-tab-ideas", in: app)
+        tap("Mehr für Letná Park", in: app)
+        tap("Für mich", in: app)
+        XCTAssertTrue(app.buttons["native-idea-example-letna"].exists)
+        tap("native-tab-plan", in: app)
+        XCTAssertFalse(app.staticTexts["Letná Park"].exists)
+        tap("native-tab-ideas", in: app)
+        tap("Mehr für Letná Park", in: app)
+        tap("Auf Tag legen", in: app)
+        tap("native-day-2026-10-06", in: app)
+        tap("native-tab-plan", in: app)
+        XCTAssertTrue(app.staticTexts["Letná Park"].waitForExistence(timeout: 5))
+        capture("explicit-day-plan")
+        app.terminate(); app.launch()
+        tap("native-trip-prag", in: app)
+        XCTAssertTrue(app.staticTexts["Letná Park"].waitForExistence(timeout: 5))
+    }
+
+    func testExpenseEditDeleteAndRelaunch() {
+        let app = launch()
+        func openExpenses() {
+            tap("native-trip-prag", in: app)
+            tap("native-tab-group", in: app)
+            tap("native-group-expenses", in: app)
+        }
+        func replace(_ field: XCUIElement, with value: String) {
+            field.tap()
+            let old = field.value as? String ?? ""
+            field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: old.count))
+            field.typeText(value)
+        }
+        openExpenses()
+        tap("expenses-add", in: app)
+        app.textFields["expense-title"].tap()
+        app.textFields["expense-title"].typeText("Korrekturtest")
+        app.textFields["expense-amount"].tap()
+        app.textFields["expense-amount"].typeText("12,50")
+        tap("expense-save", in: app)
+        tap("Aktionen für Korrekturtest", in: app)
+        tap("Ausgabe Korrekturtest bearbeiten", in: app)
+        XCTAssertEqual(app.textFields["expense-title"].value as? String, "Korrekturtest")
+        replace(app.textFields["expense-title"], with: "Korrigiert")
+        replace(app.textFields["expense-amount"], with: "20,00")
+        tap("expense-save", in: app)
+        capture("expense-edited")
+        app.terminate(); app.launch()
+        openExpenses()
+        tap("Aktionen für Korrigiert", in: app)
+        tap("Ausgabe Korrigiert bearbeiten", in: app)
+        XCTAssertEqual(app.textFields["expense-amount"].value as? String, "20,00")
+        tap("Abbrechen", in: app)
+        tap("Aktionen für Korrigiert", in: app)
+        tap("Ausgabe Korrigiert löschen", in: app)
+        let confirmation = app.buttons.matching(identifier: "expense-delete-confirm").firstMatch
+        XCTAssertTrue(confirmation.waitForExistence(timeout: 5))
+        confirmation.tap()
+        XCTAssertTrue(app.staticTexts["Noch keine Ausgabe eingetragen"].waitForExistence(timeout: 5))
+        app.terminate(); app.launch()
+        openExpenses()
+        XCTAssertTrue(app.staticTexts["Noch keine Ausgabe eingetragen"].waitForExistence(timeout: 5))
+        capture("expense-deleted")
+    }
+
     func testMemoriesHasSeparateCameraAndLibraryActions() {
         let app = launch()
         tap("native-trip-prag", in: app)

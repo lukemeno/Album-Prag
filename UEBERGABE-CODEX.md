@@ -6,8 +6,8 @@ Zuerst `PROJECT-MAP.md` und die jüngsten Einträge in `PROGRESS.md` lesen. Dies
 
 - **Ordner:** `/Users/alexandergorny/.codex/.chatgpt-projects/g-p-6aabf1a8b2b48191be855674e1d66a30/Album`
 - **Branch:** nur `main` (lokal). Keine weiteren Branches, keine Worktrees.
-- `main` liegt 9 Commits vor `origin/main` (`55baad9`). **Nichts ist gepusht.** Push nur nach ausdrücklichem Go des Nutzers.
-- Die Remote-Branches auf `origin` sind unverändert. Der Standard-Branch von `origin` ist `claude/busy-knuth-jci1vg`, nicht `main`. Das vor einem Push klären.
+- Die Bereinigung wurde mit `16599f3` auf GitHub veröffentlicht. Weitere lokale Änderungen werden auf `main` umgesetzt und bis zum nächsten ausdrücklichen Push-Go lokal geprüft.
+- Auf GitHub gibt es ebenfalls nur `main`; `main` ist der Standard-Branch. Die früheren Branches bleiben im lokalen Sicherungs-Bundle erhalten.
 
 ## Was auf `main` ist
 
@@ -38,7 +38,7 @@ Zuerst `PROJECT-MAP.md` und die jüngsten Einträge in `PROGRESS.md` lesen. Dies
 ## Nächste Schritte
 
 1. Optik im Simulator gegen `uebersicht.jpg` prüfen (Home, Plan, Ideen, Gruppe).
-2. Push-Ziel klären und erst dann pushen. B1 ändert das Sync-Format: Die echte Prag-Reise nicht bearbeiten, bevor B1 auf dem Handy installiert ist (Stand dort: `a63fb6f`).
+2. Push-Ziel ist `main`, Push weiterhin nur nach ausdrücklichem Go. B1 ändert das Sync-Format: Die echte Prag-Reise nicht bearbeiten, bevor B1 auf dem Handy installiert ist (Stand dort: `a63fb6f`).
 3. Bildauswahl: 14 Fälle der Testliste von Hand labeln (`supabase/tests/place_photo_golden/`), dann die Pipeline bauen. `place-photo` ist nicht deployt.
 4. Assistenten-Limits Wellen 2–4 brauchen einen bezahlten Apple-Developer-Account.
 
@@ -49,3 +49,11 @@ Kein Push, kein Deploy, keine Live-Supabase-Änderung ohne ausdrückliches Go. A
 ## Bestätigte Arbeitsbasis · 22.10.2026 (Nutzer)
 
 Der Nutzer möchte am weiß/dunkelgrünen Album-Stand mit Haltemenü weiterarbeiten. Seine Bildreferenz zeigt Reisewahl und Reiseübersicht; die beigefügten Stichpunkte sind Ideen, kein pauschaler Umsetzungsauftrag. Arbeitsbasis bleibt die native SwiftUI-App auf lokalem `main`, mit dem vorhandenen Bogen-Menü (Halten, Ziehen, Loslassen) und dem Menü-Feinschliff vom 20.10. Die Aufnahmen unter `.qa-shots/native-20261019/` dokumentieren die Gestaltungsrichtung, sind aber kein neuer Simulatornachweis für den aktuellen HEAD. Expo-Kofferaufkleber-, Glas- und Rive-Entwürfe ersetzen diese Arbeitsbasis nicht. Technische Fortschritte wie B1 bleiben erhalten.
+
+## Verbesserungsrunde 1 · 22.10.2026
+
+Sol plante und prüfte, zwei Luna-Agenten setzten um: Ausgaben bearbeiten/löschen mit rückwärtskompatiblen Löschmarkierungen, dynamische Daten auf der Startkarte, Zustimmung unabhängig von Tagesplanung. Zugestimmte ungeplante Ideen bleiben an ihrer Listenposition; Tageswahl ist explizit. Planstempel und Zusammenführen noch nicht hochgeladener Orte schützen Planung/Stimmen beim Abgleich. Kein Backend-Deployment.
+
+Xcode-Build-/Paketcache unter `~/Library/Developer/Xcode/DerivedData/` verwenden. Der frühere Cache unter Documents/Codex enthält ausgelagerte (`dataless`) Paketdateien und blockierte die Paketauflösung; er ist keine zuverlässige Build-Grundlage. Testresultate ebenfalls außerhalb ausgelagerter Dokumentordner ablegen.
+
+Final geprüft: 196 Unit-Tests (4 übersprungen, 0 Fehler) und 10 UI-Tests bestanden; einschließlich Korrektur/Löschen von Ausgaben mit Neustart und Zustimmung/ausdrücklicher Tageswahl mit Neustart. Lokaler main-Commit, noch kein Push dieser Verbesserungsrunde.

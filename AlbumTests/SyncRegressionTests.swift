@@ -235,6 +235,34 @@ final class SyncRegressionTests: XCTestCase {
         XCTAssertTrue(store.data.dirty.contains(place.id))
     }
 
+    func testDirtyPlaceMergesStampedPlanWithNewerRemoteVoteAndKeepsDirtyMarker() async throws {
+        let store = AlbumStore(root: root)
+        let id = "dirty-plan-vote"
+        let planDate = try XCTUnwrap(TripDay(rawValue: "2027-05-01"))
+        let localPlanStamp = Date(timeIntervalSinceReferenceDate: 100)
+        let local = Place(id: id, title: "Lokaler Titel", franked: true, plannedDate: planDate,
+                          planningSchemaVersion: 2, planningUpdatedAt: localPlanStamp,
+                          approvals: ["Luke"], passedBy: ["Sam"], updatedAt: Date(timeIntervalSinceReferenceDate: 10))
+        let remote = Place(id: id, title: "Neuer Remote-Titel", note: "Remote-Notiz", franked: false,
+                           approvals: ["Mia"], passedBy: ["Jo"], updatedAt: Date(timeIntervalSinceReferenceDate: 200))
+        store.data.places = [local]
+        store.data.dirty = [id]
+        XCTAssertTrue(store.persist())
+
+        let sync = SupabaseSync(writeTransport: PausingSyncWriteTransport())
+        try await sync.reconcilePlaceForTesting(store: store, remote: remote, tripID: UUID())
+
+        let merged = try XCTUnwrap(store.data.places.first { $0.id == id })
+        XCTAssertEqual(merged.title, "Neuer Remote-Titel", "Neuere Remote-Metadaten werden übernommen")
+        XCTAssertEqual(merged.note, "Remote-Notiz")
+        XCTAssertEqual(merged.plannedDate, planDate, "Der gestempelte lokale Plan bleibt erhalten")
+        XCTAssertTrue(merged.franked)
+        XCTAssertEqual(merged.planningUpdatedAt, localPlanStamp)
+        XCTAssertEqual(Set(merged.approvals), ["Luke", "Mia"])
+        XCTAssertEqual(Set(merged.passedBy), ["Sam", "Jo"])
+        XCTAssertTrue(store.data.dirty.contains(id), "Lokale Änderungen bleiben bis zur Schreibbestätigung dirty")
+    }
+
     func testPlaceMutationDuringWriteKeepsDirtyMarkerAndPayload() async throws {
         let store = AlbumStore(root: root)
         let original = Place(id: "place-1", title: "Vorher")

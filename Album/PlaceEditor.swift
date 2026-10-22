@@ -8,7 +8,6 @@ struct PlaceEditor: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State var place: Place
-    var frankOnSave = false
     var autoSourceEnrichment = true
     var onSaved: ((Place) -> Void)?
     @State private var query = ""
@@ -34,10 +33,10 @@ struct PlaceEditor: View {
     @State private var editorFinished = false
     /// Schon gespeichert? Dann gibt es Zurücklegen und Löschen.
     private var exists: Bool { store.places.contains { $0.id == place.id } }
-    private var editorTitle: String { frankOnSave ? "Wo ist das?" : exists ? "Bearbeiten" : "Neue Idee" }
+    private var editorTitle: String { exists ? "Bearbeiten" : "Neue Idee" }
     let categories = ["Idee", "Sehenswert", "Essen & Trinken", "Aussicht", "Unterkunft", "Shopping"]
     var valid: Bool {
-        !place.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && (place.sourceURL.isEmpty || LinkValidation.url(place.sourceURL) != nil) && (!frankOnSave || place.coordinate != nil)
+        !place.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && (place.sourceURL.isEmpty || LinkValidation.url(place.sourceURL) != nil)
     }
     var body: some View {
         NavigationStack {
@@ -139,7 +138,7 @@ struct PlaceEditor: View {
         ideaSection
         locationSection
         if place.franked { planningSection }
-        if exists && !frankOnSave { managementSection }
+        if exists { managementSection }
     }
 
     private var ideaSection: some View {
@@ -262,7 +261,7 @@ struct PlaceEditor: View {
         Section {
             if place.franked {
                 Button("Zurück zu den Ideen") {
-                    place.franked = false; place.deferred = false; place.approvals = []; place.passedBy = []
+                    place.franked = false; place.deferred = false
                     place.plannedDate = nil; place.day = nil; place.dayOrder = nil
                     guard store.upsert(place) else { return }
                     endEditor(preservePendingPhoto: true)
@@ -271,7 +270,7 @@ struct PlaceEditor: View {
             }
             Button("Ort löschen", role: .destructive) { confirmDelete = true }
         } footer: {
-            Text(place.franked ? "Zurück zu den Ideen nimmt den Ort aus dem Plan; ihr entscheidet dann neu." : "")
+            Text(place.franked ? "Zurück zu den Ideen nimmt den Ort aus dem Plan; eure bisherigen Stimmen bleiben erhalten." : "")
         }
         .listRowBackground(Stitch.card)
     }
@@ -306,7 +305,6 @@ struct PlaceEditor: View {
 
     private func save() {
         let isNew = !store.places.contains { $0.id == place.id }
-        if frankOnSave { place = store.decided(place, approve: true) }
         guard store.upsert(place) else { return }
         // Erst nach einem erfolgreichen Persistieren darf die laufende Arbeit enden.
         endEditor(preservePendingPhoto: true)

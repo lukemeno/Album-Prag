@@ -174,13 +174,19 @@ struct TripCalendar {
     }
 
     /// „4.–9. Okt“ (oder ausgeschrieben „4.–9. Oktober“) für den ganzen Zeitraum; nil ohne gültige Reisedaten.
-    func rangeLabel(wideMonth: Bool = false) -> String? {
+    func rangeLabel(wideMonth: Bool = false, includeYear: Bool = false) -> String? {
         guard isValidRange, let start = trip.startDate, let end = trip.endDate,
               let startDate = date(for: start), let endDate = date(for: end) else { return nil }
-        let format: (TripDay) -> String = wideMonth ? dayMonth : shortDate
+        let format: (TripDay) -> String = { day in
+            guard includeYear, let date = self.date(for: day) else { return wideMonth ? self.dayMonth(day) : self.shortDate(day) }
+            return date.formatted(self.style.day().month(wideMonth ? .wide : .abbreviated).year())
+        }
         if start == end { return format(start) }
         let sameMonth = calendar.isDate(startDate, equalTo: endDate, toGranularity: .month)
-        return sameMonth ? "\(start.dayOfMonth).–\(format(end))" : "\(format(start)) – \(format(end))"
+        let sameYear = calendar.isDate(startDate, equalTo: endDate, toGranularity: .year)
+        if sameMonth && sameYear { return "\(start.dayOfMonth).–\(format(end))" }
+        if sameYear { return "\(start.dayOfMonth). \(startDate.formatted(style.month(wideMonth ? .wide : .abbreviated))) – \(format(end))" }
+        return "\(format(start)) – \(format(end))"
     }
 
     var daysUntilStart: Int? {

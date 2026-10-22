@@ -140,6 +140,8 @@ struct Place: Codable, Identifiable, Equatable {
     /// Geplanter Reisetag. `day` bleibt nur zum Lesen und Migrieren alter Daten.
     var plannedDate: TripDay?
     var planningSchemaVersion: Int?
+    /// Timestamp for the plan-specific fields, independent of votes and metadata edits.
+    var planningUpdatedAt: Date?
     var day: Int?
     /// Von neueren Clients gesetzte Google-Auswahl; unverändert weitergeben, damit der Server sie nicht verliert.
     var selectedGooglePlace: PreservedJSON?
@@ -175,16 +177,16 @@ struct Place: Codable, Identifiable, Equatable {
         return .linkPreview(pageURL: url.absoluteString, thumbnailURL: nil, credit: sourceLabel)
     }
 
-    init(id: String = UUID().uuidString, title: String, note: String = "", sourceURL: String = "", category: String = "Idee", author: String = "Wir", image: PlaceImageAsset? = nil, address: String = "", lat: Double? = nil, lng: Double? = nil, franked: Bool = false, deferred: Bool = false, deleted: Bool = false, visited: Bool = false, plannedDate: TripDay? = nil, planningSchemaVersion: Int? = nil, day: Int? = nil, dayOrder: Int? = nil, approvals: [String] = [], passedBy: [String] = [], updatedAt: Date = Date()) {
+    init(id: String = UUID().uuidString, title: String, note: String = "", sourceURL: String = "", category: String = "Idee", author: String = "Wir", image: PlaceImageAsset? = nil, address: String = "", lat: Double? = nil, lng: Double? = nil, franked: Bool = false, deferred: Bool = false, deleted: Bool = false, visited: Bool = false, plannedDate: TripDay? = nil, planningSchemaVersion: Int? = nil, planningUpdatedAt: Date? = nil, day: Int? = nil, dayOrder: Int? = nil, approvals: [String] = [], passedBy: [String] = [], updatedAt: Date = Date()) {
         self.id = id; self.title = title; self.note = note; self.sourceURL = sourceURL; self.category = category; self.author = author
         self.image = image; self.address = address; self.lat = lat; self.lng = lng; self.franked = franked; self.deferred = deferred
         self.deleted = deleted; self.visited = visited; self.plannedDate = plannedDate
-        self.planningSchemaVersion = planningSchemaVersion; self.day = day; self.dayOrder = dayOrder
+        self.planningSchemaVersion = planningSchemaVersion; self.planningUpdatedAt = planningUpdatedAt; self.day = day; self.dayOrder = dayOrder
         self.approvals = approvals; self.passedBy = passedBy; self.updatedAt = updatedAt
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, title, note, sourceURL, category, author, image, address, lat, lng, selectedGooglePlace, franked, deferred, deleted, visited, plannedDate, planningSchemaVersion, day, dayOrder, approvals, passedBy, openingHours, gallery, updatedAt
+        case id, title, note, sourceURL, category, author, image, address, lat, lng, selectedGooglePlace, franked, deferred, deleted, visited, plannedDate, planningSchemaVersion, planningUpdatedAt, day, dayOrder, approvals, passedBy, openingHours, gallery, updatedAt
         case imageName, remoteImage, imageSourceURL, imageCredit
     }
 
@@ -205,6 +207,7 @@ struct Place: Codable, Identifiable, Equatable {
         visited = try values.decodeIfPresent(Bool.self, forKey: .visited) ?? false
         plannedDate = try values.decodeIfPresent(TripDay.self, forKey: .plannedDate)
         planningSchemaVersion = try values.decodeIfPresent(Int.self, forKey: .planningSchemaVersion)
+        planningUpdatedAt = try values.decodeIfPresent(Date.self, forKey: .planningUpdatedAt)
         day = try values.decodeIfPresent(Int.self, forKey: .day)
         selectedGooglePlace = try values.decodeIfPresent(PreservedJSON.self, forKey: .selectedGooglePlace)
         dayOrder = try values.decodeIfPresent(Int.self, forKey: .dayOrder)
@@ -235,6 +238,7 @@ struct Place: Codable, Identifiable, Equatable {
         try values.encodeIfPresent(lng, forKey: .lng); try values.encode(franked, forKey: .franked); try values.encode(deferred, forKey: .deferred)
         try values.encode(deleted, forKey: .deleted); try values.encode(visited, forKey: .visited)
         try values.encodeIfPresent(plannedDate, forKey: .plannedDate); try values.encodeIfPresent(planningSchemaVersion, forKey: .planningSchemaVersion)
+        try values.encodeIfPresent(planningUpdatedAt, forKey: .planningUpdatedAt)
         try values.encodeIfPresent(day, forKey: .day); try values.encodeIfPresent(selectedGooglePlace, forKey: .selectedGooglePlace)
         try values.encodeIfPresent(dayOrder, forKey: .dayOrder); try values.encode(approvals, forKey: .approvals); try values.encode(passedBy, forKey: .passedBy)
         try values.encodeIfPresent(openingHours, forKey: .openingHours); try values.encodeIfPresent(gallery, forKey: .gallery)
@@ -517,10 +521,26 @@ enum AlbumMerge {
     static func place(local: Place?, remote: Place) -> Place {
         guard let local else { return remote }
         var merged = remote.updatedAt > local.updatedAt ? remote : local
-        // Stimmen gehen nie verloren: Wer offline abgestimmt hat, bleibt gezählt.
+        // Votes are independent of plan state; preserve both devices' decisions.
         merged.approvals = union(local.approvals, remote.approvals)
         merged.passedBy = union(local.passedBy, remote.passedBy)
-        if !merged.approvals.isEmpty && !merged.deleted { merged.franked = true }
+
+        // Plan fields form one group. A stamped edit wins over an unstamped
+        // legacy row; two legacy rows retain the previous updatedAt last-writer rule.
+        let localPlanWins: Bool
+        switch (local.planningUpdatedAt, remote.planningUpdatedAt) {
+        case let (left?, right?): localPlanWins = left > right
+        case (_?, nil): localPlanWins = true
+        case (nil, _?): localPlanWins = false
+        case (nil, nil): localPlanWins = local.updatedAt >= remote.updatedAt
+        }
+        let plan = localPlanWins ? local : remote
+        merged.franked = plan.franked
+        merged.plannedDate = plan.plannedDate
+        merged.day = plan.day
+        merged.dayOrder = plan.dayOrder
+        merged.planningSchemaVersion = plan.planningSchemaVersion
+        merged.planningUpdatedAt = plan.planningUpdatedAt
         return merged
     }
 
@@ -543,7 +563,13 @@ enum AlbumMerge {
         let all = (local ?? []) + (remote ?? [])
         guard !all.isEmpty else { return nil }
         var byID: [String: TravelExpense] = [:]
-        for entry in all where (byID[entry.id]?.updatedAt ?? .distantPast) <= entry.updatedAt { byID[entry.id] = entry }
+        for entry in all {
+            guard let current = byID[entry.id] else { byID[entry.id] = entry; continue }
+            if entry.updatedAt > current.updatedAt
+                || (entry.updatedAt == current.updatedAt && entry.deletedAt != nil && current.deletedAt == nil) {
+                byID[entry.id] = entry
+            }
+        }
         return byID.values.sorted { $0.id < $1.id }
     }
 

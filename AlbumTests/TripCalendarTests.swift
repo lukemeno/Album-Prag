@@ -72,7 +72,23 @@ final class TripCalendarTests: XCTestCase {
         XCTAssertEqual(calendar.shortDate(sunday), "4. Okt")
         XCTAssertEqual(calendar.dayMonth(sunday), "4. Oktober")
         XCTAssertEqual(calendar.rangeLabel(), "4.–9. Okt")
+        XCTAssertEqual(calendar.rangeLabel(wideMonth: true, includeYear: true), "4.–9. Oktober 2026")
         XCTAssertEqual(DayPlanGenerator.weekday(try XCTUnwrap(TripDay(rawValue: "2026-10-05")), calendar: calendar), 0)
+    }
+
+    func testWideRangeLabelIncludesYearsAcrossYearBoundary() {
+        var trip = TripInfo()
+        trip.startDate = TripDay(rawValue: "2026-12-29")
+        trip.endDate = TripDay(rawValue: "2027-01-03")
+        trip.timeZoneIdentifier = "Europe/Berlin"
+        XCTAssertEqual(TripCalendar(trip: trip).rangeLabel(wideMonth: true, includeYear: true), "29. Dezember 2026 – 3. Januar 2027")
+    }
+
+    func testWideRangeLabelIncludesYearForSingleDay() {
+        var trip = TripInfo()
+        trip.startDate = TripDay(rawValue: "2028-02-29")
+        trip.endDate = trip.startDate
+        XCTAssertEqual(TripCalendar(trip: trip).rangeLabel(wideMonth: true, includeYear: true), "29. Februar 2028")
     }
 
     func testUndatedTripHasNoDaysPhaseOrToday() {

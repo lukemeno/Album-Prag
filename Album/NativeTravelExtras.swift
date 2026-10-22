@@ -6,13 +6,15 @@ import AVFoundation
 public struct NativeExpensesView: View {
     @Environment(AlbumStore.self) private var store
     @Environment(\.dismiss) private var dismiss
-    @State private var showingEditor = false
+    @State private var editorRoute: ExpenseEditorRoute?
     @State private var showingSettlement = false
     @State private var feedbackTick = 0
+    @State private var expenseToDelete: TravelExpense?
+    @State private var showingDeleteConfirmation = false
 
     public init() {}
 
-    private var expenses: [TravelExpense] { store.data.trip.expenses ?? [] }
+    private var expenses: [TravelExpense] { TravelLedger.visibleExpenses(store.data.trip.expenses ?? []) }
     private var settlements: [TravelSettlement] { store.data.trip.settlements ?? [] }
     private var balances: [String: Int] { TravelLedger.balances(expenses: expenses, settlements: settlements) }
     private var transfers: [TravelTransfer] { TravelLedger.transfers(expenses: expenses, settlements: settlements) }
@@ -55,19 +57,24 @@ public struct NativeExpensesView: View {
                     .accessibilityLabel("Ausgaben schließen")
                 }
                 ToolbarItem(placement: .primaryAction) {
-                    Button { showingEditor = true } label: { Image(systemName: "plus") }
+                    Button { editorRoute = .add } label: { Image(systemName: "plus") }
                         .accessibilityLabel("Ausgabe hinzufügen")
                         .accessibilityIdentifier("expenses-add")
                 }
             }
-            .sheet(isPresented: $showingEditor) {
-                NativeExpenseEditor(participants: participants) { expense in
-                    var trip = store.data.trip
-                    trip.expenses = (trip.expenses ?? []) + [expense]
-                    let saved = store.updateTrip(trip)
+            .sheet(item: $editorRoute) { route in
+                NativeExpenseEditor(expense: route.expense, participants: participants) { changedExpense in
+                    let saved = store.saveExpense(changedExpense)
                     if saved { feedbackTick += 1 }
                     return saved
                 }
+            }
+            .confirmationDialog("Ausgabe löschen?", isPresented: $showingDeleteConfirmation, presenting: expenseToDelete) { expense in
+                Button("Ausgabe löschen", role: .destructive) { delete(expense) }
+                    .accessibilityIdentifier("expense-delete-confirm")
+                Button("Abbrechen", role: .cancel) { expenseToDelete = nil }
+            } message: { expense in
+                Text("„\(expense.title)“ wird aus der gemeinsamen Abrechnung entfernt.")
             }
             .sheet(isPresented: $showingSettlement) {
                 NativeSettlementView(transfers: transfers) { entries in
@@ -118,7 +125,7 @@ public struct NativeExpensesView: View {
             Text("Tragt die erste Ausgabe ein, sobald ihr unterwegs etwas gemeinsam bezahlt habt.")
                 .font(.subheadline).foregroundStyle(Stitch.inkSoft)
                 .fixedSize(horizontal: false, vertical: true)
-            Button("Ausgabe hinzufügen") { showingEditor = true }
+            Button("Ausgabe hinzufügen") { editorRoute = .add }
                 .buttonStyle(TextActionButton())
                 .accessibilityIdentifier("expenses-empty-add")
         }
@@ -145,13 +152,36 @@ public struct NativeExpensesView: View {
                     Spacer(minLength: 0)
                     Text(money(expense.amountCents))
                         .font(.body.monospacedDigit().weight(.semibold)).foregroundStyle(Stitch.ink)
+                    Menu {
+                        Button("Ausgabe bearbeiten", systemImage: "pencil") { editorRoute = .edit(expense) }
+                            .accessibilityLabel("Ausgabe \(expense.title) bearbeiten")
+                            .accessibilityIdentifier("expense-edit-\(expense.id)")
+                        Button("Ausgabe löschen", systemImage: "trash", role: .destructive) {
+                            expenseToDelete = expense
+                            showingDeleteConfirmation = true
+                        }
+                            .accessibilityLabel("Ausgabe \(expense.title) löschen")
+                                .accessibilityIdentifier("expense-delete-\(expense.id)")
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .font(.title3)
+                            .frame(width: Stitch.Size.touch, height: Stitch.Size.touch)
+                            .contentShape(Rectangle())
+                    }
+                    .accessibilityLabel("Aktionen für \(expense.title)")
+                    .accessibilityIdentifier("expense-actions-\(expense.id)")
                 }
                 .frame(minHeight: Stitch.Size.touch)
                 .stitchCard(padding: Stitch.Space.s)
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel("\(expense.title), \(money(expense.amountCents)), bezahlt von \(expense.payer)")
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("expense-row-\(expense.id)")
             }
         }
+    }
+
+    private func delete(_ expense: TravelExpense) {
+        if store.deleteExpense(id: expense.id) { feedbackTick += 1 }
+        expenseToDelete = nil
     }
 
     private func balanceText(_ cents: Int) -> String {
@@ -168,9 +198,19 @@ public struct NativeExpensesView: View {
     }
 }
 
+private enum ExpenseEditorRoute: Identifiable {
+    case add
+    case edit(TravelExpense)
+    var id: String {
+        switch self { case .add: "add"; case .edit(let expense): "edit-\(expense.id)" }
+    }
+    var expense: TravelExpense? { if case .edit(let value) = self { value } else { nil } }
+}
+
 private struct NativeExpenseEditor: View {
     @Environment(\.dismiss) private var dismiss
     let initialParticipants: [String]
+    let initialExpense: TravelExpense?
     let onSave: (TravelExpense) -> Bool
     @State private var title = ""
     @State private var amount = ""
@@ -182,11 +222,29 @@ private struct NativeExpenseEditor: View {
     @State private var addedParticipants: [String] = []
     @State private var error: String?
 
-    init(participants: [String], onSave: @escaping (TravelExpense) -> Bool) {
-        initialParticipants = participants
+    init(expense: TravelExpense? = nil, participants: [String], onSave: @escaping (TravelExpense) -> Bool) {
+        initialExpense = expense
+        var names = participants
+        if let expense {
+            for name in [expense.payer] + expense.participants where !names.contains(name) { names.append(name) }
+        }
+        initialParticipants = names
         self.onSave = onSave
-        _payer = State(initialValue: participants.first ?? "Ich")
-        _selected = State(initialValue: Set(participants))
+        _title = State(initialValue: expense?.title ?? "")
+        _amount = State(initialValue: Self.amountText(expense?.originalMinor))
+        _currency = State(initialValue: expense?.currency ?? .eur)
+        _rate = State(initialValue: expense.map { String(format: "%.2f", Double($0.exchangeRateHundredths) / 100).replacingOccurrences(of: ".", with: ",") } ?? "25")
+        _payer = State(initialValue: expense?.payer ?? names.first ?? "Ich")
+        _selected = State(initialValue: Set(expense?.participants ?? names))
+    }
+
+    private static func amountText(_ minor: Int?) -> String {
+        guard let minor else { return "" }
+        let formatter = NumberFormatter()
+        formatter.locale = Locale(identifier: "de_DE")
+        formatter.minimumFractionDigits = 2
+        formatter.maximumFractionDigits = 2
+        return formatter.string(from: NSNumber(value: Double(minor) / 100)) ?? ""
     }
 
     private var participantList: [String] {
@@ -248,12 +306,12 @@ private struct NativeExpenseEditor: View {
                 if let error { Text(error).font(.footnote).foregroundStyle(Stitch.red) }
             }
             .scrollContentBackground(.hidden).background(PaperBackground())
-            .navigationTitle("Ausgabe hinzufügen")
+            .navigationTitle(initialExpense == nil ? "Ausgabe hinzufügen" : "Ausgabe bearbeiten")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Hinzufügen") { save() }
+                    Button(initialExpense == nil ? "Hinzufügen" : "Speichern") { save() }
                         .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || amount.isEmpty || selected.isEmpty)
                         .accessibilityIdentifier("expense-save")
                 }
@@ -264,9 +322,11 @@ private struct NativeExpenseEditor: View {
 
     private func save() {
         do {
-            let expense = try TravelExpense.make(title: title, amountText: amount, currency: currency,
+            var expense = try TravelExpense.make(title: title, amountText: amount, currency: currency,
                                                   exchangeRateText: currency == .czk ? rate : nil,
-                                                  payer: payer, participants: participantList.filter { selected.contains($0) })
+                                                  payer: payer, participants: participantList.filter { selected.contains($0) },
+                                                  id: initialExpense?.id ?? UUID().uuidString)
+            if let initialExpense { expense.createdAt = initialExpense.createdAt }
             guard onSave(expense) else { error = "Die Ausgabe konnte nicht gespeichert werden."; return }
             dismiss()
         } catch let value as TravelExpenseError { error = value.localizedDescription }
