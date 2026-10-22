@@ -34,3 +34,15 @@ Abdeckung: Prag (70 Fälle, darunter Gerichte, Mehrdeutiges, Ketten und Variante
 ```bash
 deno test --allow-read supabase/tests/place_photo_golden/validate_golden_test.ts
 ```
+
+## Messlauf (Stand 22.10.2026)
+
+```bash
+export WIKIMEDIA_USER_AGENT="AlbumGoldenSet/1.0 (private travel app)"
+deno run --allow-net --allow-read --allow-write --allow-env run_baseline.ts <name> <pfad-zu-_shared>
+python3 make_report.py results/<neu>.json results/<alt>.json   # erzeugt results/bericht.html
+```
+
+Ruft die Wikimedia-Bildsuche von `place-photo` lokal auf (nur lesend). Wikimedia drosselt, ein Fall braucht 30–40 s, ein Volllauf ca. 1 Stunde.
+Erste Teilmessung (20 von 100, neue Fassung): Treffer bei den meisten Prager Sehenswürdigkeiten, **kein Bild** bei Strahov-Bibliothek und Astronomischer Uhr.
+Der vollständige Lauf steht noch aus. Ergebnisse liegen in `results/` (nicht im Git).
