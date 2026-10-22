@@ -1,0 +1,2782 @@
+{
+  "version": 1,
+  "created": "2026-10-22",
+  "cases": [
+    {
+      "id": "g001",
+      "query": "Karlsbrücke",
+      "region": "Prag",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "prag"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q204871",
+        "wikidata_label": "Charles Bridge",
+        "lat": 50.08639,
+        "lng": 14.41194,
+        "distance_m": 41,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g002",
+      "query": "Altstädter Ring",
+      "region": "Prag",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "prag"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q421678",
+        "wikidata_label": "Old Town Square",
+        "lat": 50.0875,
+        "lng": 14.42139,
+        "distance_m": 6,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g003",
+      "query": "Prager Burg",
+      "region": "Prag",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "prag"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q193369",
+        "wikidata_label": "Prague Castle",
+        "lat": 50.09,
+        "lng": 14.4,
+        "distance_m": 117,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g004",
+      "query": "Strahov-Bibliothek",
+      "region": "Prag",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "prag"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q969482",
+        "wikidata_label": "Strahov Monastery",
+        "lat": 50.08596,
+        "lng": 14.38928,
+        "distance_m": 85,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g005",
+      "query": "Tanzendes Haus",
+      "region": "Prag",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "prag"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q244816",
+        "wikidata_label": "Dancing House",
+        "lat": 50.07556,
+        "lng": 14.41417,
+        "distance_m": 13,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g006",
+      "query": "Franz-Kafka-Museum",
+      "region": "Prag",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "prag"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q4306202",
+        "wikidata_label": "Franz Kafka Museum",
+        "lat": 50.08806,
+        "lng": 14.41056,
+        "distance_m": 133,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g007",
+      "query": "Letná Park",
+      "region": "Prag",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "prag"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "needs-human-label",
+        "wikidata_candidates_unverified": [
+          "Q43466107",
+          "Q45895414",
+          "Q46392362"
+        ],
+        "lat": 50.0966,
+        "lng": 14.4165,
+        "coords_note": "Referenz von Hand, nicht belegt",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g008",
+      "query": "Petřín-Aussichtsturm",
+      "region": "Prag",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "prag"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q12256",
+        "wikidata_label": "Petřín Lookout Tower",
+        "lat": 50.08354,
+        "lng": 14.39505,
+        "distance_m": 24,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g009",
+      "query": "Vyšehrad",
+      "region": "Prag",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "prag"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q21891843",
+        "wikidata_label": "Vyšehrad",
+        "lat": 50.06389,
+        "lng": 14.42,
+        "distance_m": 12,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g010",
+      "query": "Wenzelsplatz",
+      "region": "Prag",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "prag"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q847613",
+        "wikidata_label": "Wenceslas Square",
+        "lat": 50.08231,
+        "lng": 14.42614,
+        "distance_m": 197,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g011",
+      "query": "Astronomische Uhr",
+      "region": "Prag",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "prag"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q729370",
+        "wikidata_label": "Prague Astronomical Clock",
+        "lat": 50.08699,
+        "lng": 14.4207,
+        "distance_m": 7,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g012",
+      "query": "Nationaltheater",
+      "region": "Prag",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "prag"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q732697",
+        "wikidata_label": "National Theatre",
+        "lat": 50.08111,
+        "lng": 14.41361,
+        "distance_m": 10,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g013",
+      "query": "Pulverturm",
+      "region": "Prag",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "prag"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q1488700",
+        "wikidata_label": "Powder Tower",
+        "lat": 50.08722,
+        "lng": 14.42778,
+        "distance_m": 73,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g014",
+      "query": "Spanische Synagoge",
+      "region": "Prag",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "prag"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q990003",
+        "wikidata_label": "Spanish Synagogue",
+        "lat": 50.09036,
+        "lng": 14.42083,
+        "distance_m": 203,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g015",
+      "query": "Lennon-Mauer",
+      "region": "Prag",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "prag"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q1630131",
+        "wikidata_label": "Lennon Wall",
+        "lat": 50.08624,
+        "lng": 14.40695,
+        "distance_m": 47,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g016",
+      "query": "Veitsdom",
+      "region": "Prag",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "prag"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q5949",
+        "wikidata_label": "St. Vitus Cathedral",
+        "lat": 50.09083,
+        "lng": 14.40056,
+        "distance_m": 8,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g017",
+      "query": "Rudolfinum",
+      "region": "Prag",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "prag"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q1130137",
+        "wikidata_label": "Rudolfinum",
+        "lat": 50.09,
+        "lng": 14.4156,
+        "distance_m": 44,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g018",
+      "query": "Schloss Troja",
+      "region": "Prag",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "prag"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "needs-human-label",
+        "wikidata_candidates_unverified": [
+          "Q122008111"
+        ],
+        "lat": 50.1167,
+        "lng": 14.4167,
+        "coords_note": "Referenz von Hand, nicht belegt",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g019",
+      "query": "Goldenes Gässchen",
+      "region": "Prag",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "prag"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q1535529",
+        "wikidata_label": "Golden Lane",
+        "lat": 50.09204,
+        "lng": 14.40418,
+        "distance_m": 176,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g020",
+      "query": "Nationalmuseum",
+      "region": "Prag",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "prag"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q188112",
+        "wikidata_label": "National Museum in Prague",
+        "lat": 50.07984,
+        "lng": 14.43042,
+        "distance_m": 98,
+        "has_commons_image": true,
+        "match": "partial",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g021",
+      "query": "Žižkov-Fernsehturm",
+      "region": "Prag",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "prag"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q1413217",
+        "wikidata_label": "Žižkov Television Tower",
+        "lat": 50.08083,
+        "lng": 14.45139,
+        "distance_m": 101,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g022",
+      "query": "Gemeindehaus",
+      "region": "Prag",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "prag"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q2334312",
+        "wikidata_label": "Municipal House",
+        "lat": 50.08762,
+        "lng": 14.42824,
+        "distance_m": 10,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g023",
+      "query": "Kampa-Insel",
+      "region": "Prag",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "prag"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q3501077",
+        "wikidata_label": "Kampa Island",
+        "lat": 50.08722,
+        "lng": 14.40861,
+        "distance_m": 387,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 600,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g024",
+      "query": "Vrtba-Garten",
+      "region": "Prag",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "prag"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q1341420",
+        "wikidata_label": "Vrtba Garden",
+        "lat": 50.0866,
+        "lng": 14.4025,
+        "distance_m": 199,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g025",
+      "query": "Klementinum",
+      "region": "Prag",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "prag"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q1100429",
+        "wikidata_label": "Clementinum",
+        "lat": 50.08667,
+        "lng": 14.41639,
+        "distance_m": 33,
+        "has_commons_image": true,
+        "match": "partial",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g026",
+      "query": "Café Savoy",
+      "region": "Prag",
+      "kind": "venue",
+      "category": "Essen & Trinken",
+      "tags": [
+        "cafe",
+        "prag"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "needs-human-label",
+        "wikidata_candidates_unverified": [
+          "Q63095123"
+        ],
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g027",
+      "query": "Kavárna Slavia",
+      "region": "Prag",
+      "kind": "venue",
+      "category": "Essen & Trinken",
+      "tags": [
+        "cafe",
+        "tschechisch"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "needs-human-label",
+        "wikidata_candidates_unverified": [
+          "Q521045",
+          "Q134879250"
+        ],
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g028",
+      "query": "Café Louvre",
+      "region": "Prag",
+      "kind": "venue",
+      "category": "Essen & Trinken",
+      "tags": [
+        "cafe",
+        "prag"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "needs-human-label",
+        "wikidata_candidates_unverified": [
+          "Q12879009"
+        ],
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g029",
+      "query": "Café Imperial",
+      "region": "Prag",
+      "kind": "venue",
+      "category": "Essen & Trinken",
+      "tags": [
+        "cafe",
+        "hotel"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "needs-human-label",
+        "wikidata_candidates_unverified": [
+          "Q12879008"
+        ],
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g030",
+      "query": "Lokál Dlouhááá",
+      "region": "Prag",
+      "kind": "venue",
+      "category": "Essen & Trinken",
+      "tags": [
+        "kette-klein",
+        "diakritik"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "needs-human-label",
+        "wikidata_candidates_unverified": [],
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g031",
+      "query": "Bake Shop Praha",
+      "region": "Prag",
+      "kind": "venue",
+      "category": "Essen & Trinken",
+      "tags": [
+        "bäckerei"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "needs-human-label",
+        "wikidata_candidates_unverified": [],
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g032",
+      "query": "Hergetova Cihelna",
+      "region": "Prag",
+      "kind": "venue",
+      "category": "Essen & Trinken",
+      "tags": [
+        "restaurant",
+        "diakritik"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "needs-human-label",
+        "wikidata_candidates_unverified": [
+          "Q37818167",
+          "Q56088174",
+          "Q56084703"
+        ],
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g033",
+      "query": "Eska Karlín",
+      "region": "Prag",
+      "kind": "venue",
+      "category": "Essen & Trinken",
+      "tags": [
+        "restaurant"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "needs-human-label",
+        "wikidata_candidates_unverified": [],
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g034",
+      "query": "Mlýnec",
+      "region": "Prag",
+      "kind": "venue",
+      "category": "Essen & Trinken",
+      "tags": [
+        "restaurant",
+        "diakritik"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "needs-human-label",
+        "wikidata_candidates_unverified": [
+          "Q12038349",
+          "Q12038348",
+          "Q577156"
+        ],
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g035",
+      "query": "Field Restaurant",
+      "region": "Prag",
+      "kind": "venue",
+      "category": "Essen & Trinken",
+      "tags": [
+        "restaurant",
+        "mehrdeutig"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "needs-human-label",
+        "wikidata_candidates_unverified": [
+          "Q87830712"
+        ],
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g036",
+      "query": "Letná-Biergarten",
+      "region": "Prag",
+      "kind": "venue",
+      "category": "Essen & Trinken",
+      "tags": [
+        "biergarten",
+        "mehrdeutig"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "needs-human-label",
+        "wikidata_candidates_unverified": [],
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g037",
+      "query": "U Fleků",
+      "region": "Prag",
+      "kind": "venue",
+      "category": "Essen & Trinken",
+      "tags": [
+        "brauerei",
+        "historisch"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "needs-human-label",
+        "wikidata_candidates_unverified": [
+          "Q1581385"
+        ],
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g038",
+      "query": "Schloss Schönbrunn",
+      "region": "Wien",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "wien"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q131330",
+        "wikidata_label": "Schönbrunn Palace",
+        "lat": 48.18479,
+        "lng": 16.31227,
+        "distance_m": 33,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g039",
+      "query": "Café Central",
+      "region": "Wien",
+      "kind": "venue",
+      "category": "Essen & Trinken",
+      "tags": [
+        "wien"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q694757",
+        "wikidata_label": "Café Central",
+        "lat": 48.21028,
+        "lng": 16.36528,
+        "distance_m": 21,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_dish",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g040",
+      "query": "Hotel Sacher",
+      "region": "Wien",
+      "kind": "venue",
+      "category": "Essen & Trinken",
+      "tags": [
+        "wien"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q279260",
+        "wikidata_label": "Hotel Sacher Vienna",
+        "lat": 48.20389,
+        "lng": 16.36944,
+        "distance_m": 16,
+        "has_commons_image": true,
+        "match": "partial",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_dish",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g041",
+      "query": "Brandenburger Tor",
+      "region": "Berlin",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "berlin"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q82425",
+        "wikidata_label": "Brandenburg Gate",
+        "lat": 52.51627,
+        "lng": 13.37772,
+        "distance_m": 3,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g042",
+      "query": "East Side Gallery",
+      "region": "Berlin",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "berlin"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q313746",
+        "wikidata_label": "East Side Gallery",
+        "lat": 52.50306,
+        "lng": 13.44472,
+        "distance_m": 403,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 600,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g043",
+      "query": "Torre de Belém",
+      "region": "Lissabon",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "lissabon"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q215003",
+        "wikidata_label": "Belém Tower",
+        "lat": 38.69139,
+        "lng": -9.21583,
+        "distance_m": 28,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g044",
+      "query": "Pastéis de Belém",
+      "region": "Lissabon",
+      "kind": "venue",
+      "category": "Essen & Trinken",
+      "tags": [
+        "lissabon"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q3091352",
+        "wikidata_label": "Pastéis de Belém",
+        "lat": 38.69751,
+        "lng": -9.20323,
+        "distance_m": 3,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_dish",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g045",
+      "query": "Eiffelturm",
+      "region": "Paris",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "paris"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q243",
+        "wikidata_label": "Eiffel Tower",
+        "lat": 48.8583,
+        "lng": 2.29448,
+        "distance_m": 12,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g046",
+      "query": "Louvre",
+      "region": "Paris",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "paris"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q19675",
+        "wikidata_label": "Louvre Museum",
+        "lat": 48.86111,
+        "lng": 2.33583,
+        "distance_m": 141,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g047",
+      "query": "Kolosseum",
+      "region": "Rom",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "rom"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q10285",
+        "wikidata_label": "Colosseum",
+        "lat": 41.89028,
+        "lng": 12.49222,
+        "distance_m": 9,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g048",
+      "query": "Trevi-Brunnen",
+      "region": "Rom",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "rom"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q185382",
+        "wikidata_label": "Trevi Fountain",
+        "lat": 41.90093,
+        "lng": 12.48331,
+        "distance_m": 4,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g049",
+      "query": "Sagrada Família",
+      "region": "Barcelona",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "barcelona"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q2470217",
+        "wikidata_label": "Sagrada Família",
+        "lat": 41.40356,
+        "lng": 2.17435,
+        "distance_m": 6,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g050",
+      "query": "Anne-Frank-Haus",
+      "region": "Amsterdam",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "amsterdam"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q165366",
+        "wikidata_label": "Anne Frank House",
+        "lat": 52.37515,
+        "lng": 4.88404,
+        "distance_m": 6,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g051",
+      "query": "Tower Bridge",
+      "region": "London",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "london"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q83125",
+        "wikidata_label": "Tower Bridge",
+        "lat": 51.50556,
+        "lng": -0.07528,
+        "distance_m": 10,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g052",
+      "query": "Parlament",
+      "region": "Budapest",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "budapest"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q11819",
+        "wikidata_label": "Hungarian Parliament Building",
+        "lat": 47.50694,
+        "lng": 19.04556,
+        "distance_m": 40,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g053",
+      "query": "Wawel",
+      "region": "Krakau",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "krakau"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q7975612",
+        "wikidata_label": "Wawel Royal Castle – State Art Collection",
+        "lat": 50.0542,
+        "lng": 19.9353,
+        "distance_m": 23,
+        "has_commons_image": true,
+        "match": "partial",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g054",
+      "query": "Naschmarkt",
+      "region": "Wien",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "markt",
+        "wien"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q417645",
+        "wikidata_label": "Naschmarkt",
+        "lat": 48.1989,
+        "lng": 16.3636,
+        "distance_m": 37,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g055",
+      "query": "Mercado da Ribeira",
+      "region": "Lissabon",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "markt",
+        "lissabon"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q28226115",
+        "wikidata_label": "Time Out Market Lisboa",
+        "lat": 38.70694,
+        "lng": -9.14556,
+        "distance_m": 84,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g056",
+      "query": "Borough Market",
+      "region": "London",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "markt",
+        "london"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q894072",
+        "wikidata_label": "Borough Market",
+        "lat": 51.50556,
+        "lng": -0.09083,
+        "distance_m": 13,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g057",
+      "query": "La Boqueria",
+      "region": "Barcelona",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "markt",
+        "barcelona"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q1334899",
+        "wikidata_label": "La Boqueria",
+        "lat": 41.3818,
+        "lng": 2.17155,
+        "distance_m": 31,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g058",
+      "query": "Markthalle Neun",
+      "region": "Berlin",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "markt",
+        "berlin"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q1226563",
+        "wikidata_label": "Markthalle IX",
+        "lat": 52.5022,
+        "lng": 13.4315,
+        "distance_m": 36,
+        "has_commons_image": true,
+        "match": "partial",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g059",
+      "query": "Großer Basar",
+      "region": "Istanbul",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "markt",
+        "istanbul"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q505954",
+        "wikidata_label": "Grand Bazaar",
+        "lat": 41.01058,
+        "lng": 28.96793,
+        "distance_m": 14,
+        "has_commons_image": true,
+        "match": "partial",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g060",
+      "query": "Pasta",
+      "region": "Prag",
+      "kind": "dish",
+      "category": "Essen & Trinken",
+      "tags": [
+        "gericht"
+      ],
+      "same_as": null,
+      "note": "Kein Ort: erwartet freies Gerichtsbild, kein Lokal-Foto",
+      "expected": {
+        "label_status": "rule",
+        "photo_kind": "dish",
+        "policy": "free_generic_image",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g061",
+      "query": "Trdelník",
+      "region": "Prag",
+      "kind": "dish",
+      "category": "Essen & Trinken",
+      "tags": [
+        "gericht"
+      ],
+      "same_as": null,
+      "note": "Kein Ort: erwartet freies Gerichtsbild, kein Lokal-Foto",
+      "expected": {
+        "label_status": "rule",
+        "photo_kind": "dish",
+        "policy": "free_generic_image",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g062",
+      "query": "Svíčková",
+      "region": "Prag",
+      "kind": "dish",
+      "category": "Essen & Trinken",
+      "tags": [
+        "gericht"
+      ],
+      "same_as": null,
+      "note": "Kein Ort: erwartet freies Gerichtsbild, kein Lokal-Foto",
+      "expected": {
+        "label_status": "rule",
+        "photo_kind": "dish",
+        "policy": "free_generic_image",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g063",
+      "query": "Knödel",
+      "region": "Prag",
+      "kind": "dish",
+      "category": "Essen & Trinken",
+      "tags": [
+        "gericht"
+      ],
+      "same_as": null,
+      "note": "Kein Ort: erwartet freies Gerichtsbild, kein Lokal-Foto",
+      "expected": {
+        "label_status": "rule",
+        "photo_kind": "dish",
+        "policy": "free_generic_image",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g064",
+      "query": "Gulasch",
+      "region": "Prag",
+      "kind": "dish",
+      "category": "Essen & Trinken",
+      "tags": [
+        "gericht"
+      ],
+      "same_as": null,
+      "note": "Kein Ort: erwartet freies Gerichtsbild, kein Lokal-Foto",
+      "expected": {
+        "label_status": "rule",
+        "photo_kind": "dish",
+        "policy": "free_generic_image",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g065",
+      "query": "Pizza Margherita",
+      "region": "Prag",
+      "kind": "dish",
+      "category": "Essen & Trinken",
+      "tags": [
+        "gericht"
+      ],
+      "same_as": null,
+      "note": "Kein Ort: erwartet freies Gerichtsbild, kein Lokal-Foto",
+      "expected": {
+        "label_status": "rule",
+        "photo_kind": "dish",
+        "policy": "free_generic_image",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g066",
+      "query": "Pastel de Nata",
+      "region": "Prag",
+      "kind": "dish",
+      "category": "Essen & Trinken",
+      "tags": [
+        "gericht"
+      ],
+      "same_as": null,
+      "note": "Kein Ort: erwartet freies Gerichtsbild, kein Lokal-Foto",
+      "expected": {
+        "label_status": "rule",
+        "photo_kind": "dish",
+        "policy": "free_generic_image",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g067",
+      "query": "Ramen",
+      "region": "Prag",
+      "kind": "dish",
+      "category": "Essen & Trinken",
+      "tags": [
+        "gericht"
+      ],
+      "same_as": null,
+      "note": "Kein Ort: erwartet freies Gerichtsbild, kein Lokal-Foto",
+      "expected": {
+        "label_status": "rule",
+        "photo_kind": "dish",
+        "policy": "free_generic_image",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g068",
+      "query": "Currywurst",
+      "region": "Prag",
+      "kind": "dish",
+      "category": "Essen & Trinken",
+      "tags": [
+        "gericht"
+      ],
+      "same_as": null,
+      "note": "Kein Ort: erwartet freies Gerichtsbild, kein Lokal-Foto",
+      "expected": {
+        "label_status": "rule",
+        "photo_kind": "dish",
+        "policy": "free_generic_image",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g069",
+      "query": "Bier",
+      "region": "Prag",
+      "kind": "dish",
+      "category": "Essen & Trinken",
+      "tags": [
+        "gericht"
+      ],
+      "same_as": null,
+      "note": "Kein Ort: erwartet freies Gerichtsbild, kein Lokal-Foto",
+      "expected": {
+        "label_status": "rule",
+        "photo_kind": "dish",
+        "policy": "free_generic_image",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g070",
+      "query": "Fresca",
+      "region": "Prag",
+      "kind": "ambiguous",
+      "category": "Idee",
+      "tags": [
+        "mehrdeutig"
+      ],
+      "same_as": null,
+      "note": "Name von sehr vielen Lokalen weltweit",
+      "expected": {
+        "label_status": "rule",
+        "policy": "ask_user_or_generic",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g071",
+      "query": "Konzeptbar",
+      "region": "Prag",
+      "kind": "ambiguous",
+      "category": "Idee",
+      "tags": [
+        "mehrdeutig"
+      ],
+      "same_as": null,
+      "note": "Kleiner Eigenname, kaum Quellen",
+      "expected": {
+        "label_status": "rule",
+        "policy": "ask_user_or_generic",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g072",
+      "query": "Café Central",
+      "region": "Prag",
+      "kind": "ambiguous",
+      "category": "Idee",
+      "tags": [
+        "mehrdeutig"
+      ],
+      "same_as": null,
+      "note": "Ohne Reisekontext Wien oder Prag oder andere",
+      "expected": {
+        "label_status": "rule",
+        "policy": "ask_user_or_generic",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g073",
+      "query": "Altstadt",
+      "region": "Prag",
+      "kind": "ambiguous",
+      "category": "Idee",
+      "tags": [
+        "mehrdeutig"
+      ],
+      "same_as": null,
+      "note": "Gibt es in jeder Stadt",
+      "expected": {
+        "label_status": "rule",
+        "policy": "ask_user_or_generic",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g074",
+      "query": "Bakery",
+      "region": "Prag",
+      "kind": "ambiguous",
+      "category": "Idee",
+      "tags": [
+        "mehrdeutig"
+      ],
+      "same_as": null,
+      "note": "Allgemeinwort",
+      "expected": {
+        "label_status": "rule",
+        "policy": "ask_user_or_generic",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g075",
+      "query": "Mama",
+      "region": "Prag",
+      "kind": "ambiguous",
+      "category": "Idee",
+      "tags": [
+        "mehrdeutig"
+      ],
+      "same_as": null,
+      "note": "Allgemeinwort, viele Lokale",
+      "expected": {
+        "label_status": "rule",
+        "policy": "ask_user_or_generic",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g076",
+      "query": "Restaurant am Fluss",
+      "region": "Prag",
+      "kind": "ambiguous",
+      "category": "Idee",
+      "tags": [
+        "mehrdeutig"
+      ],
+      "same_as": null,
+      "note": "Beschreibung, kein Name",
+      "expected": {
+        "label_status": "rule",
+        "policy": "ask_user_or_generic",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g077",
+      "query": "Rooftop Bar",
+      "region": "Prag",
+      "kind": "ambiguous",
+      "category": "Idee",
+      "tags": [
+        "mehrdeutig"
+      ],
+      "same_as": null,
+      "note": "Allgemeinwort",
+      "expected": {
+        "label_status": "rule",
+        "policy": "ask_user_or_generic",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g078",
+      "query": "Kino",
+      "region": "Prag",
+      "kind": "ambiguous",
+      "category": "Idee",
+      "tags": [
+        "mehrdeutig"
+      ],
+      "same_as": null,
+      "note": "Allgemeinwort",
+      "expected": {
+        "label_status": "rule",
+        "policy": "ask_user_or_generic",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g079",
+      "query": "Aussichtsturm",
+      "region": "Prag",
+      "kind": "ambiguous",
+      "category": "Idee",
+      "tags": [
+        "mehrdeutig"
+      ],
+      "same_as": null,
+      "note": "Allgemeinwort",
+      "expected": {
+        "label_status": "rule",
+        "policy": "ask_user_or_generic",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g080",
+      "query": "Starbucks Wenzelsplatz",
+      "region": "Prag",
+      "kind": "chain",
+      "category": "Essen & Trinken",
+      "tags": [
+        "kette"
+      ],
+      "same_as": null,
+      "note": "Erwartet Filiale, Straßenansicht oder neutral; kein Logo als Hauptbild",
+      "expected": {
+        "label_status": "rule",
+        "policy": "branch_or_neutral",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g081",
+      "query": "McDonald's Hauptbahnhof Prag",
+      "region": "Prag",
+      "kind": "chain",
+      "category": "Essen & Trinken",
+      "tags": [
+        "kette"
+      ],
+      "same_as": null,
+      "note": "Erwartet Filiale, Straßenansicht oder neutral; kein Logo als Hauptbild",
+      "expected": {
+        "label_status": "rule",
+        "policy": "branch_or_neutral",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g082",
+      "query": "IKEA Zličín",
+      "region": "Prag",
+      "kind": "chain",
+      "category": "Essen & Trinken",
+      "tags": [
+        "kette"
+      ],
+      "same_as": null,
+      "note": "Erwartet Filiale, Straßenansicht oder neutral; kein Logo als Hauptbild",
+      "expected": {
+        "label_status": "rule",
+        "policy": "branch_or_neutral",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g083",
+      "query": "Paul Prag Národní",
+      "region": "Prag",
+      "kind": "chain",
+      "category": "Essen & Trinken",
+      "tags": [
+        "kette"
+      ],
+      "same_as": null,
+      "note": "Erwartet Filiale, Straßenansicht oder neutral; kein Logo als Hauptbild",
+      "expected": {
+        "label_status": "rule",
+        "policy": "branch_or_neutral",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g084",
+      "query": "Billa Prag",
+      "region": "Prag",
+      "kind": "chain",
+      "category": "Essen & Trinken",
+      "tags": [
+        "kette"
+      ],
+      "same_as": null,
+      "note": "Erwartet Filiale, Straßenansicht oder neutral; kein Logo als Hauptbild",
+      "expected": {
+        "label_status": "rule",
+        "policy": "branch_or_neutral",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g085",
+      "query": "Lidl Prag",
+      "region": "Prag",
+      "kind": "chain",
+      "category": "Essen & Trinken",
+      "tags": [
+        "kette"
+      ],
+      "same_as": null,
+      "note": "Erwartet Filiale, Straßenansicht oder neutral; kein Logo als Hauptbild",
+      "expected": {
+        "label_status": "rule",
+        "policy": "branch_or_neutral",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g086",
+      "query": "東京タワー",
+      "region": "Tokio",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "schrift"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q183536",
+        "wikidata_label": "Tokyo Tower",
+        "lat": 35.65861,
+        "lng": 139.74556,
+        "distance_m": 14,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g087",
+      "query": "浅草寺",
+      "region": "Tokio",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "schrift"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q615183",
+        "wikidata_label": "Sensō-ji Temple",
+        "lat": 35.71456,
+        "lng": 139.79664,
+        "distance_m": 28,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g088",
+      "query": "Красная площадь",
+      "region": "Moskau",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "schrift"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q41116",
+        "wikidata_label": "Red Square",
+        "lat": 55.75417,
+        "lng": 37.62,
+        "distance_m": 58,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g089",
+      "query": "Эрмитаж",
+      "region": "Sankt Petersburg",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "schrift"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q132783",
+        "wikidata_label": "Hermitage Museum",
+        "lat": 59.94056,
+        "lng": 30.31361,
+        "distance_m": 100,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g090",
+      "query": "故宫",
+      "region": "Peking",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "schrift"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q80290",
+        "wikidata_label": "Forbidden City",
+        "lat": 39.91583,
+        "lng": 116.39083,
+        "distance_m": 545,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 600,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g091",
+      "query": "경복궁",
+      "region": "Seoul",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "schrift"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q482485",
+        "wikidata_label": "Gyeongbokgung",
+        "lat": 37.57988,
+        "lng": 126.9768,
+        "distance_m": 36,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g092",
+      "query": "Παρθενώνας",
+      "region": "Athen",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "schrift"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q10288",
+        "wikidata_label": "Parthenon",
+        "lat": 37.97153,
+        "lng": 23.7266,
+        "distance_m": 9,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g093",
+      "query": "برج خليفة",
+      "region": "Dubai",
+      "kind": "landmark",
+      "category": "Sehenswert",
+      "tags": [
+        "schrift"
+      ],
+      "same_as": null,
+      "note": "",
+      "expected": {
+        "label_status": "verified-wikidata",
+        "wikidata": "Q12495",
+        "wikidata_label": "Burj Khalifa",
+        "lat": 25.19722,
+        "lng": 55.27417,
+        "distance_m": 24,
+        "has_commons_image": true,
+        "match": "exact",
+        "tolerance_m": 300,
+        "photo_kind": "exterior_or_view",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g094",
+      "query": "Karlsbrucke",
+      "region": "Prag",
+      "kind": "variant",
+      "category": "Sehenswert",
+      "tags": [
+        "ohne-umlaut"
+      ],
+      "same_as": "Karlsbrücke",
+      "note": "",
+      "expected": {
+        "label_status": "same-as",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g095",
+      "query": "Karlův most",
+      "region": "Prag",
+      "kind": "variant",
+      "category": "Sehenswert",
+      "tags": [
+        "landessprache"
+      ],
+      "same_as": "Karlsbrücke",
+      "note": "",
+      "expected": {
+        "label_status": "same-as",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g096",
+      "query": "Charles Bridge",
+      "region": "Prag",
+      "kind": "variant",
+      "category": "Sehenswert",
+      "tags": [
+        "englisch"
+      ],
+      "same_as": "Karlsbrücke",
+      "note": "",
+      "expected": {
+        "label_status": "same-as",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g097",
+      "query": "Prague Castle",
+      "region": "Prag",
+      "kind": "variant",
+      "category": "Sehenswert",
+      "tags": [
+        "englisch"
+      ],
+      "same_as": "Prager Burg",
+      "note": "",
+      "expected": {
+        "label_status": "same-as",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g098",
+      "query": "Pražský hrad",
+      "region": "Prag",
+      "kind": "variant",
+      "category": "Sehenswert",
+      "tags": [
+        "landessprache"
+      ],
+      "same_as": "Prager Burg",
+      "note": "",
+      "expected": {
+        "label_status": "same-as",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g099",
+      "query": "Altstadter Ring",
+      "region": "Prag",
+      "kind": "variant",
+      "category": "Sehenswert",
+      "tags": [
+        "ohne-umlaut"
+      ],
+      "same_as": "Altstädter Ring",
+      "note": "",
+      "expected": {
+        "label_status": "same-as",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    },
+    {
+      "id": "g100",
+      "query": "Prager Burg Aussicht",
+      "region": "Prag",
+      "kind": "variant",
+      "category": "Sehenswert",
+      "tags": [
+        "zusatz"
+      ],
+      "same_as": "Prager Burg",
+      "note": "",
+      "expected": {
+        "label_status": "same-as",
+        "must_not": [
+          "logo",
+          "menu",
+          "map",
+          "people_dominant",
+          "wrong_city"
+        ]
+      }
+    }
+  ]
+}
