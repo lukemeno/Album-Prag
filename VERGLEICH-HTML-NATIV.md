@@ -93,7 +93,7 @@ Rahmen: ausschließlich die Hauptapp, jede Änderung klein und einzeln committba
 | 5 | `4554789` | `Native/AlbumExperienceViews.swift` | „Heute in Prag" am heutigen Reisetag, Wochentage in den Tageschips, Route/Besucht für den nächsten Ort nur einmal |
 
 **Abweichungen vom freigegebenen Wortlaut (bewusst, jeweils kleiner):**
-- **Punkt 3:** Das „+" im Ideen-Kopf blieb. Es ist die einzige direkte „Neue Idee"-Aktion. Die Verwechslung mit dem FAB-„+" ist stattdessen durch das FAB-Glyph ✦ (wie im Prototyp) gelöst. Folgeauftrag erledigt: Das Kopf-✦ (Assistent) ist entfernt (eigener Commit), der Assistent bleibt über FAB und „Mehr"-Menü erreichbar; `AssistantUITests` öffnen ihn jetzt über das Bogen-Menü (2/2 bestanden).
+- **Punkt 3:** Das „+" im Ideen-Kopf blieb. Es ist die einzige direkte „Neue Idee"-Aktion. Die Verwechslung mit dem FAB-„+" ist stattdessen durch das FAB-Glyph ✦ (wie im Prototyp) gelöst. Folge: Kopfzeile (✦ Assistent) und FAB zeigen dasselbe Symbol; bei Bedarf Kopf-✦ entfernen.
 - **Punkt 4:** Nicht nur Rosa: `Place.mat` liefert für **alle** Kategorien Neutral, sonst bliebe eine halbe Pastellpalette (blau/gelb/grün/lila). Die Mat-Farben für Bordkarte, Einladung und Reise-Karte bleiben.
 - **Punkt 5:** Kein Datum als Untertitel; es steht direkt darunter als Tagesüberschrift. Wetter, Uhrzeiten, Entfernungen nicht erfunden.
 - **Punkt 2:** Zusätzlich der Schließen-Button der Erinnerungen (gleiche Ursache, gleiche Datei).

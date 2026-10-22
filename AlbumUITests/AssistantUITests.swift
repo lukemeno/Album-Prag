@@ -6,19 +6,6 @@ final class AssistantUITests: XCTestCase {
         if trip.waitForExistence(timeout: 3) { trip.tap() }
     }
 
-    /// Der Assistent öffnet über das Bogen-Menü: FAB → „Reise fragen“ → Untermenü → „Reise fragen“.
-    private func openAssistant(_ app: XCUIApplication) {
-        let fab = app.buttons["native-fab"]
-        XCTAssertTrue(fab.waitForExistence(timeout: 5))
-        fab.tap()
-        let ai = app.buttons["native-fan-ai"]
-        XCTAssertTrue(ai.waitForExistence(timeout: 5))
-        ai.tap()
-        let direct = app.buttons["native-fan-sub-ai"]
-        XCTAssertTrue(direct.waitForExistence(timeout: 5))
-        direct.tap()
-    }
-
     func testAssistantFixtureConversation() {
         let app = XCUIApplication()
         app.launchEnvironment["ALBUM_TEST_STORE"] = "slot-assistant-ui-\(UUID().uuidString)"
@@ -29,7 +16,9 @@ final class AssistantUITests: XCTestCase {
         openTripIfNeeded(app)
 
         if app.buttons["Los geht’s"].waitForExistence(timeout: 3) { app.buttons["Los geht’s"].tap() }
-        openAssistant(app)
+        let assistantButton = app.buttons["Reise-Assistent"]
+        XCTAssertTrue(assistantButton.waitForExistence(timeout: 5))
+        assistantButton.tap()
         let input = app.textFields["assistant-input"]
         XCTAssertTrue(input.waitForExistence(timeout: 5))
         input.tap(); input.typeText("Was passt jetzt?")
@@ -45,7 +34,8 @@ final class AssistantUITests: XCTestCase {
         app.launch()
         openTripIfNeeded(app)
         XCTAssertFalse(app.buttons["Los geht’s"].waitForExistence(timeout: 3))
-        openAssistant(app)
+        XCTAssertTrue(app.buttons["Reise-Assistent"].waitForExistence(timeout: 5))
+        app.buttons["Reise-Assistent"].tap()
         let input = app.textFields["assistant-input"]
         XCTAssertTrue(input.waitForExistence(timeout: 5))
         input.tap(); input.typeText("Hallo")
@@ -55,7 +45,8 @@ final class AssistantUITests: XCTestCase {
         app.buttons["Schließen"].tap()
         app.terminate(); app.launch()
         openTripIfNeeded(app)
-        openAssistant(app)
+        XCTAssertTrue(app.buttons["Reise-Assistent"].waitForExistence(timeout: 5))
+        app.buttons["Reise-Assistent"].tap()
         XCTAssertTrue(app.staticTexts["Antwort aus dem Test"].waitForExistence(timeout: 5))
     }
 }

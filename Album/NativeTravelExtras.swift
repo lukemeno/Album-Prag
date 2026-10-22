@@ -49,8 +49,10 @@ public struct NativeExpensesView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Schließen", systemImage: "xmark") { dismiss() }
-                        .accessibilityLabel("Ausgaben schließen")
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark").frame(minWidth: 44, minHeight: 44)
+                    }
+                    .accessibilityLabel("Ausgaben schließen")
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button { showingEditor = true } label: { Image(systemName: "plus") }
@@ -103,8 +105,8 @@ public struct NativeExpensesView: View {
                     .accessibilityIdentifier("expenses-settle")
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .stitchCard()
+        .padding(Stitch.Space.m)
+        .stitchCard(.pinned)
     }
 
     private var emptyState: some View {
@@ -216,13 +218,11 @@ private struct NativeExpenseEditor: View {
                             .font(.footnote).foregroundStyle(Stitch.inkSoft)
                     }
                 }
-                .listRowBackground(Stitch.card)
                 Section("Bezahlt von") {
                     Picker("Person", selection: $payer) {
                         ForEach(participantList, id: \.self) { Text($0).tag($0) }
                     }
                 }
-                .listRowBackground(Stitch.card)
                 Section("Aufteilen auf") {
                     ForEach(participantList, id: \.self) { person in
                         Toggle(person, isOn: Binding(get: { selected.contains(person) }, set: { on in
@@ -245,16 +245,15 @@ private struct NativeExpenseEditor: View {
                         .accessibilityIdentifier("expense-add-person")
                     }
                 }
-                .listRowBackground(Stitch.card)
                 if let error { Text(error).font(.footnote).foregroundStyle(Stitch.red) }
             }
             .scrollContentBackground(.hidden).background(PaperBackground())
-            .navigationTitle("Neue Ausgabe")
+            .navigationTitle("Ausgabe hinzufügen")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Abbrechen", systemImage: "xmark") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Hinzufügen", systemImage: "checkmark") { save() }
+                    Button("Hinzufügen") { save() }
                         .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || amount.isEmpty || selected.isEmpty)
                         .accessibilityIdentifier("expense-save")
                 }
@@ -358,8 +357,10 @@ public struct NativeMemoriesView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Schließen", systemImage: "xmark") { dismiss() }
-                        .accessibilityLabel("Erinnerungen schließen")
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark").frame(minWidth: 44, minHeight: 44)
+                    }
+                    .accessibilityLabel("Erinnerungen schließen")
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button { beginCapture(.library) } label: { Label("Foto aus Mediathek", systemImage: "photo.on.rectangle") }
