@@ -60,6 +60,8 @@ final class SyncRegressionTests: XCTestCase {
         let transport = PausingSyncWriteTransport(pause: .trip)
         let sync = SupabaseSync(writeTransport: transport)
         let tripID = UUID()
+        sync.seedRevisionCacheForTesting(V2SyncRevision(tripUpdatedAt: "2026-10-16T12:00:00.123456+00:00", placeUpdatedAt: [:]),
+                                         tripID: tripID, store: store)
         let task = Task { try await sync.pushDirtyForTesting(store: store, tripID: tripID) }
         while !transport.entered.contains(.trip) { try await Task.sleep(for: .milliseconds(5)) }
 
@@ -81,13 +83,156 @@ final class SyncRegressionTests: XCTestCase {
         XCTAssertTrue(store.persist())
         let transport = PausingSyncWriteTransport()
         let sync = SupabaseSync(writeTransport: transport)
+        let tripID = UUID()
+        sync.seedRevisionCacheForTesting(V2SyncRevision(tripUpdatedAt: "2023-11-14T22:13:20.123456+00:00", placeUpdatedAt: [:]),
+                                         tripID: tripID, store: store)
 
-        try await sync.pushDirtyForTesting(store: store, tripID: UUID())
+        try await sync.pushDirtyForTesting(store: store, tripID: tripID)
         XCTAssertFalse(store.data.dirty.contains("trip"))
         store.data.dirty.insert("trip")
-        try await sync.pushDirtyForTesting(store: store, tripID: UUID())
+        try await sync.pushDirtyForTesting(store: store, tripID: tripID)
         XCTAssertFalse(store.data.dirty.contains("trip"))
         XCTAssertEqual(transport.tripWriteCount, 2)
+        XCTAssertEqual(transport.v2ExpectedTripUpdatedAt, "2027-01-15T08:00:00.123456+00:00", "Die zweite Schreibung nutzt die vom Server bestätigte Revision")
+    }
+
+    func testV2CASRevisionPreservesPostgresMicrosecondsAsOpaqueStrings() throws {
+        let stamp = "2026-10-16T12:34:56.123456+00:00"
+        let place = Place(id: "p", title: "Museum", planningSchemaVersion: 2)
+        let payload = V2PlaceSyncPayload(id: "p", payload: place, updatedAt: Date(), deleted: false, expectedUpdatedAt: stamp)
+        let encodedPlace = try JSONSerialization.jsonObject(with: JSONEncoder().encode(payload)) as? [String: Any]
+        XCTAssertEqual(encodedPlace?["expected_updated_at"] as? String, stamp)
+
+        let params = V2SyncParameters(tripID: UUID(), tripPayload: nil, expectedTripUpdatedAt: stamp, places: [payload])
+        let encodedParams = try JSONSerialization.jsonObject(with: JSONEncoder().encode(params)) as? [String: Any]
+        XCTAssertEqual(encodedParams?["p_expected_trip_updated_at"] as? String, stamp)
+        XCTAssertTrue(encodedParams?.keys.contains("p_trip_payload") == true, "Explizites null trifft die RPC-Signatur eindeutig")
+    }
+
+    func testV2TripAndPlaceAssignmentsUseOneAtomicTransportCall() async throws {
+        let store = AlbumStore(root: root)
+        store.data.trip.startDate = TripDay(rawValue: "2027-04-30")
+        store.data.trip.endDate = TripDay(rawValue: "2027-05-03")
+        store.data.trip.updatedAt = Date()
+        var place = Place(id: "v2-place", title: "Museum", plannedDate: TripDay(rawValue: "2027-05-01"), planningSchemaVersion: 2)
+        place.selectedGooglePlace = .object(["placeID": .string("ChIJmuseum")])
+        store.data.places = [place]
+        store.data.dirty = ["trip", place.id]
+        let tripID = UUID()
+        store.data.collaboration = CollaborationState(tripID: tripID, inviteToken: "test-invite-token")
+        XCTAssertTrue(store.persist())
+        let transport = PausingSyncWriteTransport()
+        let sync = SupabaseSync(writeTransport: transport)
+        sync.seedRevisionCacheForTesting(
+            V2SyncRevision(tripUpdatedAt: "2027-04-29T10:00:00.123456+00:00",
+                           placeUpdatedAt: [place.id: "2027-04-29T10:00:00.654321+00:00"]),
+            tripID: tripID, store: store
+        )
+
+        try await sync.pushDirtyForTesting(store: store, tripID: tripID)
+
+        XCTAssertEqual(transport.v2WriteCount, 1)
+        XCTAssertEqual(transport.v2TripPayload?.planningSchemaVersion, 2)
+        XCTAssertEqual(transport.v2TripPayload?.startDate?.rawValue, "2027-04-30")
+        XCTAssertEqual(transport.v2ExpectedTripUpdatedAt, "2027-04-29T10:00:00.123456+00:00")
+        XCTAssertEqual(transport.v2PlacePayloads.map(\.id), [place.id])
+        XCTAssertEqual(transport.v2PlacePayloads.first?.expectedUpdatedAt, "2027-04-29T10:00:00.654321+00:00")
+        XCTAssertEqual(transport.v2PlacePayloads.first?.payload.plannedDate?.rawValue, "2027-05-01")
+        XCTAssertNotNil(transport.v2PlacePayloads.first?.payload.selectedGooglePlace, "Felder neuerer Clients gehen beim Schreiben nicht verloren")
+        XCTAssertEqual(transport.legacyTripWriteCount, 0)
+        XCTAssertEqual(transport.legacyPlaceWriteCount, 0)
+        XCTAssertFalse(store.data.dirty.contains("trip"))
+        XCTAssertFalse(store.data.dirty.contains(place.id))
+    }
+
+    func testV2TransitionStagesRemotePlacesAndMapsPulledLegacyPragueDays() async throws {
+        let store = AlbumStore(root: root)
+        let tripID = UUID()
+        store.data.collaboration = CollaborationState(tripID: tripID, inviteToken: "test-invite-token")
+        // Vom Server gezogen: v1-Reise ohne Daten, Partner-Ort mit alter Tageszahl und ein ungelöster Wert.
+        store.data.trip = TripInfo()
+        let pulledPragueDay = Place(id: "partner-day", title: "Museum", franked: true, day: 6, dayOrder: 2)
+        let pulledAmbiguous = Place(id: "partner-ambiguous", title: "Café", day: 31, dayOrder: 0)
+        let localOnly = Place(id: "local-only", title: "Nur hier")
+        store.data.places = [pulledPragueDay, pulledAmbiguous, localOnly]
+        store.data.dirty = []
+        XCTAssertTrue(store.persist())
+
+        let transport = PausingSyncWriteTransport()
+        let sync = SupabaseSync(writeTransport: transport)
+        sync.recordRevisionsForTesting(tripRevision: "2026-10-01T10:00:00.123456+00:00",
+                                       placeRevisions: [pulledPragueDay.id: "2026-10-01T10:00:00.111111+00:00",
+                                                        pulledAmbiguous.id: "2026-10-01T10:00:00.222222+00:00"],
+                                       tripID: tripID, store: store)
+        sync.stageV2TransitionForTesting(store: store, remoteTripVersion: nil,
+                                         remotePlaceIDs: [pulledPragueDay.id, pulledAmbiguous.id])
+        try await sync.pushDirtyForTesting(store: store, tripID: tripID)
+
+        XCTAssertEqual(transport.v2WriteCount, 1)
+        XCTAssertEqual(transport.v2TripPayload?.planningSchemaVersion, 2)
+        XCTAssertEqual(transport.v2TripPayload?.startDate?.rawValue, "2026-10-04")
+        XCTAssertEqual(transport.v2TripPayload?.endDate?.rawValue, "2026-10-09")
+        XCTAssertEqual(transport.v2ExpectedTripUpdatedAt, "2026-10-01T10:00:00.123456+00:00")
+        XCTAssertEqual(Set(transport.v2PlacePayloads.map(\.id)), [pulledPragueDay.id, pulledAmbiguous.id],
+                       "Nur Orte vom Server werden für den Übergang gestaged, lokale unveränderte Orte nicht")
+        let mapped = try XCTUnwrap(transport.v2PlacePayloads.first { $0.id == pulledPragueDay.id })
+        XCTAssertEqual(mapped.expectedUpdatedAt, "2026-10-01T10:00:00.111111+00:00")
+        XCTAssertEqual(mapped.payload.plannedDate?.rawValue, "2026-10-06")
+        XCTAssertNil(mapped.payload.day)
+        XCTAssertEqual(mapped.payload.dayOrder, 2)
+        let ambiguous = try XCTUnwrap(transport.v2PlacePayloads.first { $0.id == pulledAmbiguous.id })
+        XCTAssertEqual(ambiguous.payload.planningSchemaVersion, 2)
+        XCTAssertEqual(ambiguous.payload.day, 31, "Uneindeutige alte Werte bleiben erhalten")
+        XCTAssertNil(ambiguous.payload.plannedDate)
+        XCTAssertTrue(store.data.dirty.isEmpty)
+    }
+
+    func testV2ConflictKeepsLocalChangesDirty() async throws {
+        let store = AlbumStore(root: root)
+        store.data.trip.notes = "lokale Änderung"
+        store.data.dirty = ["trip"]
+        XCTAssertTrue(store.persist())
+        let transport = PausingSyncWriteTransport()
+        transport.v2NextError = NSError(domain: "Postgrest", code: 1, userInfo: [NSLocalizedDescriptionKey: "ALBUM_SYNC_CONFLICT"])
+        let sync = SupabaseSync(writeTransport: transport)
+        let tripID = UUID()
+        sync.seedRevisionCacheForTesting(V2SyncRevision(tripUpdatedAt: "2026-10-16T12:00:00.123456+00:00", placeUpdatedAt: [:]),
+                                         tripID: tripID, store: store)
+
+        do {
+            try await sync.pushDirtyForTesting(store: store, tripID: tripID)
+            XCTFail("Ein veralteter CAS-Stand muss abgelehnt werden")
+        } catch AlbumSyncError.syncConflict {
+        }
+        XCTAssertEqual(store.data.trip.notes, "lokale Änderung")
+        XCTAssertTrue(store.data.dirty.contains("trip"))
+
+        // Der nächste Abgleich liest die aktuelle Revision und überträgt die lokale Änderung damit.
+        sync.recordRevisionsForTesting(tripRevision: "2026-10-16T12:05:00.654321+00:00", placeRevisions: [:], tripID: tripID, store: store)
+        try await sync.pushDirtyForTesting(store: store, tripID: tripID)
+        XCTAssertEqual(transport.v2ExpectedTripUpdatedAt, "2026-10-16T12:05:00.654321+00:00")
+        XCTAssertFalse(store.data.dirty.contains("trip"))
+    }
+
+    func testV2WriteWithoutBaselineForKnownRowIsRefused() async throws {
+        let store = AlbumStore(root: root)
+        let place = Place(id: "known", title: "Bekannt", planningSchemaVersion: 2)
+        store.data.places = [place]
+        store.data.dirty = [place.id]
+        XCTAssertTrue(store.persist())
+        let transport = PausingSyncWriteTransport()
+        let sync = SupabaseSync(writeTransport: transport)
+        let tripID = UUID()
+        // Zeile ist vom Server bekannt, aber ohne lesbare Revision.
+        sync.recordRevisionsForTesting(tripRevision: "2026-10-16T12:00:00.123456+00:00", placeRevisions: ["known": ""], tripID: tripID, store: store)
+
+        do {
+            try await sync.pushDirtyForTesting(store: store, tripID: tripID)
+            XCTFail("Ohne Basis für eine bestehende Zeile darf nicht überschrieben werden")
+        } catch AlbumSyncError.syncConflict {
+        }
+        XCTAssertEqual(transport.v2WriteCount, 0)
+        XCTAssertTrue(store.data.dirty.contains(place.id))
     }
 
     func testPlaceMutationDuringWriteKeepsDirtyMarkerAndPayload() async throws {
@@ -364,6 +509,13 @@ private final class PausingSyncWriteTransport: SupabaseSyncWriteTransport {
     var entered: Set<Operation> = []
     var tripPayload: TripInfo?
     var tripWriteCount = 0
+    var legacyTripWriteCount = 0
+    var legacyPlaceWriteCount = 0
+    var v2WriteCount = 0
+    var v2TripPayload: TripInfo?
+    var v2PlacePayloads: [V2PlaceSyncPayload] = []
+    var v2ExpectedTripUpdatedAt: String?
+    var v2NextError: Error?
     var placePayload: Place?
     var documentUploadPath: String?
     var documentPayload: String?
@@ -374,8 +526,30 @@ private final class PausingSyncWriteTransport: SupabaseSyncWriteTransport {
 
     func updateTrip(tripID: UUID, payload: TripInfo) async throws {
         tripWriteCount += 1
+        legacyTripWriteCount += 1
         tripPayload = payload
         await waitIfNeeded(.trip)
+    }
+
+    func syncTripV2(tripID: UUID, tripPayload: TripInfo?, expectedTripUpdatedAt: String?, places: [V2PlaceSyncPayload]) async throws -> V2SyncRevision {
+        v2WriteCount += 1
+        v2TripPayload = tripPayload
+        v2ExpectedTripUpdatedAt = expectedTripUpdatedAt
+        v2PlacePayloads = places
+        if let tripPayload {
+            tripWriteCount += 1
+            self.tripPayload = tripPayload
+            await waitIfNeeded(.trip)
+        }
+        if let first = places.first {
+            placePayload = first.payload
+            await waitIfNeeded(.place)
+        }
+        if let error = v2NextError { v2NextError = nil; throw error }
+        return V2SyncRevision(
+            tripUpdatedAt: "2027-01-15T08:00:00.123456+00:00",
+            placeUpdatedAt: Dictionary(uniqueKeysWithValues: places.map { ($0.id, "2027-01-15T08:00:00.123456+00:00") })
+        )
     }
 
     func uploadImage(path: String, data: Data) async throws {
@@ -383,6 +557,7 @@ private final class PausingSyncWriteTransport: SupabaseSyncWriteTransport {
     }
 
     func upsertPlace(id: String, tripID: UUID, payload: Place, updatedAt: Date, deleted: Bool) async throws {
+        legacyPlaceWriteCount += 1
         placePayload = payload
         await waitIfNeeded(.place)
     }

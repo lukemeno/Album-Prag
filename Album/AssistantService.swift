@@ -43,6 +43,7 @@ enum AssistantServiceError: LocalizedError {
         request.setValue("Bearer \(authSession.accessToken)", forHTTPHeaderField: "Authorization")
         let context = AssistantContextBuilder.make(store: store, message: message)
         let body = AssistantWireRequest(
+            protocolVersion: AssistantProtocol.version,
             requestID: UUID().uuidString,
             tripID: store.data.collaboration?.tripID,
             message: String(message.prefix(4_000)),
@@ -65,7 +66,8 @@ enum AssistantServiceError: LocalizedError {
                 }
                 throw AssistantServiceError.server("Die Anfrage konnte nicht verarbeitet werden.")
             }
-            guard let reply = try? JSONDecoder().decode(AssistantReply.self, from: data) else { throw AssistantServiceError.invalidResponse }
+            guard let reply = try? JSONDecoder().decode(AssistantReply.self, from: data),
+                  reply.protocolVersion == AssistantProtocol.version else { throw AssistantServiceError.invalidResponse }
             return reply
         } catch is CancellationError {
             throw AssistantServiceError.cancelled
@@ -80,6 +82,7 @@ enum AssistantServiceError: LocalizedError {
 private struct AssistantWireRequest: Encodable {
     struct History: Encodable { let role: String; let text: String }
     struct Location: Encodable { let latitude: Double; let longitude: Double }
+    let protocolVersion: Int
     let requestID: String
     let tripID: UUID?
     let message: String
@@ -89,7 +92,7 @@ private struct AssistantWireRequest: Encodable {
     let location: Location?
     let webSearch: Bool
     enum CodingKeys: String, CodingKey {
-        case requestID = "request_id", tripID = "trip_id", message, history, context, preferences, location
+        case protocolVersion = "protocol_version", requestID = "request_id", tripID = "trip_id", message, history, context, preferences, location
         case webSearch = "web_search"
     }
 }
@@ -103,8 +106,8 @@ private struct AssistantRequestContext: Encodable {
 
 private struct ContextPlace: Encodable {
     let id: String; let title: String; let note: String; let category: String; let address: String
-    let lat: Double?; let lng: Double?; let day: Int?; let franked: Bool; let openingHours: String?
-    enum CodingKeys: String, CodingKey { case id, title, note, category, address, lat, lng, day, franked; case openingHours = "opening_hours" }
+    let lat: Double?; let lng: Double?; let plannedDate: TripDay?; let franked: Bool; let openingHours: String?
+    enum CodingKeys: String, CodingKey { case id, title, note, category, address, lat, lng, franked; case plannedDate = "planned_date"; case openingHours = "opening_hours" }
 }
 private struct ContextDocument: Encodable { let id: String; let name: String; let text: String }
 private struct ContextCollection: Encodable { let id: String; let text: String; let url: String? }
@@ -115,9 +118,11 @@ private struct AssistantAPIError: Decodable { let error: String; let code: Strin
         var trip = store.data.trip
         trip.hotel = String(trip.hotel.prefix(300)); trip.outbound = String(trip.outbound.prefix(300)); trip.arrival = String(trip.arrival.prefix(300))
         trip.route = String(trip.route.prefix(300)); trip.flightNumber = String(trip.flightNumber.prefix(150)); trip.notes = String(trip.notes.prefix(2_000))
+        let calendar = store.tripCalendar
+        // Der Server lehnt Daten außerhalb des Reisezeitraums ab; solche Orte gehen ohne Datum mit.
         let places = store.places.prefix(150).map { place in
             ContextPlace(id: String(place.id.prefix(180)), title: String(place.title.prefix(180)), note: String(place.note.prefix(500)), category: String(place.category.prefix(100)), address: String(place.address.prefix(300)),
-                         lat: place.lat, lng: place.lng, day: place.day, franked: place.franked, openingHours: place.openingHours.map { String($0.prefix(400)) })
+                         lat: place.lat, lng: place.lng, plannedDate: place.plannedDate.flatMap { calendar.contains($0) ? $0 : nil }, franked: place.franked, openingHours: place.openingHours.map { String($0.prefix(400)) })
         }
         let keywords = Set(message.lowercased().split { !$0.isLetter && !$0.isNumber }.map(String.init).filter { $0.count > 3 })
         var docs = store.data.documents.compactMap { doc -> ContextDocument? in

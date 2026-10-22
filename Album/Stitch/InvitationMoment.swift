@@ -61,7 +61,7 @@ struct InvitationMoment: View {
     /// „13 Orte · 5 Tage“ aus den geladenen Daten; Tage nur, wenn schon welche geplant sind.
     private var summary: String {
         let places = store.places.count
-        let days = Set(store.places.compactMap(\.day)).count
+        let days = Set(store.places.compactMap(\.plannedDate)).count
         var parts = [places == 1 ? "1 Ort" : "\(places) Orte"]
         if days > 0 { parts.append(days == 1 ? "1 Tag" : "\(days) Tage") }
         return parts.joined(separator: " · ")

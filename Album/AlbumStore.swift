@@ -45,6 +45,10 @@ private struct OpeningHoursFetchResult: Sendable {
     var inbox: [Place] { places.filter(isOpenForMe) }
     var deferred: [Place] { places.filter { ($0.deferred && !$0.franked) || $0.passedBy.contains(me) } }
     var franked: [Place] { places.filter(\.franked) }
+    var tripCalendar: TripCalendar { TripCalendar(trip: data.trip) }
+    /// Alte Tageszahlen, die sich keinem Datum sicher zuordnen ließen; bleiben sichtbar, bis jemand neu plant.
+    var unresolvedLegacyPlaces: [Place] { places.filter { $0.day != nil && $0.plannedDate == nil } }
+    var outOfRangePlannedPlaces: [Place] { placesOutsideRange(of: data.trip) }
     /// Offene Ideen, die jemand anderes gesammelt hat – für das Zeichen am Tab.
     var newFromOthers: Int { inbox.filter { $0.author != me && $0.author.localizedCaseInsensitiveCompare("Wir") != .orderedSame }.count }
 
@@ -85,12 +89,14 @@ private struct OpeningHoursFetchResult: Sendable {
         var legacyAlbumID = false
         var needsInitialPersist = false
         var shouldPublishShareContext = true
+        var storedBytes: Data?
         do {
             try FileManager.default.createDirectory(at: self.root, withIntermediateDirectories: true)
             let file = self.root.appendingPathComponent("album.json")
             var loadedData: AlbumData
             if FileManager.default.fileExists(atPath: file.path) {
                 let bytes = try Data(contentsOf: file)
+                storedBytes = bytes
                 if let object = try? JSONSerialization.jsonObject(with: bytes), let dictionary = object as? [String: Any] { legacyAlbumID = dictionary["albumID"] == nil }
                 loadedData = try JSONDecoder().decode(AlbumData.self, from: bytes)
             } else {
@@ -120,20 +126,20 @@ private struct OpeningHoursFetchResult: Sendable {
         #if DEBUG
         if ProcessInfo.processInfo.environment["ALBUM_DEMO_MEMORIES"] == "1" {
             var letna = Place(id: "memory-letna", title: "Letná", category: "Aussicht", author: "Luke",
-                              image: .bundled(name: "imgPhotoLetna"), franked: true, visited: true, day: 4, dayOrder: 0)
+                              image: .bundled(name: "imgPhotoLetna"), franked: true, visited: true, plannedDate: TripInfo.legacyPragueStart, dayOrder: 0)
             letna.gallery = [ExternalPlaceImage(
                 imageURL: "https://example.invalid/memory.jpg", sourceURL: "https://example.invalid/memory",
                 credit: "Demo", provider: .sourcePreview
             )]
             let oldTown = Place(id: "memory-oldtown", title: "Altstädter Ring", category: "Sehenswert", author: "Luke",
-                                image: .bundled(name: "imgPhotoOldTown"), franked: true, visited: true, day: 4, dayOrder: 1)
+                                image: .bundled(name: "imgPhotoOldTown"), franked: true, visited: true, plannedDate: TripInfo.legacyPragueStart, dayOrder: 1)
             let noPhoto = Place(id: "memory-cafe", title: "Café Savoy", category: "Essen & Trinken", author: "Luke",
-                                franked: true, visited: true, day: 5, dayOrder: 0)
+                                franked: true, visited: true, plannedDate: TripDay(rawValue: "2026-10-05"), dayOrder: 0)
             data.places = [letna, oldTown, noPhoto]
         }
         if ProcessInfo.processInfo.environment["ALBUM_DEMO_MOTION"] == "1" {
             var savoy = Place(id: "motion-savoy", title: "Café Savoy", category: "Essen & Trinken", author: "Luke",
-                              image: .bundled(name: "imgThumbCafe"), franked: true, day: 4, dayOrder: 0, approvals: ["Luke"])
+                              image: .bundled(name: "imgThumbCafe"), franked: true, plannedDate: TripInfo.legacyPragueStart, dayOrder: 0, approvals: ["Luke"])
             savoy.gallery = [
                 ExternalPlaceImage(imageURL: "https://example.invalid/motion-photo-2.jpg", sourceURL: "https://example.invalid/motion-photo-2",
                                    credit: "Demo", provider: .sourcePreview),
@@ -162,7 +168,7 @@ private struct OpeningHoursFetchResult: Sendable {
            !data.places.contains(where: { $0.id == "image-choice-cafe" }) {
             data.places = [
                 Place(id: "image-choice-cafe", title: "Café Louvre", category: "Essen & Trinken", author: "Luke",
-                      address: "Národní 22, Praha 1", lat: 50.0819, lng: 14.4185, franked: true, day: 4, dayOrder: 0, approvals: ["Luke"])
+                      address: "Národní 22, Praha 1", lat: 50.0819, lng: 14.4185, franked: true, plannedDate: TripInfo.legacyPragueStart, dayOrder: 0, approvals: ["Luke"])
             ]
         }
         #endif
@@ -195,6 +201,9 @@ private struct OpeningHoursFetchResult: Sendable {
                 needsInitialPersist = true
             }
         }
+        if !loadFailed, data.schemaVersion != 2, migrateLegacyPlanning(originalBytes: storedBytes) {
+            needsInitialPersist = false
+        }
         if legacyAlbumID, !persist() { shouldPublishShareContext = false }
         // The share extension may enqueue before the first in-app mutation. Persist
         // the generated installation identity before publishing its share context.
@@ -205,6 +214,91 @@ private struct OpeningHoursFetchResult: Sendable {
         #else
         publishShareContext()
         #endif
+    }
+
+    static let legacyPlanningBackupName = "album.legacy-planning-backup.json"
+
+    /// Einmalige Umstellung alter Tageszahlen auf Kalendertage. Vor dem Schreiben wird die
+    /// Original-JSON gesichert; schlägt die Sicherung fehl, bleibt alles unverändert.
+    private func migrateLegacyPlanning(originalBytes: Data?) -> Bool {
+        let previous = data
+        guard normalizeLegacyPlanning() else { return false }
+        if let originalBytes {
+            let backup = root.appendingPathComponent(Self.legacyPlanningBackupName)
+            do {
+                if !FileManager.default.fileExists(atPath: backup.path) {
+                    try originalBytes.write(to: backup, options: .atomic)
+                }
+            } catch {
+                data = previous
+                self.error = "Die Reisedaten konnten nicht sicher umgestellt werden: \(error.localizedDescription)"
+                return false
+            }
+        }
+        guard persist() else { data = previous; return false }
+        return true
+    }
+
+    /// Bringt Reise und Orte auf Planungsschema 2. Nur eine nachweislich alte Prag-Reise erhält
+    /// 4.–9. Oktober 2026; andere alte Tageszahlen bleiben ungelöst und sichtbar.
+    /// IDs, Stimmen, Fotos und Zeitstempel bleiben unverändert.
+    @discardableResult func normalizeLegacyPlanning() -> Bool {
+        var trip = data.trip
+        let isPrague = Self.hasPragueIdentity(trip: trip, places: data.places)
+        if isPrague, trip.planningSchemaVersion != 2, trip.startDate == nil, trip.endDate == nil {
+            let known = TripInfo.legacyPrague()
+            trip.title = trip.title ?? known.title
+            trip.destination = trip.destination ?? known.destination
+            trip.startDate = known.startDate
+            trip.endDate = known.endDate
+            trip.timeZoneIdentifier = trip.timeZoneIdentifier ?? known.timeZoneIdentifier
+        }
+        trip.planningSchemaVersion = 2
+        let legacyRange = isPrague && trip.startDate == TripInfo.legacyPragueStart && trip.endDate == TripInfo.legacyPragueEnd
+        var places = data.places
+        for index in places.indices {
+            if legacyRange, places[index].plannedDate == nil, let legacyDay = places[index].day, (4...9).contains(legacyDay) {
+                places[index].plannedDate = TripDay(year: 2026, month: 10, day: legacyDay)
+                places[index].day = nil
+            }
+            places[index].planningSchemaVersion = 2
+        }
+        let changed = trip != data.trip || places != data.places || data.schemaVersion != 2
+        data.trip = trip
+        data.places = places
+        data.schemaVersion = 2
+        return changed
+    }
+
+    private static func hasPragueIdentity(trip: TripInfo, places: [Place]) -> Bool {
+        let destination = (trip.destination ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !destination.isEmpty { return containsPragueCityToken(destination) }
+        let legacyHotel = trip.hotel.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+            .trimmingCharacters(in: .whitespacesAndNewlines) == "hotel urban creme"
+        return containsPragueCityToken(trip.title ?? "") || containsPragueCityToken(trip.route) || legacyHotel
+            || places.contains { $0.id.hasPrefix("prague-") || $0.id == "example-letna" || $0.id == "example-oldtown" }
+    }
+
+    private static func containsPragueCityToken(_ value: String) -> Bool {
+        let normalized = value.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+        let tokens = normalized.components(separatedBy: CharacterSet.letters.inverted).filter { !$0.isEmpty }
+        return tokens.contains { ["prag", "prague", "praha"].contains($0) }
+    }
+
+    func tripDateValidationError(_ trip: TripInfo) -> String? {
+        if (trip.startDate == nil) != (trip.endDate == nil) { return "Bitte wähle beide Reisedaten oder lasse den Zeitraum offen." }
+        if let start = trip.startDate, let end = trip.endDate, end < start { return "Das Ende der Reise muss am oder nach dem Beginn liegen." }
+        if trip.startDate != nil, !TripCalendar(trip: trip).isValidRange { return "Der Reisezeitraum darf höchstens 3.660 Kalendertage umfassen." }
+        if let identifier = trip.timeZoneIdentifier, TimeZone(identifier: identifier) == nil { return "Bitte wähle eine gültige Zeitzone." }
+        return nil
+    }
+
+    func placesOutsideRange(of trip: TripInfo) -> [Place] {
+        let calendar = TripCalendar(trip: trip)
+        return places.filter { place in
+            guard let date = place.plannedDate else { return false }
+            return !calendar.contains(date)
+        }
     }
 
     func publishShareContext() {
@@ -363,19 +457,24 @@ private struct OpeningHoursFetchResult: Sendable {
         for place in deferred { restoreDeferred(place) }
     }
 
-    /// Setzt einen Ort ans Ende eines Tages (oder nimmt ihn aus der Tagesplanung).
-    func assign(_ place: Place, to day: Int?) {
+    /// Setzt einen Ort ans Ende eines Reisetags (oder nimmt ihn aus der Tagesplanung).
+    func assign(_ place: Place, toDate date: TripDay?) {
+        if let date, !tripCalendar.contains(date) { return }
         var p = place
-        p.day = day
-        p.dayOrder = day.map { d in (franked.filter { $0.day == d && $0.id != place.id }.compactMap(\.dayOrder).max() ?? -1) + 1 }
+        p.plannedDate = date
+        p.planningSchemaVersion = 2
+        p.day = nil
+        p.dayOrder = date.map { day in
+            (franked.filter { $0.plannedDate == day && $0.id != place.id }.compactMap(\.dayOrder).max() ?? -1) + 1
+        }
         upsert(p)
     }
 
-    /// Neue Reihenfolge eines Tages nach dem Verschieben in der Liste.
-    func reorder(day: Int, ids: [String]) {
+    /// Neue Reihenfolge eines Reisetags nach dem Verschieben in der Liste.
+    func reorder(date: TripDay, ids: [String]) {
         for (index, id) in ids.enumerated() {
-            guard var p = places.first(where: { $0.id == id }), p.dayOrder != index else { continue }
-            p.dayOrder = index; upsert(p)
+            guard var p = places.first(where: { $0.id == id }), p.plannedDate == date, p.dayOrder != index else { continue }
+            p.dayOrder = index; p.planningSchemaVersion = 2; upsert(p)
         }
     }
 
@@ -384,6 +483,13 @@ private struct OpeningHoursFetchResult: Sendable {
     var hotelCoordinate: CLLocationCoordinate2D {
         franked.first { $0.category == "Unterkunft" && $0.coordinate != nil }?.coordinate
             ?? CLLocationCoordinate2D(latitude: 50.0875, longitude: 14.4213)
+    }
+
+    private func currentDayPlan(keepAssigned: Bool) -> DayPlanProposal {
+        var proposal = DayPlanGenerator.plan(places: franked, hotel: hotelCoordinate, flights: data.trip.flights ?? [],
+                                             calendar: tripCalendar, keepAssigned: keepAssigned)
+        proposal.sourceAlbumID = data.albumID
+        return proposal
     }
 
     /// Holt fehlende Öffnungszeiten (einmal pro Ort) und rechnet einen Tagesplan-Vorschlag.
@@ -395,7 +501,7 @@ private struct OpeningHoursFetchResult: Sendable {
         // Drei gleichzeitige Abfragen begrenzen die Netzlast; fehlende Ergebnisse bleiben offen.
         for batchStart in stride(from: 0, to: candidates.count, by: 3) {
             guard !Task.isCancelled else {
-                return DayPlanGenerator.plan(places: franked, hotel: hotelCoordinate, flights: data.trip.flights ?? [], keepAssigned: keepAssigned)
+                return currentDayPlan(keepAssigned: keepAssigned)
             }
             let batch = Array(candidates[batchStart..<min(batchStart + 3, candidates.count)])
             let batchResults = await withTaskGroup(of: OpeningHoursFetchResult.self) { group in
@@ -432,13 +538,13 @@ private struct OpeningHoursFetchResult: Sendable {
                 return collected
             }
             guard !Task.isCancelled else {
-                return DayPlanGenerator.plan(places: franked, hotel: hotelCoordinate, flights: data.trip.flights ?? [], keepAssigned: keepAssigned)
+                return currentDayPlan(keepAssigned: keepAssigned)
             }
             results.append(contentsOf: batchResults)
         }
 
         guard !Task.isCancelled else {
-            return DayPlanGenerator.plan(places: franked, hotel: hotelCoordinate, flights: data.trip.flights ?? [], keepAssigned: keepAssigned)
+            return currentDayPlan(keepAssigned: keepAssigned)
         }
 
         for result in results {
@@ -454,11 +560,15 @@ private struct OpeningHoursFetchResult: Sendable {
             current.openingHours = hours
             _ = upsert(current)
         }
-        return DayPlanGenerator.plan(places: franked, hotel: hotelCoordinate, flights: data.trip.flights ?? [], keepAssigned: keepAssigned)
+        return currentDayPlan(keepAssigned: keepAssigned)
     }
 
     /// Übernimmt den Vorschlag als einen atomaren Persistenzschritt.
+    /// Ein Vorschlag gilt nur für das Album und den Reisezeitraum, aus dem er berechnet wurde.
     @discardableResult func apply(_ proposal: DayPlanProposal) -> Bool {
+        guard proposal.sourceAlbumID == nil || proposal.sourceAlbumID == data.albumID,
+              proposal.calendarSnapshot == tripCalendar.snapshot,
+              proposal.days.keys.allSatisfy({ tripCalendar.contains($0) }) else { return false }
         let previous = data
         let commitDate = Date()
         var changed = false
@@ -466,8 +576,10 @@ private struct OpeningHoursFetchResult: Sendable {
             for (index, stop) in stops.enumerated() {
                 // Vorschläge dürfen keine veralteten, gelöschten oder nicht mehr beschlossenen Orte schreiben.
                 guard var place = franked.first(where: { $0.id == stop.id }) else { continue }
-                guard place.day != day || place.dayOrder != index else { continue }
-                place.day = day
+                guard place.plannedDate != day || place.dayOrder != index else { continue }
+                place.plannedDate = day
+                place.planningSchemaVersion = 2
+                place.day = nil
                 place.dayOrder = index
                 place.updatedAt = commitDate
                 if let placeIndex = data.places.firstIndex(where: { $0.id == place.id }) {
@@ -493,7 +605,10 @@ private struct OpeningHoursFetchResult: Sendable {
     @discardableResult func applyAssistantDayAssignments(_ assignments: [AssistantActions.DayAssignment]) -> Bool {
         let ids = assignments.map(\.placeID)
         guard Set(ids).count == ids.count,
-              assignments.allSatisfy({ assignment in data.places.contains(where: { place in place.id == assignment.placeID }) }) else {
+              assignments.allSatisfy({ assignment in
+                  data.places.contains(where: { $0.id == assignment.placeID })
+                      && (assignment.date.map { tripCalendar.contains($0) } ?? true)
+              }) else {
             return false
         }
 
@@ -505,10 +620,14 @@ private struct OpeningHoursFetchResult: Sendable {
                 data = previous
                 return false
             }
-            guard data.places[index].day != assignment.day || data.places[index].dayOrder != assignment.dayOrder else {
+            let current = data.places[index]
+            guard current.plannedDate != assignment.date || current.dayOrder != assignment.dayOrder
+                    || current.day != assignment.legacyDay else {
                 continue
             }
-            data.places[index].day = assignment.day
+            data.places[index].plannedDate = assignment.date
+            data.places[index].planningSchemaVersion = 2
+            data.places[index].day = assignment.legacyDay
             data.places[index].dayOrder = assignment.dayOrder
             data.places[index].updatedAt = commitDate
             data.dirty.insert(assignment.placeID)
@@ -523,12 +642,23 @@ private struct OpeningHoursFetchResult: Sendable {
         return true
     }
 
-    func plan(for day: Int) -> [Place] {
-        franked.filter { $0.day == day }.sorted { ($0.dayOrder ?? .max, $0.title) < ($1.dayOrder ?? .max, $1.title) }
+    /// Orte eines Reisetags in geplanter Reihenfolge.
+    func plan(for date: TripDay) -> [Place] {
+        franked.filter { $0.plannedDate == date }.sorted { ($0.dayOrder ?? .max, $0.title) < ($1.dayOrder ?? .max, $1.title) }
     }
+
+    func stops(for date: TripDay) -> [PlanStop] {
+        let calendar = tripCalendar
+        let window = DayPlanGenerator.windows(flights: data.trip.flights ?? [], calendar: calendar)[date]
+            ?? DayPlanGenerator.Window(start: 10 * 60, end: 22 * 60)
+        return DayPlanGenerator.timeline(plan(for: date), day: date, window: window, start: hotelCoordinate, calendar: calendar)
+    }
+
     @discardableResult func updateTrip(_ trip: TripInfo) -> Bool {
+        guard tripDateValidationError(trip) == nil else { return false }
         let previous = data
-        data.trip = trip; data.trip.updatedAt = Date(); data.dirty.insert("trip")
+        data.trip = trip; data.trip.updatedAt = Date(); data.trip.planningSchemaVersion = 2
+        data.schemaVersion = 2; data.dirty.insert("trip")
         if persist() {
             scheduleSync()
             return true

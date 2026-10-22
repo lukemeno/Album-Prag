@@ -361,12 +361,12 @@ struct PlacesDrawer: View {
 
     private var subtitle: String {
         if planned.isEmpty { return "Hier erscheinen Orte, denen ihr zustimmt." }
-        if let today = TripDates.tripDay() {
+        if let today = store.tripCalendar.todayInTrip {
             let count = store.plan(for: today).count
             return count == 0 ? "Heute ist noch nichts geplant" : "Heute \(count == 1 ? "1 Ort" : "\(count) Orte")"
         }
-        let days = Set(planned.compactMap(\.day)).count
-        let open = planned.filter { $0.day == nil }.count
+        let days = Set(planned.compactMap(\.plannedDate)).count
+        let open = planned.filter { $0.plannedDate == nil }.count
         var parts = [days == 1 ? "1 Tag geplant" : "\(days) Tage geplant"]
         if open > 0 { parts.append("\(open) ohne Tag") }
         return parts.joined(separator: " · ")
@@ -451,23 +451,30 @@ struct PlacesDrawer: View {
     private var visiblePlaces: [Place] { store.franked.filter { filter.matches($0.category) } }
 
     private var sections: [Section] {
-        let windows = DayPlanGenerator.windows(flights: store.data.trip.flights ?? [])
-        let today = TripDates.tripDay()
+        let calendar = store.tripCalendar
+        let today = calendar.todayInTrip
         var result: [Section] = []
         // Die Unterkunft zuerst: Unterwegs ist ihre Adresse das, was man am häufigsten sucht.
         let hotels = visiblePlaces.filter { $0.category == "Unterkunft" }
         if !hotels.isEmpty {
             result.append(Section(id: "section-hotel", title: "Unterkunft", stops: hotels.map { PlanStop(place: $0, slot: "", note: nil) }))
         }
-        for day in DayPlanGenerator.days {
+        for day in calendar.days {
             // Zeiten aus dem ganzen Tag rechnen, erst dann filtern: Ein Filter verschiebt keine Uhrzeiten.
-            let stops = DayPlanGenerator.timeline(store.plan(for: day), day: day, window: windows[day]!, hotel: store.hotelCoordinate)
-                .filter { filter.matches($0.place.category) }
+            let stops = store.stops(for: day).filter { filter.matches($0.place.category) }
             // Mit Filter nur Tage mit Treffern; ohne Filter alle Reisetage, damit freie Tage sichtbar sind.
             guard !stops.isEmpty || filter == .all else { continue }
-            result.append(Section(id: "section-day-\(day)", title: TripDates.dayTitle(day), isToday: day == today, stops: stops))
+            result.append(Section(id: "section-day-\(day.rawValue)", title: calendar.dayTitle(day), isToday: day == today, stops: stops))
         }
-        let open = visiblePlaces.filter { $0.day == nil && $0.category != "Unterkunft" }
+        let outside = visiblePlaces.filter { $0.plannedDate.map { !calendar.contains($0) } == true && $0.category != "Unterkunft" }
+        if !outside.isEmpty {
+            result.append(Section(id: "section-outside", title: "Außerhalb des Reisezeitraums", stops: outside.map { PlanStop(place: $0, slot: "", note: nil) }))
+        }
+        let unresolved = visiblePlaces.filter { $0.plannedDate == nil && $0.day != nil && $0.category != "Unterkunft" }
+        if !unresolved.isEmpty {
+            result.append(Section(id: "section-legacy", title: "Alter Reisetag prüfen", stops: unresolved.map { PlanStop(place: $0, slot: "", note: nil) }))
+        }
+        let open = visiblePlaces.filter { $0.plannedDate == nil && $0.day == nil && $0.category != "Unterkunft" }
         if !open.isEmpty {
             result.append(Section(id: "section-open", title: "Noch ohne Tag", stops: open.map { PlanStop(place: $0, slot: "", note: nil) }))
         }
@@ -580,8 +587,8 @@ struct PlacesDrawer: View {
         guard !initialScrollApplied,
               selectionRequest == 0,
               selectedID == nil,
-              let today = TripDates.tripDay() else { return }
-        let targetID = "section-day-\(today)"
+              let today = store.tripCalendar.todayInTrip else { return }
+        let targetID = "section-day-\(today.rawValue)"
         let expectedFilter = filter.rawValue
         guard sections.contains(where: { $0.id == targetID }) else { return }
         guard pendingInitialScrollTarget != targetID else { return }
@@ -623,20 +630,25 @@ struct PlacesDrawer: View {
 
     private var editList: some View {
         List {
-            ForEach(DayPlanGenerator.days, id: \.self) { day in
+            ForEach(store.tripCalendar.days) { day in
                 let places = store.plan(for: day)
-                SwiftUI.Section(TripDates.dayTitle(day)) {
+                SwiftUI.Section(store.tripCalendar.dayTitle(day)) {
                     if places.isEmpty { Text("Noch frei").foregroundStyle(DrawerAccessibilityColors.secondary) }
                     ForEach(places) { editRow($0) }
                         .onMove { source, destination in
                             var ids = places.map(\.id)
                             ids.move(fromOffsets: source, toOffset: destination)
-                            store.reorder(day: day, ids: ids)
+                            store.reorder(date: day, ids: ids)
                         }
                 }
                 .listRowBackground(Stitch.card)
             }
-            let open = planned.filter { $0.day == nil }
+            let outside = planned.filter { $0.plannedDate.map { !store.tripCalendar.contains($0) } == true }
+            if !outside.isEmpty {
+                SwiftUI.Section("Außerhalb des Reisezeitraums") { ForEach(outside) { editRow($0) } }
+                    .listRowBackground(Stitch.card)
+            }
+            let open = planned.filter { $0.plannedDate == nil }
             if !open.isEmpty {
                 SwiftUI.Section("Noch ohne Tag") { ForEach(open) { editRow($0) } }
                     .listRowBackground(Stitch.card)
@@ -661,6 +673,7 @@ struct PlacesDrawer: View {
 /// Ein Ort als Zeile: kleine Marke, Name in Serif, Art und Tageszeit; darunter Route und Tag.
 /// Tippen zeigt ihn auf der Karte, der Pfeil öffnet das Detail.
 private struct PlaceRow: View {
+    @Environment(AlbumStore.self) private var store
     let stop: PlanStop
     let root: URL
     let selected: Bool
@@ -732,9 +745,12 @@ private struct PlaceRow: View {
         return parts.joined(separator: " · ")
     }
 
+    private var calendar: TripCalendar { store.tripCalendar }
+
     private var closingHint: String? {
-        guard let day = place.day, let hours = place.openingHours.flatMap(OpeningHours.init) else { return nil }
-        let ranges = hours.ranges(weekday: DayPlanGenerator.weekday(day))
+        guard let day = place.plannedDate, calendar.contains(day), let hours = place.openingHours.flatMap(OpeningHours.init),
+              let weekday = DayPlanGenerator.weekday(day, calendar: calendar) else { return nil }
+        let ranges = hours.ranges(weekday: weekday)
         guard let last = ranges.last, !(last.lowerBound == 0 && last.upperBound >= 1440) else { return nil }
         return "bis \(OpeningHours.clock(last.upperBound))"
     }
@@ -746,16 +762,27 @@ struct DayMenu: View {
     let place: Place
     var body: some View {
         Menu {
-            Picker("Tag", selection: Binding(get: { place.day }, set: { store.assign(place, to: $0) })) {
-                Text("Noch ohne Tag").tag(nil as Int?)
-                ForEach(DayPlanGenerator.days, id: \.self) { Text(TripDates.dayTitle($0)).tag(Optional($0)) }
+            Picker("Tag", selection: Binding(get: { place.plannedDate }, set: { store.assign(place, toDate: $0) })) {
+                Text("Noch ohne Tag").tag(nil as TripDay?)
+                if let date = place.plannedDate, !calendar.contains(date) {
+                    Text("\(calendar.dayTitle(date)) · außerhalb").tag(Optional(date))
+                }
+                ForEach(calendar.days) { Text(calendar.dayTitle($0)).tag(Optional($0)) }
             }
         } label: {
-            Label(place.day.map { "\($0). Okt" } ?? "Tag festlegen", systemImage: "calendar")
+            Label(label, systemImage: "calendar")
                 .font(.subheadline.weight(.semibold)).foregroundStyle(DrawerAccessibilityColors.accent)
                 .frame(minHeight: Stitch.Size.touch)
         }
-        .accessibilityLabel(place.day.map { "Tag ändern, jetzt \(TripDates.dayTitle($0))" } ?? "Tag festlegen")
+        .accessibilityLabel(place.plannedDate.map { "Tag ändern, jetzt \(calendar.dayTitle($0))" }
+            ?? (place.day == nil ? "Tag festlegen" : "Alten Reisetag prüfen"))
+    }
+
+    private var calendar: TripCalendar { store.tripCalendar }
+
+    private var label: String {
+        if let date = place.plannedDate { return calendar.shortDate(date) }
+        return place.day == nil ? "Tag festlegen" : "Alten Tag prüfen"
     }
 }
 

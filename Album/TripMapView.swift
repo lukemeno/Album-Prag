@@ -23,11 +23,11 @@ struct TripMapView: View {
     @AppStorage("album.landedPins") private var landedRaw = ""
 
     var visible: [Place] { store.franked.filter { $0.coordinate != nil && filter.matches($0.category) } }
-    private var selectedDay: Int? { visible.first { $0.id == selectedID }?.day }
+    private var selectedDay: TripDay? { visible.first { $0.id == selectedID }?.plannedDate }
 
     /// Orte eines Tages, verbunden in geplanter Reihenfolge.
-    private var dayThreads: [(day: Int, coordinates: [CLLocationCoordinate2D])] {
-        (4...9).map { day in (day, store.plan(for: day).filter { filter.matches($0.category) }.compactMap(\.coordinate)) }
+    private var dayThreads: [(day: TripDay, coordinates: [CLLocationCoordinate2D])] {
+        store.tripCalendar.days.map { day in (day, store.plan(for: day).filter { filter.matches($0.category) }.compactMap(\.coordinate)) }
             .filter { $0.1.count > 1 }
     }
 
@@ -622,7 +622,7 @@ struct PlaceDetail: View {
     private func facts(_ place: Place) -> [String] {
         var lines: [String] = []
         if !place.address.isEmpty { lines.append(place.address) }
-        if let day = place.day { lines.append(TripDates.dayTitle(day)) }
+        if let day = place.plannedDate { lines.append(store.tripCalendar.dayTitle(day)) }
         if place.author != store.me, place.author.localizedCaseInsensitiveCompare("Wir") != .orderedSame {
             lines.append("Von \(place.author) eingeworfen")
         }

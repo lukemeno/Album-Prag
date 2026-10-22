@@ -230,12 +230,32 @@ struct PlaceEditor: View {
     private var planningSection: some View {
         Section("Planung") {
             Toggle("Schon besucht", isOn: $place.visited)
-            Picker("Tag", selection: $place.day) {
-                Text("Noch offen").tag(nil as Int?)
-                ForEach(4...9, id: \.self) { Text(TripDates.dayTitle($0)).tag(Optional($0)) }
+            let calendar = store.tripCalendar
+            if place.plannedDate == nil, let legacyDay = place.day {
+                Text("Alter Reisetag \(legacyDay) ließ sich keinem Datum zuordnen. Bitte neu wählen.")
+                    .font(.footnote).foregroundStyle(Stitch.inkSoft)
+            }
+            Picker("Tag", selection: plannedDateBinding) {
+                Text("Noch offen").tag(nil as TripDay?)
+                if let date = place.plannedDate, !calendar.contains(date) {
+                    Text("\(calendar.dayTitle(date)) · außerhalb des Zeitraums").tag(Optional(date))
+                }
+                ForEach(calendar.days) { Text(calendar.dayTitle($0)).tag(Optional($0)) }
             }
         }
         .listRowBackground(Stitch.card)
+    }
+
+    private var plannedDateBinding: Binding<TripDay?> {
+        Binding(
+            get: { place.plannedDate },
+            set: { date in
+                if place.plannedDate != date { place.dayOrder = nil }
+                place.plannedDate = date
+                place.planningSchemaVersion = 2
+                if date != nil { place.day = nil }
+            }
+        )
     }
 
     private var managementSection: some View {
@@ -243,7 +263,7 @@ struct PlaceEditor: View {
             if place.franked {
                 Button("Zurück zu den Ideen") {
                     place.franked = false; place.deferred = false; place.approvals = []; place.passedBy = []
-                    place.day = nil; place.dayOrder = nil
+                    place.plannedDate = nil; place.day = nil; place.dayOrder = nil
                     guard store.upsert(place) else { return }
                     endEditor(preservePendingPhoto: true)
                     dismiss()

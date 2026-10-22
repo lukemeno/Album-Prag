@@ -9,23 +9,30 @@ struct ReiseView: View {
     var openMap: () -> Void
     var openDocuments: () -> Void
     var openSharing: () -> Void
-    @State private var day: Int = TripDates.phase() == .after
-        ? (DayPlanGenerator.days.last ?? 9)
-        : (TripDates.tripDay() ?? DayPlanGenerator.days.first ?? 4)
+    @State private var chosenDay: TripDay?
     @State private var selected: Place?
     @State private var memoriesOpen = false
     @State private var refreshed = 0
     /// Solange das Herunterziehen abgleicht, wartet die Abgleich-Insel.
     @State private var refreshing = false
 
-    private var today: Int? { TripDates.tripDay() }
+    private var calendar: TripCalendar { store.tripCalendar }
+    private var today: TripDay? { calendar.todayInTrip }
+    /// Vor der Reise der erste Tag, unterwegs heute, danach der letzte.
+    private var day: TripDay? {
+        if let chosenDay, calendar.contains(chosenDay) { return chosenDay }
+        return calendar.phase == .after ? calendar.days.last : (today ?? calendar.days.first)
+    }
+    private var daySelection: Binding<TripDay?> {
+        Binding(get: { day }, set: { chosenDay = $0 })
+    }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Stitch.Space.xl) {
                 header
-                if TripDates.phase() == .after { memoriesEntry }
-                DayStrip(selection: $day, today: today, photo: { coverPhoto(for: $0) })
+                if calendar.phase == .after { memoriesEntry }
+                DayStrip(selection: daySelection, today: today, photo: { coverPhoto(for: $0) })
                 dayPlan
                 tickets
                 if !store.inbox.isEmpty { ideasWaiting }
@@ -84,16 +91,19 @@ struct ReiseView: View {
 
     /// „4.–9. Oktober · noch 3 Tage · mit Mia“ – nur was stimmt.
     private var subtitle: String {
-        var parts = ["4.–9. Oktober"]
-        switch TripDates.phase() {
+        var parts = [calendar.rangeLabel(wideMonth: true)].compactMap { $0 }
+        let tripDays = calendar.days
+        switch calendar.phase {
         case .before:
-            let days = TripDates.daysUntilStart()
+            let days = calendar.daysUntilStart ?? 0
             if days > 1 { parts.append("noch \(days) Tage") }
             else if days == 1 { parts.append("morgen geht’s los") }
         case .during:
-            if let today { parts.append("Tag \(today - 3) von 6") }
+            if let today, let index = tripDays.firstIndex(of: today) { parts.append("Tag \(index + 1) von \(tripDays.count)") }
         case .after:
-            parts.append("6 Tage in Prag")
+            parts.append(tripDays.count == 1 ? "1 Tag in Prag" : "\(tripDays.count) Tage in Prag")
+        case nil:
+            break
         }
         if let partner { parts.append("mit \(partner)") }
         return parts.joined(separator: " · ")
@@ -145,19 +155,20 @@ struct ReiseView: View {
         return names.first { $0 != store.me && !$0.isEmpty && $0.localizedCaseInsensitiveCompare("Wir") != .orderedSame }
     }
 
-    private func coverPhoto(for day: Int) -> PlaceImageAsset? {
+    private func coverPhoto(for day: TripDay) -> PlaceImageAsset? {
         store.plan(for: day).first { $0.image != nil }?.image
     }
 
     // MARK: Tag
 
     private var stops: [PlanStop] {
-        let windows = DayPlanGenerator.windows(flights: store.data.trip.flights ?? [])
-        return DayPlanGenerator.timeline(store.plan(for: day), day: day, window: windows[day]!, hotel: store.hotelCoordinate)
+        guard let day else { return [] }
+        return store.stops(for: day)
     }
 
     private var flightsToday: [FlightLeg] {
-        (store.data.trip.flights ?? []).filter { $0.date.hasPrefix(String(format: "%02d.10.", day)) }
+        guard let day else { return [] }
+        return (store.data.trip.flights ?? []).filter { DayPlanGenerator.flightDay($0) == day }
     }
 
     /// Während der Reise: der erste noch nicht besuchte Ort von heute.
@@ -168,13 +179,13 @@ struct ReiseView: View {
 
     private var dayPlan: some View {
         VStack(alignment: .leading, spacing: Stitch.Space.s) {
-            SectionTitle(title: day == today ? "Heute" : TripDates.dayTitle(day)) {
+            SectionTitle(title: day == nil ? "Dein Plan" : day == today ? "Heute" : day.map(calendar.dayTitle) ?? "") {
                 if !stops.isEmpty {
                     Text(stops.count == 1 ? "1 Ort" : "\(stops.count) Orte").font(.footnote).foregroundStyle(Stitch.inkSoft)
                 }
             }
-            if day == today {
-                Text(TripDates.dayTitle(day)).font(.subheadline).foregroundStyle(Stitch.inkSoft).padding(.top, -Stitch.Space.xs)
+            if let day, day == today {
+                Text(calendar.dayTitle(day)).font(.subheadline).foregroundStyle(Stitch.inkSoft).padding(.top, -Stitch.Space.xs)
             }
             ForEach(flightsToday) { FlightTicket(leg: $0, legs: store.data.trip.flights ?? [], openDocuments: openDocuments) }
             if let next {
@@ -287,23 +298,24 @@ struct ReiseView: View {
 /// Die sechs Reisetage nebeneinander. Der gewählte Tag ist breit und zeigt sein erstes Foto,
 /// die anderen sind schmale Marken mit senkrechter Beschriftung. Tippen oder seitlich wischen wählt.
 private struct DayStrip: View {
-    @Binding var selection: Int
-    let today: Int?
-    let photo: (Int) -> PlaceImageAsset?
+    @Binding var selection: TripDay?
+    let today: TripDay?
+    let photo: (TripDay) -> PlaceImageAsset?
     @Environment(AlbumStore.self) private var store
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ScaledMetric(relativeTo: .body) private var height: CGFloat = 150
     @ScaledMetric(relativeTo: .body) private var accessibleTileWidth: CGFloat = 184
     private let narrow: CGFloat = 38
-    private let days = DayPlanGenerator.days
+    private var calendar: TripCalendar { store.tripCalendar }
+    private var days: [TripDay] { calendar.days }
 
     var body: some View {
         Group {
             if dynamicTypeSize.isAccessibilitySize {
                 ScrollView(.horizontal) {
-                    HStack(spacing: Stitch.Space.s) {
-                        ForEach(days, id: \.self) { day in accessibleTile(day) }
+                    LazyHStack(spacing: Stitch.Space.s) {
+                        ForEach(days) { day in accessibleTile(day) }
                     }
                     .padding(.vertical, Stitch.Space.xxs)
                 }
@@ -313,7 +325,7 @@ private struct DayStrip: View {
                     let gap: CGFloat = 6
                     let wide = max(narrow, geo.size.width - CGFloat(days.count - 1) * (narrow + gap))
                     HStack(spacing: gap) {
-                        ForEach(days, id: \.self) { day in
+                        ForEach(days) { day in
                             tile(day, width: day == selection ? wide : narrow)
                         }
                     }
@@ -327,21 +339,22 @@ private struct DayStrip: View {
         .gesture(DragGesture(minimumDistance: 24).onEnded { value in
             guard abs(value.translation.width) > abs(value.translation.height) else { return }
             let step = value.translation.width < 0 ? 1 : -1
-            selection = min(max(selection + step, days.first!), days.last!)
+            guard let selection, let index = days.firstIndex(of: selection) else { return }
+            self.selection = days[min(max(index + step, 0), days.count - 1)]
         })
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Reisetage")
     }
 
-    private func accessibleTile(_ day: Int) -> some View {
+    private func accessibleTile(_ day: TripDay) -> some View {
         let selectedDay = day == selection
         let count = store.plan(for: day).count
         return Button { selection = day } label: {
             VStack(alignment: .leading, spacing: Stitch.Space.xs) {
-                Text(weekday(day, style: .wide))
+                Text(calendar.weekday(day, style: .wide))
                     .font(.headline)
                     .fixedSize(horizontal: true, vertical: false)
-                Text("\(day). Oktober")
+                Text(calendar.dayMonth(day))
                     .font(.subheadline)
                     .fixedSize(horizontal: true, vertical: false)
                 if count > 0 {
@@ -363,11 +376,11 @@ private struct DayStrip: View {
         }
         .buttonStyle(.plain)
         .frame(width: accessibleTileWidth)
-        .accessibilityLabel("\(TripDates.dayTitle(day)), \(count == 0 ? "nichts geplant" : count == 1 ? "1 Ort" : "\(count) Orte")\(day == today ? ", heute" : "")")
+        .accessibilityLabel("\(calendar.dayTitle(day)), \(count == 0 ? "nichts geplant" : count == 1 ? "1 Ort" : "\(count) Orte")\(day == today ? ", heute" : "")")
         .accessibilityAddTraits(selectedDay ? .isSelected : [])
     }
 
-    private func tile(_ day: Int, width: CGFloat) -> some View {
+    private func tile(_ day: TripDay, width: CGFloat) -> some View {
         let open = day == selection
         let asset = photo(day)
         let count = store.plan(for: day).count
@@ -381,16 +394,16 @@ private struct DayStrip: View {
                 }
                 if open {
                     VStack(alignment: .leading, spacing: 0) {
-                        Text(weekday(day, style: .wide)).font(.footnote.weight(.semibold))
-                        Text("\(day). Okt").font(Stitch.Face.place(34, relativeTo: .title)).lineLimit(1).minimumScaleFactor(0.7)
+                        Text(calendar.weekday(day, style: .wide)).font(.footnote.weight(.semibold))
+                        Text(calendar.shortDate(day)).font(Stitch.Face.place(34, relativeTo: .title)).lineLimit(1).minimumScaleFactor(0.7)
                     }
                     .foregroundStyle(asset != nil ? Stitch.onAccent : Stitch.ink)
                     .padding(Stitch.Space.s)
                     .transition(.opacity)
                 } else {
                     VStack(spacing: Stitch.Space.xs) {
-                        Text("\(day)").font(Stitch.Face.place(24, relativeTo: .title3)).foregroundStyle(Stitch.ink)
-                        Text(weekday(day, style: .abbreviated).uppercased())
+                        Text("\(day.dayOfMonth)").font(Stitch.Face.place(24, relativeTo: .title3)).foregroundStyle(Stitch.ink)
+                        Text(calendar.weekday(day).uppercased())
                             .font(.caption2.weight(.semibold)).tracking(0.6).foregroundStyle(Stitch.inkSoft)
                             .fixedSize()
                             .rotationEffect(.degrees(-90))
@@ -410,14 +423,8 @@ private struct DayStrip: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(TripDates.dayTitle(day)), \(count == 0 ? "nichts geplant" : count == 1 ? "1 Ort" : "\(count) Orte")\(day == today ? ", heute" : "")")
+        .accessibilityLabel("\(calendar.dayTitle(day)), \(count == 0 ? "nichts geplant" : count == 1 ? "1 Ort" : "\(count) Orte")\(day == today ? ", heute" : "")")
         .accessibilityAddTraits(open ? .isSelected : [])
-    }
-
-    private func weekday(_ day: Int, style: Date.FormatStyle.Symbol.Weekday) -> String {
-        let date = TripDates.calendar.date(from: DateComponents(year: 2026, month: 10, day: day))!
-        return date.formatted(.dateTime.weekday(style).locale(Locale(identifier: "de_DE")))
-            .replacingOccurrences(of: ".", with: "")
     }
 }
 

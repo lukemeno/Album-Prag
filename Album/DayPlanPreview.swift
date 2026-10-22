@@ -19,9 +19,9 @@ struct DayPlanPreview: View {
                 .listRowBackground(Stitch.card)
 
                 if let proposal {
-                    ForEach(DayPlanGenerator.days, id: \.self) { day in
+                    ForEach(store.tripCalendar.days) { day in
                         let stops = proposal.days[day] ?? []
-                        Section(TripDates.dayTitle(day)) {
+                        Section(store.tripCalendar.dayTitle(day)) {
                             if stops.isEmpty {
                                 Text("Frei").foregroundStyle(Stitch.inkSoft)
                             }
@@ -42,7 +42,8 @@ struct DayPlanPreview: View {
                         .listRowBackground(Stitch.card)
                     }
                     if !proposal.leftOver.isEmpty {
-                        Section("Passt nicht mehr rein") {
+                        Section(store.unresolvedLegacyPlaces.isEmpty && store.outOfRangePlannedPlaces.isEmpty
+                                ? "Passt nicht mehr rein" : "Nicht eingeplant") {
                             ForEach(proposal.leftOver) { Text($0.title).foregroundStyle(Stitch.ink) }
                         }
                         .listRowBackground(Stitch.card)

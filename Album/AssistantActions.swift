@@ -34,13 +34,16 @@ final class AssistantActions {
     /// beyond the existing DayPlanProposal API.
     struct DayAssignment: Equatable {
         let placeID: String
-        let day: Int?
+        let date: TripDay?
         let dayOrder: Int?
+        /// Nur für die Rücknahme: ein vorher ungelöster alter Tageswert wird unverändert wiederhergestellt.
+        let legacyDay: Int?
 
-        init(placeID: String, day: Int?, dayOrder: Int?) {
+        init(placeID: String, date: TripDay?, dayOrder: Int?, legacyDay: Int? = nil) {
             self.placeID = placeID
-            self.day = day
+            self.date = date
             self.dayOrder = dayOrder
+            self.legacyDay = date == nil ? legacyDay : nil
         }
     }
 
@@ -52,7 +55,8 @@ final class AssistantActions {
         let longitude: Double?
         let franked: Bool
         let deleted: Bool
-        let day: Int?
+        let plannedDate: TripDay?
+        let legacyDay: Int?
         let dayOrder: Int?
         let updatedAt: Date
 
@@ -64,29 +68,10 @@ final class AssistantActions {
             longitude = place.lng
             franked = place.franked
             deleted = place.deleted
-            day = place.day
+            plannedDate = place.plannedDate
+            legacyDay = place.day
             dayOrder = place.dayOrder
             updatedAt = place.updatedAt
-        }
-
-        var withoutAssignment: PlaceFingerprint {
-            PlaceFingerprint(id: id, title: title, address: address, latitude: latitude,
-                             longitude: longitude, franked: franked, deleted: deleted,
-                             day: nil, dayOrder: nil, updatedAt: updatedAt)
-        }
-
-        private init(id: String, title: String, address: String, latitude: Double?, longitude: Double?,
-                     franked: Bool, deleted: Bool, day: Int?, dayOrder: Int?, updatedAt: Date) {
-            self.id = id
-            self.title = title
-            self.address = address
-            self.latitude = latitude
-            self.longitude = longitude
-            self.franked = franked
-            self.deleted = deleted
-            self.day = day
-            self.dayOrder = dayOrder
-            self.updatedAt = updatedAt
         }
     }
 
@@ -94,12 +79,20 @@ final class AssistantActions {
         let albumID: String
         let collaborationTripID: UUID?
         let tripUpdatedAt: Date
+        let tripStartDate: TripDay?
+        let tripEndDate: TripDay?
+        let tripTimeZoneIdentifier: String?
+        let planningSchemaVersion: Int?
         let places: [PlaceFingerprint]
 
         init(_ data: AlbumData) {
             albumID = data.albumID
             collaborationTripID = data.collaboration?.tripID
             tripUpdatedAt = data.trip.updatedAt
+            tripStartDate = data.trip.startDate
+            tripEndDate = data.trip.endDate
+            tripTimeZoneIdentifier = data.trip.timeZoneIdentifier
+            planningSchemaVersion = data.trip.planningSchemaVersion
             places = data.places.map(PlaceFingerprint.init).sorted { lhs, rhs in
                 if lhs.id != rhs.id { return lhs.id < rhs.id }
                 return lhs.updatedAt < rhs.updatedAt
@@ -132,27 +125,43 @@ final class AssistantActions {
         guard RequestSnapshot(store.data) == requestSnapshot else { throw ActionError.staleRequest }
     }
 
-    /// Validates the request revision and applies the response as one proposal.
-    /// The response can only assign existing, franked, located places to days 4–9.
-    func apply(_ days: [AssistantDay], to store: AlbumStore) throws {
+    /// Validates the request revision and applies the response as one atomic commit.
+    /// The response can only assign existing, franked, located places to dates inside the trip range.
+    func apply(_ days: [AssistantDay], protocolVersion: Int = AssistantProtocol.version, to store: AlbumStore) throws {
         guard requestStore === store else { throw ActionError.wrongStore }
         guard RequestSnapshot(store.data) == requestSnapshot else { throw ActionError.staleRequest }
         guard undoRecord == nil else { throw ActionError.invalidPlan("Diese Antwort wurde bereits angewendet.") }
         guard !days.isEmpty else { throw ActionError.invalidPlan("Der Tagesplan ist leer.") }
 
+        let calendar = store.tripCalendar
+        guard calendar.isValidRange else {
+            throw ActionError.invalidPlan("Lege zuerst einen gültigen Reisezeitraum fest, bevor du Tage planst.")
+        }
+
         var seen = Set<String>()
-        var seenDays = Set<Int>()
-        var proposalDays: [Int: [PlanStop]] = [:]
+        var seenDays = Set<TripDay>()
         var before: [String: DayAssignment] = [:]
+        var proposed: [TripDay: [String]] = [:]
 
         for assistantDay in days {
-            guard (4...9).contains(assistantDay.day) else {
-                throw ActionError.invalidPlan("Der Tagesplan enthält einen ungültigen Reisetag.")
+            let date: TripDay
+            if protocolVersion == 2 {
+                guard let proposedDate = assistantDay.date, calendar.contains(proposedDate) else {
+                    throw ActionError.invalidPlan("Der Tagesplan enthält ein Datum außerhalb des Reisezeitraums.")
+                }
+                date = proposedDate
+            } else {
+                guard protocolVersion == 1, Self.isExplicitLegacyContext(store.data.trip),
+                      let legacyDay = assistantDay.day, (4...9).contains(legacyDay),
+                      let legacyDate = calendar.days.first(where: { $0.dayOfMonth == legacyDay }) else {
+                    throw ActionError.invalidPlan("Dieser alte Tagesplan passt nicht eindeutig zu dieser Reise.")
+                }
+                date = legacyDate
             }
-            guard seenDays.insert(assistantDay.day).inserted else {
+            guard seenDays.insert(date).inserted else {
                 throw ActionError.invalidPlan("Jeder Reisetag darf nur einmal vorkommen.")
             }
-            var stops: [PlanStop] = []
+            var ids: [String] = []
             for placeID in assistantDay.placeIDs {
                 guard seen.insert(placeID).inserted else {
                     throw ActionError.invalidPlan("Ein Ort darf nur einmal im Tagesplan vorkommen.")
@@ -166,19 +175,23 @@ final class AssistantActions {
                 guard place.coordinate != nil else {
                     throw ActionError.invalidPlan("Jeder geplante Ort braucht eine gespeicherte Koordinate.")
                 }
-                before[placeID] = DayAssignment(placeID: placeID, day: place.day, dayOrder: place.dayOrder)
-                stops.append(PlanStop(place: place, slot: "", note: nil))
+                before[placeID] = DayAssignment(placeID: placeID, date: place.plannedDate, dayOrder: place.dayOrder, legacyDay: place.day)
+                ids.append(placeID)
             }
-            proposalDays[assistantDay.day] = stops
+            proposed[date] = ids
         }
 
-        let proposal = DayPlanProposal(days: proposalDays, leftOver: [])
-        guard store.apply(proposal) else { throw ActionError.persistenceFailed }
+        let assignments = proposed.keys.sorted().flatMap { date in
+            (proposed[date] ?? []).enumerated().map { index, placeID in
+                DayAssignment(placeID: placeID, date: date, dayOrder: index)
+            }
+        }
+        guard store.applyAssistantDayAssignments(assignments) else { throw ActionError.persistenceFailed }
 
         let changedIDs: [String] = before.keys.sorted().compactMap { id -> String? in
             guard let old = before[id] else { return nil }
             guard let current = store.data.places.first(where: { $0.id == id }) else { return nil }
-            guard current.day != old.day || current.dayOrder != old.dayOrder else { return nil }
+            guard current.plannedDate != old.date || current.dayOrder != old.dayOrder || current.day != old.legacyDay else { return nil }
             return id
         }
         guard !changedIDs.isEmpty else { return }
@@ -194,6 +207,18 @@ final class AssistantActions {
             assignments: changedIDs.compactMap { before[$0] },
             postApply: postApply
         )
+    }
+
+    /// Alte Antworten mit Tageszahlen gelten nur für die bekannte Prag-Reise vom 4.–9. Oktober 2026.
+    private static func isExplicitLegacyContext(_ trip: TripInfo) -> Bool {
+        let city = [trip.title, trip.destination].compactMap { $0 }.contains { value in
+            ["Prag", "Prague", "Praha"].contains { candidate in
+                value.localizedCaseInsensitiveCompare(candidate) == .orderedSame
+            }
+        }
+        let seededHotel = trip.hotel.localizedCaseInsensitiveCompare("Hotel Urban Crème") == .orderedSame
+        return trip.startDate == TripInfo.legacyPragueStart && trip.endDate == TripInfo.legacyPragueEnd
+            && (city || seededHotel)
     }
 
     /// Restores only the day fields touched by the preceding successful apply.

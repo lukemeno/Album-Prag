@@ -8,6 +8,8 @@ enum AlbumSyncError: LocalizedError {
     case invalidInvitation
     case missingTrip
     case membershipLost
+    case protocolUpgradeRequired
+    case syncConflict
 
     var errorDescription: String? {
         switch self {
@@ -19,6 +21,10 @@ enum AlbumSyncError: LocalizedError {
             return "Die gemeinsame Reise wurde nicht gefunden."
         case .membershipLost:
             return "Dieses iPhone ist nicht mehr mit der Reise verbunden. Bitte den Einladungslink noch einmal öffnen."
+        case .protocolUpgradeRequired:
+            return "Diese gemeinsame Reise wurde aktualisiert. Bitte bringe Album auf den neuesten Stand und synchronisiere erneut."
+        case .syncConflict:
+            return "Ein anderes Gerät hat die gemeinsame Reise gerade geändert. Deine Änderungen sind gespeichert und werden beim nächsten Abgleich übertragen."
         }
     }
 }
@@ -105,11 +111,49 @@ private struct JoinTripResponse: Decodable {
     enum CodingKeys: String, CodingKey { case tripID = "trip_id" }
 }
 
+/// Postgres liefert Mikrosekunden; für CAS wird der exakte Text zurückgeschickt, nicht ein gerundetes `Date`.
+private func parseSyncTimestamp(_ value: String) throws -> Date {
+    for options: ISO8601DateFormatter.Options in [[.withInternetDateTime, .withFractionalSeconds], [.withInternetDateTime]] {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = options
+        if let date = formatter.date(from: value) { return date }
+    }
+    throw DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "Invalid server sync timestamp"))
+}
+
 private struct TripRow: Codable {
     let id: UUID
     let payload: TripInfo
     let updatedAt: Date
+    let revision: String
     enum CodingKeys: String, CodingKey { case id, payload; case updatedAt = "updated_at" }
+
+    init(id: UUID, payload: TripInfo, updatedAt: Date, revision: String = "") {
+        self.id = id
+        self.payload = payload
+        self.updatedAt = updatedAt
+        self.revision = revision
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decode(UUID.self, forKey: .id)
+        payload = try values.decode(TripInfo.self, forKey: .payload)
+        if let text = try? values.decode(String.self, forKey: .updatedAt), let date = try? parseSyncTimestamp(text) {
+            revision = text
+            updatedAt = date
+        } else {
+            updatedAt = try values.decode(Date.self, forKey: .updatedAt)
+            revision = ""
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(id, forKey: .id)
+        try values.encode(payload, forKey: .payload)
+        try values.encode(updatedAt, forKey: .updatedAt)
+    }
 }
 
 private struct PlaceRow: Codable {
@@ -117,11 +161,85 @@ private struct PlaceRow: Codable {
     let tripID: UUID
     let payload: Place
     let updatedAt: Date
+    let revision: String
     let deleted: Bool
     enum CodingKeys: String, CodingKey {
         case id, payload, deleted
         case tripID = "trip_id"
         case updatedAt = "updated_at"
+    }
+
+    init(id: String, tripID: UUID, payload: Place, updatedAt: Date, deleted: Bool, revision: String = "") {
+        self.id = id
+        self.tripID = tripID
+        self.payload = payload
+        self.updatedAt = updatedAt
+        self.revision = revision
+        self.deleted = deleted
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decode(String.self, forKey: .id)
+        tripID = try values.decode(UUID.self, forKey: .tripID)
+        payload = try values.decode(Place.self, forKey: .payload)
+        if let text = try? values.decode(String.self, forKey: .updatedAt), let date = try? parseSyncTimestamp(text) {
+            revision = text
+            updatedAt = date
+        } else {
+            updatedAt = try values.decode(Date.self, forKey: .updatedAt)
+            revision = ""
+        }
+        deleted = try values.decode(Bool.self, forKey: .deleted)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(id, forKey: .id)
+        try values.encode(tripID, forKey: .tripID)
+        try values.encode(payload, forKey: .payload)
+        try values.encode(updatedAt, forKey: .updatedAt)
+        try values.encode(deleted, forKey: .deleted)
+    }
+}
+
+struct V2PlaceSyncPayload: Encodable, Equatable {
+    let id: String
+    let payload: Place
+    let updatedAt: Date
+    let deleted: Bool
+    let expectedUpdatedAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, payload, deleted
+        case updatedAt = "updated_at"
+        case expectedUpdatedAt = "expected_updated_at"
+    }
+}
+
+struct V2SyncRevision: Decodable, Equatable {
+    let tripUpdatedAt: String
+    let placeUpdatedAt: [String: String]
+    enum CodingKeys: String, CodingKey { case tripUpdatedAt = "trip_updated_at", placeUpdatedAt = "place_updated_at" }
+}
+
+struct V2SyncParameters: Encodable {
+    let tripID: UUID
+    let tripPayload: TripInfo?
+    let expectedTripUpdatedAt: String?
+    let places: [V2PlaceSyncPayload]
+    enum CodingKeys: String, CodingKey {
+        case tripID = "p_trip_id", tripPayload = "p_trip_payload"
+        case expectedTripUpdatedAt = "p_expected_trip_updated_at", places = "p_places"
+    }
+
+    // Explizites null, damit die RPC-Signatur mit vier Parametern eindeutig getroffen wird.
+    func encode(to encoder: Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(tripID, forKey: .tripID)
+        try values.encode(tripPayload, forKey: .tripPayload)
+        try values.encode(expectedTripUpdatedAt, forKey: .expectedTripUpdatedAt)
+        try values.encode(places, forKey: .places)
     }
 }
 
@@ -193,6 +311,7 @@ private final class SupabaseCollectionSyncTransport: CollectionSyncTransport {
 @MainActor
 protocol SupabaseSyncWriteTransport: AnyObject {
     func updateTrip(tripID: UUID, payload: TripInfo) async throws
+    func syncTripV2(tripID: UUID, tripPayload: TripInfo?, expectedTripUpdatedAt: String?, places: [V2PlaceSyncPayload]) async throws -> V2SyncRevision
     func uploadImage(path: String, data: Data) async throws
     func upsertPlace(id: String, tripID: UUID, payload: Place, updatedAt: Date, deleted: Bool) async throws
     func uploadDocument(path: String, data: Data) async throws
@@ -227,6 +346,11 @@ private final class SupabaseSyncWriteTransportLive: SupabaseSyncWriteTransport {
             .update(TripRow(id: tripID, payload: payload, updatedAt: payload.updatedAt))
             .eq("id", value: tripID)
             .execute()
+    }
+
+    func syncTripV2(tripID: UUID, tripPayload: TripInfo?, expectedTripUpdatedAt: String?, places: [V2PlaceSyncPayload]) async throws -> V2SyncRevision {
+        try await client.rpc("sync_trip_v2", params: V2SyncParameters(tripID: tripID, tripPayload: tripPayload,
+                                                                    expectedTripUpdatedAt: expectedTripUpdatedAt, places: places)).execute().value
     }
 
     func uploadImage(path: String, data: Data) async throws {
@@ -379,6 +503,13 @@ private struct LocalFileState: Equatable {
     let data: Data?
 }
 
+/// Zuletzt gelesene Server-Revisionen je Reise; Grundlage für das CAS von `sync_trip_v2`.
+private struct V2RevisionCache: Codable {
+    var tripUpdatedAt: String?
+    var placeUpdatedAt: [String: String] = [:]
+    var knownPlaceIDs: Set<String> = []
+}
+
 @MainActor final class SupabaseSync: AlbumSyncService {
     private let client: SupabaseClient
     private let collectionTransport: any CollectionSyncTransport
@@ -390,6 +521,7 @@ private struct LocalFileState: Equatable {
     private var realtimeAttemptID: UUID?
     private(set) var isRealtimeReady = false
     private var activeTripID: UUID?
+    private var revisionCaches: [UUID: V2RevisionCache] = [:]
 
     static func configured(bundle: Bundle = .main) throws -> SupabaseSync {
         SupabaseSync(client: try SupabaseConfiguration.client(bundle: bundle))
@@ -433,6 +565,12 @@ private struct LocalFileState: Equatable {
         try await ensureSession()
         let response: CreateTripResponse = try await client.functions.invoke("create-trip")
         activeTripID = response.tripID
+        let tripRows: [TripRow] = try await client.from("trips").select().eq("id", value: response.tripID).execute().value
+        if let tripRow = tripRows.first, !tripRow.revision.isEmpty {
+            var cache = revisionCache(tripID: response.tripID, store: store)
+            cache.tripUpdatedAt = tripRow.revision
+            saveRevisionCache(cache, tripID: response.tripID, store: store)
+        }
         try await pushDirty(store: store, tripID: response.tripID)
         return CollaborationState(tripID: response.tripID, inviteToken: response.inviteToken)
     }
@@ -449,7 +587,17 @@ private struct LocalFileState: Equatable {
         return CollaborationState(tripID: response.tripID, inviteToken: token)
     }
 
+    /// Ein CAS-Konflikt bedeutet, dass zwischen Lesen und Schreiben jemand anderes geschrieben hat;
+    /// ein zweiter Durchlauf liest den neuen Stand und versucht es genau einmal erneut.
     func sync(store: AlbumStore) async throws {
+        do {
+            try await syncPass(store: store)
+        } catch AlbumSyncError.syncConflict {
+            try await syncPass(store: store)
+        }
+    }
+
+    private func syncPass(store: AlbumStore) async throws {
         guard let collaboration = store.data.collaboration else { throw AlbumSyncError.missingTrip }
         try await ensureSession()
         try await ensureMembership(tripID: collaboration.tripID, inviteToken: collaboration.inviteToken)
@@ -462,6 +610,8 @@ private struct LocalFileState: Equatable {
         let remoteDocuments: [DocumentRow] = try await client.from("documents")
             .select().eq("trip_id", value: collaboration.tripID).execute().value
         let remoteCollections = try await collectionTransport.pull(tripID: collaboration.tripID)
+
+        recordRevisions(trip: tripRows.first, places: remotePlaces, tripID: collaboration.tripID, store: store)
 
         if let remoteTrip = tripRows.first {
             let localDate = store.data.trip.updatedAt
@@ -481,6 +631,11 @@ private struct LocalFileState: Equatable {
 
         for row in remotePlaces {
             try await applyPlaceRow(row, store: store, tripID: collaboration.tripID)
+        }
+
+        if let remoteTrip = tripRows.first {
+            stageV2Transition(store: store, remoteTripVersion: remoteTrip.payload.planningSchemaVersion,
+                              remotePlaceIDs: Set(remotePlaces.map(\.id)))
         }
 
         for row in remoteDocuments {
@@ -568,12 +723,41 @@ private struct LocalFileState: Equatable {
         guard response.tripID == tripID else { throw AlbumSyncError.membershipLost }
     }
 
+    /// Merkt sich die gelesenen Server-Revisionen als CAS-Basis. Lokale, noch nicht übertragene Änderungen
+    /// überschreiben beim nächsten Schreiben den gelesenen Stand (wie bisher); das CAS schützt das Fenster
+    /// zwischen Lesen und Schreiben.
+    private func recordRevisions(trip: TripRow?, places: [PlaceRow], tripID: UUID, store: AlbumStore) {
+        var revisions = revisionCache(tripID: tripID, store: store)
+        if let trip, !trip.revision.isEmpty { revisions.tripUpdatedAt = trip.revision }
+        for row in places where !row.revision.isEmpty { revisions.placeUpdatedAt[row.id] = row.revision }
+        revisions.knownPlaceIDs.formUnion(places.map(\.id))
+        saveRevisionCache(revisions, tripID: tripID, store: store)
+    }
+
+    /// Übergang v1→v2: Ist die Reise auf dem Server noch v1, werden Reise und alle dort vorhandenen Orte
+    /// in einem atomaren `sync_trip_v2`-Aufruf umgestellt. Neu gezogene Orte mit alten Tageszahlen werden
+    /// vorher wie beim Laden umgerechnet; ungelöste Werte bleiben erhalten.
+    private func stageV2Transition(store: AlbumStore, remoteTripVersion: Int?, remotePlaceIDs: Set<String>) {
+        store.normalizeLegacyPlanning()
+        guard remoteTripVersion != 2, store.data.trip.planningSchemaVersion == 2 else { return }
+        store.data.trip.updatedAt = Date()
+        store.data.dirty.insert("trip")
+        for index in store.data.places.indices {
+            let id = store.data.places[index].id
+            guard remotePlaceIDs.contains(id) || store.data.dirty.contains(id) else { continue }
+            store.data.places[index].planningSchemaVersion = 2
+            store.data.dirty.insert(id)
+        }
+    }
+
     private func pushDirty(store: AlbumStore, tripID: UUID) async throws {
-        if store.data.dirty.contains("trip") {
-            let snapshot = store.data.trip
-            try await writeTransport.updateTrip(tripID: tripID, payload: snapshot)
+        let isV2Trip = store.data.trip.planningSchemaVersion == 2
+        let tripSnapshot = store.data.dirty.contains("trip") ? store.data.trip : nil
+        if let snapshot = tripSnapshot, !isV2Trip {
+            try await performSyncWrite { try await writeTransport.updateTrip(tripID: tripID, payload: snapshot) }
             if encodedEqual(store.data.trip, snapshot) { store.data.dirty.remove("trip") }
         }
+        var v2PlaceWrites: [Place] = []
         let placeIDs = store.data.places.filter { store.data.dirty.contains($0.id) }.map(\.id)
         for placeID in placeIDs {
             guard let index = store.data.places.firstIndex(where: { $0.id == placeID }) else { continue }
@@ -597,10 +781,20 @@ private struct LocalFileState: Equatable {
                     break
                 }
             }
-            try await writeTransport.upsertPlace(id: place.id, tripID: tripID, payload: place, updatedAt: place.updatedAt, deleted: place.deleted)
-            if let currentIndex = store.data.places.firstIndex(where: { $0.id == placeID }), store.data.places[currentIndex] == place {
-                store.data.dirty.remove(placeID)
+            if isV2Trip {
+                place.planningSchemaVersion = 2
+                v2PlaceWrites.append(place)
+            } else {
+                try await performSyncWrite {
+                    try await writeTransport.upsertPlace(id: place.id, tripID: tripID, payload: place, updatedAt: place.updatedAt, deleted: place.deleted)
+                }
+                if let currentIndex = store.data.places.firstIndex(where: { $0.id == placeID }), store.data.places[currentIndex] == place {
+                    store.data.dirty.remove(placeID)
+                }
             }
+        }
+        if isV2Trip, tripSnapshot != nil || !v2PlaceWrites.isEmpty {
+            try await pushV2(store: store, tripID: tripID, tripSnapshot: tripSnapshot, places: v2PlaceWrites)
         }
         let documentIDs = store.data.documents.filter { store.data.dirty.contains("doc-" + $0.id) }.map(\.id)
         for documentID in documentIDs {
@@ -626,6 +820,69 @@ private struct LocalFileState: Equatable {
         }
     }
 
+    /// Reise und Orte als ein atomarer Batch mit CAS je Zeile. Ohne bekannte Basis für eine bestehende
+    /// Zeile wird nicht geschrieben; der nächste Abgleich liest sie zuerst.
+    private func pushV2(store: AlbumStore, tripID: UUID, tripSnapshot: TripInfo?, places: [Place]) async throws {
+        var revisions = revisionCache(tripID: tripID, store: store)
+        if tripSnapshot != nil && revisions.tripUpdatedAt == nil { throw AlbumSyncError.syncConflict }
+        if places.contains(where: { revisions.placeUpdatedAt[$0.id] == nil && revisions.knownPlaceIDs.contains($0.id) }) {
+            throw AlbumSyncError.syncConflict
+        }
+        let writes = places.map { place in
+            V2PlaceSyncPayload(id: place.id, payload: place, updatedAt: place.updatedAt, deleted: place.deleted,
+                               expectedUpdatedAt: revisions.placeUpdatedAt[place.id])
+        }
+        var result: V2SyncRevision?
+        try await performSyncWrite {
+            result = try await writeTransport.syncTripV2(tripID: tripID, tripPayload: tripSnapshot,
+                                                         expectedTripUpdatedAt: tripSnapshot == nil ? nil : revisions.tripUpdatedAt,
+                                                         places: writes)
+        }
+        guard let result else { return }
+        revisions.tripUpdatedAt = result.tripUpdatedAt
+        for (id, updatedAt) in result.placeUpdatedAt { revisions.placeUpdatedAt[id] = updatedAt }
+        revisions.knownPlaceIDs.formUnion(writes.map(\.id))
+        saveRevisionCache(revisions, tripID: tripID, store: store)
+        if let snapshot = tripSnapshot, encodedEqual(store.data.trip, snapshot) { store.data.dirty.remove("trip") }
+        for write in writes {
+            guard let current = store.data.places.first(where: { $0.id == write.id }) else { continue }
+            var acknowledged = current
+            acknowledged.planningSchemaVersion = 2
+            guard acknowledged == write.payload else { continue }
+            if let index = store.data.places.firstIndex(where: { $0.id == write.id }) { store.data.places[index] = acknowledged }
+            store.data.dirty.remove(write.id)
+        }
+    }
+
+    private func performSyncWrite(_ operation: () async throws -> Void) async throws {
+        do {
+            try await operation()
+        } catch {
+            let message = String(describing: error) + " " + error.localizedDescription
+            if message.contains("ALBUM_SYNC_CONFLICT") { throw AlbumSyncError.syncConflict }
+            if message.contains("ALBUM_PROTOCOL_UPGRADE_REQUIRED") { throw AlbumSyncError.protocolUpgradeRequired }
+            throw error
+        }
+    }
+
+    private func revisionCache(tripID: UUID, store: AlbumStore) -> V2RevisionCache {
+        if let cached = revisionCaches[tripID] { return cached }
+        let cached = (try? Data(contentsOf: revisionCacheURL(tripID: tripID, store: store)))
+            .flatMap { try? JSONDecoder().decode(V2RevisionCache.self, from: $0) } ?? V2RevisionCache()
+        revisionCaches[tripID] = cached
+        return cached
+    }
+
+    private func saveRevisionCache(_ cache: V2RevisionCache, tripID: UUID, store: AlbumStore) {
+        revisionCaches[tripID] = cache
+        guard let bytes = try? JSONEncoder().encode(cache) else { return }
+        try? bytes.write(to: revisionCacheURL(tripID: tripID, store: store), options: .atomic)
+    }
+
+    private func revisionCacheURL(tripID: UUID, store: AlbumStore) -> URL {
+        store.root.appendingPathComponent("sync-v2-\(tripID.uuidString).json")
+    }
+
     private func encodedEqual<T: Encodable>(_ lhs: T, _ rhs: T) -> Bool {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
@@ -640,6 +897,24 @@ private struct LocalFileState: Equatable {
 
     func activateTripForTesting(_ tripID: UUID) {
         activeTripID = tripID
+    }
+
+    func seedRevisionCacheForTesting(_ revision: V2SyncRevision, tripID: UUID, store: AlbumStore) {
+        saveRevisionCache(V2RevisionCache(tripUpdatedAt: revision.tripUpdatedAt, placeUpdatedAt: revision.placeUpdatedAt,
+                                          knownPlaceIDs: Set(revision.placeUpdatedAt.keys)), tripID: tripID, store: store)
+    }
+
+    func stageV2TransitionForTesting(store: AlbumStore, remoteTripVersion: Int?, remotePlaceIDs: Set<String>) {
+        stageV2Transition(store: store, remoteTripVersion: remoteTripVersion, remotePlaceIDs: remotePlaceIDs)
+    }
+
+    func recordRevisionsForTesting(tripRevision: String, placeRevisions: [String: String], tripID: UUID, store: AlbumStore) {
+        let trip = TripRow(id: tripID, payload: store.data.trip, updatedAt: Date(), revision: tripRevision)
+        let places = placeRevisions.map { id, revision in
+            PlaceRow(id: id, tripID: tripID, payload: store.data.places.first { $0.id == id } ?? Place(id: id, title: id),
+                     updatedAt: Date(), deleted: false, revision: revision)
+        }
+        recordRevisions(trip: trip, places: places, tripID: tripID, store: store)
     }
     #endif
 
