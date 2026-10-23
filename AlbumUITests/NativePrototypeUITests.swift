@@ -2,7 +2,7 @@ import XCTest
 
 final class NativePrototypeUITests: XCTestCase {
     override func setUp() { continueAfterFailure = false }
-    private func launch(reduced: Bool = false, globalImages: Bool = false) -> XCUIApplication {
+    private func launch(reduced: Bool = false, globalImages: Bool = false, discovery: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment["ALBUM_TEST_STORE"] = "slot-native-port-\(UUID().uuidString)"
         app.launchEnvironment["ALBUM_MY_NAME"] = "QA"
@@ -12,6 +12,10 @@ final class NativePrototypeUITests: XCTestCase {
         if globalImages {
             app.launchEnvironment["ALBUM_EMPTY_TEST_STORE"] = "1"
             app.launchEnvironment["ALBUM_GLOBAL_IMAGE_QA"] = "1"
+        }
+        if discovery {
+            app.launchEnvironment["ALBUM_EMPTY_TEST_STORE"] = "1"
+            app.launchEnvironment["ALBUM_DISCOVERY_QA"] = "1"
         }
         app.launchArguments += ["-AppleLanguages", "(de)", "-AppleLocale", "de_DE"]
         app.launch()
@@ -187,6 +191,7 @@ final class NativePrototypeUITests: XCTestCase {
         tap("native-resolve-global-cafe", in: app)
         tap("native-resolution-candidate-qa-tokyo", in: app)
         XCTAssertTrue(app.buttons["native-retry-image-global-retry"].waitForExistence(timeout: 5))
+        app.swipeUp()
         tap("native-retry-image-global-retry", in: app)
         let retry = app.buttons["native-retry-image-global-retry"]
         let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: retry)
@@ -199,6 +204,33 @@ final class NativePrototypeUITests: XCTestCase {
         XCTAssertTrue(app.buttons["native-idea-global-tokyo"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["native-resolve-global-cafe"].exists)
         capture("global-image-relaunch")
+    }
+
+    func testDiscoveryInterestCityAdoptionAndRelaunch() {
+        let app = launch(discovery: true)
+        tap("native-trip-prag", in: app)
+        tap("native-tab-ideas", in: app)
+        tap("native-discover", in: app)
+        tap("discovery-interest-architecture", in: app)
+        tap("discovery-search-cities", in: app)
+        tap("discovery-city-Q1085", in: app)
+        XCTAssertTrue(app.buttons["discovery-adopt-Q193369"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts["discovery-existing-Q204871"].exists)
+        XCTAssertTrue(app.buttons["discovery-restore-Q5949"].exists)
+        tap("discovery-adopt-Q193369", in: app)
+        if app.alerts.firstMatch.waitForExistence(timeout: 2) { app.alerts.buttons["OK"].tap() }
+        XCTAssertTrue(app.staticTexts["discovery-existing-Q193369"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["discovery-adopt-Q193369"].exists)
+        capture("discovery-adopted")
+        tap("discovery-close", in: app)
+        XCTAssertTrue(app.buttons["native-idea-discovery-q193369"].waitForExistence(timeout: 5))
+        app.terminate(); app.launch()
+        tap("native-trip-prag", in: app)
+        tap("native-tab-ideas", in: app)
+        tap("native-discover", in: app)
+        XCTAssertTrue(app.staticTexts["discovery-existing-Q193369"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["discovery-restore-Q5949"].exists)
+        capture("discovery-relaunch")
     }
 
     func testMemoriesHasSeparateCameraAndLibraryActions() {

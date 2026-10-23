@@ -84,6 +84,24 @@ import UIKit
                                                        languageCode: context.preferredLanguageCode)
                 }
             }
+            if ProcessInfo.processInfo.environment["ALBUM_DISCOVERY_QA"] == "1"
+                || ProcessInfo.processInfo.environment["ALBUM_DISCOVERY_LIVE_QA"] == "1" {
+                let fixture = ProcessInfo.processInfo.environment["ALBUM_DISCOVERY_QA"] == "1"
+                if !existed {
+                    var trip = TripInfo()
+                    trip.title = fixture ? "Prag · Entdecken-Test" : "Prag · Entdecken"
+                    trip.destination = "Prag"
+                    _ = store.updateTrip(trip)
+                    store.data.places = fixture ? [
+                        Place(id: "existing-bridge", title: "Karlsbrücke", sourceURL: "https://www.wikidata.org/wiki/Q204871",
+                              category: "Sehenswert", lat: 50.0865, lng: 14.4114),
+                        Place(id: "removed-cathedral", title: "Veitsdom", sourceURL: "https://www.wikidata.org/wiki/Q5949",
+                              category: "Sehenswert", lat: 50.0909, lng: 14.4005, deleted: true)
+                    ] : []
+                    _ = store.persist()
+                }
+                if fixture { store.discoveryServiceOverride = DiscoveryQAFixtureService() }
+            }
             return store
         }
         #endif
@@ -163,3 +181,30 @@ import UIKit
         }
     }
 }
+
+#if DEBUG
+private struct DiscoveryQAFixtureService: DiscoveryServiceProtocol {
+    private var city: DiscoveryCity {
+        DiscoveryCity(qid: "Q1085", name: "Prag", country: "Tschechien", latitude: 50.087, longitude: 14.421,
+                      sourceURL: URL(string: "https://www.wikidata.org/wiki/Q1085")!)
+    }
+    func searchCities(query: String, languageCode: String) async throws -> [DiscoveryCity] { [city] }
+    func catalog(cityQID: String, languageCode: String) async throws -> DiscoveryCatalog {
+        let values: [(String, String, Double, Double, Int)] = [
+            ("Q193369", "Prager Burg", 50.0908, 14.4006, 66),
+            ("Q204871", "Karlsbrücke", 50.0865, 14.4114, 62),
+            ("Q5949", "Veitsdom", 50.0909, 14.4005, 60)
+        ]
+        let items = values.map { qid, name, latitude, longitude, count in
+            DiscoveryItem(qid: qid, name: name, description: "Lokaler Testvorschlag", latitude: latitude, longitude: longitude,
+                          interests: [.architecture, .history], wikipediaLanguageCount: count,
+                          sourceURL: URL(string: "https://www.wikidata.org/wiki/\(qid)")!, distanceMeters: 1000, image: nil)
+        }
+        let now = Date()
+        return DiscoveryCatalog(protocolVersion: 1, catalogVersion: 1, rankingVersion: 1, city: city,
+                                languageCode: "de", coverage: DiscoveryCoverage(kind: .radius, radiusMeters: 25000, label: "25 km um Prag"),
+                                items: items, fetchedAt: now, expiresAt: now.addingTimeInterval(7 * 86400),
+                                staleUntil: now.addingTimeInterval(30 * 86400), cacheStatus: .fresh)
+    }
+}
+#endif

@@ -400,6 +400,7 @@ struct NativeIdeasView: View {
     @Binding var sheet: NativeSheet?
     @State private var category = "Alle"
     @State private var imageRefreshTask: Task<Void, Never>?
+    @State private var discoveryPresented = false
     private let categories = ["Alle", "Essen & Trinken", "Sehenswert", "Aussicht", "Shopping", "Idee"]
 
     private var ideas: [Place] {
@@ -444,6 +445,12 @@ struct NativeIdeasView: View {
                         .accessibilityLabel("Neue Idee")
                         .accessibilityIdentifier("native-new-place")
                 }
+                Button { discoveryPresented = true } label: {
+                    Label("Entdecken", systemImage: "sparkle.magnifyingglass")
+                        .frame(maxWidth: .infinity, minHeight: 46)
+                }
+                .buttonStyle(StitchButton(primary: false))
+                .accessibilityIdentifier("native-discover")
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: Stitch.Space.xs) {
                         ForEach(categories, id: \.self) { item in
@@ -478,8 +485,10 @@ struct NativeIdeasView: View {
         .scrollIndicators(.hidden)
         .background(Stitch.paper.ignoresSafeArea())
         .onDisappear { imageRefreshTask?.cancel() }
+        .sheet(isPresented: $discoveryPresented) { NativeDiscoveryView() }
     }
 }
+
 
 private struct NativeIdeaRow: View {
     let place: Place

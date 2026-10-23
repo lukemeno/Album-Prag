@@ -82,3 +82,12 @@ Automatische Instagram-/TikTok-Trends am Reiseziel sind seit Nutzerentscheidung 
 ## Entdecken für Version 1 · Planung festgelegt
 
 PLAN-ENTDECKEN-V1.md ist der aktuelle Plan: persönliche feste Interessen je Reise, bekannte Wikidata-Highlights, Einstieg UNTER Ideen, getrennte bewusste Übernahme ohne Stimmen/Tag. Vier lokale Issue-Entwürfe, noch keine Implementierung. Social-Trends bleiben nach V1. Nicht zu einem neuen Haupttab oder einer Umbenennung von Ideen machen. Vor einer Issue-Übertragung fehlt das bestätigte Linear-Zielprojekt.
+
+
+## Entdecken V1 implementiert, Live-Abnahme offen · 23.10.2026
+- Sol plante und prüfte, zwei Luna-Agenten implementierten; Root integrierte Xcode und führte Tests aus. Lokaler main, keine Branches/Worktrees, kein Push/Deployment/Produktionsmigration.
+- Neue DiscoveryModels/Service/Session/View: persönliche Interessen, Stadtauswahl, 25-km-Katalog unter Ideen, Quellen/Bildlizenz, deduplizierte Ideenübernahme/Restore. Privates Sidecar pro Album/Teilnehmer; Sharing kopiert lokalen Zustand, Beitritt nicht.
+- Authentifizierte standardmäßig deaktivierte discover-places Function; versionierte Typen/Ranking, gebündelte P18-Metadaten, privater SQL-Cache und Rate-Limits.
+- 226 Unit-Tests (4 bestehende Skips), 12 aktuelle UI-Szenarien nach gezielter Nachprüfung und63 Backend-Shared-Tests bestanden. SQL-Rollen/Lease/Fresh-Stale/1hBackoff/ConcurrentRate in temporärer lokaler PostgreSQL geprüft.
+- Echte Stadtsuche Prag erfolgreich; echter Katalog am WDQS-Zeitbudget gescheitert, kalter1hBackoff bestätigt. Vier-Städte-Datenqualität ausdrücklich noch nicht abgenommen. Manueller Root-Simulator-Test wegen gesperrtem Mac offen, Entsperren angefragt.
+- Details und offene Release-Gates in ENTDECKEN-QA.md; Geo-Top500-Vorauswahl und nur isolateweite Upstream-Grenze sind ausdrücklich dokumentiert. Keine Fixture als Live-Erfolg ausweisen.

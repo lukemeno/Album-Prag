@@ -3,6 +3,41 @@ import { supportedWikipediaLanguage } from "./photo_context.ts";
 
 const wikimediaHeaders = { "User-Agent": Deno.env.get("WIKIMEDIA_USER_AGENT") || "Album/1.0 (private travel app)" };
 
+export type WikimediaDiscoveryLimiter = { run<T>(signal: AbortSignal, work: () => Promise<T>): Promise<T> };
+export type WikimediaDiscoveryImageEntry = { qid: string; title: string };
+
+/// Exact-QID P18 metadata in batches; unlike resolveWikimedia this never searches or ranks by name.
+export async function fetchWikimediaP18Images(entries: WikimediaDiscoveryImageEntry[], signal: AbortSignal, limiter: WikimediaDiscoveryLimiter) {
+  const result = new Map<string, { image_url: string; source_url: string; credit: string; provider: "wikimedia"; license_name: string; license_url: string; provider_place_id: string; confidence: "verified"; caption?: string }>();
+  const unique = new Map<string, string>();
+  for (const entry of entries) if (/^Q[1-9][0-9]*$/.test(entry.qid) && entry.title) unique.set(entry.qid, entry.title);
+  const values = [...unique];
+  for (let offset = 0; offset < values.length; offset += 50) {
+    const batch = values.slice(offset, offset + 50);
+    const titleToQIDs = new Map<string, string[]>();
+    for (const [qid, title] of batch) titleToQIDs.set(title, [...(titleToQIDs.get(title) ?? []), qid]);
+    const url = new URL("https://commons.wikimedia.org/w/api.php");
+    for (const [key, value] of Object.entries({ format: "json", action: "query", titles: [...titleToQIDs.keys()].join("|"), prop: "imageinfo", iiprop: "url|extmetadata", iiurlwidth: "1600", iiextmetadatafilter: "Artist|Credit|LicenseShortName|LicenseUrl" })) url.searchParams.set(key, value);
+    const payload = await limiter.run(signal, async () => {
+      const response = await fetch(url, { headers: wikimediaHeaders, signal });
+      if (!response.ok) throw new WikimediaUnavailable("commons.wikimedia.org", "query", `HTTP ${response.status}`, Math.max(1, Number(response.headers.get("retry-after")) || 30));
+      return await response.json();
+    });
+    for (const page of Object.values(payload?.query?.pages ?? {}) as any[]) {
+      const info = page?.imageinfo?.[0], metadata = info?.extmetadata ?? {};
+      const imageURL = info?.thumburl || info?.url;
+      const sourceURL = info?.descriptionurl;
+      const credit = stripHTML(metadata.Artist?.value) || stripHTML(metadata.Credit?.value);
+      const licenseName = stripHTML(metadata.LicenseShortName?.value);
+      const licenseURL = metadata.LicenseUrl?.value;
+      if (typeof imageURL !== "string" || typeof sourceURL !== "string" || !credit || !licenseName || typeof licenseURL !== "string" || !/^https:\/\//i.test(licenseURL)) continue;
+      const qids = titleToQIDs.get(page.title) ?? titleToQIDs.get(String(page.title).replace(/^File:/, "")) ?? [];
+      for (const qid of qids) result.set(qid, { image_url: imageURL, source_url: sourceURL, credit, provider: "wikimedia", license_name: licenseName, license_url: licenseURL, provider_place_id: qid, confidence: "verified", caption: String(page.title).replace(/^File:/, "").replace(/\.[a-z0-9]+$/i, "") });
+    }
+  }
+  return result;
+}
+
 /// Sammelt Fotos aus drei Quellen (Hauptbild, Commons-Kategorie, Umgebung) und gibt die typischsten zuerst zurück.
 export async function resolveWikimedia(title: string, category: string, latitude: number, longitude: number, address = "", regionName = "", languageCode?: string) {
   let failure: unknown;

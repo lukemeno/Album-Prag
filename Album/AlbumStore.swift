@@ -52,6 +52,14 @@ private struct PlaceResolutionSnapshot: Equatable {
     var geocodeAddressResolver: (@MainActor (String) async -> CLLocationCoordinate2D?)?
     var placeResolutionResolver: (@MainActor (Place, TripRegionContext) async -> PlaceResolutionOutcome)?
     var placeImageSearchResolver: (@MainActor (Place, TripRegionContext) async throws -> PlaceImageSearchResult)?
+    @ObservationIgnored var discoveryServiceOverride: (any DiscoveryServiceProtocol)?
+    @ObservationIgnored private var storedDiscoverySession: DiscoverySession?
+    var discoverySession: DiscoverySession {
+        if let storedDiscoverySession { return storedDiscoverySession }
+        let session = DiscoverySession(store: self)
+        storedDiscoverySession = session
+        return session
+    }
     private(set) var placeImageStatuses: [String: PlaceImageStatus] = [:]
     @ObservationIgnored private var placeResolutionSnapshots: [String: PlaceResolutionSnapshot] = [:]
     @ObservationIgnored private var placeResolutionAttempts = Set<String>()
@@ -768,15 +776,69 @@ private struct PlaceResolutionSnapshot: Equatable {
     @discardableResult func updateTrip(_ trip: TripInfo) -> Bool {
         guard tripDateValidationError(trip) == nil else { return false }
         let previous = data
+        let oldDestination = data.trip.destination ?? tripName
         data.trip = trip; data.trip.updatedAt = Date(); data.trip.planningSchemaVersion = 2
         data.schemaVersion = 2; data.dirty.insert("trip")
         if persist() {
+            if oldDestination != (trip.destination ?? tripName) { storedDiscoverySession?.destinationDidChange() }
             scheduleSync()
             return true
         } else {
             data = previous
             return false
         }
+    }
+
+    func discoveryAdoptionStatus(_ item: DiscoveryItem) -> DiscoveryAdoptionResult? {
+        let placeID = "discovery-\(item.qid.lowercased())"
+        let canonical = "https://www.wikidata.org/wiki/\(item.qid)"
+        let normalized = Self.normalizedDiscoveryTitle(item.name)
+        guard let existing = data.places.first(where: { place in
+            if place.id == placeID || Self.isDiscoverySource(place.sourceURL, qid: item.qid) { return true }
+            guard let coordinate = place.coordinate, Self.normalizedDiscoveryTitle(place.title) == normalized else { return false }
+            return CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+                .distance(from: CLLocation(latitude: item.latitude, longitude: item.longitude)) <= 100
+        }) else { return nil }
+        return existing.deleted ? .removed(placeID: existing.id)
+            : .alreadyPresent(placeID: existing.id, planned: existing.plannedDate != nil || existing.day != nil)
+    }
+
+    private static func normalizedDiscoveryTitle(_ value: String) -> String {
+        let folded = value.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+        let scalars = folded.unicodeScalars.map { CharacterSet.alphanumerics.contains($0) ? Character($0) : " " }
+        return String(scalars).split(whereSeparator: \.isWhitespace).joined(separator: " ")
+    }
+
+    private static func isDiscoverySource(_ value: String, qid: String) -> Bool {
+        guard let url = URLComponents(string: value), url.scheme?.lowercased() == "https",
+              url.host?.lowercased() == "www.wikidata.org" else { return false }
+        return url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/")) == "wiki/\(qid)"
+    }
+
+    @discardableResult func restoreDiscoveryPlace(id: String) -> Bool {
+        guard let index = data.places.firstIndex(where: { $0.id == id && $0.deleted }) else { return false }
+        var place = data.places[index]; place.deleted = false
+        return upsert(place)
+    }
+
+    @discardableResult func adoptDiscoveryItem(_ item: DiscoveryItem) -> DiscoveryAdoptionResult {
+        let placeID = "discovery-\(item.qid.lowercased())"
+        let canonical = "https://www.wikidata.org/wiki/\(item.qid)"
+        if let status = discoveryAdoptionStatus(item) { return status }
+        var place = Place(id: placeID, title: item.name, sourceURL: canonical,
+                          category: item.interests.contains(.viewpoints) ? "Aussicht" : "Sehenswert",
+                          author: me, lat: item.latitude, lng: item.longitude)
+        if let image = item.image, image.confidence == .verified {
+            place.image = .external(ExternalPlaceImage(
+                imageURL: image.imageURL.absoluteString, sourceURL: image.sourceURL.absoluteString,
+                credit: image.credit, provider: .wikimedia, licenseName: image.licenseName,
+                licenseURL: image.licenseURL.absoluteString, providerPlaceID: item.qid,
+                resolvedFor: ResolvedPlaceIdentity(title: item.name, latitude: item.latitude,
+                                                   longitude: item.longitude, category: place.category, address: ""),
+                ranking: PlaceImageService.ranking, userSelected: false))
+        }
+        guard upsert(place) else { return .failed }
+        return .added(placeID: placeID)
     }
 
     func placeImageStatus(for placeID: String) -> PlaceImageStatus {
@@ -1104,9 +1166,11 @@ private struct PlaceResolutionSnapshot: Equatable {
             }
         }
         let before = data.places
+        let oldDestination = data.trip.destination ?? tripName
         do {
             let service = try service()
             try await service.sync(store: self)
+            if oldDestination != (data.trip.destination ?? tripName) { storedDiscoverySession?.destinationDidChange() }
             // Beim ersten Abgleich ist alles neu; das ist keine Neuigkeit der anderen Person.
             if !before.isEmpty { syncChange = SyncChange.between(before: before, after: data.places, me: me) ?? syncChange }
             service.startRealtime { [weak self] in await self?.sync() }
@@ -1125,12 +1189,14 @@ private struct PlaceResolutionSnapshot: Equatable {
 
     func createSharedTrip() async throws -> URL {
         guard !loadFailed else { throw CocoaError(.fileReadCorruptFile) }
+        let discovery = discoverySession
         let service = try service()
         data.dirty.formUnion(data.places.map(\.id))
         data.dirty.formUnion(data.documents.map { "doc-" + $0.id })
         data.dirty.insert("trip")
         guard persist() else { throw CocoaError(.fileWriteUnknown) }
         data.collaboration = try await service.createTrip(store: self)
+        discovery.switchToCurrentScope(copyLocal: true)
         publishShareContext()
         guard persist() else { throw CocoaError(.fileWriteUnknown) }
         service.startRealtime { [weak self] in await self?.sync() }
@@ -1142,10 +1208,12 @@ private struct PlaceResolutionSnapshot: Equatable {
     func joinSharedTrip(url: URL) async throws {
         guard let token = InvitationLink.token(from: url) else { throw AlbumSyncError.invalidInvitation }
         let service = try service()
+        let discovery = discoverySession
         data.collaboration = try await service.joinTrip(token: token)
         publishShareContext()
         guard persist() else { throw CocoaError(.fileWriteUnknown) }
         try await service.sync(store: self)
+        discovery.switchToCurrentScope(copyLocal: false)
         service.startRealtime { [weak self] in await self?.sync() }
         syncStatus = "Album verbunden"
     }

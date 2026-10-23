@@ -100,6 +100,11 @@
 		FDA660D58136EC478A8E5C2F /* NativePrototypeUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 732792AA4B23EAD799FBA189 /* NativePrototypeUITests.swift */; };
 		8EBD13C41C5363E3AE9C3753 /* PlaceResolutionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3F3115183A4AEA3AA2249C2 /* PlaceResolutionTests.swift */; };
 		6CF51F4C171C343B8E7E27B0 /* PlaceImageServiceRegionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E9100E4BE1E772D69FD21C1 /* PlaceImageServiceRegionTests.swift */; };
+		D542DBDADC86EE2308C5FB00 /* DiscoveryModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF253C30E31E9ED19265CDD8 /* DiscoveryModels.swift */; };
+		9132F000646D03AD5DC2D50C /* DiscoveryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AE09A248FCAAD7CFF49CF6F /* DiscoveryService.swift */; };
+		942F227DAB170CCD2EDCB7C5 /* DiscoverySession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0013D68F7667C9CF334B62F3 /* DiscoverySession.swift */; };
+		3CDB253F4BA19F77B077C54B /* DiscoveryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4363378572D45B75B9EAB0B7 /* DiscoveryView.swift */; };
+		E5A3708C7A4698794D451138 /* DiscoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F15FBE0D459AE0D8AB010F40 /* DiscoveryTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -238,6 +243,11 @@
 		F8C49AF297EF78BFCEE76339 /* NativeTravelExtras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeTravelExtras.swift; sourceTree = "<group>"; };
 		F3F3115183A4AEA3AA2249C2 /* PlaceResolutionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceResolutionTests.swift; sourceTree = "<group>"; };
 		0E9100E4BE1E772D69FD21C1 /* PlaceImageServiceRegionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceImageServiceRegionTests.swift; sourceTree = "<group>"; };
+		FF253C30E31E9ED19265CDD8 /* DiscoveryModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoveryModels.swift; sourceTree = "<group>"; };
+		5AE09A248FCAAD7CFF49CF6F /* DiscoveryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoveryService.swift; sourceTree = "<group>"; };
+		0013D68F7667C9CF334B62F3 /* DiscoverySession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoverySession.swift; sourceTree = "<group>"; };
+		4363378572D45B75B9EAB0B7 /* DiscoveryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoveryView.swift; sourceTree = "<group>"; };
+		F15FBE0D459AE0D8AB010F40 /* DiscoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoveryTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -271,6 +281,7 @@
 		25E0600E9EBFC5AB04512493 /* Native */ = {
 			isa = PBXGroup;
 			children = (
+				4363378572D45B75B9EAB0B7 /* DiscoveryView.swift */,
 				5838C009BCC373634968D3AB /* AlbumExperienceRoot.swift */,
 				E14DCE94657DB2424BD88F22 /* AlbumExperienceViews.swift */,
 			);
@@ -307,6 +318,7 @@
 		5718A66E16360DFADD5F5CB8 /* AlbumTests */ = {
 			isa = PBXGroup;
 			children = (
+				F15FBE0D459AE0D8AB010F40 /* DiscoveryTests.swift */,
 				22E362E480309CBF88A1A449 /* AlbumTests.swift */,
 				63209D556B007A951F69750C /* AssistantActionsTests.swift */,
 				6105B613C01C9C66E4E4A9BD /* CollectionTests.swift */,
@@ -356,6 +368,9 @@
 		B7406854DBFC1957E30C58DC /* Album */ = {
 			isa = PBXGroup;
 			children = (
+				0013D68F7667C9CF334B62F3 /* DiscoverySession.swift */,
+				5AE09A248FCAAD7CFF49CF6F /* DiscoveryService.swift */,
+				FF253C30E31E9ED19265CDD8 /* DiscoveryModels.swift */,
 				6AD109CB482B41F97FE8D478 /* Album.entitlements */,
 				C01719B12F0C4B781136BCDE /* AlbumApp.swift */,
 				328C91DA0E5D75DF6C20603C /* AlbumRoot.swift */,
@@ -627,6 +642,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3CDB253F4BA19F77B077C54B /* DiscoveryView.swift in Sources */,
+				942F227DAB170CCD2EDCB7C5 /* DiscoverySession.swift in Sources */,
+				9132F000646D03AD5DC2D50C /* DiscoveryService.swift in Sources */,
+				D542DBDADC86EE2308C5FB00 /* DiscoveryModels.swift in Sources */,
 				5FF288AF18CAB5FED0B579E7 /* AlbumApp.swift in Sources */,
 				C83B27037FDD3046220071A8 /* AlbumExperienceRoot.swift in Sources */,
 				653E66A7D0EB83A16F7055EE /* AlbumExperienceViews.swift in Sources */,
@@ -694,6 +713,7 @@
 				CEFF067573D0D3E3ED4AFBF8 /* TripCalendarTests.swift in Sources */,
 				6CF51F4C171C343B8E7E27B0 /* PlaceImageServiceRegionTests.swift in Sources */,
 				8EBD13C41C5363E3AE9C3753 /* PlaceResolutionTests.swift in Sources */,
+				E5A3708C7A4698794D451138 /* DiscoveryTests.swift in Sources */,
 				09CB9B05BA79027EF71A640E /* TripMigrationTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
