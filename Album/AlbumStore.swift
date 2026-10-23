@@ -1,6 +1,7 @@
 import SwiftUI
 import PDFKit
 import CoreLocation
+import MapKit
 import Observation
 
 private struct OpeningHoursRequest: Sendable {
@@ -15,6 +16,15 @@ private struct OpeningHoursRequest: Sendable {
 private struct OpeningHoursFetchResult: Sendable {
     let id: String
     let hours: String?
+}
+
+private struct PlaceResolutionSnapshot: Equatable {
+    let title: String
+    let address: String
+    let category: String
+    let context: TripRegionContext
+    let albumID: String
+    let trip: TripInfo
 }
 
 @MainActor @Observable final class AlbumStore {
@@ -40,17 +50,77 @@ private struct OpeningHoursFetchResult: Sendable {
     /// Test hooks keep the production services as the default while allowing paused, deterministic regressions.
     var openingHoursResolver: (@MainActor (Place) async -> String?)?
     var geocodeAddressResolver: (@MainActor (String) async -> CLLocationCoordinate2D?)?
+    var placeResolutionResolver: (@MainActor (Place, TripRegionContext) async -> PlaceResolutionOutcome)?
+    var placeImageSearchResolver: (@MainActor (Place, TripRegionContext) async throws -> PlaceImageSearchResult)?
+    private(set) var placeImageStatuses: [String: PlaceImageStatus] = [:]
+    @ObservationIgnored private var placeResolutionSnapshots: [String: PlaceResolutionSnapshot] = [:]
+    @ObservationIgnored private var placeResolutionAttempts = Set<String>()
+    @ObservationIgnored private var placeImageAttempts = Set<String>()
+    @ObservationIgnored private var placeImageInFlight = Set<String>()
     var places: [Place] { data.places.filter { !$0.deleted } }
     /// Was auf diesem iPhone noch zu entscheiden ist, auch Vorschläge, für die nur die andere Person schon ist.
     var inbox: [Place] { places.filter(isOpenForMe) }
     var deferred: [Place] { places.filter { ($0.deferred && !$0.franked) || $0.passedBy.contains(me) } }
     var franked: [Place] { places.filter(\.franked) }
     var tripCalendar: TripCalendar { TripCalendar(trip: data.trip) }
+    var tripRegionContext: TripRegionContext { tripRegionContext(for: nil) }
     /// Alte Tageszahlen, die sich keinem Datum sicher zuordnen ließen; bleiben sichtbar, bis jemand neu plant.
     var unresolvedLegacyPlaces: [Place] { places.filter { $0.day != nil && $0.plannedDate == nil } }
     var outOfRangePlannedPlaces: [Place] { placesOutsideRange(of: data.trip) }
     /// Offene Ideen, die jemand anderes gesammelt hat – für das Zeichen am Tab.
     var newFromOthers: Int { inbox.filter { $0.author != me && $0.author.localizedCaseInsensitiveCompare("Wir") != .orderedSame }.count }
+
+    func tripRegionContext(for place: Place?) -> TripRegionContext {
+        let destination = [data.trip.destination, data.trip.title]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty }
+        let language = Locale.current.language.languageCode?.identifier
+        let accommodations = places.filter { $0.franked && $0.category.localizedCaseInsensitiveCompare("Unterkunft") == .orderedSame && $0.coordinate != nil }
+        if let place, let date = place.plannedDate,
+           let sameDay = accommodations.first(where: { $0.plannedDate == date }), let coordinate = sameDay.coordinate {
+            return TripRegionContext(name: destination ?? sameDay.title, region: Self.region(center: coordinate, span: 0.2), preferredLanguageCode: language, source: .sameDayAccommodation)
+        }
+        if let accommodation = accommodations.first, let coordinate = accommodation.coordinate {
+            return TripRegionContext(name: destination ?? accommodation.title, region: Self.region(center: coordinate, span: 0.2), preferredLanguageCode: language, source: .accommodation)
+        }
+        let confirmed = places.filter { $0.franked && $0.coordinate != nil }
+        if let region = Self.region(covering: confirmed.compactMap(\.coordinate)) {
+            return TripRegionContext(name: destination, region: region, preferredLanguageCode: language, source: .confirmedPlaces)
+        }
+        if let destination {
+            return TripRegionContext(name: destination, region: nil, preferredLanguageCode: language, source: .destinationOnly)
+        }
+        return TripRegionContext(name: nil, region: nil, preferredLanguageCode: language, source: .none)
+    }
+
+    var tripAnchorCoordinate: CLLocationCoordinate2D? { tripRegionContext.region?.center }
+
+    private static func region(center: CLLocationCoordinate2D, span: CLLocationDegrees) -> MKCoordinateRegion {
+        MKCoordinateRegion(center: center, span: MKCoordinateSpan(latitudeDelta: span, longitudeDelta: span))
+    }
+
+    private static func region(covering coordinates: [CLLocationCoordinate2D]) -> MKCoordinateRegion? {
+        guard !coordinates.isEmpty else { return nil }
+        let latitudes = coordinates.map(\.latitude)
+        let centerLatitude = (latitudes.min()! + latitudes.max()!) / 2
+        let radians = coordinates.map { $0.longitude * .pi / 180 }
+        let x = radians.reduce(0) { $0 + cos($1) }
+        let y = radians.reduce(0) { $0 + sin($1) }
+        let centerLongitude = atan2(y, x) * 180 / .pi
+        let center = CLLocationCoordinate2D(latitude: centerLatitude, longitude: centerLongitude)
+        let maxDistance = coordinates.map { CLLocation(latitude: centerLatitude, longitude: centerLongitude).distance(from: CLLocation(latitude: $0.latitude, longitude: $0.longitude)) }.max() ?? 0
+        let delta = min(max(maxDistance / 55_000, 0.08), 80)
+        return region(center: center, span: delta)
+    }
+
+    private var isAutomatedTestStore: Bool {
+        #if DEBUG
+        let environment = ProcessInfo.processInfo.environment
+        return environment["XCTestConfigurationFilePath"] != nil || environment["ALBUM_TEST_STORE"] != nil
+        #else
+        return false
+        #endif
+    }
 
     var myName: String { didSet { UserDefaults.standard.set(myName, forKey: "album.myName") } }
     var me: String {
@@ -491,12 +561,8 @@ private struct OpeningHoursFetchResult: Sendable {
         }
     }
 
-    /// Orte eines Tages in geplanter Reihenfolge.
-    /// Hotel als Start jeder Tagesrunde; ohne Hotel die Altstadt.
-    var hotelCoordinate: CLLocationCoordinate2D {
-        franked.first { $0.category == "Unterkunft" && $0.coordinate != nil }?.coordinate
-            ?? CLLocationCoordinate2D(latitude: 50.0875, longitude: 14.4213)
-    }
+    /// Optionale Startkoordinate aus dem tatsächlichen Reiseziel, ohne Prag-Fallback.
+    var hotelCoordinate: CLLocationCoordinate2D? { tripAnchorCoordinate }
 
     private func currentDayPlan(keepAssigned: Bool) -> DayPlanProposal {
         var proposal = DayPlanGenerator.plan(places: franked, hotel: hotelCoordinate, flights: data.trip.flights ?? [],
@@ -713,71 +779,234 @@ private struct OpeningHoursFetchResult: Sendable {
         }
     }
 
-    /// Orte, für die in diesem App-Lauf schon ein Bild gesucht wurde (Titel und Koordinate), damit nichts in Schleife läuft.
-    private var imageLookupsTried: Set<String> = []
+    func placeImageStatus(for placeID: String) -> PlaceImageStatus {
+        if let status = placeImageStatuses[placeID] { return status }
+        guard let place = places.first(where: { $0.id == placeID }) else { return .idle }
+        return place.image == nil ? .idle : .ready
+    }
 
-    /// Sucht für alle Orte mit Koordinaten, aber ohne echtes Ortsfoto, ein Bild vom tatsächlichen Ort.
-    func refreshPlaceImages() async {
-        for place in places where place.coordinate != nil && (PlaceImageService.shouldSearch(for: place, force: false) || PlaceImageService.needsGallery(place)) {
-            let key = "\(place.id)|\(place.title)|\(place.lat ?? 0)|\(place.lng ?? 0)|\(place.category)|\(place.address)"
-            guard imageLookupsTried.insert(key).inserted else { continue }
-            let needsImage = PlaceImageService.shouldSearch(for: place, force: false)
-            let result = try? await PlaceImageService.search(for: place)
-
-            // Eine reine Galerie-Nachlieferung ersetzt niemals das vorhandene Hauptbild.
-            if !needsImage {
-                guard let result, result.isCurrent else { imageLookupsTried.remove(key); continue }
-                let found = result.automaticImages
-                guard var current = places.first(where: { $0.id == place.id }),
-                      PlaceImageService.matchesRequest(place, current), current.image == place.image else { continue }
-                let gallery = PlaceImageService.gallery(from: found, for: current)
-                if current.gallery != gallery { current.gallery = gallery; upsert(current) }
-                continue
-            }
-
-            let found = result?.automaticImages ?? []
-            let hasCurrentGeneratedFallback: Bool = if case .uploaded(let image) = place.image {
-                image.generatedSource != nil && image.resolvedFor?.matches(place) == true
+    func refreshPlaceImages(force: Bool = false) async {
+        var attempted = 0
+        for place in places {
+            guard !Task.isCancelled, attempted < 5 else { return }
+            let context = tripRegionContext(for: place)
+            if place.coordinate == nil {
+                let snapshot = PlaceResolutionSnapshot(title: place.title, address: place.address,
+                                                       category: place.category, context: context,
+                                                       albumID: data.albumID, trip: data.trip)
+                if !force, placeResolutionAttempts.contains(place.id), placeResolutionSnapshots[place.id] == snapshot { continue }
             } else {
-                false
+                if PlaceImageService.isUserChosen(place.image) { continue }
+                let imageKey = "\(place.id)|\(place.title)|\(place.lat ?? 0)|\(place.lng ?? 0)|\(place.category)|\(place.address)|\(contextAttemptKey(context))"
+                if !force, placeImageAttempts.contains(imageKey) { continue }
+                if !force, !PlaceImageService.shouldSearch(for: place, force: false), !PlaceImageService.needsGallery(place) { continue }
             }
-            let local: LocalPlaceImage? = if found.isEmpty, !hasCurrentGeneratedFallback, let coordinate = place.coordinate {
-                await PlaceImageResolver.localSnapshot(at: coordinate)
-            } else {
-                nil
-            }
+            attempted += 1
+            await refreshPlaceImage(id: place.id, force: force)
+        }
+    }
 
-            guard var current = places.first(where: { $0.id == place.id }),
-                  PlaceImageService.matchesRequest(place, current), current.image == place.image else { continue }
-            do {
-                if let best = found.first {
-                    current.image = best.asset(for: current)
-                    current.gallery = PlaceImageService.gallery(from: found, for: current)
-                } else if let local, let coordinate = current.coordinate {
-                    var uploaded = try PlaceImageStorage.save(local.data, root: root)
-                    uploaded.resolvedFor = ResolvedPlaceIdentity(
-                        title: current.title,
-                        latitude: coordinate.latitude,
-                        longitude: coordinate.longitude,
-                        category: current.category,
-                        address: current.address
-                    )
-                    uploaded.generatedSource = local.source
-                    current.image = .uploaded(uploaded)
-                    current.gallery = []
-                } else if !PlaceImageService.canRetain(current.image, for: current) {
-                    current.image = nil
-                    current.gallery = []
-                    imageLookupsTried.remove(key)
-                } else if !hasCurrentGeneratedFallback {
-                    // Ein späterer Aufruf darf einen vollständigen Ausfall erneut versuchen.
-                    imageLookupsTried.remove(key)
+    func refreshPlaceImage(id: String, force: Bool = false) async {
+        guard !placeImageInFlight.contains(id), let requested = places.first(where: { $0.id == id }) else { return }
+        var context = tripRegionContext(for: requested)
+        var snapshot = PlaceResolutionSnapshot(title: requested.title, address: requested.address,
+                                               category: requested.category, context: context,
+                                               albumID: data.albumID, trip: data.trip)
+        if requested.coordinate == nil {
+            if !force, placeResolutionAttempts.contains(id), placeResolutionSnapshots[id] == snapshot { return }
+            placeResolutionAttempts.insert(id)
+            placeResolutionSnapshots[id] = snapshot
+            placeImageInFlight.insert(id)
+            placeImageStatuses[id] = .resolvingPlace
+            defer { placeImageInFlight.remove(id) }
+
+            let outcome: PlaceResolutionOutcome
+            if let resolver = placeResolutionResolver {
+                outcome = await resolver(requested, context)
+            } else if isAutomatedTestStore {
+                outcome = context.source == .none ? .needsReview([], .missingContext) : .failed(retryable: false)
+            } else {
+                outcome = await PlaceResolver.resolve(place: requested, context: context)
+            }
+            guard !Task.isCancelled else {
+                placeImageStatuses[id] = .idle
+                placeResolutionAttempts.remove(id)
+                placeResolutionSnapshots[id] = nil
+                return
+            }
+            guard isCurrentResolutionRequest(requested, snapshot: snapshot) else {
+                placeImageStatuses[id] = .idle
+                placeResolutionAttempts.remove(id)
+                placeResolutionSnapshots[id] = nil
+                return
+            }
+            switch outcome {
+            case .resolved(let candidate):
+                guard Self.valid(candidate) else { placeImageStatuses[id] = .failed(retryable: false); return }
+                guard apply(candidate, to: requested), let updated = places.first(where: { $0.id == id }) else {
+                    placeImageStatuses[id] = .failed(retryable: true); return
                 }
-                if current != place { upsert(current) }
-            } catch {
-                imageLookupsTried.remove(key)
+                context = tripRegionContext(for: updated)
+                snapshot = PlaceResolutionSnapshot(title: updated.title, address: updated.address,
+                                                   category: updated.category, context: context,
+                                                   albumID: data.albumID, trip: data.trip)
+                placeResolutionSnapshots[id] = nil
+                placeResolutionAttempts.remove(id)
+            case .needsReview(let candidates, let reason):
+                placeImageStatuses[id] = .needsReview(Array(candidates.prefix(5)), reason)
+                return
+            case .notFound:
+                placeImageStatuses[id] = .notFound
+                return
+            case .failed(let retryable):
+                placeImageStatuses[id] = .failed(retryable: retryable)
+                return
             }
         }
+
+        guard let current = places.first(where: { $0.id == id }), current.coordinate != nil else { return }
+        if PlaceImageService.isUserChosen(current.image) {
+            placeImageStatuses[id] = .ready
+            return
+        }
+        let imageKey = "\(id)|\(current.title)|\(current.lat ?? 0)|\(current.lng ?? 0)|\(current.category)|\(current.address)|\(contextAttemptKey(context))"
+        if !force, placeImageAttempts.contains(imageKey) { return }
+        if !force, !PlaceImageService.shouldSearch(for: current, force: false), !PlaceImageService.needsGallery(current) {
+            placeImageStatuses[id] = .ready
+            return
+        }
+        placeImageAttempts.insert(imageKey)
+        placeImageInFlight.insert(id)
+        placeImageStatuses[id] = .loadingPhoto
+        defer { placeImageInFlight.remove(id) }
+
+        do {
+            let result: PlaceImageSearchResult
+            if let resolver = placeImageSearchResolver {
+                result = try await resolver(current, context)
+            } else if isAutomatedTestStore {
+                placeImageStatuses[id] = .failed(retryable: false)
+                return
+            } else {
+                result = try await PlaceImageService.search(for: current, region: context.name,
+                                                            languageCode: context.preferredLanguageCode)
+            }
+            guard !Task.isCancelled else {
+                placeImageStatuses[id] = .idle
+                placeImageAttempts.remove(imageKey)
+                return
+            }
+            guard let latest = places.first(where: { $0.id == id }),
+                  PlaceImageService.matchesRequest(current, latest), latest.image == current.image,
+                  data.albumID == snapshot.albumID, data.trip == snapshot.trip,
+                  tripRegionContext(for: latest) == context else {
+                placeImageStatuses[id] = .idle
+                placeImageAttempts.remove(imageKey)
+                return
+            }
+            let found = result.automaticImages
+            let needsImage = PlaceImageService.shouldSearch(for: current, force: force)
+            var updated = latest
+            if needsImage, let best = found.first {
+                updated.image = best.asset(for: updated)
+                updated.gallery = PlaceImageService.gallery(from: found, for: updated)
+            } else if needsImage, result.isCurrent, found.isEmpty,
+                      Self.isStaleAutomaticWikimedia(updated.image) {
+                // A current ranking response supersedes old automatic Wikimedia assets; failures do not.
+                updated.image = nil
+                updated.gallery = []
+            } else if !needsImage, result.isCurrent {
+                let gallery = PlaceImageService.gallery(from: found, for: updated)
+                if !gallery.isEmpty { updated.gallery = gallery }
+            } else if needsImage, !isAutomatedTestStore,
+                      !PlaceImageService.canRetain(updated.image, for: updated),
+                      let coordinate = updated.coordinate {
+                let local = await PlaceImageResolver.localSnapshot(at: coordinate)
+                guard !Task.isCancelled else {
+                    placeImageStatuses[id] = .idle
+                    placeImageAttempts.remove(imageKey)
+                    return
+                }
+                guard data.albumID == snapshot.albumID, data.trip == snapshot.trip,
+                      tripRegionContext(for: updated) == context,
+                      let latestAfterSnapshot = places.first(where: { $0.id == id }),
+                      PlaceImageService.matchesRequest(current, latestAfterSnapshot),
+                      latestAfterSnapshot.image == latest.image else {
+                    placeImageStatuses[id] = .idle
+                    placeImageAttempts.remove(imageKey)
+                    return
+                }
+                if let local {
+                    updated = latestAfterSnapshot
+                    var uploaded = try PlaceImageStorage.save(local.data, root: root)
+                    uploaded.resolvedFor = ResolvedPlaceIdentity(title: updated.title, latitude: coordinate.latitude,
+                                                                  longitude: coordinate.longitude, category: updated.category,
+                                                                  address: updated.address)
+                    uploaded.generatedSource = local.source
+                    updated.image = .uploaded(uploaded)
+                    updated.gallery = []
+                }
+            }
+            if updated != latest, !upsert(updated) { placeImageStatuses[id] = .failed(retryable: true); return }
+            placeImageStatuses[id] = (updated.image == nil && needsImage) ? .notFound : .ready
+        } catch {
+            if Task.isCancelled {
+                placeImageStatuses[id] = .idle
+                placeImageAttempts.remove(imageKey)
+            } else {
+                placeImageStatuses[id] = .failed(retryable: true)
+            }
+        }
+    }
+
+    func acceptPlaceResolution(placeID: String, candidate: PlaceResolutionCandidate) async {
+        guard case .needsReview(let candidates, _) = placeImageStatus(for: placeID),
+              candidates.contains(candidate), Self.valid(candidate),
+              let place = places.first(where: { $0.id == placeID }), place.coordinate == nil,
+              let snapshot = placeResolutionSnapshots[placeID], isCurrentResolutionRequest(place, snapshot: snapshot),
+              apply(candidate, to: place) else { return }
+        placeResolutionSnapshots[placeID] = nil
+        placeResolutionAttempts.remove(placeID)
+        await refreshPlaceImage(id: placeID, force: true)
+    }
+
+    private func contextAttemptKey(_ context: TripRegionContext) -> String {
+        let region = context.region.map {
+            "\($0.center.latitude),\($0.center.longitude),\($0.span.latitudeDelta),\($0.span.longitudeDelta)"
+        } ?? "none"
+        return "\(context.source)|\(context.name ?? "")|\(region)|\(context.preferredLanguageCode ?? "")"
+    }
+
+    private func isCurrentResolutionRequest(_ requested: Place, snapshot: PlaceResolutionSnapshot) -> Bool {
+        guard let current = places.first(where: { $0.id == requested.id }) else { return false }
+        return current.coordinate == nil && current.title == snapshot.title && current.address == snapshot.address
+            && current.category == snapshot.category && data.albumID == snapshot.albumID
+            && data.trip == snapshot.trip && tripRegionContext(for: current) == snapshot.context
+    }
+
+    private func apply(_ candidate: PlaceResolutionCandidate, to requested: Place) -> Bool {
+        guard var current = places.first(where: { $0.id == requested.id }), current.coordinate == nil,
+              current.title == requested.title, current.address == requested.address,
+              Self.valid(candidate) else { return false }
+        current.lat = candidate.latitude
+        current.lng = candidate.longitude
+        if !candidate.address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { current.address = candidate.address }
+        if !PlaceImageService.isUserChosen(current.image), PlaceImageService.shouldDiscardImageAfterLocationMove(current.image) {
+            current.image = nil
+            current.gallery = nil
+        }
+        return upsert(current)
+    }
+
+    private static func isStaleAutomaticWikimedia(_ asset: PlaceImageAsset?) -> Bool {
+        guard case .external(let image) = asset else { return false }
+        return image.provider == .wikimedia && image.userSelected != true
+            && (image.ranking ?? 1) < PlaceImageService.ranking
+    }
+
+    private static func valid(_ candidate: PlaceResolutionCandidate) -> Bool {
+        candidate.latitude.isFinite && candidate.longitude.isFinite
+            && (-90...90).contains(candidate.latitude) && (-180...180).contains(candidate.longitude)
     }
 
     /// Beim Öffnen eines PDFs von außen gelesen; die Startansicht bietet es zum Übernehmen an.
@@ -815,6 +1044,7 @@ private struct OpeningHoursFetchResult: Sendable {
 
     private func geocodeAddress(_ address: String) async -> CLLocationCoordinate2D? {
         if let geocodeAddressResolver { return await geocodeAddressResolver(address) }
+        if isAutomatedTestStore { return nil }
         do {
             let placemarks = try await CLGeocoder().geocodeAddressString(address)
             return placemarks.first?.location?.coordinate

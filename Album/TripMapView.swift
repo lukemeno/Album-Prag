@@ -5,8 +5,8 @@ struct TripMapView: View {
     @Environment(AlbumStore.self) private var store
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Namespace private var drawerMorph
-    @State private var camera: MapCameraPosition = .region(.init(center: .init(latitude: 50.087, longitude: 14.423), span: .init(latitudeDelta: 0.035, longitudeDelta: 0.035)))
-    @State private var visibleRegion = MKCoordinateRegion(center: .init(latitude: 50.087, longitude: 14.423), span: .init(latitudeDelta: 0.035, longitudeDelta: 0.035))
+    @State private var camera: MapCameraPosition = .automatic
+    @State private var visibleRegion: MKCoordinateRegion?
     @State private var selectedID: String?
     @State private var selectionRequest = 0
     @State private var detail: Place?
@@ -102,6 +102,8 @@ struct TripMapView: View {
             lastTappedClusterID = nil
             if let detail, !ids.contains(detail.id) { self.detail = nil }
         }
+        .onChange(of: store.data.albumID) { _, _ in resetCameraForTripChange() }
+        .onChange(of: store.tripRegionContext) { _, _ in resetCameraForTripChange() }
     }
 
     private var drawerTitle: String {
@@ -159,10 +161,12 @@ struct TripMapView: View {
                       region.span.longitudeDelta > 0 else { return }
 
                 let tolerance = 1e-7
-                let changed = abs(region.center.latitude - visibleRegion.center.latitude) > tolerance
-                    || abs(region.center.longitude - visibleRegion.center.longitude) > tolerance
-                    || abs(region.span.latitudeDelta - visibleRegion.span.latitudeDelta) > tolerance
-                    || abs(region.span.longitudeDelta - visibleRegion.span.longitudeDelta) > tolerance
+                let changed = visibleRegion.map { previous in
+                    abs(region.center.latitude - previous.center.latitude) > tolerance
+                        || abs(region.center.longitude - previous.center.longitude) > tolerance
+                        || abs(region.span.latitudeDelta - previous.span.latitudeDelta) > tolerance
+                        || abs(region.span.longitudeDelta - previous.span.longitudeDelta) > tolerance
+                } ?? true
                 if changed { visibleRegion = region }
                 refreshProjectedPins(using: proxy)
             }
@@ -175,7 +179,7 @@ struct TripMapView: View {
                 refreshProjectedPins(using: proxy)
             }
             .mapControls { MapUserLocationButton(); MapCompass() }
-            .accessibilityLabel("Prag-Karte mit \(visible.count) beschlossenen Orten")
+            .accessibilityLabel("Karte mit \(visible.count) beschlossenen Orten")
             .accessibilityHint("Karte verschieben oder zoomen; Stecknadeln wählen den Ort in der Liste aus und heben seinen Tag hervor")
         }
     }
@@ -248,7 +252,8 @@ struct TripMapView: View {
     }
 
     private func zoom(into group: MapPinGroup) {
-        let span = visibleRegion.span
+        let span = visibleRegion?.span ?? store.tripRegionContext.region?.span
+            ?? MKCoordinateSpan(latitudeDelta: 0.035, longitudeDelta: 0.035)
         let region = MKCoordinateRegion(
             center: group.coordinate,
             span: MKCoordinateSpan(
@@ -278,10 +283,27 @@ struct TripMapView: View {
     }
 
     private func fitInitialCameraIfNeeded() {
-        guard !hasAutoFittedCamera, !visible.isEmpty else { return }
-        guard let rect = Self.initialCameraRect(for: visible.compactMap(\.coordinate)) else { return }
-        hasAutoFittedCamera = true
-        camera = .rect(rect)
+        guard !hasAutoFittedCamera else { return }
+        if let rect = Self.initialCameraRect(for: visible.compactMap(\.coordinate)) {
+            hasAutoFittedCamera = true
+            camera = .rect(rect)
+        } else if let region = store.tripRegionContext.region {
+            hasAutoFittedCamera = true
+            visibleRegion = region
+            camera = .region(region)
+        }
+    }
+
+    private func resetCameraForTripChange() {
+        hasAutoFittedCamera = false
+        visibleRegion = nil
+        selectedID = nil
+        clusterSelection = nil
+        lastTappedClusterID = nil
+        if visible.isEmpty && store.tripRegionContext.region == nil {
+            camera = .automatic
+        }
+        fitInitialCameraIfNeeded()
     }
 
     /// Builds a stable initial fit without leaving MapKit in content-driven automatic mode.

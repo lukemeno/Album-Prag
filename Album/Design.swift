@@ -73,6 +73,9 @@ struct AlbumPhoto: View {
         .task(id: key) {
             unavailablePreviewKey = key
             unavailablePreview = nil
+            #if DEBUG
+            guard ProcessInfo.processInfo.environment["ALBUM_TEST_STORE"] == nil else { return }
+            #endif
             let coordinate = CLLocationCoordinate2D(latitude: resolvedFor.latitude, longitude: resolvedFor.longitude)
             guard let data = await PlaceImageResolver.mapSnapshot(at: coordinate), !Task.isCancelled,
                   unavailablePreviewKey == key else { return }

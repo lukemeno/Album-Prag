@@ -1,4 +1,4 @@
-# Übergabe · Stand 22.10.2026
+# Übergabe · Stand 23.10.2026
 
 Zuerst `PROJECT-MAP.md` und die jüngsten Einträge in `PROGRESS.md` lesen. Diese Datei ergänzt sie.
 
@@ -57,3 +57,13 @@ Sol plante und prüfte, zwei Luna-Agenten setzten um: Ausgaben bearbeiten/lösch
 Xcode-Build-/Paketcache unter `~/Library/Developer/Xcode/DerivedData/` verwenden. Der frühere Cache unter Documents/Codex enthält ausgelagerte (`dataless`) Paketdateien und blockierte die Paketauflösung; er ist keine zuverlässige Build-Grundlage. Testresultate ebenfalls außerhalb ausgelagerter Dokumentordner ablegen.
 
 Final geprüft: 196 Unit-Tests (4 übersprungen, 0 Fehler) und 10 UI-Tests bestanden; einschließlich Korrektur/Löschen von Ausgaben mit Neustart und Zustimmung/ausdrücklicher Tageswahl mit Neustart. Lokaler main-Commit, noch kein Push dieser Verbesserungsrunde.
+
+
+## Globale Ortsbilder · 23.10.2026 (lokal, Veröffentlichung ausstehend)
+
+- Umsetzung auf `main`: Ortsauflösung vor Bildsuche, globale Suchregion aus Reise/Unterkünften/bestätigten Orten, Zielname ohne Koordinaten als Suchkontext. Kein fester Prag-Rückfall in diesen Such- und Kartenpfaden.
+- Ideenliste: „Bilder ergänzen“, Ortsauswahl bei mehreren Treffern, Bearbeiten allgemeiner Ideen wie „Ramen“, Retry bei Fehlern. Nutzerbilder bleiben erhalten; veraltete automatische Wikimedia-Bilder werden mit Fotoauswahlversion 4 neu geprüft.
+- Wikimedia: Englisch + validierte Gerätesprache + erkannte Region-Sprache (max. 3); kanonische Namen vor bloßen Alias-Treffern. Mehrere kanonische gleichnamige Nachbarorte bleiben ohne eindeutigen Adressbeleg ungeklärt. Quelle/Urheber/Lizenz werden mitgeführt. Kein neuer bezahlter Anbieter aktiviert.
+- Nach erfolgreicher aktueller leerer Bildantwort werden alte automatische v3-Fotos entfernt; bei Netzfehlern bleiben sie für Retry erhalten. Manuelle Auswahl bleibt geschützt. Abbruch und veraltete Antworten ändern keine neueren Nutzereingaben.
+- **Noch nicht veröffentlicht:** kein Push, kein Supabase-Deploy. Zuerst Backend mit Fotoauswahlversion 4 veröffentlichen, dann neuen Client verteilen; sonst akzeptiert der v4-Client alte v3-Serverantworten nicht automatisch. `place-photo` UND Verbraucher der geänderten gemeinsamen Module (`place-enrichment`, `place-enrichment-worker`) vor Deployment auf Live-Drift prüfen. Den Hinweis zu Live-Snapshots vom 21.10. beachten.
+- Tests und Root-Simulatorabnahme stehen im neuesten `PROGRESS.md`-Checkpoint. Nachweis im Codex-Chat unter `outputs/globale-ortsbilder/`; Simulator-Testdaten sind isoliert, keine echte Reise synchronisiert.

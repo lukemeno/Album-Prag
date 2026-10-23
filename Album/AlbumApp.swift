@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 @main struct AlbumApp: App {
 #if DEBUG && targetEnvironment(simulator)
@@ -19,7 +20,53 @@ import SwiftUI
             let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             let root = support.appendingPathComponent("AlbumUITests", isDirectory: true)
                 .appendingPathComponent(safeName, isDirectory: true)
-            return AlbumStore(root: root)
+            let existed = FileManager.default.fileExists(atPath: root.appendingPathComponent("album.json").path)
+            let store = AlbumStore(root: root)
+            if ProcessInfo.processInfo.environment["ALBUM_GLOBAL_IMAGE_QA"] == "1" {
+                if !existed {
+                    var trip = TripInfo()
+                    trip.title = "Japan"
+                    trip.destination = "Tokyo"
+                    _ = store.updateTrip(trip)
+                    store.data.places = [
+                        Place(id: "global-tokyo", title: "Tokyo Tower", category: "Sehenswert"),
+                        Place(id: "global-cafe", title: "Café Central", category: "Essen & Trinken"),
+                        Place(id: "global-ramen", title: "Ramen", category: "Essen & Trinken"),
+                        Place(id: "global-retry", title: "Tokyo Skytree", category: "Sehenswert")
+                    ]
+                    _ = store.persist()
+                }
+                var retryCount = 0
+                store.placeResolutionResolver = { place, _ in
+                    let tokyo = PlaceResolutionCandidate(id: "qa-tokyo", title: place.title,
+                        address: "Tokyo, Japan", latitude: 35.6586, longitude: 139.7454, category: place.category)
+                    switch place.id {
+                    case "global-cafe":
+                        let second = PlaceResolutionCandidate(id: "qa-cafe-2", title: "Café Central",
+                            address: "Chiyoda, Tokyo, Japan", latitude: 35.68, longitude: 139.76, category: place.category)
+                        return .needsReview([tokyo, second], .ambiguous)
+                    case "global-ramen": return .needsReview([], .genericConcept)
+                    case "global-retry":
+                        retryCount += 1
+                        if retryCount == 1 { return .failed(retryable: true) }
+                        return .resolved(tokyo)
+                    default: return .resolved(tokyo)
+                    }
+                }
+                store.placeImageSearchResolver = { place, _ in
+                    let fixtureURL = root.appendingPathComponent("qa-photo.png")
+                    if !FileManager.default.fileExists(atPath: fixtureURL.path),
+                       let bytes = UIImage(systemName: "photo")?.pngData() {
+                        try bytes.write(to: fixtureURL)
+                    }
+                    let image = PlaceImage(imageURL: fixtureURL,
+                        sourceURL: URL(string: "https://commons.wikimedia.org/")!, credit: "Lokale Testaufnahme",
+                        provider: .wikimedia, licenseName: "CC0", licenseURL: nil,
+                        providerPlaceID: "qa-local", confidence: .verified, caption: place.title)
+                    return PlaceImageSearchResult(image: image, candidates: [], selectionVersion: PlaceImageService.ranking)
+                }
+            }
+            return store
         }
         #endif
         return AlbumStore()

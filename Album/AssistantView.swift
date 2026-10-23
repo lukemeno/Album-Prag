@@ -22,7 +22,6 @@ struct AssistantView: View {
     @State private var planMessageID: String?
     @State private var location: CLLocationCoordinate2D?
     @State private var locationText: String?
-    @State private var preparingPlaceID: String?
     @State private var savedIdeaCounts: [String: String] = [:]
     @FocusState private var inputFocused: Bool
 
@@ -233,8 +232,7 @@ struct AssistantView: View {
                 if !place.address.isEmpty { Text(place.address).font(.footnote).foregroundStyle(Stitch.inkSoft) }
             }
             Spacer(minLength: 0)
-            if preparingPlaceID == place.id { ProgressView() }
-            else { Button("Prüfen") { prepare(place) }.buttonStyle(TextActionButton()) }
+            Button("Prüfen") { prepare(place) }.buttonStyle(TextActionButton())
         }
         .stitchCard()
     }
@@ -298,8 +296,11 @@ struct AssistantView: View {
                     Task {
                         let coordinate = await session.useLocation()
                         await MainActor.run {
-                            location = coordinate ?? store.hotelCoordinate
-                            locationText = coordinate == nil ? "Ausgangspunkt der Reise" : "Aktueller Standort"
+                            let tripRegion = store.tripRegionContext.region
+                            location = coordinate ?? tripRegion?.center
+                            locationText = coordinate != nil ? "Aktueller Standort"
+                                : tripRegion == nil ? "Kein Standort ausgewählt"
+                                : "Reiseziel verwenden"
                         }
                     }
                 } label: { Label(locationText ?? "Standort verwenden", systemImage: "location") }
@@ -340,21 +341,10 @@ struct AssistantView: View {
     }
 
     private func prepare(_ place: AssistantPlace) {
-        guard preparingPlaceID == nil else { return }
         if let existingID = place.existingID, store.places.contains(where: { $0.id == existingID }) { selectedPlaceID = existingID; return }
-        preparingPlaceID = place.id
-        Task { @MainActor in
-            defer { preparingPlaceID = nil }
-            let request = MKLocalSearch.Request()
-            request.naturalLanguageQuery = place.query.isEmpty ? [place.title, place.address].filter { !$0.isEmpty }.joined(separator: ", ") : place.query
-            request.region = MKCoordinateRegion(center: store.hotelCoordinate, span: .init(latitudeDelta: 0.3, longitudeDelta: 0.3))
-            let result = try? await MKLocalSearch(request: request).start()
-            let item = result?.mapItems.first
-            var prepared = Place(title: place.title, note: "Vom Assistenten vorgeschlagen", sourceURL: place.sourceURL ?? "", category: "Idee", author: store.me)
-            prepared.address = item?.placemark.title ?? place.address
-            if let coordinate = item?.placemark.coordinate { prepared.lat = coordinate.latitude; prepared.lng = coordinate.longitude }
-            preparedPlace = prepared
-        }
+        var prepared = Place(title: place.title, note: "Vom Assistenten vorgeschlagen", sourceURL: place.sourceURL ?? "", category: "Idee", author: store.me)
+        prepared.address = place.address
+        preparedPlace = prepared
     }
 
     private func applyPlan() {

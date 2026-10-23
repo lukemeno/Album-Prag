@@ -98,6 +98,8 @@
 		F897B7CB54B3AE251A159BE2 /* IBMPlexMono.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 531AAC118D595F7C5919B514 /* IBMPlexMono.ttf */; };
 		FCA136FBC3036EBCCBE9AF4C /* PhotoStack.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88448A04E96CFF5D69BA1DA3 /* PhotoStack.swift */; };
 		FDA660D58136EC478A8E5C2F /* NativePrototypeUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 732792AA4B23EAD799FBA189 /* NativePrototypeUITests.swift */; };
+		8EBD13C41C5363E3AE9C3753 /* PlaceResolutionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3F3115183A4AEA3AA2249C2 /* PlaceResolutionTests.swift */; };
+		6CF51F4C171C343B8E7E27B0 /* PlaceImageServiceRegionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E9100E4BE1E772D69FD21C1 /* PlaceImageServiceRegionTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -234,6 +236,8 @@
 		F32482DDE0694185576CB152 /* Fraunces.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Fraunces.ttf; sourceTree = "<group>"; };
 		F6432A860A31F49D39112CBF /* TravelExpense.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TravelExpense.swift; sourceTree = "<group>"; };
 		F8C49AF297EF78BFCEE76339 /* NativeTravelExtras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeTravelExtras.swift; sourceTree = "<group>"; };
+		F3F3115183A4AEA3AA2249C2 /* PlaceResolutionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceResolutionTests.swift; sourceTree = "<group>"; };
+		0E9100E4BE1E772D69FD21C1 /* PlaceImageServiceRegionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceImageServiceRegionTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -316,6 +320,8 @@
 				18B48EB7B1E493C6787D0A3E /* SyncRegressionTests.swift */,
 				46021CE701E10785D2D5988D /* TravelExpenseTests.swift */,
 				D7B31B8F1432C7E322ABAC8E /* TripCalendarTests.swift */,
+				0E9100E4BE1E772D69FD21C1 /* PlaceImageServiceRegionTests.swift */,
+				F3F3115183A4AEA3AA2249C2 /* PlaceResolutionTests.swift */,
 				59B8A29D9DFA3799069A7E19 /* TripMigrationTests.swift */,
 			);
 			path = AlbumTests;
@@ -686,6 +692,8 @@
 				B5D6FBE21EDFAA41B793135D /* SyncRegressionTests.swift in Sources */,
 				49E29E43D7BCBF67A1B73430 /* TravelExpenseTests.swift in Sources */,
 				CEFF067573D0D3E3ED4AFBF8 /* TripCalendarTests.swift in Sources */,
+				6CF51F4C171C343B8E7E27B0 /* PlaceImageServiceRegionTests.swift in Sources */,
+				8EBD13C41C5363E3AE9C3753 /* PlaceResolutionTests.swift in Sources */,
 				09CB9B05BA79027EF71A640E /* TripMigrationTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

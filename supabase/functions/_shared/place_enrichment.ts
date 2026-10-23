@@ -7,7 +7,7 @@ export type EnrichmentStatus = typeof ENRICHMENT_STATUSES[number];
 export type EnrichmentPlace = { id: string; title: string; category: string; address: string; source_url: string; latitude: number | null; longitude: number | null };
 export type EnrichmentRequest = { trip_id: string | null; google_photos: boolean; place: EnrichmentPlace; region: { name: string; latitude: number | null; longitude: number | null } };
 export type PlaceImage = { image_url: string; source_url: string; credit: string; provider: "wikimedia" | "sourcePreview"; license_name?: string; license_url?: string; provider_place_id?: string | null; confidence: "verified" | "suggested"; caption?: string };
-export type EnrichmentResult = { resolution: null | { provider: "google" | "wikidata" | "existing"; provider_place_id: string | null; latitude: number; longitude: number; confidence: "verified" }; image: PlaceImage | null; candidates: PlaceImage[]; selection_version: 3; review_reason: string | null };
+export type EnrichmentResult = { resolution: null | { provider: "google" | "wikidata" | "existing"; provider_place_id: string | null; latitude: number; longitude: number; confidence: "verified" }; image: PlaceImage | null; candidates: PlaceImage[]; selection_version: 4; review_reason: string | null };
 export class EnrichmentError extends Error { constructor(readonly code: string, message: string, readonly status = 400) { super(message); } }
 
 const object = (v: unknown): Record<string, unknown> => {
@@ -345,7 +345,7 @@ export function createPlaceEnrichmentWorker(deps: WorkerDependencies) {
         let latitude = input.place.latitude, longitude = input.place.longitude;
         if (latitude === null || input.google_photos) {
           if (!hasLocationContext(input)) {
-            const result: EnrichmentResult = { resolution: null, image: null, candidates: [], selection_version: 3, review_reason: "insufficient_location_context" };
+            const result: EnrichmentResult = { resolution: null, image: null, candidates: [], selection_version: 4, review_reason: "insufficient_location_context" };
             await deps.complete(job, result, "needs_review"); processed++; continue;
           }
           const key = deps.googleKey();
@@ -360,10 +360,10 @@ export function createPlaceEnrichmentWorker(deps: WorkerDependencies) {
           if (hasCoordinates) candidates = candidates.filter(candidate => distanceMeters(input.place.latitude!, input.place.longitude!, candidate.latitude, candidate.longitude) <= 1500);
           const matches = selectUnambiguousMatch(rankMatches(candidates, input.place, input.region));
           if (matches.ambiguous && !hasCoordinates) {
-            const result: EnrichmentResult = { resolution: null, image: null, candidates: [], selection_version: 3, review_reason: "multiple_locations" };
+            const result: EnrichmentResult = { resolution: null, image: null, candidates: [], selection_version: 4, review_reason: "multiple_locations" };
             await deps.complete(job, result, "needs_review"); processed++; continue;
           }
-          if (!matches.selected && !hasCoordinates) { const result: EnrichmentResult = { resolution: null, image: null, candidates: [], selection_version: 3, review_reason: null }; await deps.complete(job, result, "not_found"); processed++; continue; }
+          if (!matches.selected && !hasCoordinates) { const result: EnrichmentResult = { resolution: null, image: null, candidates: [], selection_version: 4, review_reason: null }; await deps.complete(job, result, "not_found"); processed++; continue; }
           if (matches.selected) {
             latitude = matches.selected.latitude; longitude = matches.selected.longitude;
             resolution = { provider: "google", provider_place_id: matches.selected.id, latitude, longitude, confidence: "verified" };
@@ -377,7 +377,7 @@ export function createPlaceEnrichmentWorker(deps: WorkerDependencies) {
           if (preview) safePhotos.push(preview);
         }
         const needsImageReview = !verified;
-        const result: EnrichmentResult = { resolution, image: verified, candidates: safePhotos, selection_version: 3, review_reason: needsImageReview ? "no_verified_photo" : null };
+        const result: EnrichmentResult = { resolution, image: verified, candidates: safePhotos, selection_version: 4, review_reason: needsImageReview ? "no_verified_photo" : null };
         await deps.complete(job, result, needsImageReview ? "needs_review" : "ready"); processed++;
       } catch (error) {
         const code = error instanceof EnrichmentError ? error.code : "provider_unavailable";

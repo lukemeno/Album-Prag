@@ -66,7 +66,7 @@ struct PlaceImageSearchResult: Decodable {
 }
 
 enum PlaceImageService {
-    static let ranking = 3
+    static let ranking = 4
 
     private struct Request: Encodable {
         let selection_version = PlaceImageService.ranking
@@ -75,24 +75,30 @@ enum PlaceImageService {
         let longitude: Double
         let category: String
         let address: String
+        let region: String?
+        let languageCode: String?
+
+        enum CodingKeys: String, CodingKey {
+            case selection_version, title, latitude, longitude, category, address, region
+            case languageCode = "language_code"
+        }
     }
 
-    static func image(for place: Place, bundle: Bundle = .main) async throws -> PlaceImage? {
-        try await images(for: place, bundle: bundle).first
+    static func image(for place: Place, bundle: Bundle = .main, region: String? = nil, languageCode: String? = nil) async throws -> PlaceImage? {
+        try await images(for: place, bundle: bundle, region: region, languageCode: languageCode).first
     }
 
     /// Das Hauptfoto und weitere Fotos für den Foto-Streifen, bestes zuerst.
-    static func images(for place: Place, bundle: Bundle = .main) async throws -> [PlaceImage] {
-        try await search(for: place, bundle: bundle).automaticImages
+    static func images(for place: Place, bundle: Bundle = .main, region: String? = nil, languageCode: String? = nil) async throws -> [PlaceImage] {
+        try await search(for: place, bundle: bundle, region: region, languageCode: languageCode).automaticImages
     }
 
-    static func search(for place: Place, bundle: Bundle = .main) async throws -> PlaceImageSearchResult {
+    static func search(for place: Place, bundle: Bundle = .main, region: String? = nil, languageCode: String? = nil) async throws -> PlaceImageSearchResult {
         guard let coordinate = place.coordinate,
               !place.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return .init(image: nil, candidates: [], selectionVersion: ranking) }
         #if DEBUG
         let environment = ProcessInfo.processInfo.environment
-        if let store = environment["ALBUM_TEST_STORE"], store.hasPrefix("slot-"),
-           let encoded = environment["ALBUM_IMAGE_RESPONSE_BASE64"] {
+        if let fixture = try testStoreResponse(environment: environment) {
             if let rawDelay = environment["ALBUM_IMAGE_RESPONSE_DELAY_MS"].flatMap(Int.init) {
                 let delay = min(max(rawDelay, 0), 15_000)
                 if delay > 0 {
@@ -102,12 +108,7 @@ enum PlaceImageService {
                     }.value
                 }
             }
-            guard let data = Data(base64Encoded: encoded) else { throw CocoaError(.fileReadCorruptFile) }
-            return try JSONDecoder().decode(PlaceImageSearchResult.self, from: data)
-        }
-        if let store = environment["ALBUM_TEST_STORE"], store.hasPrefix("slot-"), let filename = environment["ALBUM_IMAGE_RESPONSE"] {
-            let file = FileManager.default.temporaryDirectory.appendingPathComponent(store).appendingPathComponent(filename)
-            return try JSONDecoder().decode(PlaceImageSearchResult.self, from: Data(contentsOf: file))
+            return fixture
         }
         #endif
         let client = try SupabaseConfiguration.client(bundle: bundle)
@@ -119,10 +120,25 @@ enum PlaceImageService {
                 latitude: coordinate.latitude,
                 longitude: coordinate.longitude,
                 category: place.category,
-                address: place.address
+                address: place.address,
+                region: region,
+                languageCode: languageCode
             ))
         )
         return response
+    }
+
+    static func testStoreResponse(environment: [String: String]) throws -> PlaceImageSearchResult? {
+        guard let store = environment["ALBUM_TEST_STORE"] else { return nil }
+        if let encoded = environment["ALBUM_IMAGE_RESPONSE_BASE64"] {
+            guard let data = Data(base64Encoded: encoded) else { throw CocoaError(.fileReadCorruptFile) }
+            return try JSONDecoder().decode(PlaceImageSearchResult.self, from: data)
+        }
+        if let filename = environment["ALBUM_IMAGE_RESPONSE"] {
+            let file = FileManager.default.temporaryDirectory.appendingPathComponent(store).appendingPathComponent(filename)
+            return try JSONDecoder().decode(PlaceImageSearchResult.self, from: Data(contentsOf: file))
+        }
+        return .init(image: nil, candidates: [], selectionVersion: ranking)
     }
 
     /// Weitere Fotos neben dem Hauptfoto: höchstens zwei, ohne Doppelte.

@@ -3,10 +3,11 @@ import { choosePlace, firstArray, validCoordinate, type PlaceCandidate } from ".
 import { resolveWikimedia, WikimediaUnavailable } from "../_shared/wikimedia_photos.ts";
 
 import { createPhotoCache } from "../_shared/place_photo_cache.ts";
+import { cleanPhotoRegion, photoCacheKey, supportedWikipediaLanguage } from "../_shared/photo_context.ts";
 
 const cachedWikimedia = createPhotoCache(async key => {
-  const [title, category, latitude, longitude, address, region] = JSON.parse(key);
-  return await resolveWikimedia(title, category, latitude, longitude, address, region);
+  const [title, category, latitude, longitude, address, region, languageCode] = JSON.parse(key);
+  return await resolveWikimedia(title, category, latitude, longitude, address, region, languageCode);
 });
 
 Deno.serve(async request => {
@@ -17,24 +18,25 @@ Deno.serve(async request => {
     const title = typeof body.title === "string" ? body.title.trim() : "";
     const address = typeof body.address === "string" ? body.address.trim() : "";
     const category = typeof body.category === "string" ? body.category : "Idee";
-    // Reiseregion steuert die Wikipedia-Sprache; ältere App-Versionen senden keine und sind Prag-Alben.
-    const region = typeof body.region === "string" && body.region.trim() ? body.region.trim().slice(0, 200) : "Prag";
+    // Ältere Clients liefern keinen Kontext: dann bleibt die Suche neutral und koordinatenbasiert.
+    const region = cleanPhotoRegion(body.region);
+    const languageCode = supportedWikipediaLanguage(body.language_code);
     const latitude = Number(body.latitude);
     const longitude = Number(body.longitude);
     if (!title || !validCoordinate(latitude, longitude)) return json({ error: "Ort oder Koordinaten fehlen" }, 400);
 
-    const photos = await cachedWikimedia(JSON.stringify([title, category, latitude, longitude, address, region]));
+    const photos = await cachedWikimedia(photoCacheKey({ title, category, latitude, longitude, address, region, languageCode }));
     const candidates = body.selection_version >= 3 ? photos : photos.filter(photo => photo.confidence === "verified");
     const image = photos.find(photo => photo.confidence === "verified");
-    if (image) return json({ image, candidates, selection_version: 3 });
+    if (image) return json({ image, candidates, selection_version: 4 });
 
     const enabled = Deno.env.get("TRIPADVISOR_TERRA_ENABLED")?.toLowerCase() === "true";
     const key = Deno.env.get("TRIPADVISOR_TERRA_API_KEY");
-    if (enabled && key) {
-      const tripadvisor = await resolveTripadvisor(title, address, category, latitude, longitude, key).catch(() => null);
-      if (tripadvisor && body.selection_version >= 3) return json({ image: null, candidates: [{ ...tripadvisor, confidence: "suggested" }, ...photos], selection_version: 3 });
+    if (enabled && key && region) {
+      const tripadvisor = await resolveTripadvisor(title, address, category, latitude, longitude, key, region, languageCode).catch(() => null);
+      if (tripadvisor && body.selection_version >= 3) return json({ image: null, candidates: [{ ...tripadvisor, confidence: "suggested" }, ...photos], selection_version: 4 });
     }
-    return json({ image: null, candidates, selection_version: 3 });
+    return json({ image: null, candidates, selection_version: 4 });
   } catch (error) {
     if (error instanceof WikimediaUnavailable) {
       console.warn("Place photo source unavailable", error.host, error.operation, error.reason);
@@ -46,19 +48,20 @@ Deno.serve(async request => {
   }
 });
 
-async function resolveTripadvisor(title: string, address: string, category: string, latitude: number, longitude: number, key: string) {
+async function resolveTripadvisor(title: string, address: string, category: string, latitude: number, longitude: number, key: string, region: string, languageCode?: string) {
   const search = new URL("https://terra.tripadvisor.com/api/locations/search");
-  search.searchParams.set("query", address ? `${title}, ${address}` : title);
-  search.searchParams.set("country_code", "CZ");
-  search.searchParams.set("geo_name", "Prague");
-  search.searchParams.set("locale", "de-DE");
+  search.searchParams.set("query", [title, address, region].filter(Boolean).join(", "));
+  if (languageCode) search.searchParams.set("locale", languageCode);
   search.searchParams.set("size", "10");
   search.searchParams.set("category", category === "Essen & Trinken" ? "RESTAURANT" : category === "Unterkunft" ? "HOTEL" : "ATTRACTION");
   const response = await terra(search, key);
   if (!response) return null;
   const place = choosePlace(firstArray(response).flatMap(tripadvisorCandidate), title, latitude, longitude);
   if (!place) return null;
-  const photos = await terra(new URL(`https://terra.tripadvisor.com/api/locations/${encodeURIComponent(place.id)}/photos?locale=de-DE&size=5`), key);
+  const photosURL = new URL(`https://terra.tripadvisor.com/api/locations/${encodeURIComponent(place.id)}/photos`);
+  photosURL.searchParams.set("size", "5");
+  if (languageCode) photosURL.searchParams.set("locale", languageCode);
+  const photos = await terra(photosURL, key);
   const photo = firstImageURL(photos);
   if (!photo) return null;
   return {

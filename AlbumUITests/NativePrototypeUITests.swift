@@ -2,13 +2,17 @@ import XCTest
 
 final class NativePrototypeUITests: XCTestCase {
     override func setUp() { continueAfterFailure = false }
-    private func launch(reduced: Bool = false) -> XCUIApplication {
+    private func launch(reduced: Bool = false, globalImages: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment["ALBUM_TEST_STORE"] = "slot-native-port-\(UUID().uuidString)"
         app.launchEnvironment["ALBUM_MY_NAME"] = "QA"
         app.launchEnvironment["ALBUM_TODAY"] = "2026-10-06"
         app.launchEnvironment["ALBUM_ASSISTANT_FIXTURE"] = "Antwort aus dem Testalbum."
         if reduced { app.launchEnvironment["ALBUM_QA_REDUCE_MOTION"] = "1" }
+        if globalImages {
+            app.launchEnvironment["ALBUM_EMPTY_TEST_STORE"] = "1"
+            app.launchEnvironment["ALBUM_GLOBAL_IMAGE_QA"] = "1"
+        }
         app.launchArguments += ["-AppleLanguages", "(de)", "-AppleLocale", "de_DE"]
         app.launch()
         return app
@@ -170,6 +174,31 @@ final class NativePrototypeUITests: XCTestCase {
         openExpenses()
         XCTAssertTrue(app.staticTexts["Noch keine Ausgabe eingetragen"].waitForExistence(timeout: 5))
         capture("expense-deleted")
+    }
+
+    func testGlobalImageResolutionReviewAndRetry() {
+        let app = launch(globalImages: true)
+        tap("native-trip-prag", in: app)
+        tap("native-tab-ideas", in: app)
+        tap("native-refresh-images", in: app)
+        XCTAssertTrue(app.buttons["native-resolve-global-cafe"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts["native-image-status-global-ramen"].exists)
+        XCTAssertEqual(app.staticTexts["native-image-status-global-ramen"].label, "Ort bitte ergänzen")
+        tap("native-resolve-global-cafe", in: app)
+        tap("native-resolution-candidate-qa-tokyo", in: app)
+        XCTAssertTrue(app.buttons["native-retry-image-global-retry"].waitForExistence(timeout: 5))
+        tap("native-retry-image-global-retry", in: app)
+        let retry = app.buttons["native-retry-image-global-retry"]
+        let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: retry)
+        XCTAssertEqual(XCTWaiter.wait(for: [gone], timeout: 8), .completed)
+        XCTAssertFalse(app.buttons["native-resolve-global-cafe"].exists)
+        capture("global-image-results")
+        app.terminate(); app.launch()
+        tap("native-trip-prag", in: app)
+        tap("native-tab-ideas", in: app)
+        XCTAssertTrue(app.buttons["native-idea-global-tokyo"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["native-resolve-global-cafe"].exists)
+        capture("global-image-relaunch")
     }
 
     func testMemoriesHasSeparateCameraAndLibraryActions() {

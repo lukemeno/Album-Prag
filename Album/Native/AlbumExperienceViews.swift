@@ -262,8 +262,11 @@ struct NativePlanView: View {
                         .stitchCard()
                     } else {
                         ForEach(Array(stops.enumerated()), id: \.element.id) { index, stop in
-                            let previous = index == 0 ? store.hotelCoordinate : (stops[index - 1].place.coordinate ?? store.hotelCoordinate)
-                            let walkingMinutes = stop.place.coordinate.map { DayPlanGenerator.walkingMinutes(DayPlanGenerator.distance(previous, $0)) }
+                            let tripAnchor = store.tripAnchorCoordinate
+                            let previous = index == 0 ? tripAnchor : (stops[index - 1].place.coordinate ?? tripAnchor)
+                            let walkingMinutes = previous.flatMap { origin in
+                                stop.place.coordinate.map { DayPlanGenerator.walkingMinutes(DayPlanGenerator.distance(origin, $0)) }
+                            }
                             NativeTimelineRow(number: index + 1, stop: stop, root: store.root, walkingMinutes: walkingMinutes,
                                               onOpen: { sheet = .detail(stop.place.id) },
                                               onVisited: { var copy = stop.place; copy.visited = true; _ = store.upsert(copy) },
@@ -396,6 +399,7 @@ struct NativeIdeasView: View {
     @Environment(AlbumStore.self) private var store
     @Binding var sheet: NativeSheet?
     @State private var category = "Alle"
+    @State private var imageRefreshTask: Task<Void, Never>?
     private let categories = ["Alle", "Essen & Trinken", "Sehenswert", "Aussicht", "Shopping", "Idee"]
 
     private var ideas: [Place] {
@@ -426,6 +430,15 @@ struct NativeIdeasView: View {
                         Image(systemName: "ellipsis").frame(width: Stitch.Size.touch, height: Stitch.Size.touch)
                     }
                     .accessibilityLabel("Ideenbereiche")
+                    Button {
+                        imageRefreshTask?.cancel()
+                        imageRefreshTask = Task { await store.refreshPlaceImages(force: false) }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                            .frame(width: Stitch.Size.touch, height: Stitch.Size.touch)
+                    }
+                    .accessibilityLabel("Bilder ergänzen")
+                    .accessibilityIdentifier("native-refresh-images")
                     Button { sheet = .add(Place(title: "", author: store.me)) } label: { Image(systemName: "plus") }
                         .buttonStyle(HeaderIconButton())
                         .accessibilityLabel("Neue Idee")
@@ -464,6 +477,7 @@ struct NativeIdeasView: View {
         }
         .scrollIndicators(.hidden)
         .background(Stitch.paper.ignoresSafeArea())
+        .onDisappear { imageRefreshTask?.cancel() }
     }
 }
 
@@ -473,44 +487,148 @@ private struct NativeIdeaRow: View {
     let store: AlbumStore
     @Binding var sheet: NativeSheet?
     @State private var addingDay = false
+    @State private var resolutionCandidates: [PlaceResolutionCandidate]?
+    @State private var imageTask: Task<Void, Never>?
     var body: some View {
-        Button { sheet = .detail(place.id) } label: {
-            HStack(spacing: Stitch.Space.s) {
-                AlbumPhoto(asset: place.displayImage, root: root, thumbnailWidth: 160)
-                    .frame(width: 64, height: 64).clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(place.title).font(.body.weight(.semibold)).foregroundStyle(Stitch.ink).lineLimit(2)
-                    Text(place.category).font(.caption.weight(.medium)).foregroundStyle(Stitch.red)
-                    if !place.sourceURL.isEmpty { Text(place.sourceLabel).font(.caption).foregroundStyle(Stitch.inkSoft) }
+        VStack(alignment: .leading, spacing: Stitch.Space.xs) {
+            Button { sheet = .detail(place.id) } label: {
+                HStack(spacing: Stitch.Space.s) {
+                    AlbumPhoto(asset: place.displayImage, root: root, thumbnailWidth: 160)
+                        .frame(width: 64, height: 64).clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(place.title).font(.body.weight(.semibold)).foregroundStyle(Stitch.ink).lineLimit(2)
+                        Text(place.category).font(.caption.weight(.medium)).foregroundStyle(Stitch.red)
+                        if !place.sourceURL.isEmpty { Text(place.sourceLabel).font(.caption).foregroundStyle(Stitch.inkSoft) }
+                    }
+                    Spacer(minLength: 0)
+                    Menu {
+                        Button("Für mich", systemImage: "checkmark") { approve() }
+                        Button("Auf Tag legen", systemImage: "calendar") { addingDay = true }
+                        Button("Bearbeiten", systemImage: "pencil") { sheet = .add(place) }
+                        Button("Ausblenden", systemImage: "eye.slash") { store.deferPlace(place) }
+                        Button("Löschen", systemImage: "trash", role: .destructive) { var copy = place; copy.deleted = true; _ = store.upsert(copy) }
+                    } label: {
+                        Image(systemName: "ellipsis.circle").font(.title3).foregroundStyle(Stitch.inkSoft).frame(width: Stitch.Size.touch, height: Stitch.Size.touch)
+                    }
+                    .accessibilityLabel("Mehr für \(place.title)")
                 }
-                Spacer(minLength: 0)
-                Menu {
-                    Button("Für mich", systemImage: "checkmark") { approve() }
-                    Button("Auf Tag legen", systemImage: "calendar") { addingDay = true }
-                    Button("Bearbeiten", systemImage: "pencil") { sheet = .add(place) }
-                    Button("Ausblenden", systemImage: "eye.slash") { store.deferPlace(place) }
-                    Button("Löschen", systemImage: "trash", role: .destructive) { var copy = place; copy.deleted = true; _ = store.upsert(copy) }
-                } label: {
-                    Image(systemName: "ellipsis.circle").font(.title3).foregroundStyle(Stitch.inkSoft).frame(width: Stitch.Size.touch, height: Stitch.Size.touch)
-                }
-                .accessibilityLabel("Mehr für \(place.title)")
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(Stitch.Space.s)
+                .background(Stitch.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Stitch.rule))
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(Stitch.Space.s)
-            .background(Stitch.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Stitch.rule))
-        }
-        .buttonStyle(.plain)
-        .contextMenu {
-            Button("Für mich", systemImage: "checkmark", action: approve)
-            Button("Ausblenden", systemImage: "eye.slash") { store.deferPlace(place) }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(place.title), \(place.category)")
+            .accessibilityIdentifier("native-idea-\(place.id)")
+            .contextMenu {
+                Button("Für mich", systemImage: "checkmark", action: approve)
+                Button("Ausblenden", systemImage: "eye.slash") { store.deferPlace(place) }
+            }
+            imageStatusControl
+                .sheet(isPresented: Binding(
+                    get: { resolutionCandidates != nil },
+                    set: { if !$0 { resolutionCandidates = nil } }
+                )) {
+                    resolutionSheet
+                }
         }
         .sheet(isPresented: $addingDay) {
             NativeDayPicker(place: place, store: store) { addingDay = false }
                 .presentationDetents([.medium])
         }
-        .accessibilityLabel("\(place.title), \(place.category)")
-        .accessibilityIdentifier("native-idea-\(place.id)")
+        .onDisappear { imageTask?.cancel() }
+    }
+
+    @ViewBuilder private var imageStatusControl: some View {
+        switch store.placeImageStatus(for: place.id) {
+        case .idle, .ready:
+            EmptyView()
+        case .resolvingPlace:
+            imageStatus("Ort wird gesucht …")
+        case .loadingPhoto:
+            imageStatus("Bild wird gesucht …")
+        case .notFound:
+            HStack {
+                imageStatus("Kein passender Treffer")
+                Spacer()
+                editPlaceButton
+            }
+        case .needsReview(let candidates, _):
+            if candidates.isEmpty {
+                HStack {
+                    imageStatus("Ort bitte ergänzen")
+                    Spacer()
+                    editPlaceButton
+                }
+            } else {
+                HStack {
+                    imageStatus("Ort bitte auswählen")
+                    Spacer()
+                    Button("Ort auswählen") { resolutionCandidates = candidates }
+                        .font(.caption.weight(.semibold))
+                        .accessibilityIdentifier("native-resolve-\(place.id)")
+                }
+            }
+        case .failed(let retryable):
+            if retryable {
+                HStack {
+                    imageStatus("Suche fehlgeschlagen")
+                    Spacer()
+                    Button("Erneut versuchen") { retryImage() }
+                        .font(.caption.weight(.semibold))
+                        .accessibilityIdentifier("native-retry-image-\(place.id)")
+                }
+            } else {
+                HStack {
+                    imageStatus("Kein passender Treffer")
+                    Spacer()
+                    editPlaceButton
+                }
+            }
+        }
+    }
+
+    private func imageStatus(_ text: String) -> some View {
+        Text(text)
+            .font(.caption)
+            .foregroundStyle(Stitch.inkSoft)
+            .accessibilityIdentifier("native-image-status-\(place.id)")
+    }
+
+    private var editPlaceButton: some View {
+        Button("Ort bearbeiten") { sheet = .add(place) }
+            .font(.caption.weight(.semibold))
+            .accessibilityIdentifier("native-resolve-\(place.id)")
+    }
+
+    private var resolutionSheet: some View {
+        NavigationStack {
+            List(resolutionCandidates ?? []) { candidate in
+                Button {
+                    Task {
+                        await store.acceptPlaceResolution(placeID: place.id, candidate: candidate)
+                        resolutionCandidates = nil
+                    }
+                } label: {
+                    VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
+                        Text(candidate.title).font(.body.weight(.medium)).foregroundStyle(Stitch.ink)
+                        if !candidate.address.isEmpty {
+                            Text(candidate.address).font(.caption).foregroundStyle(Stitch.inkSoft)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                }
+                .accessibilityIdentifier("native-resolution-candidate-\(candidate.id)")
+            }
+            .navigationTitle("Ort auswählen")
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { resolutionCandidates = nil } } }
+        }
+    }
+
+    private func retryImage() {
+        imageTask?.cancel()
+        imageTask = Task { await store.refreshPlaceImage(id: place.id, force: true) }
     }
 
     private func approve() {

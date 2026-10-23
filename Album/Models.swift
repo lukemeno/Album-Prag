@@ -1,5 +1,69 @@
 import Foundation
 import CoreLocation
+import MapKit
+
+enum TripRegionSource: Equatable {
+    case sameDayAccommodation
+    case accommodation
+    case confirmedPlaces
+    case destinationOnly
+    case none
+}
+
+struct TripRegionContext: Equatable {
+    var name: String?
+    var region: MKCoordinateRegion?
+    var preferredLanguageCode: String?
+    var source: TripRegionSource
+
+    static func == (lhs: TripRegionContext, rhs: TripRegionContext) -> Bool {
+        guard lhs.name == rhs.name,
+              lhs.preferredLanguageCode == rhs.preferredLanguageCode,
+              lhs.source == rhs.source else { return false }
+        switch (lhs.region, rhs.region) {
+        case (nil, nil): return true
+        case let (left?, right?):
+            return left.center.latitude == right.center.latitude
+                && left.center.longitude == right.center.longitude
+                && left.span.latitudeDelta == right.span.latitudeDelta
+                && left.span.longitudeDelta == right.span.longitudeDelta
+        default: return false
+        }
+    }
+}
+
+struct PlaceResolutionCandidate: Identifiable, Equatable {
+    let id: String
+    let title: String
+    let address: String
+    let latitude: Double
+    let longitude: Double
+    let category: String?
+}
+
+enum PlaceResolutionReviewReason: Equatable {
+    case ambiguous
+    case genericConcept
+    case weakMatch
+    case missingContext
+}
+
+enum PlaceResolutionOutcome: Equatable {
+    case resolved(PlaceResolutionCandidate)
+    case needsReview([PlaceResolutionCandidate], PlaceResolutionReviewReason)
+    case notFound
+    case failed(retryable: Bool)
+}
+
+enum PlaceImageStatus: Equatable {
+    case idle
+    case resolvingPlace
+    case loadingPhoto
+    case ready
+    case notFound
+    case needsReview([PlaceResolutionCandidate], PlaceResolutionReviewReason)
+    case failed(retryable: Bool)
+}
 
 enum PlaceImageProvider: String, Codable, Equatable {
     case sourcePreview

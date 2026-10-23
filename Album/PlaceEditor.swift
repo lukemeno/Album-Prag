@@ -185,7 +185,7 @@ struct PlaceEditor: View {
         HStack {
             TextField("Ort oder Adresse", text: queryBinding)
                 .font(.body).frame(minHeight: Stitch.Size.touch)
-                .accessibilityLabel("Ort oder Adresse in Prag")
+                .accessibilityLabel("Ort oder Adresse suchen")
                 .submitLabel(.search).onSubmit { search() }
             Button(action: search) {
                 if searching { ProgressView() } else { Image(systemName: "magnifyingglass") }
@@ -306,6 +306,9 @@ struct PlaceEditor: View {
     private func save() {
         let isNew = !store.places.contains { $0.id == place.id }
         guard store.upsert(place) else { return }
+        if place.coordinate == nil {
+            Task { await store.refreshPlaceImage(id: place.id) }
+        }
         // Erst nach einem erfolgreichen Persistieren darf die laufende Arbeit enden.
         endEditor(preservePendingPhoto: true)
         onSaved?(place)
@@ -319,22 +322,38 @@ struct PlaceEditor: View {
         let generation = searchGeneration
         let currentQuery = query
         let currentSourceURL = place.sourceURL
+        let context = store.tripRegionContext(for: place)
         searching = true; searchError = nil
         searchTask = Task { @MainActor in
             defer { if !editorFinished, searchGeneration == generation { searching = false } }
+            if ProcessInfo.processInfo.environment["ALBUM_TEST_STORE"] != nil {
+                guard !Task.isCancelled, !editorFinished, searchGeneration == generation,
+                      self.query == currentQuery, place.sourceURL == currentSourceURL,
+                      store.tripRegionContext(for: place) == context else { return }
+                results = []
+                searchError = "Kein Treffer. Bitte Name oder Adresse ergänzen."
+                return
+            }
             let request = MKLocalSearch.Request()
-            request.naturalLanguageQuery = currentQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-            request.region = MKCoordinateRegion(center: .init(latitude: 50.087, longitude: 14.423), span: .init(latitudeDelta: 0.15, longitudeDelta: 0.15))
+            let trimmedQuery = currentQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+            request.naturalLanguageQuery = context.region == nil
+                ? [trimmedQuery, context.name].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: ", ")
+                : trimmedQuery
+            if let region = context.region {
+                request.region = region
+            } else if let coordinate = place.coordinate {
+                request.region = MKCoordinateRegion(center: coordinate, span: .init(latitudeDelta: 0.15, longitudeDelta: 0.15))
+            }
             do {
                 let response = try await MKLocalSearch(request: request).start()
                 try Task.checkCancellation()
-                guard !editorFinished, searchGeneration == generation, query == currentQuery,
-                      place.sourceURL == currentSourceURL else { return }
+                guard !editorFinished, searchGeneration == generation, self.query == currentQuery,
+                      place.sourceURL == currentSourceURL, store.tripRegionContext(for: place) == context else { return }
                 results = response.mapItems
                 if results.isEmpty { searchError = "Kein Treffer. Bitte Name oder Adresse ergänzen." }
             } catch {
-                guard !editorFinished, !Task.isCancelled, searchGeneration == generation, query == currentQuery,
-                      place.sourceURL == currentSourceURL else { return }
+                guard !editorFinished, !Task.isCancelled, searchGeneration == generation, self.query == currentQuery,
+                      place.sourceURL == currentSourceURL, store.tripRegionContext(for: place) == context else { return }
                 searchError = "Ortssuche fehlgeschlagen. Bitte erneut versuchen."
             }
         }
@@ -453,9 +472,15 @@ struct PlaceEditor: View {
 
     private func resolveImage(force: Bool, generation: Int) async {
         let requested = place
+        let context = store.tripRegionContext(for: requested)
         do {
-            let result = try await PlaceImageService.search(for: requested)
-            guard isCurrentImageOperation(generation), PlaceImageService.matchesRequest(requested, place), requested.image == place.image else { return }
+            let result = try await PlaceImageService.search(
+                for: requested,
+                region: context.name,
+                languageCode: context.preferredLanguageCode
+            )
+            guard isCurrentImageOperation(generation), PlaceImageService.matchesRequest(requested, place), requested.image == place.image,
+                  store.tripRegionContext(for: requested) == context else { return }
             if force, !result.choices.isEmpty {
                 imageChoices = ImageChoices(place: requested, images: result.choices)
                 searchError = nil
@@ -482,7 +507,8 @@ struct PlaceEditor: View {
             }
             searchError = nil
         } catch {
-            guard isCurrentImageOperation(generation), PlaceImageService.matchesRequest(requested, place), requested.image == place.image else { return }
+            guard isCurrentImageOperation(generation), PlaceImageService.matchesRequest(requested, place), requested.image == place.image,
+                  store.tripRegionContext(for: requested) == context else { return }
             if force, PlaceImageService.isUserChosen(requested.image) {
                 imageChoices = ImageChoices(place: requested, images: [])
                 searchError = nil

@@ -270,10 +270,15 @@ struct CollectionDetailView: View {
         let id = livePost.id
         let sharedText = [livePost.text] + store.collectionComments(for: id).compactMap(\.text)
         let candidates = CollectionPlaceExtractor.candidates(title: livePost.displayTitle, caption: livePost.caption, comments: sharedText.compactMap { $0 })
+        let context = store.tripRegionContext
         findingPlaces = true; placesSearched = true; placeCandidates = []
+        guard ProcessInfo.processInfo.environment["ALBUM_TEST_STORE"] == nil else {
+            findingPlaces = false
+            return
+        }
         placeSearchTask = Task { @MainActor in
-            let resolved = await CollectionPlaceResolver.resolve(candidates, around: store.hotelCoordinate, limit: 6)
-            guard !Task.isCancelled, livePost.id == id else { return }
+            let resolved = await CollectionPlaceResolver.resolve(candidates, context: context, limit: 6)
+            guard !Task.isCancelled, livePost.id == id, store.tripRegionContext == context else { return }
             placeCandidates = resolved; findingPlaces = false
         }
     }

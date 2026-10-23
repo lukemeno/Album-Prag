@@ -653,7 +653,7 @@ extension AlbumTests {
     }
 
     func testImageSuggestionsNeverBecomeAutomaticByArrayPosition() throws {
-        let json = #"{"selection_version":3,"image":null,"candidates":[{"image_url":"https://example.com/nearby.jpg","source_url":"https://example.com/source","credit":"A","provider":"wikimedia","confidence":"suggested"}]}"#.data(using: .utf8)!
+        let json = #"{"selection_version":4,"image":null,"candidates":[{"image_url":"https://example.com/nearby.jpg","source_url":"https://example.com/source","credit":"A","provider":"wikimedia","confidence":"suggested"}]}"#.data(using: .utf8)!
         let result = try JSONDecoder().decode(PlaceImageSearchResult.self, from: json)
         XCTAssertEqual(result.choices.count, 1)
         XCTAssertTrue(result.automaticImages.isEmpty)
@@ -667,8 +667,15 @@ extension AlbumTests {
         XCTAssertTrue(result.automaticImages.isEmpty)
     }
 
+    func testVersionThreeVerifiedResponseIsStaleAndNeverAutomatic() throws {
+        let json = #"{"selection_version":3,"image":{"image_url":"https://example.com/old-verified.jpg","source_url":"https://example.com/source","credit":"A","provider":"wikimedia","confidence":"verified"},"candidates":[{"image_url":"https://example.com/old-verified.jpg","source_url":"https://example.com/source","credit":"A","provider":"wikimedia","confidence":"verified"}]}"#.data(using: .utf8)!
+        let result = try JSONDecoder().decode(PlaceImageSearchResult.self, from: json)
+        XCTAssertFalse(result.isCurrent)
+        XCTAssertTrue(result.automaticImages.isEmpty)
+    }
+
     func testAutomaticGalleryExcludesSuggestionsAndDuplicates() throws {
-        let json = #"{"selection_version":3,"image":{"image_url":"https://example.com/verified.jpg","source_url":"https://example.com/source","credit":"A","provider":"wikimedia","confidence":"verified"},"candidates":[{"image_url":"https://example.com/verified.jpg","source_url":"https://example.com/source","credit":"A","provider":"wikimedia","confidence":"verified"},{"image_url":"https://example.com/nearby.jpg","source_url":"https://example.com/source","credit":"B","provider":"wikimedia","confidence":"suggested"}]}"#.data(using: .utf8)!
+        let json = #"{"selection_version":4,"image":{"image_url":"https://example.com/verified.jpg","source_url":"https://example.com/source","credit":"A","provider":"wikimedia","confidence":"verified"},"candidates":[{"image_url":"https://example.com/verified.jpg","source_url":"https://example.com/source","credit":"A","provider":"wikimedia","confidence":"verified"},{"image_url":"https://example.com/nearby.jpg","source_url":"https://example.com/source","credit":"B","provider":"wikimedia","confidence":"suggested"}]}"#.data(using: .utf8)!
         let result = try JSONDecoder().decode(PlaceImageSearchResult.self, from: json)
         XCTAssertEqual(result.choices.count, 2)
         XCTAssertEqual(result.automaticImages.count, 1)

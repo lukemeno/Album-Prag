@@ -1,6 +1,7 @@
 export type PlaceCandidate = {
   id: string;
   name: string;
+  nameKind?: "label" | "alias";
   address?: string;
   latitude: number;
   longitude: number;
@@ -20,7 +21,9 @@ export type WikimediaFile = {
 };
 
 export function choosePlace(candidates: PlaceCandidate[], title: string, latitude: number, longitude: number, address = "") {
-  const ranked = candidates
+  const matchingCandidates = candidatesForQuery(candidates, title, latitude, longitude);
+  if (hasAmbiguousExactPlaces(matchingCandidates, title, latitude, longitude, address)) return undefined;
+  const ranked = matchingCandidates
     .map(candidate => ({ candidate, rank: rankCandidate(candidate, title, latitude, longitude, address) }))
     .filter(value => value.rank !== null)
     .sort((left, right) => left.rank! - right.rank!);
@@ -29,6 +32,44 @@ export function choosePlace(candidates: PlaceCandidate[], title: string, latitud
   const other = ranked.find(value => value.candidate.id !== best.candidate.id);
   if (other && other.rank! - best.rank! < 50) return undefined;
   return best.candidate;
+}
+
+export function hasAmbiguousExactPlaces(candidates: PlaceCandidate[], title: string, latitude: number, longitude: number, address = "") {
+  const query = normalize(title);
+  const matchingCandidates = candidatesForQuery(candidates, title, latitude, longitude);
+  const exact = matchingCandidates
+    .filter(candidate => candidate.id && validCoordinate(candidate.latitude, candidate.longitude)
+      && normalize(candidate.name) === query
+      && distanceMeters(candidate.latitude, candidate.longitude, latitude, longitude) <= 350);
+  const wantedNumbers = houseNumbers(address);
+  if (wantedNumbers.length) {
+    const exactIDs = new Set(exact.map(candidate => candidate.id));
+    const addressNumbersByID = new Map<string, Set<string>>();
+    for (const candidate of exact) {
+      const numbers = houseNumbers(candidate.address ?? "");
+      if (numbers.length) addressNumbersByID.set(candidate.id, new Set([...(addressNumbersByID.get(candidate.id) ?? []), ...numbers]));
+    }
+    const matchingIDs = new Set([...addressNumbersByID]
+      .filter(([, numbers]) => wantedNumbers.some(number => numbers.has(number)))
+      .map(([id]) => id));
+    if (addressNumbersByID.size === exactIDs.size && matchingIDs.size === 1) {
+      return false;
+    }
+  }
+  const exactIDs = new Set(exact.map(candidate => candidate.id));
+  return exactIDs.size > 1;
+}
+
+function candidatesForQuery(candidates: PlaceCandidate[], title: string, latitude: number, longitude: number) {
+  const query = normalize(title);
+  const canonicalExactIDs = new Set(candidates
+    .filter(candidate => candidate.id && candidate.nameKind !== "alias" && normalize(candidate.name) === query
+      && validCoordinate(candidate.latitude, candidate.longitude)
+      && distanceMeters(candidate.latitude, candidate.longitude, latitude, longitude) <= 350)
+    .map(candidate => candidate.id));
+  return canonicalExactIDs.size
+    ? candidates.filter(candidate => canonicalExactIDs.has(candidate.id))
+    : candidates;
 }
 
 export function rankCandidate(candidate: PlaceCandidate, title: string, latitude: number, longitude: number, address = "") {

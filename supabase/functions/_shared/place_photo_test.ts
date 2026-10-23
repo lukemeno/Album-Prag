@@ -1,5 +1,5 @@
 import { assertEquals, assert } from "jsr:@std/assert";
-import { choosePlace, rankCandidate, stripHTML, tokenSimilarity } from "./place_photo.ts";
+import { choosePlace, hasAmbiguousExactPlaces, rankCandidate, stripHTML, tokenSimilarity } from "./place_photo.ts";
 
 Deno.test("exact nearby place wins over a different landmark", () => {
   const place = choosePlace([
@@ -17,6 +17,49 @@ Deno.test("distant and weak matches are rejected", () => {
 Deno.test("name scoring and metadata cleanup are deterministic", () => {
   assert(tokenSimilarity("Café Louvre", "Cafe Louvre") >= 0.99);
   assertEquals(stripHTML("<a href='#'>Anna&nbsp;Novák</a>"), "Anna Novák");
+});
+
+Deno.test("distinct exact-name entities nearby are ambiguous regardless of distance", () => {
+  const candidates = [
+    { id: "station", name: "Cristo Redentor", latitude: -22.9520, longitude: -43.2104 },
+    { id: "monument", name: "Cristo Redentor", latitude: -22.9519, longitude: -43.2105 },
+  ];
+  assertEquals(hasAmbiguousExactPlaces(candidates, "Cristo Redentor", -22.9519, -43.2105), true);
+  assertEquals(hasAmbiguousExactPlaces(candidates, "Cristo Redentor", -22.9519, -43.2105, "Rio de Janeiro, Brasil"), true);
+  assertEquals(choosePlace(candidates, "Cristo Redentor", -22.9519, -43.2105), undefined);
+  assertEquals(choosePlace(candidates, "Cristo Redentor", -22.9519, -43.2105, "Rio de Janeiro, Brasil"), undefined);
+  assertEquals(choosePlace([candidates[1]], "Cristo Redentor", -22.9519, -43.2105)?.id, "monument");
+  const addressed = [
+    { ...candidates[0], address: "Rua do Cosme Velho 513" },
+    { ...candidates[1], address: "Rua Cosme Velho 513" },
+  ];
+  assertEquals(choosePlace(addressed, "Cristo Redentor", -22.9519, -43.2105, "Rua do Cosme Velho 513"), undefined);
+  const distinguishable = [
+    { ...candidates[0], address: "Rua do Cosme Velho 513" },
+    { ...candidates[1], address: "Rua Cosme Velho 500" },
+  ];
+  assertEquals(choosePlace(distinguishable, "Cristo Redentor", -22.9519, -43.2105, "Rua do Cosme Velho 513")?.id, "station");
+  const unknownCloser = [
+    { ...candidates[0], address: "Rua do Cosme Velho 513" },
+    candidates[1],
+  ];
+  assertEquals(choosePlace(unknownCloser, "Cristo Redentor", -22.9519, -43.2105, "Rua do Cosme Velho 513"), undefined);
+});
+
+Deno.test("canonical exact labels outrank another entity's exact alias", () => {
+  const place = choosePlace([
+    { id: "station", name: "TOUR EIFFEL", nameKind: "alias", latitude: 48.8584, longitude: 2.2945, image: "station.jpg" },
+    { id: "tower", name: "Tour Eiffel", nameKind: "label", latitude: 48.8584, longitude: 2.2945 },
+  ], "Tour Eiffel", 48.8584, 2.2945);
+  assertEquals(place?.id, "tower");
+  assertEquals(place?.image, undefined);
+});
+
+Deno.test("exact aliases from multiple entities remain ambiguous when no canonical label matches", () => {
+  assertEquals(choosePlace([
+    { id: "one", name: "Tour Eiffel", nameKind: "alias", latitude: 48.8584, longitude: 2.2945 },
+    { id: "two", name: "Tour Eiffel", nameKind: "alias", latitude: 48.8584, longitude: 2.2945 },
+  ], "Tour Eiffel", 48.8584, 2.2945), undefined);
 });
 
 import { rankPhotos, scorePhoto } from "./place_photo.ts";
