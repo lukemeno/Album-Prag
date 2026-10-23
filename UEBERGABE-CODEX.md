@@ -67,3 +67,8 @@ Final geprüft: 196 Unit-Tests (4 übersprungen, 0 Fehler) und 10 UI-Tests besta
 - Nach erfolgreicher aktueller leerer Bildantwort werden alte automatische v3-Fotos entfernt; bei Netzfehlern bleiben sie für Retry erhalten. Manuelle Auswahl bleibt geschützt. Abbruch und veraltete Antworten ändern keine neueren Nutzereingaben.
 - **Noch nicht veröffentlicht:** kein Push, kein Supabase-Deploy. Zuerst Backend mit Fotoauswahlversion 4 veröffentlichen, dann neuen Client verteilen; sonst akzeptiert der v4-Client alte v3-Serverantworten nicht automatisch. `place-photo` UND Verbraucher der geänderten gemeinsamen Module (`place-enrichment`, `place-enrichment-worker`) vor Deployment auf Live-Drift prüfen. Den Hinweis zu Live-Snapshots vom 21.10. beachten.
 - Tests und Root-Simulatorabnahme stehen im neuesten `PROGRESS.md`-Checkpoint. Nachweis im Codex-Chat unter `outputs/globale-ortsbilder/`; Simulator-Testdaten sind isoliert, keine echte Reise synchronisiert.
+
+
+## Veröffentlichung erfolgt · 23.10.2026
+
+Das oben als offen dokumentierte Bild-Backend ist nach ausdrücklichem Nutzer-Go jetzt veröffentlicht: place-photo v9, place-enrichment v5, place-enrichment-worker v5, Auswahlprotokoll4. Echte authentifizierte Tokyo-/Paris-/Rio-Abfragen liefern200; sichere Fotos für Tokyo/Paris, Rio nur Vorschlag. Zugriffstests401 und400 erfolgreich. Keine Änderung der Auth-Konfiguration oder Datenbankschemata. Die jeweiligen Live-Fassungen von assistant_validation.ts wurden wegen unabhängiger B1-Drift erhalten. Details/Rollback-Sicherung: neuester PROGRESS.md-Eintrag und Codex-Chat work/backend-bildsuche-20261023. Kein GitHub-Push. Der geöffnete Simulator bleibt im isolierten Fixture-Modus.
