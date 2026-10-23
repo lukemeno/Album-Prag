@@ -138,6 +138,7 @@ enum PlaceImageService {
             let file = FileManager.default.temporaryDirectory.appendingPathComponent(store).appendingPathComponent(filename)
             return try JSONDecoder().decode(PlaceImageSearchResult.self, from: Data(contentsOf: file))
         }
+        if environment["ALBUM_LIVE_IMAGE_QA"] == "1" { return nil }
         return .init(image: nil, candidates: [], selectionVersion: ranking)
     }
 

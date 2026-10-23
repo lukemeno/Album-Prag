@@ -423,3 +423,9 @@
 - Genaues Deployment-Paket: Deno-Typprüfung aller drei Entry-Points grün;40 relevante Bild-/Cache-/Sprachtests grün. Vorherige vollständige lokale Prüfung51 Shared-Tests bleibt im vorigen Checkpoint.
 - Echte authentifizierte Backend-Smokes HTTP200/v4: Tokyo Tower2 Kandidaten, verified Q183536; Eiffelturm2 Kandidaten, verified Q243; Cristo Redentor1 Vorschlag, kein automatisch verifiziertes Bild und keine fälschlich gewählte Bahnstation. Credits/Quellen der verifizierten Fotos vorhanden. Unauthentifizierte Anfragen an alle drei Endpunkte401; ungültige Bildanfrage400. Isolierten anonymen Testnutzer anschließend gezielt gelöscht, keine echte Reise angefasst.
 - Der zuvor geöffnete Japan-Simulator bleibt eine isolierte Fixture mit Testbildern; das Backend-Deploy allein schaltet diesen Prozess nicht in echten Netzwerkbetrieb. GitHub bleibt auf bisherigem Stand. Bericht im Codex-Chat outputs/globale-ortsbilder/Backend-Deployment.md.
+
+
+## Simulator mit echten Bildabfragen · 23.10.2026
+- Nutzer-Go für echte Bildauswahl. DEBUG-Opt-in ALBUM_LIVE_IMAGE_QA=1 erlaubt PlaceImageService-Anfragen aus isoliertem ALBUM_TEST_STORE; explizite Testantworten haben weiterhin Vorrang. Standard-Tests bleiben netzfrei. App-Lifecycle-Sync bleibt im isolierten Store abgeschaltet.
+- Separate Japan-Testreise mit echten Koordinaten von Tokyo Tower, Sensō-ji und Skytree; keine Fake-Resolver oder Testbilder. Store slot-live-images-20261023 auf iPhone18Pro. Foto-Resolver nutzt Produktivbackend mit Auswahlversion4.
+- Build und PlaceImageServiceRegionTests erfolgreich (inkl. Opt-in und Fixture-Vorrang). Root hat über Simulator echte Fotos geladen und den Tokyo-Tower-Editor → Bild wählen geöffnet: zwei echte Wikimedia-Fotos, Credits Akonnchiroll/Syced und Lizenzen CC BY-SA4.0/CC0 sichtbar. Auswahl für Nutzer geöffnet gelassen. Keine echte Reise synchronisiert, kein GitHub-Push.

@@ -15,4 +15,21 @@ final class PlaceImageServiceRegionTests: XCTestCase {
     func testNormalRunDoesNotUseTestStoreFallback() throws {
         XCTAssertNil(try PlaceImageService.testStoreResponse(environment: [:]))
     }
+
+    func testLiveImagePreviewRequiresExplicitOptIn() throws {
+        XCTAssertNil(try PlaceImageService.testStoreResponse(environment: [
+            "ALBUM_TEST_STORE": "live-preview", "ALBUM_LIVE_IMAGE_QA": "1"
+        ]))
+        XCTAssertNotNil(try PlaceImageService.testStoreResponse(environment: [
+            "ALBUM_TEST_STORE": "live-preview", "ALBUM_LIVE_IMAGE_QA": "0"
+        ]))
+    }
+
+    func testExplicitImageFixtureTakesPriorityOverLivePreview() throws {
+        let fixture = Data(#"{"selection_version":4,"image":null,"candidates":[]}"#.utf8)
+        XCTAssertNotNil(try PlaceImageService.testStoreResponse(environment: [
+            "ALBUM_TEST_STORE": "live-preview", "ALBUM_LIVE_IMAGE_QA": "1",
+            "ALBUM_IMAGE_RESPONSE_BASE64": fixture.base64EncodedString()
+        ]))
+    }
 }

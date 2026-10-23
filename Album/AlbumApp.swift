@@ -66,6 +66,24 @@ import UIKit
                     return PlaceImageSearchResult(image: image, candidates: [], selectionVersion: PlaceImageService.ranking)
                 }
             }
+            if ProcessInfo.processInfo.environment["ALBUM_LIVE_IMAGE_QA"] == "1" {
+                if !existed {
+                    var trip = TripInfo()
+                    trip.title = "Japan · Bildtest"
+                    trip.destination = "Tokyo, Japan"
+                    _ = store.updateTrip(trip)
+                    store.data.places = [
+                        Place(id: "live-tokyo", title: "Tokyo Tower", category: "Sehenswert", lat: 35.65858, lng: 139.74543),
+                        Place(id: "live-sensoji", title: "Sensō-ji", category: "Sehenswert", lat: 35.7148, lng: 139.7967),
+                        Place(id: "live-skytree", title: "Tokyo Skytree", category: "Sehenswert", lat: 35.7101, lng: 139.8107)
+                    ]
+                    _ = store.persist()
+                }
+                store.placeImageSearchResolver = { place, context in
+                    try await PlaceImageService.search(for: place, region: context.name,
+                                                       languageCode: context.preferredLanguageCode)
+                }
+            }
             return store
         }
         #endif
