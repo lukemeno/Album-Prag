@@ -156,8 +156,16 @@ struct NativeDiscoveryView: View {
             Text("Etwa \(item.distanceMeters) m vom Stadtzentrum").font(.caption).foregroundStyle(Stitch.inkSoft)
             if let image = item.image {
                 AsyncImage(url: image.imageURL) { phase in
-                    if let picture = phase.image { picture.resizable().scaledToFill().frame(height: 150).clipped() }
-                    else { imagePlaceholder }
+                    switch phase {
+                    case .empty:
+                        ProgressView("Bild wird geladen …").frame(maxWidth: .infinity, minHeight: 150)
+                    case .success(let picture):
+                        picture.resizable().scaledToFill().frame(height: 150).clipped()
+                    case .failure:
+                        imagePlaceholder
+                    @unknown default:
+                        imagePlaceholder
+                    }
                 }
             } else { imagePlaceholder }
             DisclosureGroup("Details") {

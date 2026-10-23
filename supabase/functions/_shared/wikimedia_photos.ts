@@ -10,19 +10,34 @@ export type WikimediaDiscoveryImageEntry = { qid: string; title: string };
 export async function fetchWikimediaP18Images(entries: WikimediaDiscoveryImageEntry[], signal: AbortSignal, limiter: WikimediaDiscoveryLimiter) {
   const result = new Map<string, { image_url: string; source_url: string; credit: string; provider: "wikimedia"; license_name: string; license_url: string; provider_place_id: string; confidence: "verified"; caption?: string }>();
   const unique = new Map<string, string>();
-  for (const entry of entries) if (/^Q[1-9][0-9]*$/.test(entry.qid) && entry.title) unique.set(entry.qid, entry.title);
+  for (const entry of entries) if (/^Q[1-9][0-9]*$/.test(entry.qid) && entry.title.trim()) {
+    unique.set(entry.qid, `File:${entry.title.trim().replace(/^File:/i, "")}`);
+  }
   const values = [...unique];
   for (let offset = 0; offset < values.length; offset += 50) {
     const batch = values.slice(offset, offset + 50);
     const titleToQIDs = new Map<string, string[]>();
-    for (const [qid, title] of batch) titleToQIDs.set(title, [...(titleToQIDs.get(title) ?? []), qid]);
+    const titleKey = (title: string) => title.trim().replace(/^File:/i, "").replaceAll("_", " ").replace(/\s+/g, " ");
+    for (const [qid, title] of batch) {
+      const key = titleKey(title);
+      titleToQIDs.set(key, [...(titleToQIDs.get(key) ?? []), qid]);
+    }
     const url = new URL("https://commons.wikimedia.org/w/api.php");
-    for (const [key, value] of Object.entries({ format: "json", action: "query", titles: [...titleToQIDs.keys()].join("|"), prop: "imageinfo", iiprop: "url|extmetadata", iiurlwidth: "1600", iiextmetadatafilter: "Artist|Credit|LicenseShortName|LicenseUrl" })) url.searchParams.set(key, value);
+    for (const [key, value] of Object.entries({ format: "json", action: "query", titles: batch.map(([, title]) => title).join("|"), redirects: "1", prop: "imageinfo", iiprop: "url|extmetadata", iiurlwidth: "1600", iiextmetadatafilter: "Artist|Credit|LicenseShortName|LicenseUrl" })) url.searchParams.set(key, value);
     const payload = await limiter.run(signal, async () => {
       const response = await fetch(url, { headers: wikimediaHeaders, signal });
       if (!response.ok) throw new WikimediaUnavailable("commons.wikimedia.org", "query", `HTTP ${response.status}`, Math.max(1, Number(response.headers.get("retry-after")) || 30));
-      return await response.json();
+      const payload = await response.json();
+      if (payload?.error) throw new WikimediaUnavailable("commons.wikimedia.org", "query", String(payload.error.code ?? "api_error"), Math.max(1, Number(response.headers.get("retry-after")) || Number(payload.error.lag) || 30));
+      return payload;
     });
+    for (const mapping of [...(payload?.query?.normalized ?? []), ...(payload?.query?.redirects ?? [])]) {
+      const source = titleToQIDs.get(titleKey(String(mapping.from ?? ""))) ?? [];
+      if (source.length) {
+        const target = titleKey(String(mapping.to ?? ""));
+        titleToQIDs.set(target, [...new Set([...(titleToQIDs.get(target) ?? []), ...source])]);
+      }
+    }
     for (const page of Object.values(payload?.query?.pages ?? {}) as any[]) {
       const info = page?.imageinfo?.[0], metadata = info?.extmetadata ?? {};
       const imageURL = info?.thumburl || info?.url;
@@ -31,7 +46,7 @@ export async function fetchWikimediaP18Images(entries: WikimediaDiscoveryImageEn
       const licenseName = stripHTML(metadata.LicenseShortName?.value);
       const licenseURL = metadata.LicenseUrl?.value;
       if (typeof imageURL !== "string" || typeof sourceURL !== "string" || !credit || !licenseName || typeof licenseURL !== "string" || !/^https:\/\//i.test(licenseURL)) continue;
-      const qids = titleToQIDs.get(page.title) ?? titleToQIDs.get(String(page.title).replace(/^File:/, "")) ?? [];
+      const qids = titleToQIDs.get(titleKey(String(page.title ?? ""))) ?? [];
       for (const qid of qids) result.set(qid, { image_url: imageURL, source_url: sourceURL, credit, provider: "wikimedia", license_name: licenseName, license_url: licenseURL, provider_place_id: qid, confidence: "verified", caption: String(page.title).replace(/^File:/, "").replace(/\.[a-z0-9]+$/i, "") });
     }
   }

@@ -452,3 +452,12 @@
 - Details und offene Release-Gates in ENTDECKEN-QA.md; Geo-Top500-Vorauswahl und nur isolateweite Upstream-Grenze sind ausdrücklich dokumentiert. Keine Fixture als Live-Erfolg ausweisen.
 
 - Nachtrag 23.10.2026: Mac entsperrt, Root hat Entdecken im iPhone18Pro selbst mit isolierten Testdaten durchgeklickt. Auswahl, Stadtbestätigung, Übernahme, Dublettenschutz, Details, unveränderte Tagesplanung und Persistenz nach App-Neustart bestanden; leere Auswahl/keine Treffer korrekt. Kein neuer Codefehler gefunden. Echter Vier-Städte-Katalogtest bleibt offen.
+
+
+## Entdecken: echte Quellen repariert · 23.10.2026
+- Sol behebt Quellenlogik, Root integriert SQL/Swift und prüft echte HTTP-Daten. Lokaler main; kein Push, kein Deployment, keine Produktionsmigration.
+- P18-File-Namensraum/Redirects/Dateinamenbindung korrigiert; begrenzte CirrusSearch/P31/P279-Abfragen mit öffentlichem Typcache ersetzen langsame transitive Geo-Abfrage. Kunstmuseen auch Kunst; konkrete P576-Orte ausgeschlossen.
+- SQL-Cache-TTL auf feste 168/720 Stunden korrigiert (Sommerzeit); Regression UTC/Berlin/New York grün. Swift zeigt laufenden Bildabruf sichtbar an; Build grün. 73 Backend-Tests + Function-Typecheck + diff-check grün.
+- Echte Quellenrunde erfolgreich: Paris25/17Bilder, Tokio26/18, SãoPaulo34/19 (vor finalem Kunst-/Abrissfilter). Finaler frischer Prag-Abruf13/9 in12,66s, Cache0,043s; Kunstthema enthält jetzt1Ort. Keine vier finalen Qualitätsabnahmen behaupten.
+- QA-Server localhost24181 mit temporärer PostgreSQL65439 läuft weiter. Aktueller Code, echte Quellen, keine Fixture-POIs. Simulator iPhone18Pro hat isolierte Testreise „Prag · Entdecken“ und Live-QA-URL. Manueller Test echter Bilder blockiert durch erneut gesperrten Mac; Nutzer um Entsperren gebeten. Öffentliche Wikimedia-Kontaktangabe ebenfalls angefragt; kein privater Kontakt veröffentlicht.
+- Bekannte Release-Gates: 500er Geo-Vorauswahl/Interessenabdeckung, sporadische externe WDQS-Timeouts (Cache/Backoff greifen), vollständige Bild-/Ortsqualität, verteilte Quellenbegrenzung. ENTDECKEN-QA.md enthält Details. Nicht ungefragt produktiv aktivieren.

@@ -79,7 +79,7 @@ set search_path = discovery_private, pg_temp
 as $$
 begin
   if auth.role() is distinct from 'service_role' then raise exception using errcode='42501', message='service role required'; end if;
-  if p_payload is null or p_fetched_at is null or p_expires_at is null or p_stale_until is null or p_expires_at <> p_fetched_at+interval '7 days' or p_stale_until <> p_fetched_at+interval '30 days' then
+  if p_payload is null or p_fetched_at is null or p_expires_at is null or p_stale_until is null or p_expires_at <> p_fetched_at+interval '168 hours' or p_stale_until <> p_fetched_at+interval '720 hours' then
     raise exception using errcode='22023', message='invalid discovery cache payload';
   end if;
   update discovery_private.catalog_cache set payload=p_payload,fetched_at=p_fetched_at,expires_at=p_expires_at,stale_until=p_stale_until,next_refresh_at=p_fetched_at+interval '1 hour',lease_token=null,lease_until=null,updated_at=p_fetched_at

@@ -24,7 +24,7 @@ Deno.test("discovery request parser is strict and normalizes supported language"
 });
 
 Deno.test("taxonomy allows visitable museum roots and excludes city, event, battle, airport, transit network and country types", () => {
-  assertEquals(classifyDiscoveryEntity({ id: "Q1", matched_types: ["Q33506", "Q207694"] }), ["culture_museums"]);
+  assertEquals(classifyDiscoveryEntity({ id: "Q1", matched_types: ["Q33506", "Q207694"] }), ["culture_museums", "art"]);
   // A visitable museum may also be classified as an institution/organization.
   assertEquals(classifyDiscoveryEntity({ id: "Q2", matched_types: ["Q33506", "Q43229"] }), ["culture_museums"]);
   // Real museum entities checked in Wikidata: National Museums in Prague/Tokyo, Louvre, and MASP.
@@ -32,9 +32,12 @@ Deno.test("taxonomy allows visitable museum roots and excludes city, event, batt
   for (const museum of [
     { id: "Q188112", matched_types: ["Q17431399", "Q33506", "Q43229"] },
     { id: "Q653433", matched_types: ["Q17431399", "Q33506"] },
+  ]) assertEquals(classifyDiscoveryEntity(museum), ["culture_museums"]);
+  for (const artMuseum of [
     { id: "Q19675", matched_types: ["Q207694", "Q33506"] },
     { id: "Q82941", matched_types: ["Q207694", "Q33506"] },
-  ]) assertEquals(classifyDiscoveryEntity(museum), ["culture_museums"]);
+    { id: "Q99999", matched_types: ["Q740437", "Q33506"] },
+  ]) assertEquals(classifyDiscoveryEntity(artMuseum), ["culture_museums", "art"]);
   assertEquals(classifyDiscoveryEntity({ id: "Q2", matched_types: ["Q12280", "Q4989906"] }), ["architecture", "history"]);
   assertEquals(classifyDiscoveryEntity({ id: "Q3", matched_types: ["Q22698"] }), ["nature_parks"]);
   assertEquals(classifyDiscoveryEntity({ id: "Q4", matched_types: ["Q8502"] }), ["nature_parks"]);

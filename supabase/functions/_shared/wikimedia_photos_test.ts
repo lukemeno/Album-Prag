@@ -1,5 +1,89 @@
 import { assert, assertEquals, assertRejects } from "jsr:@std/assert";
-import { resolveWikimedia, wikimediaLanguages } from "./wikimedia_photos.ts";
+import { fetchWikimediaP18Images, resolveWikimedia, wikimediaLanguages } from "./wikimedia_photos.ts";
+
+Deno.test("exact P18 discovery lookup requests File namespace and keeps QID binding through normalization", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async input => {
+    const url = new URL(String(input));
+    assertEquals(url.hostname, "commons.wikimedia.org");
+    assertEquals(url.searchParams.get("titles"), "File:Tour_Eiffel.jpg");
+    assertEquals(url.searchParams.get("redirects"), "1");
+    return Response.json({ query: {
+      normalized: [{ from: "File:Tour_Eiffel.jpg", to: "File:Tour Eiffel.jpg" }],
+      pages: { 123: { title: "File:Tour Eiffel.jpg", imageinfo: [{
+        thumburl: "https://upload.wikimedia.org/eiffel.jpg",
+        descriptionurl: "https://commons.wikimedia.org/wiki/File:Tour_Eiffel.jpg",
+        extmetadata: {
+          Artist: { value: "Example Author" },
+          LicenseShortName: { value: "CC BY-SA 4.0" },
+          LicenseUrl: { value: "https://creativecommons.org/licenses/by-sa/4.0/" },
+        },
+      }] } },
+    } });
+  };
+  try {
+    const images = await fetchWikimediaP18Images(
+      [{ qid: "Q243", title: "Tour_Eiffel.jpg" }],
+      new AbortController().signal,
+      { run: async (_signal, work) => await work() },
+    );
+    assertEquals(images.get("Q243")?.provider_place_id, "Q243");
+    assertEquals(images.get("Q243")?.confidence, "verified");
+    assertEquals(images.get("Q243")?.license_name, "CC BY-SA 4.0");
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+Deno.test("exact P18 discovery lookup rejects HTTP 200 API errors", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = () => Promise.resolve(Response.json({ error: { code: "maxlag", lag: 30 } }));
+  try {
+    await assertRejects(
+      () => fetchWikimediaP18Images(
+        [{ qid: "Q243", title: "Tour_Eiffel.jpg" }],
+        new AbortController().signal,
+        { run: async (_signal, work) => await work() },
+      ),
+      Error,
+      "maxlag",
+    );
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+Deno.test("exact P18 discovery lookup keeps case-distinct Commons files bound to their own QIDs", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async input => {
+    const url = new URL(String(input));
+    assertEquals(url.searchParams.get("titles"), "File:AbC.jpg|File:Abc.jpg");
+    const image = (title: string, suffix: string) => ({ title, imageinfo: [{
+      thumburl: `https://upload.wikimedia.org/${suffix}.jpg`,
+      descriptionurl: `https://commons.wikimedia.org/wiki/${title}`,
+      extmetadata: {
+        Artist: { value: `Author ${suffix}` },
+        LicenseShortName: { value: "CC BY 4.0" },
+        LicenseUrl: { value: "https://creativecommons.org/licenses/by/4.0/" },
+      },
+    }] });
+    return Response.json({ query: { pages: {
+      1: image("File:AbC.jpg", "upper"),
+      2: image("File:Abc.jpg", "lower"),
+    } } });
+  };
+  try {
+    const images = await fetchWikimediaP18Images(
+      [{ qid: "Q1001", title: "AbC.jpg" }, { qid: "Q1002", title: "Abc.jpg" }],
+      new AbortController().signal,
+      { run: async (_signal, work) => await work() },
+    );
+    assertEquals(images.get("Q1001")?.image_url, "https://upload.wikimedia.org/upper.jpg");
+    assertEquals(images.get("Q1002")?.image_url, "https://upload.wikimedia.org/lower.jpg");
+  } finally {
+    globalThis.fetch = original;
+  }
+});
 
 async function aliasFixture(optionalFailure: string | null = null, query = "Café Louvre") {
   const original = globalThis.fetch;

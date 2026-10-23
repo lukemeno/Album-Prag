@@ -86,6 +86,8 @@ export const DISCOVERY_TYPE_ROOTS: ReadonlyArray<{ qid: string; interest: Discov
   { qid: "Q23397", interest: "nature_parks" }, // lake
   { qid: "Q40080", interest: "nature_parks" }, // beach
   { qid: "Q1440300", interest: "viewpoints" }, // observation tower
+  { qid: "Q207694", interest: "art" }, // art museum
+  { qid: "Q740437", interest: "art" }, // pinacotheca
   { qid: "Q860861", interest: "art" }, // sculpture
 ];
 export const DISCOVERY_EXCLUDED_TYPE_ROOTS = ["Q515", "Q6256", "Q1656682", "Q178561", "Q1248784", "Q18325841"] as const; // cities, countries, events, battles, airports and public-transport networks; concrete museums remain allowlisted
@@ -94,7 +96,7 @@ export type WikidataEntity = {
   id: string;
   labels?: Record<string, { value?: string }>;
   descriptions?: Record<string, { value?: string }>;
-  claims?: Record<string, Array<{ mainsnak?: { datavalue?: { value?: unknown } } }>>;
+  claims?: Record<string, Array<{ mainsnak?: { snaktype?: string; datavalue?: { value?: unknown } } }>>;
   sitelinks?: unknown;
   latitude?: number;
   longitude?: number;
