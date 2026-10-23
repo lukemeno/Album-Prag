@@ -6,7 +6,7 @@ Stand: 23.10.2026. Status: geparkt für eine spätere Version, ohne Termin. Nach
 
 Öffentliche Instagram- und TikTok-Beiträge sollen aktuell diskutierte Orte am Reiseziel sichtbar machen. In „Ideen → Entdecken“ erscheinen Vorschläge mit Interessenbezug, Originalquellen und Aktualisierungszeit. Nutzer übernehmen einzelne Orte bewusst als gemeinsame Idee; Abstimmung und Tagesplanung bleiben separate Schritte.
 
-Die allgemeine Entdecken-Idee bleibt ein eigener Planungsgegenstand: zunächst Sehenswürdigkeiten, Interessenfilter und Einstieg unter Ideen. Ihre Zuordnung zur ersten App-Version ist damit nicht entschieden. Social-Trends dürfen sie nicht blockieren. Der vorhandene Import einzelner geteilter Links bleibt unabhängig.
+Die allgemeine Entdecken-Funktion ist inzwischen ausdrücklich für Version 1 geplant: Sehenswürdigkeiten, persönliche feste Interessen pro Reise und Einstieg unter Ideen. Details: PLAN-ENTDECKEN-V1.md. Social-Trends bleiben davon unabhängig zurückgestellt. Der vorhandene Import einzelner geteilter Links bleibt unabhängig.
 
 ## Technischer Ansatz für die spätere Planung
 

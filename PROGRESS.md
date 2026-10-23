@@ -434,3 +434,10 @@
 ## Social-Media-Trends als Zukunftsfeature · 23.10.2026
 - Nutzerentscheidung: automatische aktuelle Instagram-/TikTok-Trends am Reiseziel für später planen, ausdrücklich nicht Teil oder Voraussetzung der ersten App-Version. Keine Implementierung oder Anbieteraktivierung.
 - PLAN-SOCIAL-TRENDS.md hält Ziel, Recherchequellen, technische Richtung und lokale Issue-Entwürfe ST-1 Datenpilot, ST-2 Trendaufbereitung, ST-3 Entdecken-Integration fest. PLAN-APPSTORE.md verweist auf die Zurückstellung. Kein Linear-Issue angelegt, kein Erfassungsjob eingerichtet. Allgemeine Entdecken-Planung (Sehenswürdigkeiten/Interessen/Einstieg unter Ideen) bleibt separat und hinsichtlich Release noch offen.
+
+
+## Entdecken für Version 1 ausgeplant · 23.10.2026
+- Nutzerfestlegungen: Einstieg unter Ideen, nur Sehenswürdigkeiten, gezielt bekannte Highlights, persönliche Interessen pro Reise beim ersten Öffnen (Kultur/Museen, Geschichte, Architektur, Natur/Parks, Aussicht, Kunst), Wikidata + vorhandene Orts-/Bildsuche. Social-Media-Trends bleiben nach V1.
+- PLAN-ENTDECKEN-V1.md enthält Ablauf, Daten-/Cache-/Sicherheitsgrenzen, minimale Verträge und vier lokale Issue-Entwürfe E1 persönliche Domain/Übernahme, E2 Daten/Cache, E3 UI, E4 Abnahme/Release. Sol hat read-only geprüft; Root korrigierte den Einstieg ausdrücklich zu Entdecken UNTER Ideen, ohne Tabumbenennung. Persönliche Sidecars, Stadt-QID statt Hotelumkreis, Typprüfung vor Bekanntheit, echte Wikipedia-Sprachartikel statt aller Sitelinks und stabile discovery-q… IDs sind festgehalten.
+- Öffentliche read-only WDQS-Probe Prag12km,ca1,2s: Burg/Karlsbrücke/Veitsdom vorhanden, ungefiltert auch Länder/Ereignisse/Metro/Airport. Deshalb Typ-/Besuchbarkeitsfilter verpflichtend und Mehrstadtqualitätsabnahme vor V1. Keine fertige globale Qualität behauptet.
+- Linear-Suche Album ohne passendes Projekt; get_agent_context technisch nicht vorhanden. Keine externen Issues angelegt. Nutzer kann später das Zielprojekt für eine Übertragung benennen. Dokumentprüfung statt App-Tests, da ausschließlich Planung geändert. Kein Code, keine Migration, kein Deploy/Push.

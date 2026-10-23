@@ -77,3 +77,8 @@ Das oben als offen dokumentierte Bild-Backend ist nach ausdrücklichem Nutzer-Go
 ## Zukunftsfeature, nicht Version 1
 
 Automatische Instagram-/TikTok-Trends am Reiseziel sind seit Nutzerentscheidung vom 23.10.2026 geparkt, ohne Release-Termin. Keine Anbieter oder laufenden Jobs aktivieren. Ziel und lokale Issue-Entwürfe stehen in PLAN-SOCIAL-TRENDS.md. Allgemeines Entdecken bleibt separat zu planen.
+
+
+## Entdecken für Version 1 · Planung festgelegt
+
+PLAN-ENTDECKEN-V1.md ist der aktuelle Plan: persönliche feste Interessen je Reise, bekannte Wikidata-Highlights, Einstieg UNTER Ideen, getrennte bewusste Übernahme ohne Stimmen/Tag. Vier lokale Issue-Entwürfe, noch keine Implementierung. Social-Trends bleiben nach V1. Nicht zu einem neuen Haupttab oder einer Umbenennung von Ideen machen. Vor einer Issue-Übertragung fehlt das bestätigte Linear-Zielprojekt.
