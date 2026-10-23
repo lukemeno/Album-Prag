@@ -429,3 +429,8 @@
 - Nutzer-Go für echte Bildauswahl. DEBUG-Opt-in ALBUM_LIVE_IMAGE_QA=1 erlaubt PlaceImageService-Anfragen aus isoliertem ALBUM_TEST_STORE; explizite Testantworten haben weiterhin Vorrang. Standard-Tests bleiben netzfrei. App-Lifecycle-Sync bleibt im isolierten Store abgeschaltet.
 - Separate Japan-Testreise mit echten Koordinaten von Tokyo Tower, Sensō-ji und Skytree; keine Fake-Resolver oder Testbilder. Store slot-live-images-20261023 auf iPhone18Pro. Foto-Resolver nutzt Produktivbackend mit Auswahlversion4.
 - Build und PlaceImageServiceRegionTests erfolgreich (inkl. Opt-in und Fixture-Vorrang). Root hat über Simulator echte Fotos geladen und den Tokyo-Tower-Editor → Bild wählen geöffnet: zwei echte Wikimedia-Fotos, Credits Akonnchiroll/Syced und Lizenzen CC BY-SA4.0/CC0 sichtbar. Auswahl für Nutzer geöffnet gelassen. Keine echte Reise synchronisiert, kein GitHub-Push.
+
+
+## Social-Media-Trends als Zukunftsfeature · 23.10.2026
+- Nutzerentscheidung: automatische aktuelle Instagram-/TikTok-Trends am Reiseziel für später planen, ausdrücklich nicht Teil oder Voraussetzung der ersten App-Version. Keine Implementierung oder Anbieteraktivierung.
+- PLAN-SOCIAL-TRENDS.md hält Ziel, Recherchequellen, technische Richtung und lokale Issue-Entwürfe ST-1 Datenpilot, ST-2 Trendaufbereitung, ST-3 Entdecken-Integration fest. PLAN-APPSTORE.md verweist auf die Zurückstellung. Kein Linear-Issue angelegt, kein Erfassungsjob eingerichtet. Allgemeine Entdecken-Planung (Sehenswürdigkeiten/Interessen/Einstieg unter Ideen) bleibt separat und hinsichtlich Release noch offen.

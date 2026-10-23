@@ -72,3 +72,8 @@ Final geprüft: 196 Unit-Tests (4 übersprungen, 0 Fehler) und 10 UI-Tests besta
 ## Veröffentlichung erfolgt · 23.10.2026
 
 Das oben als offen dokumentierte Bild-Backend ist nach ausdrücklichem Nutzer-Go jetzt veröffentlicht: place-photo v9, place-enrichment v5, place-enrichment-worker v5, Auswahlprotokoll4. Echte authentifizierte Tokyo-/Paris-/Rio-Abfragen liefern200; sichere Fotos für Tokyo/Paris, Rio nur Vorschlag. Zugriffstests401 und400 erfolgreich. Keine Änderung der Auth-Konfiguration oder Datenbankschemata. Die jeweiligen Live-Fassungen von assistant_validation.ts wurden wegen unabhängiger B1-Drift erhalten. Details/Rollback-Sicherung: neuester PROGRESS.md-Eintrag und Codex-Chat work/backend-bildsuche-20261023. Kein GitHub-Push. Der geöffnete Simulator bleibt im isolierten Fixture-Modus.
+
+
+## Zukunftsfeature, nicht Version 1
+
+Automatische Instagram-/TikTok-Trends am Reiseziel sind seit Nutzerentscheidung vom 23.10.2026 geparkt, ohne Release-Termin. Keine Anbieter oder laufenden Jobs aktivieren. Ziel und lokale Issue-Entwürfe stehen in PLAN-SOCIAL-TRENDS.md. Allgemeines Entdecken bleibt separat zu planen.
