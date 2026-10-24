@@ -30,3 +30,7 @@ ALBUM_TEST_STORE isoliert die Reise vom produktiven Sync. ALBUM_DISCOVERY_QA=1 a
 Für echte lokale Abfragen zusätzlich ALBUM_DISCOVERY_LIVE_QA=1 und ALBUM_DISCOVERY_LOCAL_URL=http://127.0.0.1:PORT angeben; nur Loopback mit explizitem Port wird angenommen. Der Endpoint lautet /functions/v1/discover-places. Ohne explizites Live-Opt-in greifen isolierte Tests nicht auf Supabase zurück. QA-Flags existieren nur im DEBUG-Zweig.
 
 Normale Backend-Regression: deno test --allow-env=WIKIMEDIA_USER_AGENT supabase/functions/_shared
+
+
+## Manueller Simulator-Test mit echten Daten · 24.10.2026
+Mac entsperrt. Root hat Stadtsuche Prag/Q1085, 13 reale Katalogorte, sichtbar geladenes Foto von St. Martin in der Mauer, Lagekarte sowie Bildnachweis Follerjiri/CC BY-SA4.0 und vorhandene Quellen-/Lizenzlinks selbst geprüft. Ort als Idee übernommen, Rückmeldung erfolgreich, anschließend „Bereits in euren Ideen“ statt erneutem Übernehmen. Ideenliste enthält den Ort; Tagesplan weiterhin leer. Nach Neustart bleibt die Idee gespeichert. Kein vollständiger Motiv-/Lizenztest aller9Fotos, keine globale redaktionelle Freigabe. Simulator bleibt geöffnet; Loopback-Testserver24181 läuft mit echten Quellen und isoliertem Reisespeicher. Auf Nutzerwunsch Testreise von „Prag · Entdecken“ in „Prag“ umbenannt, auch Debug-Seed korrigiert. Homeansicht zeigt „Prag“; Feature bleibt unter Ideen.

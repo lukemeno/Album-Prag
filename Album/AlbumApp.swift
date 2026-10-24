@@ -89,7 +89,7 @@ import UIKit
                 let fixture = ProcessInfo.processInfo.environment["ALBUM_DISCOVERY_QA"] == "1"
                 if !existed {
                     var trip = TripInfo()
-                    trip.title = fixture ? "Prag · Entdecken-Test" : "Prag · Entdecken"
+                    trip.title = "Prag"
                     trip.destination = "Prag"
                     _ = store.updateTrip(trip)
                     store.data.places = fixture ? [
