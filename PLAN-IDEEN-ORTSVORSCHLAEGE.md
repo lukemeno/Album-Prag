@@ -1,16 +1,56 @@
-# Ortsvorschläge beim Eingeben einer Idee
+# Planung: Ortsvorschläge und schneller Kamerazugriff
 
-Stand24.10.2026, Planung. Nutzerentscheidung: zuerst Reiseziel, Suche auf andere Städte erweiterbar. Keine Umsetzung oder Linear-Erstellung behaupten; bestätigtes Linear-Zielprojekt fehlt noch. Aktiver Modus ist Default; Plan Mode wurde vorgeschlagen, nicht aktiviert.
+Stand 24.10.2026. Nutzerentscheidungen: Ortsvorschläge zuerst am Reiseziel suchen, Suche bewusst auf andere Städte erweiterbar; Kamera als eigener Punkt im vorhandenen Aktionsmenü. Das ist ein lokaler Issue-Entwurf, keine Umsetzung. Plan Mode wurde vorgeschlagen, der aktuelle Modus ist Default.
 
-## Ziel und Ablauf
-Unter Ideen → Neue Idee tippt man z.B. „Pasta Fresca“ ins Namensfeld. Eine Liste zeigt passende konkrete Orte am Reiseziel mit Name, Adresse/Stadt und Kategorie. Ein Tipp übernimmt den gewählten Ort samt Koordinaten in den Entwurf; erst Speichern legt die Idee an. Keine automatische Auswahl bei Mehrdeutigkeit. Ohne Treffer oder offline bleibt freie Eingabe möglich. „In anderer Stadt suchen“ erweitert den Kontext bewusst. Keine aktuelle GPS-Position nötig.
+## Bestehender Anschluss
+`Album/PlaceEditor.swift` hat bereits ein separates Feld „Ort oder Adresse“ mit MapKit `MKLocalSearch`, Trip-Kontext, Ergebniszeilen sowie Abbruch-/Generationenschutz. Das Namensfeld startet bisher keine Suche. Die Reiseshell hat ein gemeinsames Vierer-Aktionsmenü; „Erinnerungen“ öffnet eine Ansicht mit separater Kamerafunktion.
 
-## Vorhandener Anschluss
-PlaceEditor.swift besitzt im getrennten Feld „Ort oder Adresse“ bereits MKLocalSearch mit tripRegionContext, Ergebniszeilen und Abbruch-/Generationenschutz. Das Namensfeld startet bisher keine Suche. Darauf aufbauen, keine zweite unabhängige Ortsidentität. Vorhandene Bildauswahl nach bestätigtem Ort verwenden; Texte/Notizen nicht überschreiben. Neues oder geändertes Suchwort darf alte Antworten nicht wieder einblenden.
+## Issue-Entwurf 1: Passende Orte beim Eingeben des Namens vorschlagen
+**Ziel:** Unter Ideen → Neue Idee schlägt die App beim Tippen von z.B. „Pasta Fresca“ konkrete Restaurants und Orte in der Zielstadt vor.
 
-## Issue-Entwürfe
-1. Namensvorschläge und Suchzustand: nach kurzer Tipp-Pause ab sinnvoller Mindestlänge suchen, alte Anfragen abbrechen, 3–5 verständliche Treffer, Laden/leer/offline, nur aktive Eingabe darf Vorschläge ändern. Prüfung: verzögerte vertauschte Antworten, Abbruch/Schließen, leere und kurze Eingabe.
-2. Bestätigter Ort und Suchkontext: Reiseziel bevorzugen, Auswahl übernimmt verifizierte Koordinaten/Adresse/Identität; Erweiterung auf andere Stadt, freie Idee bleibt möglich. Bestehende Idee nicht unbemerkt neu zuordnen; bearbeitete Notizen/Links erhalten. Prüfung: mehrere gleichnamige Restaurants, fehlender Reisekontext, Ortswechsel, Dubletten, manuelle Änderungen.
-3. Simulator-Abnahme: echte Suche „Pasta Fresca“ in Prag, Treffer bewusst auswählen, speichern, richtige Karte/Bildsuche, Neustart; offline und erweiterten Kontext prüfen. Testmodus muss echte MapKit-Abfragen gezielt erlauben, normale deterministische UI-Tests behalten ihre Isolation. Bestehende PlaceEditor-Suche überspringt derzeit MapKit in jedem ALBUM_TEST_STORE; deshalb explizites lokales QA-Opt-in nötig.
+**Umfang:** Suche ab zwei eingegebenen Zeichen, kurze Tipp-Pause vor der Abfrage, bis zu fünf Treffer mit Name, Kategorie und Adresse/Stadt. Zielstadt der Reise ist der Suchkontext. Laden, kein Treffer und Fehler erhalten verständliche Zustände. Texteingabe bleibt auch ohne Netz oder Treffer speicherbar. Keine Live-GPS-Position.
 
-Abhängigkeiten:1→2→3. Anbieterentscheidung nach Prüfung der vorhandenen MapKit-Suche; keine kostenpflichtigen neuen APIs ungeprüft einführen. Restaurantvorschläge sind konkrete Ortsdaten, keine generative Erfindung.
+**Akzeptanz:**
+- Nur Ergebnisse für den aktuellen Text erscheinen; geänderte Eingabe und geschlossenes Formular verwerfen ältere Antworten.
+- Mehrere gleichnamige Orte bleiben getrennt auswählbar.
+- Kein Treffer wird automatisch ausgewählt und kein Resultat wird als existierender Ort vorgetäuscht.
+
+**Abhängigkeiten:** Baut auf vorhandener PlaceEditor-/MapKit-Suche auf; keine zweite Providerintegration ohne Grund. Unabhängig von Kamera.
+
+**Prüfung:** „Pasta Fresca“ im Testziel Prag zeigt reale passende Treffer; kurze Texte und kein Treffer; langsame Antworten in vertauschter Reihenfolge; Abbruch/Schließen; offline; VoiceOver-Beschriftungen.
+
+## Issue-Entwurf 2: Treffer bestätigen, Ort übernehmen und Suchgebiet erweitern
+**Ziel:** Ein ausgewählter Treffer wird eindeutig mit der Idee verbunden und kann bei Bedarf außerhalb der Zielstadt gesucht werden.
+
+**Umfang:** Auswahl übernimmt kanonischen Namen, Kategorie, Adresse und Koordinaten in den noch ungespeicherten Entwurf. Bildsuche und Kartenposition nutzen denselben bestätigten Ort. „In anderer Stadt suchen“ erweitert den Suchkontext, bis der Nutzer ihn zurücksetzt. Freie Ideen ohne Treffer bleiben unterstützt. Bearbeiten einer bestehenden Idee ordnet den Ort nicht stillschweigend neu zu.
+
+**Akzeptanz:**
+- Vorschauantippen erzeugt noch keine gespeicherte Idee; Speichern bleibt der klare Bestätigungsschritt.
+- Änderungen am Namen nach Auswahl lösen die alte Ortsbindung und Bildzuordnung nachvollziehbar.
+- Notiz, Link und andere Entwurfsfelder bleiben bei der Trefferauswahl erhalten.
+- Dubletten-/QID-Prüfung greift bei erneuter Auswahl und Speicherung.
+
+**Abhängigkeiten:** Issue 1; vorhandene Orts- und Bildmodelle.
+
+**Prüfung:** Treffer auswählen und abbrechen, falschen von zwei gleichnamigen Treffern wählen, Titel nach Auswahl ändern, Ort über Suchbereich erweitern, speichern/neu öffnen, Bild-/Kartenidentität sowie Dublettenschutz prüfen.
+
+## Issue-Entwurf 3: Kamera direkt im gemeinsamen Aktionsmenü öffnen
+**Ziel:** Die Kamera mit einem Tipp weniger aus jedem Reisetab erreichen.
+
+**Umfang:** Das vorhandene Aktionsmenü bekommt einen klar beschrifteten Punkt „Kamera“, der den vorhandenen Aufnahmeablauf in Erinnerungen öffnet. „Erinnerungen“ bleibt ein eigener Menüpunkt. Keine neue zweite Aufnahmelogik.
+
+**Akzeptanz:**
+- Kameraaktion ist aus Plan, Ideen, Karte und Gruppe erreichbar.
+- Auswahl öffnet den vorhandenen Aufnahmebildschirm; Zurück/Abbrechen kehrt in den vorherigen Reisezusammenhang zurück.
+- Die erste nötige Systemabfrage für Kamerazugriff und bestehende Foto-Speicherung funktionieren unverändert.
+- Fünf Menüaktionen bleiben auf kleinen Displays unterscheidbar, bedienbar und mit VoiceOver benannt.
+
+**Abhängigkeiten:** Bestehende Fan-Menü- und Erinnerungs-/Kamerarouten; unabhängig von den Ortsvorschlägen.
+
+**Prüfung:** Manueller Simulatorlauf aus jedem Reisetab, Menülayout auf iPhone-Größe, VoiceOver-Namen, Kamera-Abbrechen und Foto in Erinnerungen wiederfinden. Echte Kamera-Hardware separat prüfen, da Simulatorhardware keine vollständige Geräteabnahme ersetzt.
+
+## Umsetzungsreihenfolge
+Issue 1 → Issue 2. Issue 3 kann unabhängig parallel umgesetzt werden. Abschließender kombinierter App-/Simulatordurchgang.
+
+## Linear
+Es gibt kein Linear-Projekt „Album“ in der verbundenen Workspace-Suche. Der einzige sichtbare Team-Bereich heißt „Codex“; ich habe dort keine Produkt-Issues angelegt. Diese drei vollständigen Entwürfe bleiben lokal, bis ein passendes Team/Projekt benannt wird.
