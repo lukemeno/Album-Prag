@@ -37,13 +37,13 @@ Stand 24.10.2026. Nutzerentscheidungen: Ortsvorschläge zuerst am Reiseziel such
 ## Issue-Entwurf 3: Kamera direkt im gemeinsamen Aktionsmenü öffnen
 **Ziel:** Die Kamera mit einem Tipp weniger aus jedem Reisetab erreichen.
 
-**Umfang:** Das vorhandene Aktionsmenü bekommt einen klar beschrifteten Punkt „Kamera“, der den vorhandenen Aufnahmeablauf in Erinnerungen öffnet. „Erinnerungen“ bleibt ein eigener Menüpunkt. Keine neue zweite Aufnahmelogik.
+**Umfang:** Das vorhandene aufgefächerte Aktionsmenü bekommt einen klar beschrifteten Punkt „Kamera“ mit Kamerasymbol, im gleichen Stil wie „Erinnerungen“, „Ausgaben“ und „Unterlagen“. Der Punkt öffnet den bestehenden Aufnahmeablauf. „Erinnerungen“ bleibt ein eigener Menüpunkt. Keine neue zweite Aufnahmelogik. Den vom Nutzer geteilten Screenshot des aktuellen Aktionsmenüs als visuelle Referenz für Beschriftung, Symbol, Farbe und Fächeranordnung verwenden.
 
 **Akzeptanz:**
 - Kameraaktion ist aus Plan, Ideen, Karte und Gruppe erreichbar.
 - Auswahl öffnet den vorhandenen Aufnahmebildschirm; Zurück/Abbrechen kehrt in den vorherigen Reisezusammenhang zurück.
 - Die erste nötige Systemabfrage für Kamerazugriff und bestehende Foto-Speicherung funktionieren unverändert.
-- Fünf Menüaktionen bleiben auf kleinen Displays unterscheidbar, bedienbar und mit VoiceOver benannt.
+- Alle fünf Menüaktionen bleiben im aufgefächerten Menü auf kleinen Displays unterscheidbar, bedienbar und mit VoiceOver benannt; Kamera ist klar als Aufnahme erkennbar und nicht mit der Galerie/Erinnerungen verwechselt.
 
 **Abhängigkeiten:** Bestehende Fan-Menü- und Erinnerungs-/Kamerarouten; unabhängig von den Ortsvorschlägen.
 
