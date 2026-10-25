@@ -465,3 +465,23 @@
 
 ## Manueller Simulator-Test mit echten Daten · 24.10.2026
 Mac entsperrt. Root hat Stadtsuche Prag/Q1085, 13 reale Katalogorte, sichtbar geladenes Foto von St. Martin in der Mauer, Lagekarte sowie Bildnachweis Follerjiri/CC BY-SA4.0 und vorhandene Quellen-/Lizenzlinks selbst geprüft. Ort als Idee übernommen, Rückmeldung erfolgreich, anschließend „Bereits in euren Ideen“ statt erneutem Übernehmen. Ideenliste enthält den Ort; Tagesplan weiterhin leer. Nach Neustart bleibt die Idee gespeichert. Kein vollständiger Motiv-/Lizenztest aller9Fotos, keine globale redaktionelle Freigabe. Simulator bleibt geöffnet; Loopback-Testserver24181 läuft mit echten Quellen und isoliertem Reisespeicher. Auf Nutzerwunsch Testreise von „Prag · Entdecken“ in „Prag“ umbenannt, auch Debug-Seed korrigiert. Homeansicht zeigt „Prag“; Feature bleibt unter Ideen.
+
+
+## Fünfer-Aktionsmenü: Überlagerungen korrigiert · 25.10.2026
+- Nutzerbild zeigt überlappende Kamera-/KI- sowie Ausgaben-/Unterlagenaktionen. Ursache: fünfte Aktion in zu engem bisherigen Fan-Rahmen und unregelmäßige Positionen.
+- Sol plante den begrenzten Geometriefix, Luna setzte ihn isoliert auf dem aktuellen WIP-Dateistand um. Hauptfan mit 54pt-Höhenraster, 52pt-Knöpfen und monotoner Kurve; Rahmen 220×272. FAB-Anker, Vierer-Untermenü und Kontextlabel bleiben global an ihrer bisherigen Position, Unterlagen wieder bei Ziehziel(-170,0).
+- Nur vier Geometrie-Hunks in Album/Native/AlbumExperienceViews.swift ergänzt. Andere uncommittete Foto-/Ortsänderungen unverändert erhalten; keine pauschale WIP-Sicherung oder Veröffentlichung vorgenommen. Fix liegt gemeinsam mit der laufenden Arbeit im Working Tree.
+- Simulator-Build grün. Drei Fan-Ablauftests auf iPhone17/402pt bestanden: Unterlagen tippen/schließen, KI→Essen, Halten/Ziehen→Unterlagen. Zusätzlich Unterlagen-Test auf iPhoneSE/375×667 bestanden. Kein Backend-Abgleich und keine echten Reisedaten für die Prüfung.
+- Beide Hauptmenü-Screenshots visuell ohne Pill-/Knopf-Überlagerungen geprüft. Lokale Belege und isolierter Fixpatch unter .qa-shots/fan-spacing-20261025/; Testbundles /tmp/album-fan-spacing-20261025.xcresult und /tmp/album-fan-small-20261025.xcresult.
+- Simulator-Build zusätzlich auf dem bestehenden iPhone18Pro aktualisiert, ohne Deinstallation oder Löschen des App-Containers. Kein Start mit veränderten Reise-/QA-Flags erzwungen. Kamera-Hardware und fühlbare Haptik weiterhin nur auf echtem Gerät prüfbar.
+
+
+## Ortsfotos statt Karten-Thumbnails · 25.10.2026
+- Nutzerauftrag: passende Fotos statt Karten bei gespeicherten Orten. Diagnose: Karten kamen teils aus synthetischer Google-Maps-LinkPreview bei image=nil/coordinate=nil, zusätzlich gespeicherte Map-Snapshots.
+- Sol plante und prüfte, Luna implementierte in getrennten Snapshots des aktuellen WIP. Nur eigene Foto-Hunks selektiv committed als f3ba02c; vorhandene Trip-Memory-/Ortsvorschlags- und Fan-Arbeit blieb uncommittet erhalten.
+- Eindeutige kostenlose Website-Fotostufe zwischen verifiziertem Wikimedia und bisherigen lokalen Fallbacks; Quellen-/Identitätsbindung, Logofilter, Byte-/Größenlimit, Cancel-/Late-result-/Quellenwechsel-Schutz, Own-/Manual-Photo-Schutz. Karten bleiben Ortsquellen, werden aber nicht als Foto gerendert. Details in PLAN-BILDAUSWAHL.md.
+- Nach Compile-/Regression-Reparaturen finaler vollständiger Lauf: 246 Tests,4 Skips,0 Fehler (242 bestanden), /tmp/album-photo-full-final-20261025.xcresult. Echte MapKit-/HTTP-Probe Knedlín erfolgreich; Pasta Fresca mit ausdrücklich ergänztem offiziellen Website-Link erfolgreich. Keine Fixture als automatischen Website-Fund ausgewiesen.
+- Danach auf ausdrücklichen Bildverbesserungsauftrag zwei bislang bildlose Simulator-Orte gezielt mit den so geprüften Quellenbildern versehen (Knedlín, Pasta Fresca). Originale Google-Maps-Links erhalten, passende MapKit-Koordinaten ergänzt, Bilder ortsgebunden als sourcePreview gespeichert und Änderungen für den normalen Sync markiert. Vorher geschütztes lokales Backup angelegt; keine eigenen/manuell gewählten Bilder ersetzt. Dies ist eine beabsichtigte Bildverbesserung der lokalen Reise, kein Testschreiben in echte Reiseunterlagen.
+- Neues App-Bundle auf iPhone18Pro installiert, ohne Containerlöschung. Kein Backend-Deploy, kein Schemaeingriff und kein neuer kostenpflichtiger Dienst für diese Änderung.
+
+- Visuelle Abnahme: identische reale Quellenbilder in isolierter Foto-Prüfung ohne geteilte Zugangsdaten gerendert. Knedlín zeigt das Knödel-Foto, Pasta Fresca die passende Innenansicht. Screenshot und öffentliche Quellen-Receipt: .qa-shots/place-photos-20261025/ideas-source-photos.png und source-receipt.json. Kein Web-/Maps-Thumbnail als Erfolgsbeleg verwendet.

@@ -1,6 +1,6 @@
 # Plan: Die richtigen Bilder für Ideen · Entwurf 22.10.2026
 
-Status: nur Recherche und Vorschlag, nichts umgesetzt.
+Status: Rechercheentwurf vom 22.10.2026. Die kostenlose, ortsgebundene Website-Vorschau wurde am 25.10.2026 umgesetzt (siehe Nachtrag unten). Weitere Anbieter und KI-Bildbewertung aus diesem Entwurf sind damit nicht umgesetzt.
 
 ## 0. Grenzen der Recherche (ehrlich)
 
@@ -60,3 +60,12 @@ Schwäche (Annahme, noch nicht an echten Fällen gemessen): Wikimedia kennt klei
 1. Dürfen Bilder von **Google, Tripadvisor, Yelp** nur zur Laufzeit angezeigt werden (ohne Speicherung, mit Namensnennung), auch wenn das Kosten pro Anzeige bedeutet?
 2. Soll die **Bildprüfung per KI** dabei sein (bessere Treffer, zusätzliche Kosten pro Idee) oder erst später?
 3. Für **Gerichte und Begriffe** ohne Ort: freie Bilder (Wikimedia/Stockfoto-Dienst) oder gar kein Bild?
+
+
+## Umsetzung: kostenlose Website-Fotos · 25.10.2026
+- Commit f3ba02c: zuerst weiterhin verifizierte Wikimedia-Treffer; anschließend ortsgebundene Website-Vorschau nach eindeutigem MapKit-Namens-/Koordinatenabgleich (max250m), sonst bestehende weitere Fallbacks. Die Quelle ist als Website-Vorschau gekennzeichnet, ohne erfundene freie Lizenz. Eigene/manuell gewählte Fotos bleiben geschützt.
+- Google-/Apple-Kartenlinks und generierte Karten werden nicht mehr als Ortsfotos angezeigt. Kartenlinks bleiben Eingabe für die eigentliche Ortsauflösung; bisher bildlose Kartenlink-Orte werden im bestehenden maximal5er-Batch priorisiert.
+- Offizielle MapKit-Website oder ein bereits hinterlegter, venue-passender Link; kein Google-Images-/Instagram-Scraping, kein neuer Schlüssel, kein kostenpflichtiger Anbieter. Logo/SVG/Karten-/Kleinstbilder werden verworfen. HTML-Fallback verlangt den vollständigen Ortsnamen im Bild-Alt-/Titeltext; maximal3 Kandidaten, begrenzte Downloads. Große Sanity-CDN-Bilder werden auf1200px begrenzt.
+- Echte Probe: Knedlín vollständig über MapKit-Website. Bei Pasta Fresca enthält der aktuelle Apple-Eintrag keine Website; der Probe wurde ausdrücklich https://pastafresca.ambi.cz/ als geprüfter Website-Link mitgegeben. Daraus stammt ein passendes Innenraumfoto. Kein automatischer Website-Fund für Pasta Fresca behauptet.
+- Vollständige Unit-Suite inklusive dieser Live-Probe: 246 Tests,4 bestehende Skips,0 Fehler (242 bestanden). Beleg /tmp/album-photo-full-final-20261025.xcresult; öffentliche Quellen-Receipt /tmp/album-source-preview-live.json.
+- Grenzen: Für Lokale ohne brauchbare MapKit-Website oder passenden hinterlegten Link kann die kostenlose Suche kein Foto garantieren. Kein unsicheres Wikimedia-Ergebnis zu verified hochgestuft. Normale Webseite-/Social-Fotos werden nicht durch Website-Fallback überschrieben; bestätigte Wikimedia-Fotos dürfen sie weiterhin aktualisieren.
