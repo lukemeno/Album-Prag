@@ -232,12 +232,22 @@ struct Place: Codable, Identifiable, Equatable {
         return host.replacingOccurrences(of: "www.", with: "")
     }
 
-    /// Vorhandene Orts- oder Nutzerfotos haben Vorrang; andernfalls zeigt die UI das Link-Thumbnail.
+    /// Vorhandene Orts- oder Nutzerfotos haben Vorrang; Kartenansichten sind keine Ortsfotos.
     var displayImage: PlaceImageAsset? {
-        if let image { return image }
+        if let image {
+            switch image {
+            case .uploaded(let uploaded) where uploaded.generatedSource == .mapSnapshot:
+                break
+            case .linkPreview(let pageURL, _, _) where URL(string: pageURL).map(PlaceLinkMetadata.isMapProviderURL) == true:
+                break
+            default:
+                return image
+            }
+        }
         guard let url = URL(string: sourceURL),
               ["http", "https"].contains(url.scheme?.lowercased() ?? ""),
-              url.host != nil else { return nil }
+              url.host != nil,
+              !PlaceLinkMetadata.isMapProviderURL(url) else { return nil }
         return .linkPreview(pageURL: url.absoluteString, thumbnailURL: nil, credit: sourceLabel)
     }
 

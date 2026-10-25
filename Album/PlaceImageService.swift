@@ -162,6 +162,7 @@ enum PlaceImageService {
         case nil, .bundled: return true
         case .external(let image):
             if image.resolvedFor.map({ !$0.matches(place) }) == true { return true }
+            if image.provider == .sourcePreview { return image.userSelected != true }
             if image.userSelected == true { return false }
             if image.provider == .wikimedia && (image.ranking ?? 1) < ranking { return true }
             return image.provider == .legacy || image.resolvedFor == nil
@@ -212,6 +213,389 @@ enum PlaceImageService {
         case .uploaded(let image): image.generatedSource == nil && image.resolvedFor == nil
         case .bundled, .linkPreview, nil: false
         }
+    }
+
+    /// Returns a bounded website thumbnail after MapKit has confirmed one exact venue.
+    /// The optional transports keep the validation path deterministic in tests without
+    /// changing the production search or network policy.
+    static func sourcePreview(
+        for place: Place,
+        search: ((Place) async throws -> [MKMapItem])? = nil,
+        preview: ((URL) async throws -> OEmbedService.Preview)? = nil,
+        imageData: ((URL) async throws -> Data)? = nil,
+        htmlData: ((URL) async throws -> (data: Data, url: URL))? = nil,
+        allowNetworkFallback: Bool = false
+    ) async -> PlaceImage? {
+        guard canUseSourcePreview(for: place), place.coordinate != nil, !Task.isCancelled else { return nil }
+
+        do {
+            let items: [MKMapItem]
+            if let search {
+                items = try await search(place)
+            } else {
+                items = try await mapItems(for: place)
+            }
+            guard !Task.isCancelled, let website = sourcePreviewWebsite(for: place, mapItems: items) else { return nil }
+            sourcePreviewTrace("website host=\(website.host ?? "")")
+            let fetchedPreview: OEmbedService.Preview?
+            if let preview {
+                fetchedPreview = try? await preview(website)
+            } else {
+                fetchedPreview = try? await OEmbedService.preview(website)
+            }
+            guard !Task.isCancelled else { return nil }
+
+            var selectedThumbnail: URL?
+            if let fetchedPreview {
+                let evidence = hasVenueEvidence(fetchedPreview, for: place, website: website)
+                sourcePreviewTrace("metadata evidence=\(evidence) title=\(fetchedPreview.conciseTitle)")
+                if evidence,
+                   let rawThumbnail = fetchedPreview.thumbnail_url,
+                   let thumbnail = sourcePreviewImageURL(rawThumbnail),
+                   isUsableSourcePreviewThumbnailURL(thumbnail),
+                   await isUsableSourcePreviewImageAt(thumbnail, imageData: imageData) {
+                    selectedThumbnail = thumbnail
+                }
+            }
+
+            if selectedThumbnail == nil {
+                let html: (data: Data, url: URL)?
+                if let htmlData {
+                    html = try? await htmlData(website)
+                } else if allowNetworkFallback || (search == nil && preview == nil && imageData == nil) {
+                    // A fully injected transport set is a deterministic unit-test
+                    // harness; never fall back to an unexpected network request.
+                    html = try? await fetchHTMLData(website)
+                } else {
+                    html = nil
+                }
+                if let html {
+                    let allowedHTML = isAllowedSourcePreviewHTMLURL(html.url, website: website)
+                    sourcePreviewTrace("html response allowed=\(allowedHTML)")
+                    if allowedHTML {
+                        let candidates = sourcePreviewHTMLCandidates(data: html.data, baseURL: html.url, for: place)
+                        sourcePreviewTrace("html candidates=\(candidates.count)")
+                        for candidate in candidates {
+                            if await isUsableSourcePreviewImageAt(candidate, imageData: imageData) {
+                                selectedThumbnail = candidate
+                                break
+                            }
+                        }
+                    }
+                }
+            }
+            guard !Task.isCancelled, let thumbnail = selectedThumbnail else { return nil }
+            let host = (website.host ?? "").lowercased().replacingOccurrences(of: "www.", with: "")
+            return PlaceImage(
+                imageURL: thumbnail,
+                sourceURL: website,
+                credit: "Website-Vorschau · \(host)",
+                provider: .sourcePreview,
+                licenseName: nil,
+                licenseURL: nil,
+                providerPlaceID: nil,
+                confidence: .suggested,
+                caption: fetchedPreview?.conciseTitle ?? place.title
+            )
+        } catch {
+            return nil
+        }
+    }
+
+    private static func isUsableSourcePreviewImageAt(_ url: URL, imageData: ((URL) async throws -> Data)?) async -> Bool {
+        do {
+            let bytes: Data
+            if let imageData {
+                bytes = try await imageData(url)
+            } else {
+                bytes = try await fetchImageData(url)
+            }
+            return !Task.isCancelled && isUsableSourcePreviewImage(bytes)
+        } catch {
+            return false
+        }
+    }
+
+    /// Whether a place may be upgraded by the website-preview pass.
+    static func canUseSourcePreview(for place: Place) -> Bool {
+        switch place.image {
+        case nil:
+            let rawSourceURL = place.sourceURL.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !rawSourceURL.isEmpty else { return true }
+            guard let url = URL(string: rawSourceURL) else { return false }
+            if PlaceLinkMetadata.isMapProviderURL(url) { return true }
+            guard let website = normalizedSourcePreviewURL(url) else { return false }
+            return hasVenueWebsiteEvidence(website, for: place)
+        case .bundled:
+            return true
+        case .external(let image):
+            return image.provider == .sourcePreview && image.userSelected != true
+        case .uploaded(let image):
+            return image.generatedSource != nil
+        case .linkPreview(let pageURL, let thumbnailURL, _):
+            guard let page = URL(string: pageURL) else { return false }
+            if PlaceLinkMetadata.isMapProviderURL(page) { return true }
+            guard normalizedSourcePreviewURL(page) != nil else { return false }
+            guard let thumbnailURL, let thumbnail = URL(string: thumbnailURL) else { return true }
+            return !isUsableSourcePreviewThumbnailURL(thumbnail)
+        }
+    }
+
+    /// Pure MapKit candidate validation used by sourcePreview and its deterministic tests.
+    static func sourcePreviewWebsite(for place: Place, mapItems: [MKMapItem]) -> URL? {
+        guard let coordinate = place.coordinate else { return nil }
+        let expectedName = normalizedSourcePreviewName(place.title)
+        guard !expectedName.isEmpty else { return nil }
+        let origin = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        let matches = mapItems.filter { item in
+            guard normalizedSourcePreviewName(item.name ?? "") == expectedName,
+                  let itemCoordinate = item.placemark.location?.coordinate else { return false }
+            return origin.distance(from: CLLocation(latitude: itemCoordinate.latitude, longitude: itemCoordinate.longitude)) <= 250
+        }
+        guard matches.count == 1 else { return nil }
+        let item = matches[0]
+        if let rawURL = item.url {
+            return normalizedSourcePreviewURL(rawURL)
+        }
+        guard let fallback = URL(string: place.sourceURL),
+              let website = normalizedSourcePreviewURL(fallback),
+              hasVenueWebsiteEvidence(website, for: place) else { return nil }
+        return website
+    }
+
+    static func normalizedSourcePreviewURL(_ raw: String) -> URL? {
+        guard let url = URL(string: raw) else { return nil }
+        return normalizedSourcePreviewURL(url)
+    }
+
+    static func normalizedSourcePreviewURL(_ url: URL) -> URL? {
+        guard ["http", "https"].contains(url.scheme?.lowercased() ?? ""),
+              let host = url.host?.lowercased(), !host.isEmpty,
+              url.user == nil, url.password == nil,
+              !PlaceLinkMetadata.isMapProviderURL(url),
+              !isBlockedSourcePreviewHost(host),
+              var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return nil }
+        components.scheme = "https"
+        return components.url
+    }
+
+    /// Keeps the bounded image fetch small for Sanity's image CDN without
+    /// rewriting arbitrary official-site URLs.
+    static func sourcePreviewImageURL(_ raw: String) -> URL? {
+        guard let url = URL(string: raw) else { return nil }
+        return sourcePreviewImageURL(url)
+    }
+
+    static func sourcePreviewImageURL(_ url: URL) -> URL? {
+        guard let normalized = normalizedSourcePreviewURL(url) else { return nil }
+        guard normalized.host?.lowercased() == "cdn.sanity.io",
+              normalized.path.hasPrefix("/images/") else {
+            sourcePreviewTrace("image url host=\(normalized.host ?? "") optimized=false")
+            return normalized
+        }
+        guard var components = URLComponents(url: normalized, resolvingAgainstBaseURL: false) else { return normalized }
+        var queryItems = components.queryItems ?? []
+        func setQueryValue(_ name: String, _ value: String) {
+            queryItems.removeAll { $0.name.caseInsensitiveCompare(name) == .orderedSame }
+            queryItems.append(URLQueryItem(name: name, value: value))
+        }
+        setQueryValue("w", "1200")
+        setQueryValue("fit", "max")
+        setQueryValue("fm", "jpg")
+        components.queryItems = queryItems
+        let optimized = components.url ?? normalized
+        sourcePreviewTrace("image url host=\(optimized.host ?? "") optimized=true")
+        return optimized
+    }
+
+    static func isUsableSourcePreviewThumbnailURL(_ url: URL) -> Bool {
+        guard normalizedSourcePreviewURL(url) != nil else { return false }
+        let path = url.path.lowercased()
+        guard !path.hasSuffix(".svg") else { return false }
+        let value = "\(path)\(url.query.map { "?\($0)" } ?? "")".lowercased()
+        let blockedTerms = ["logo", "icon", "favicon", "apple-touch", "staticmap", "static-map", "maptile", "menu", "sprite", "avatar"]
+        return !blockedTerms.contains(where: value.contains)
+    }
+
+    static func isUsableSourcePreviewImage(_ data: Data) -> Bool {
+        guard data.count <= 2_000_000, let image = UIImage(data: data) else { return false }
+        let width = image.cgImage.map { $0.width } ?? Int(image.size.width * image.scale)
+        let height = image.cgImage.map { $0.height } ?? Int(image.size.height * image.scale)
+        return width >= 300 && height >= 180 && width > 0 && height > 0 && width <= 10_000 && height <= 10_000 && width * height <= 40_000_000
+    }
+
+    /// Returns at most three venue-specific HTML image candidates. Generic first images
+    /// are intentionally ignored unless their alt/title contains the complete venue name.
+    static func sourcePreviewHTMLCandidates(data: Data, baseURL: URL, for place: Place) -> [URL] {
+        guard data.count <= 2_000_000, let html = String(data: data, encoding: .utf8) else { return [] }
+        let venue = normalizedSourcePreviewName(place.title)
+        guard !venue.isEmpty,
+              let expression = try? NSRegularExpression(pattern: #"(?is)<img\b[^>]*>"#) else { return [] }
+        let range = NSRange(html.startIndex..<html.endIndex, in: html)
+        var seen = Set<URL>()
+        var candidates: [URL] = []
+        for match in expression.matches(in: html, range: range) {
+            guard let tagRange = Range(match.range, in: html) else { continue }
+            let tag = String(html[tagRange])
+            let attributes = htmlImageAttributes(in: tag)
+            let evidence = [attributes["alt"], attributes["title"]].compactMap { $0 }
+                .map(normalizedSourcePreviewName)
+                .contains { $0.contains(venue) }
+            guard evidence else { continue }
+            let rawURL = attributes["src"] ?? attributes["data-src"] ?? attributes["data-lazy-src"]
+            guard let rawURL,
+                  let resolved = URL(string: rawURL, relativeTo: baseURL)?.absoluteURL,
+                  let normalized = sourcePreviewImageURL(resolved),
+                  isUsableSourcePreviewThumbnailURL(normalized),
+                  seen.insert(normalized).inserted else { continue }
+            candidates.append(normalized)
+            if candidates.count == 3 { break }
+        }
+        return candidates
+    }
+
+    private static func isAllowedSourcePreviewHTMLURL(_ url: URL, website: URL) -> Bool {
+        guard let normalized = normalizedSourcePreviewURL(url),
+              let normalizedWebsite = normalizedSourcePreviewURL(website),
+              let host = normalized.host?.lowercased(),
+              let websiteHost = normalizedWebsite.host?.lowercased() else { return false }
+        let trimmedHost = host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+        let trimmedWebsiteHost = websiteHost.hasPrefix("www.") ? String(websiteHost.dropFirst(4)) : websiteHost
+        return trimmedHost == trimmedWebsiteHost
+    }
+
+    private static func htmlImageAttributes(in tag: String) -> [String: String] {
+        guard let expression = try? NSRegularExpression(pattern: #"(?is)([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(?:\"([^\"]*)\"|'([^']*)'|([^\s>]+))"#) else { return [:] }
+        let range = NSRange(tag.startIndex..<tag.endIndex, in: tag)
+        var attributes: [String: String] = [:]
+        for match in expression.matches(in: tag, range: range) {
+            guard let keyRange = Range(match.range(at: 1), in: tag) else { continue }
+            let valueRange = (2...4).compactMap { Range(match.range(at: $0), in: tag) }.first
+            guard let valueRange else { continue }
+            attributes[String(tag[keyRange]).lowercased()] = decodeHTMLAttribute(String(tag[valueRange]))
+        }
+        return attributes
+    }
+
+    private static func decodeHTMLAttribute(_ raw: String) -> String {
+        raw.replacingOccurrences(of: "&amp;", with: "&")
+            .replacingOccurrences(of: "&quot;", with: "\"")
+            .replacingOccurrences(of: "&#39;", with: "'")
+            .replacingOccurrences(of: "&apos;", with: "'")
+            .replacingOccurrences(of: "&#38;", with: "&")
+            .replacingOccurrences(of: "&#x26;", with: "&")
+            .replacingOccurrences(of: "&#X26;", with: "&")
+    }
+
+    private static func mapItems(for place: Place) async throws -> [MKMapItem] {
+        guard let coordinate = place.coordinate else { return [] }
+        let request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = place.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        request.region = MKCoordinateRegion(
+            center: coordinate,
+            span: MKCoordinateSpan(latitudeDelta: 0.015, longitudeDelta: 0.02)
+        )
+        return try await MKLocalSearch(request: request).start().mapItems
+    }
+
+    private static func hasVenueEvidence(_ preview: OEmbedService.Preview, for place: Place, website: URL) -> Bool {
+        let venue = normalizedSourcePreviewName(place.title)
+        let placeWords = Set(venue.split(separator: " ").map(String.init).filter { $0.count >= 3 })
+        guard !placeWords.isEmpty else { return false }
+        let genericWords = Set(["bar", "cafe", "café", "hotel", "restaurant", "bistro", "pub", "museum", "gallery", "park"])
+        let discriminativeWords = placeWords.filter { !genericWords.contains($0) }
+        guard !discriminativeWords.isEmpty else { return false }
+
+        let metadata = [preview.conciseTitle, preview.description ?? ""].map(normalizedSourcePreviewName).joined(separator: " ")
+        if metadata == venue || metadata.contains(venue) { return true }
+
+        return hasVenueWebsiteEvidence(website, for: place)
+    }
+
+    private static func hasVenueWebsiteEvidence(_ website: URL, for place: Place) -> Bool {
+        let venue = normalizedSourcePreviewName(place.title)
+        let placeWords = Set(venue.split(separator: " ").map(String.init).filter { $0.count >= 3 })
+        let genericWords = Set(["bar", "cafe", "café", "hotel", "restaurant", "bistro", "pub", "museum", "gallery", "park"])
+        let discriminativeWords = placeWords.filter { !genericWords.contains($0) }
+        guard !discriminativeWords.isEmpty else { return false }
+        let siteText = normalizedSourcePreviewName("\(website.host ?? "") \(website.path)")
+        let compactVenue = venue.replacingOccurrences(of: " ", with: "")
+        let compactSite = siteText.replacingOccurrences(of: " ", with: "")
+        if compactSite.contains(compactVenue) { return true }
+        let siteWords = Set(siteText.split(separator: " ").map(String.init))
+        return discriminativeWords.allSatisfy { word in
+            siteWords.contains(word) || compactSite.contains(word)
+        }
+    }
+
+    private static func sourcePreviewTrace(_ message: String) {
+        #if DEBUG
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["ALBUM_LIVE_SOURCE_PREVIEW_QA"] == "1"
+                || environment["TEST_RUNNER_ALBUM_LIVE_SOURCE_PREVIEW_QA"] == "1" else { return }
+        print("[SourcePreview] \(message)")
+        #endif
+    }
+
+    private static func normalizedSourcePreviewName(_ raw: String) -> String {
+        let folded = raw.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+        let allowed = CharacterSet.alphanumerics
+        let separated = folded.unicodeScalars.map { allowed.contains($0) ? String($0) : " " }.joined()
+        return separated.split(whereSeparator: { $0 == " " }).joined(separator: " ")
+    }
+
+    private static func isBlockedSourcePreviewHost(_ host: String) -> Bool {
+        let clean = host.trimmingCharacters(in: CharacterSet(charactersIn: ".")).lowercased()
+        guard clean != "localhost", !clean.hasSuffix(".local"), !clean.hasSuffix(".localhost"), !clean.contains(":"), !isPrivateIPv4(clean) else { return true }
+        if let url = URL(string: "https://\(clean)"), PlaceLinkMetadata.isMapProviderURL(url) { return true }
+        let blocked = ["google.com", "facebook.com", "instagram.com", "tiktok.com", "youtube.com", "youtu.be", "twitter.com", "x.com", "linkedin.com", "pinterest.com", "yelp.com", "goo.gl", "waze.com", "mapquest.com", "openstreetmap.org"]
+        return blocked.contains { clean == $0 || clean.hasSuffix(".\($0)") }
+    }
+
+    private static func isPrivateIPv4(_ host: String) -> Bool {
+        let parts = host.split(separator: ".").compactMap { Int($0) }
+        guard parts.count == 4, host.split(separator: ".").count == 4, parts.allSatisfy({ (0...255).contains($0) }) else { return false }
+        return parts[0] == 0 || parts[0] == 10 || parts[0] == 127 || parts[0] == 169 && parts[1] == 254
+            || parts[0] == 172 && (16...31).contains(parts[1]) || parts[0] == 192 && parts[1] == 168
+    }
+
+    private static func fetchHTMLData(_ url: URL) async throws -> (data: Data, url: URL) {
+        var request = URLRequest(url: url, timeoutInterval: 12)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("text/html,application/xhtml+xml", forHTTPHeaderField: "Accept")
+        request.setValue("Album/1.0", forHTTPHeaderField: "User-Agent")
+        let (bytes, response) = try await URLSession.shared.bytes(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<400).contains(http.statusCode), let finalURL = response.url else {
+            throw URLError(.badServerResponse)
+        }
+        var data = Data()
+        for try await byte in bytes {
+            try Task.checkCancellation()
+            data.append(byte)
+            if data.count > 2_000_000 { throw URLError(.dataLengthExceedsMaximum)
+            }
+        }
+        return (data, finalURL)
+    }
+
+    private static func fetchImageData(_ url: URL) async throws -> Data {
+        var request = URLRequest(url: url, timeoutInterval: 12)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("image/*", forHTTPHeaderField: "Accept")
+        request.setValue("Album/1.0", forHTTPHeaderField: "User-Agent")
+        let (bytes, response) = try await URLSession.shared.bytes(for: request)
+        guard let http = response as? HTTPURLResponse,
+              (200..<400).contains(http.statusCode),
+              let finalURL = response.url,
+              normalizedSourcePreviewURL(finalURL) != nil else { throw URLError(.badServerResponse) }
+        var data = Data()
+        for try await byte in bytes {
+            try Task.checkCancellation()
+            data.append(byte)
+            if data.count > 2_000_000 { throw URLError(.dataLengthExceedsMaximum)
+            }
+        }
+        return data
     }
 }
 

@@ -52,6 +52,7 @@ private struct PlaceResolutionSnapshot: Equatable {
     var geocodeAddressResolver: (@MainActor (String) async -> CLLocationCoordinate2D?)?
     var placeResolutionResolver: (@MainActor (Place, TripRegionContext) async -> PlaceResolutionOutcome)?
     var placeImageSearchResolver: (@MainActor (Place, TripRegionContext) async throws -> PlaceImageSearchResult)?
+    var placeSourcePreviewResolver: (@MainActor (Place, TripRegionContext) async -> PlaceImage?)?
     @ObservationIgnored var discoveryServiceOverride: (any DiscoveryServiceProtocol)?
     @ObservationIgnored private var storedDiscoverySession: DiscoverySession?
     var discoverySession: DiscoverySession {
@@ -849,7 +850,13 @@ private struct PlaceResolutionSnapshot: Equatable {
 
     func refreshPlaceImages(force: Bool = false) async {
         var attempted = 0
-        for place in places {
+        let orderedPlaces = places.enumerated().sorted { left, right in
+            let leftPriority = left.element.image == nil && Self.isMapProviderSource(left.element.sourceURL)
+            let rightPriority = right.element.image == nil && Self.isMapProviderSource(right.element.sourceURL)
+            if leftPriority != rightPriority { return leftPriority }
+            return left.offset < right.offset
+        }.map(\.element)
+        for place in orderedPlaces {
             guard !Task.isCancelled, attempted < 5 else { return }
             let context = tripRegionContext(for: place)
             if place.coordinate == nil {
@@ -943,15 +950,19 @@ private struct PlaceResolutionSnapshot: Equatable {
         defer { placeImageInFlight.remove(id) }
 
         do {
-            let result: PlaceImageSearchResult
-            if let resolver = placeImageSearchResolver {
-                result = try await resolver(current, context)
-            } else if isAutomatedTestStore {
-                placeImageStatuses[id] = .failed(retryable: false)
-                return
-            } else {
-                result = try await PlaceImageService.search(for: current, region: context.name,
-                                                            languageCode: context.preferredLanguageCode)
+            var result: PlaceImageSearchResult?
+            var searchFailed = false
+            do {
+                if let resolver = placeImageSearchResolver {
+                    result = try await resolver(current, context)
+                } else if isAutomatedTestStore {
+                    result = .init(image: nil, candidates: [], selectionVersion: PlaceImageService.ranking)
+                } else {
+                    result = try await PlaceImageService.search(for: current, region: context.name,
+                                                                languageCode: context.preferredLanguageCode)
+                }
+            } catch {
+                searchFailed = true
             }
             guard !Task.isCancelled else {
                 placeImageStatuses[id] = .idle
@@ -966,21 +977,55 @@ private struct PlaceResolutionSnapshot: Equatable {
                 placeImageAttempts.remove(imageKey)
                 return
             }
-            let found = result.automaticImages
+            let found = result?.automaticImages ?? []
             let needsImage = PlaceImageService.shouldSearch(for: current, force: force)
             var updated = latest
+            var resolvedImage = false
             if needsImage, let best = found.first {
                 updated.image = best.asset(for: updated)
                 updated.gallery = PlaceImageService.gallery(from: found, for: updated)
-            } else if needsImage, result.isCurrent, found.isEmpty,
+                resolvedImage = true
+            } else if needsImage, PlaceImageService.canUseSourcePreview(for: latest) {
+                let preview: PlaceImage?
+                if let resolver = placeSourcePreviewResolver {
+                    preview = await resolver(latest, context)
+                } else if isAutomatedTestStore {
+                    preview = nil
+                } else {
+                    preview = await PlaceImageService.sourcePreview(for: latest)
+                }
+                guard !Task.isCancelled else {
+                    placeImageStatuses[id] = .idle
+                    placeImageAttempts.remove(imageKey)
+                    return
+                }
+                guard let latestAfterPreview = places.first(where: { $0.id == id }),
+                      PlaceImageService.matchesRequest(current, latestAfterPreview),
+                      latestAfterPreview.sourceURL == current.sourceURL,
+                      PlaceImageService.canUseSourcePreview(for: latestAfterPreview), latestAfterPreview.image == latest.image,
+                      data.albumID == snapshot.albumID, data.trip == snapshot.trip,
+                      tripRegionContext(for: latestAfterPreview) == context else {
+                    placeImageStatuses[id] = .idle
+                    placeImageAttempts.remove(imageKey)
+                    return
+                }
+                if let preview, preview.provider == .sourcePreview, preview.confidence == .suggested {
+                    updated = latestAfterPreview
+                    updated.image = preview.asset(for: updated)
+                    updated.gallery = []
+                    resolvedImage = true
+                }
+            }
+            if !resolvedImage, needsImage, result?.isCurrent == true, found.isEmpty,
                       Self.isStaleAutomaticWikimedia(updated.image) {
                 // A current ranking response supersedes old automatic Wikimedia assets; failures do not.
                 updated.image = nil
                 updated.gallery = []
-            } else if !needsImage, result.isCurrent {
+                resolvedImage = true
+            } else if !resolvedImage, !needsImage, result?.isCurrent == true {
                 let gallery = PlaceImageService.gallery(from: found, for: updated)
                 if !gallery.isEmpty { updated.gallery = gallery }
-            } else if needsImage, !isAutomatedTestStore,
+            } else if !resolvedImage, needsImage, !isAutomatedTestStore,
                       !PlaceImageService.canRetain(updated.image, for: updated),
                       let coordinate = updated.coordinate {
                 let local = await PlaceImageResolver.localSnapshot(at: coordinate)
@@ -1007,10 +1052,15 @@ private struct PlaceResolutionSnapshot: Equatable {
                     uploaded.generatedSource = local.source
                     updated.image = .uploaded(uploaded)
                     updated.gallery = []
+                    resolvedImage = true
                 }
             }
             if updated != latest, !upsert(updated) { placeImageStatuses[id] = .failed(retryable: true); return }
-            placeImageStatuses[id] = (updated.image == nil && needsImage) ? .notFound : .ready
+            if searchFailed, updated == latest {
+                placeImageStatuses[id] = .failed(retryable: true)
+            } else {
+                placeImageStatuses[id] = (updated.displayImage == nil && needsImage) ? .notFound : .ready
+            }
         } catch {
             if Task.isCancelled {
                 placeImageStatuses[id] = .idle
@@ -1037,6 +1087,11 @@ private struct PlaceResolutionSnapshot: Equatable {
             "\($0.center.latitude),\($0.center.longitude),\($0.span.latitudeDelta),\($0.span.longitudeDelta)"
         } ?? "none"
         return "\(context.source)|\(context.name ?? "")|\(region)|\(context.preferredLanguageCode ?? "")"
+    }
+
+    private static func isMapProviderSource(_ value: String) -> Bool {
+        guard let url = URL(string: value) else { return false }
+        return PlaceLinkMetadata.isMapProviderURL(url)
     }
 
     private func isCurrentResolutionRequest(_ requested: Place, snapshot: PlaceResolutionSnapshot) -> Bool {
