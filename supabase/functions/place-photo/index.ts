@@ -3,7 +3,7 @@ import { isUuid } from "../_shared/assistant_validation.ts";
 import { choosePlace, firstArray, validCoordinate, type PlaceCandidate } from "../_shared/place_photo.ts";
 import { resolveWikimedia, WikimediaUnavailable, type WikimediaRequestLimiter } from "../_shared/wikimedia_photos.ts";
 
-import { createPhotoCache } from "../_shared/place_photo_cache.ts";
+import { createPhotoCache, publicPhotoCacheKey } from "../_shared/place_photo_cache.ts";
 import { cleanPhotoRegion, photoCacheKey, supportedWikipediaLanguage } from "../_shared/photo_context.ts";
 
 const cachedWikimedia = createPhotoCache(async key => {
@@ -15,19 +15,25 @@ Deno.serve(async request => {
   if (request.method !== "POST") return new Response(null, { status: 405 });
   try {
     const { user, admin } = await clients(request);
+    const contentLength = Number(request.headers.get("content-length") ?? 0);
+    if (contentLength > 32 * 1024) return json({ error: "Anfrage ist zu groß" }, 413);
     const body = await request.json();
+    if (JSON.stringify(body).length > 32 * 1024) return json({ error: "Anfrage ist zu groß" }, 413);
     const title = typeof body.title === "string" ? body.title.trim() : "";
     const address = typeof body.address === "string" ? body.address.trim() : "";
-    const category = typeof body.category === "string" ? body.category : "Idee";
+    const category = typeof body.category === "string" ? body.category.trim() : "Idee";
     // Ältere Clients liefern keinen Kontext: dann bleibt die Suche neutral und koordinatenbasiert.
     const region = cleanPhotoRegion(body.region);
     const languageCode = supportedWikipediaLanguage(body.language_code);
-    const tripID = body.trip_id == null ? null : String(body.trip_id);
-    const latitude = Number(body.latitude);
-    const longitude = Number(body.longitude);
-    if (!title || !validCoordinate(latitude, longitude) || (tripID !== null && !isUuid(tripID)) || (body.mode === "automatic_photo_v1" && !validCoordinate(latitude, longitude))) return json({ error: "Ort oder Koordinaten fehlen" }, 400);
+    const tripID = body.trip_id == null ? null : typeof body.trip_id === "string" ? body.trip_id : "invalid";
+    const placeID = body.place_id == null ? null : typeof body.place_id === "string" ? body.place_id.trim() : "invalid";
+    const revision = body.revision == null ? "1" : typeof body.revision === "string" ? body.revision.trim() : "invalid";
+    const latitude = typeof body.latitude === "number" ? body.latitude : NaN;
+    const longitude = typeof body.longitude === "number" ? body.longitude : NaN;
+    if (!title || title.length > 200 || address.length > 500 || category.length > 64 || !validCoordinate(latitude, longitude) || (tripID !== null && !isUuid(tripID)) || (placeID === "invalid" || placeID && (placeID.length < 1 || placeID.length > 128)) || revision === "invalid" || revision.length > 64 || typeof body.manual !== "undefined" && typeof body.manual !== "boolean" || (body.mode !== undefined && body.mode !== "automatic_photo_v1") || (body.mode === "automatic_photo_v1" && !validCoordinate(latitude, longitude))) return json({ error: "Ungültige Ortsdaten" }, 400);
 
     const resolutionID = crypto.randomUUID();
+    const manualQuotaKey = body.manual === true && placeID ? await publicPhotoCacheKey({ protocol: "private-manual", id: [user.id, tripID ?? "", placeID, revision].join(":" ) }) : null;
     const ramKey = photoCacheKey({ title, category, latitude, longitude, address, region, languageCode });
     const limiter: WikimediaRequestLimiter = { run: async <T>(work: () => Promise<T>) => {
       const result = await admin.rpc("place_photo_reserve_upstream", { p_resolution_id: resolutionID, p_provider: "wikimedia" });
@@ -35,14 +41,32 @@ Deno.serve(async request => {
       return await work();
     } };
     const loadPhotos = async () => {
-      const run = await admin.rpc("place_photo_reserve_run", { p_resolution_id: resolutionID, p_user_id: user.id, p_trip_id: tripID, p_cache_key: null, p_manual: body.manual === true });
+      const run = await admin.rpc("place_photo_reserve_run", { p_resolution_id: resolutionID, p_user_id: user.id, p_trip_id: tripID, p_cache_key: manualQuotaKey, p_manual: body.manual === true });
       if (run.error || !run.data?.ok) throw new WikimediaUnavailable("commons.wikimedia.org", "quota", String(run.data?.code ?? "quota_unavailable"), Number(run.data?.retry_after_seconds) || 60);
       return await cachedWikimedia(ramKey, async key => {
         const [cachedTitle, cachedCategory, cachedLatitude, cachedLongitude, cachedAddress, cachedRegion, cachedLanguage] = JSON.parse(key);
         return await resolveWikimedia(cachedTitle, cachedCategory, cachedLatitude, cachedLongitude, cachedAddress, cachedRegion, cachedLanguage, limiter);
       });
     };
-    const photos = await loadPhotos();
+    let photos: Awaited<ReturnType<typeof resolveWikimedia>> = [];
+    if (placeID) {
+      const token = crypto.randomUUID();
+      const claim = await admin.rpc("place_photo_private_cache_claim", { p_user_id: user.id, p_trip_id: tripID, p_place_id: placeID, p_revision: revision, p_lease_token: token });
+      if (claim.error) throw claim.error;
+      if (claim.data?.state === "forbidden") return json({ error: "Reisezugriff erforderlich" }, 403);
+      if (claim.data?.state === "fresh") photos = (claim.data.payload ?? []) as Awaited<ReturnType<typeof resolveWikimedia>>;
+      else if (claim.data?.state === "busy") return json({ image: null, candidates: [], status: "deferred", retry_after_seconds: Number(claim.data.retry_after_seconds) || 10, selection_version: 4 }, 202);
+      else {
+        try {
+          photos = await loadPhotos();
+          const now = new Date();
+          await admin.rpc("place_photo_private_cache_complete", { p_user_id: user.id, p_trip_id: tripID, p_place_id: placeID, p_revision: revision, p_lease_token: token, p_payload: photos, p_expires_at: new Date(now.getTime() + (photos.length ? 30 : 7) * 86400000).toISOString() });
+        } catch (error) {
+          await admin.rpc("place_photo_private_cache_release", { p_user_id: user.id, p_trip_id: tripID, p_place_id: placeID, p_revision: revision, p_lease_token: token });
+          throw error;
+        }
+      }
+    } else photos = await loadPhotos();
     const candidates = body.selection_version >= 3 ? photos : photos.filter(photo => photo.confidence === "verified");
     const image = photos.find(photo => photo.confidence === "verified");
     if (image) return json({ image, candidates, selection_version: 4 });
@@ -57,7 +81,7 @@ Deno.serve(async request => {
   } catch (error) {
     if (error instanceof WikimediaUnavailable) {
       console.warn("Place photo source unavailable", error.host, error.operation, error.reason);
-      return new Response(JSON.stringify({ error: "Die Bildquelle ist vorübergehend nicht verfügbar. Bitte später erneut versuchen.", code: "image_source_unavailable" }), {
+      return new Response(JSON.stringify({ error: "Die Bildquelle ist vorübergehend nicht verfügbar. Bitte später erneut versuchen.", code: "image_source_unavailable", retry_after_seconds: error.retryAfter }), {
         status: 503, headers: { ...jsonHeaders, "Retry-After": String(error.retryAfter) },
       });
     }

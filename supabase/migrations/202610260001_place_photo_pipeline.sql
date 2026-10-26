@@ -17,6 +17,21 @@ create table if not exists place_photo_private.public_cache (
 );
 create index if not exists place_photo_cache_expiry_idx on place_photo_private.public_cache (stale_until);
 
+create table if not exists place_photo_private.private_cache (
+  scope_key text not null check (length(scope_key) between 6 and 200),
+  user_id uuid references auth.users(id) on delete cascade,
+  trip_id uuid,
+  place_id text not null check (length(place_id) between 1 and 128),
+  revision text not null default '1' check (length(revision) between 1 and 64),
+  payload jsonb not null default '[]'::jsonb check (jsonb_typeof(payload) = 'array'),
+  expires_at timestamptz,
+  lease_token uuid,
+  lease_until timestamptz,
+  updated_at timestamptz not null default now(),
+  primary key (scope_key, place_id, revision)
+);
+create index if not exists place_photo_private_cache_expiry_idx on place_photo_private.private_cache (expires_at);
+
 create table if not exists place_photo_private.resolution_runs (
   resolution_id uuid primary key,
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -38,11 +53,43 @@ create table if not exists place_photo_private.upstream_calls (
 create index if not exists place_photo_calls_created_idx on place_photo_private.upstream_calls (created_at desc);
 
 alter table place_photo_private.public_cache enable row level security;
+alter table place_photo_private.private_cache enable row level security;
 alter table place_photo_private.resolution_runs enable row level security;
 alter table place_photo_private.upstream_calls enable row level security;
 revoke all on all tables in schema place_photo_private from public, anon, authenticated;
 grant usage on schema place_photo_private to service_role;
 grant select, insert, update, delete on all tables in schema place_photo_private to service_role;
+
+create or replace function public.place_photo_private_cache_claim(p_user_id uuid,p_trip_id uuid,p_place_id text,p_revision text,p_lease_token uuid,p_now timestamptz default now())
+returns jsonb language plpgsql security definer set search_path=public,place_photo_private,pg_temp as $$
+declare row place_photo_private.private_cache%rowtype;
+        scope text := case when p_trip_id is null then 'user:'||p_user_id::text else 'trip:'||p_trip_id::text end;
+begin
+  if auth.role() <> 'service_role' or p_user_id is null or p_place_id is null or length(p_place_id) not between 1 and 128 or p_lease_token is null then raise exception using errcode='22023',message='invalid private cache claim'; end if;
+  if p_trip_id is not null and not exists(select 1 from public.trip_members where trip_id=p_trip_id and user_id=p_user_id) then return jsonb_build_object('state','forbidden','payload','[]'::jsonb); end if;
+  insert into place_photo_private.private_cache(scope_key,user_id,trip_id,place_id,revision) values(scope,p_user_id,p_trip_id,p_place_id,coalesce(nullif(p_revision,''),'1')) on conflict do nothing;
+  select * into row from place_photo_private.private_cache where scope_key=scope and place_id=p_place_id and revision=coalesce(nullif(p_revision,''),'1') for update;
+  if row.expires_at is not null and row.expires_at > p_now then return jsonb_build_object('state','fresh','payload',row.payload); end if;
+  if row.lease_until is not null and row.lease_until > p_now and row.lease_token is distinct from p_lease_token then return jsonb_build_object('state','busy','payload','[]'::jsonb,'retry_after_seconds',greatest(1,ceil(extract(epoch from row.lease_until-p_now))::integer)); end if;
+  update place_photo_private.private_cache set lease_token=p_lease_token,lease_until=p_now+interval '2 minutes',updated_at=p_now where scope_key=scope and place_id=p_place_id and revision=coalesce(nullif(p_revision,''),'1');
+  return jsonb_build_object('state','claimed','payload',row.payload);
+end $$;
+create or replace function public.place_photo_private_cache_complete(p_user_id uuid,p_trip_id uuid,p_place_id text,p_revision text,p_lease_token uuid,p_payload jsonb,p_expires_at timestamptz)
+returns boolean language plpgsql security definer set search_path=public,place_photo_private,pg_temp as $$
+declare scope text := case when p_trip_id is null then 'user:'||p_user_id::text else 'trip:'||p_trip_id::text end;
+begin
+  if auth.role() <> 'service_role' or jsonb_typeof(p_payload) <> 'array' then raise exception using errcode='22023',message='invalid private cache payload'; end if;
+  update place_photo_private.private_cache set payload=p_payload,expires_at=p_expires_at,lease_token=null,lease_until=null,updated_at=now() where scope_key=scope and place_id=p_place_id and revision=coalesce(nullif(p_revision,''),'1') and lease_token=p_lease_token;
+  return found;
+end $$;
+create or replace function public.place_photo_private_cache_release(p_user_id uuid,p_trip_id uuid,p_place_id text,p_revision text,p_lease_token uuid)
+returns boolean language plpgsql security definer set search_path=public,place_photo_private,pg_temp as $$
+declare scope text := case when p_trip_id is null then 'user:'||p_user_id::text else 'trip:'||p_trip_id::text end;
+begin
+  if auth.role() <> 'service_role' then raise exception using errcode='42501',message='service role required'; end if;
+  update place_photo_private.private_cache set lease_token=null,lease_until=null,updated_at=now() where scope_key=scope and place_id=p_place_id and revision=coalesce(nullif(p_revision,''),'1') and lease_token=p_lease_token;
+  return found;
+end $$;
 
 create or replace function public.place_photo_cache_claim(p_cache_key text, p_identity_protocol text, p_pipeline_version integer, p_lease_token uuid, p_now timestamptz default now())
 returns jsonb language plpgsql security definer set search_path=public,place_photo_private,pg_temp as $$
@@ -80,7 +127,8 @@ returns jsonb language plpgsql security definer set search_path=public,place_pho
 declare oldest timestamptz; count_hour integer; count_day integer; count_trip integer; count_manual integer;
 begin
   if auth.role() <> 'service_role' or p_resolution_id is null or p_user_id is null then raise exception using errcode='42501',message='service role required'; end if;
-  perform pg_advisory_xact_lock(hashtextextended('place-photo-run:'||to_char(p_now at time zone 'UTC','YYYY-MM-DD'),0));
+  perform pg_advisory_xact_lock(hashtextextended('place-photo-run-user:'||p_user_id::text,0));
+  if p_trip_id is not null then perform pg_advisory_xact_lock(hashtextextended('place-photo-run-trip:'||p_trip_id::text,0)); end if;
   if exists(select 1 from place_photo_private.resolution_runs where resolution_id=p_resolution_id) then return jsonb_build_object('ok',true,'reused',true); end if;
   if p_trip_id is not null and not exists(select 1 from public.trip_members where trip_id=p_trip_id and user_id=p_user_id) then return jsonb_build_object('ok',false,'code','forbidden_trip'); end if;
   select count(*)::integer,min(created_at) into count_hour,oldest from place_photo_private.resolution_runs where user_id=p_user_id and created_at >= p_now-interval '1 hour';
@@ -105,7 +153,7 @@ declare seq integer; oldest timestamptz; total_min integer; total_day integer;
 begin
   if auth.role() <> 'service_role' or p_provider not in ('wikimedia','google') then raise exception using errcode='22023',message='invalid upstream'; end if;
   if not exists(select 1 from place_photo_private.resolution_runs where resolution_id=p_resolution_id) then return jsonb_build_object('ok',false,'code','run_missing'); end if;
-  perform pg_advisory_xact_lock(hashtextextended('place-photo-upstream:'||to_char(p_now at time zone 'UTC','YYYY-MM-DD-HH24-MI'),0));
+  perform pg_advisory_xact_lock(hashtextextended('place-photo-upstream-global',0));
   select count(*)::integer,min(created_at) into total_min,oldest from place_photo_private.upstream_calls where created_at >= p_now-interval '1 minute';
   if total_min >= 10 then return jsonb_build_object('ok',false,'code','global_rate_limit','retry_after_seconds',greatest(1,ceil(extract(epoch from oldest+interval '1 minute'-p_now))::integer)); end if;
   select count(*)::integer into total_day from place_photo_private.upstream_calls where created_at >= p_now-interval '1 day';
@@ -123,6 +171,7 @@ begin
   delete from place_photo_private.upstream_calls where created_at < now()-interval '8 days';
   delete from place_photo_private.resolution_runs where created_at < now()-interval '8 days';
   delete from place_photo_private.public_cache where stale_until < now()-interval '90 days';
+  delete from place_photo_private.private_cache where expires_at < now()-interval '30 days';
   update place_enrichment_private.jobs set snapshot='{}'::jsonb where status in ('ready','needs_review','not_found','failed') and updated_at < now()-interval '7 days';
 end $$;
 
@@ -132,12 +181,18 @@ revoke all on function public.place_photo_cache_release(text,uuid) from public,a
 revoke all on function public.place_photo_reserve_run(uuid,uuid,uuid,text,boolean,timestamptz) from public,anon,authenticated;
 revoke all on function public.place_photo_reserve_upstream(uuid,text,timestamptz) from public,anon,authenticated;
 revoke all on function public.place_photo_prune() from public,anon,authenticated;
+revoke all on function public.place_photo_private_cache_claim(uuid,uuid,text,text,uuid,timestamptz) from public,anon,authenticated;
+revoke all on function public.place_photo_private_cache_complete(uuid,uuid,text,text,uuid,jsonb,timestamptz) from public,anon,authenticated;
+revoke all on function public.place_photo_private_cache_release(uuid,uuid,text,text,uuid) from public,anon,authenticated;
 grant execute on function public.place_photo_cache_claim(text,text,integer,uuid,timestamptz) to service_role;
 grant execute on function public.place_photo_cache_complete(text,uuid,jsonb,timestamptz,timestamptz,timestamptz) to service_role;
 grant execute on function public.place_photo_cache_release(text,uuid) to service_role;
 grant execute on function public.place_photo_reserve_run(uuid,uuid,uuid,text,boolean,timestamptz) to service_role;
 grant execute on function public.place_photo_reserve_upstream(uuid,text,timestamptz) to service_role;
 grant execute on function public.place_photo_prune() to service_role;
+grant execute on function public.place_photo_private_cache_claim(uuid,uuid,text,text,uuid,timestamptz) to service_role;
+grant execute on function public.place_photo_private_cache_complete(uuid,uuid,text,text,uuid,jsonb,timestamptz) to service_role;
+grant execute on function public.place_photo_private_cache_release(uuid,uuid,text,text,uuid) to service_role;
 
 do $$
 begin
