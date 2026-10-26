@@ -23,12 +23,14 @@ struct AlbumPhoto: View {
                           uploaded.generatedSource != nil,
                           let resolvedFor = uploaded.resolvedFor {
                     unavailablePhotoPreview(key: "uploaded-\(uploaded.id)", resolvedFor: resolvedFor, size: geo.size)
+                } else if let remote = thumbnailWidth.flatMap({ asset?.remoteURL(width: $0) }) ?? asset?.remoteURL,
+                          let url = URL(string: remote), url.isFileURL,
+                          let image = UIImage(contentsOfFile: url.path) {
+                    imageLayers(Image(uiImage: image), size: geo.size)
                 } else if let remote = thumbnailWidth.flatMap({ asset?.remoteURL(width: $0) }) ?? asset?.remoteURL, let url = URL(string: remote) {
                     AsyncImage(url: url) { phase in
                         if let image = phase.image {
                             imageLayers(image, size: geo.size)
-                        } else if phase.error != nil, let resolvedFor = asset?.resolvedFor {
-                            unavailablePhotoPreview(key: remote, resolvedFor: resolvedFor, size: geo.size)
                         } else if phase.error != nil,
                                   case .linkPreview(let pageURL, _, _) = asset,
                                   let page = URL(string: pageURL) {
