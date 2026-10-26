@@ -40,7 +40,8 @@ export function createPlacePhotoHandler(clientFactory: typeof clients = clients)
 
     const resolutionID = crypto.randomUUID();
     const manualQuotaKey = manualMode && placeID ? await publicPhotoCacheKey({ protocol: "private-manual", id: [tripID ? `trip:${tripID}` : `user:${user.id}`, placeID].join(":" ) }) : null;
-    const ramKey = `${photoCacheKey({ title, category, latitude, longitude, address, region, languageCode })}:${automaticMode ? "auto-main-v1" : "manual-gallery-v1"}`;
+    const ramBaseKey = photoCacheKey({ title, category, latitude, longitude, address, region, languageCode });
+    const ramKey = JSON.stringify([...JSON.parse(ramBaseKey), automaticMode ? "auto-main-v1" : "manual-gallery-v1"]);
     let runReserved = false;
     const reserveRun = async () => {
       if (runReserved) return;
