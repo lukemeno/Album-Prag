@@ -15,6 +15,8 @@ Deno.serve(async request => {
   if (request.method !== "POST") return new Response(null, { status: 405 });
   try {
     const { user, admin } = await clients(request);
+    const endpointQuota = await admin.rpc("place_photo_reserve_endpoint", { p_user_id: user.id });
+    if (endpointQuota.error || !endpointQuota.data?.ok) return new Response(JSON.stringify({ error: "Zu viele Bildanfragen", code: "endpoint_rate_limit", retry_after_seconds: Number(endpointQuota.data?.retry_after_seconds) || 60 }), { status: 429, headers: { ...jsonHeaders, "Retry-After": String(Number(endpointQuota.data?.retry_after_seconds) || 60) } });
     const contentLength = Number(request.headers.get("content-length") ?? 0);
     if (contentLength > 32 * 1024) return json({ error: "Anfrage ist zu groß" }, 413);
     const body = await request.json();
@@ -77,7 +79,7 @@ Deno.serve(async request => {
       return await cachedWikimedia(ramKey, async key => {
         const [cachedTitle, cachedCategory, cachedLatitude, cachedLongitude, cachedAddress, cachedRegion, cachedLanguage] = JSON.parse(key);
         try {
-          return await resolveWikimedia(cachedTitle, cachedCategory, cachedLatitude, cachedLongitude, cachedAddress, cachedRegion, cachedLanguage, limiter, identityCache);
+          return await resolveWikimedia(cachedTitle, cachedCategory, cachedLatitude, cachedLongitude, cachedAddress, cachedRegion, cachedLanguage, limiter, identityCache, automaticMode);
         } catch (error) {
           if (publicLease) {
             await admin.rpc("place_photo_cache_release", { p_cache_key: publicLease.key, p_lease_token: publicLease.token });
@@ -111,9 +113,10 @@ Deno.serve(async request => {
     const image = photos.find(photo => photo.confidence === "verified");
     if (image) return json({ image, candidates, selection_version: 4 });
 
-    const enabled = body.mode !== "automatic_photo_v1" && Deno.env.get("TRIPADVISOR_TERRA_ENABLED")?.toLowerCase() === "true";
+    const enabled = body.mode !== "automatic_photo_v1" && Deno.env.get("PAID_PHOTO_PROVIDERS_APPROVED")?.toLowerCase() === "true" && Deno.env.get("TRIPADVISOR_TERRA_ENABLED")?.toLowerCase() === "true";
     const key = Deno.env.get("TRIPADVISOR_TERRA_API_KEY");
     if (enabled && key && region) {
+      await reserveRun();
       const tripadvisor = await resolveTripadvisor(title, address, category, latitude, longitude, key, region, languageCode).catch(() => null);
       if (tripadvisor && body.selection_version >= 3) return json({ image: null, candidates: [{ ...tripadvisor, confidence: "suggested" }, ...photos], selection_version: 4 });
     }

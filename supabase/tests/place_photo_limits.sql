@@ -39,6 +39,15 @@ begin
   claim := public.place_photo_private_cache_claim(user_two,trip_id,'shared-place','r1',other,now());
   if claim->>'state' <> 'busy' then raise exception 'shared trip cache did not share the lease'; end if;
 
+  for i in 1..120 loop
+    result := public.place_photo_reserve_endpoint(user_id, now());
+    if not (result->>'ok')::boolean then raise exception 'endpoint request % unexpectedly limited: %', i, result; end if;
+  end loop;
+  result := public.place_photo_reserve_endpoint(user_id, now());
+  if result->>'code' <> 'endpoint_rate_limit' then raise exception 'endpoint limiter did not stop request 121: %', result; end if;
+  result := public.place_photo_reserve_endpoint(user_id, now()+interval '2 minutes');
+  if not (result->>'ok')::boolean then raise exception 'endpoint limiter did not recover: %', result; end if;
+
   result := public.place_photo_reserve_run(run_id, user_id, null, null, false, now());
   if not (result->>'ok')::boolean then raise exception 'run reservation failed: %', result; end if;
   result := public.place_photo_reserve_run(run_b, user_id, null, null, false, now());

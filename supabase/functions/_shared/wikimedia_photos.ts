@@ -60,7 +60,7 @@ export async function fetchWikimediaP18Images(entries: WikimediaDiscoveryImageEn
 }
 
 /// Sammelt Fotos aus drei Quellen (Hauptbild, Commons-Kategorie, Umgebung) und gibt die typischsten zuerst zurück.
-export async function resolveWikimedia(title: string, category: string, latitude: number, longitude: number, address = "", regionName = "", languageCode?: string, limiter?: WikimediaRequestLimiter, identityCache?: WikimediaIdentityCache): Promise<WikimediaPhoto[]> {
+export async function resolveWikimedia(title: string, category: string, latitude: number, longitude: number, address = "", regionName = "", languageCode?: string, limiter?: WikimediaRequestLimiter, identityCache?: WikimediaIdentityCache, automaticMainOnly = false): Promise<WikimediaPhoto[]> {
   let failure: unknown;
   const entities: Array<{ id: string; value: any }> = [];
   let place: PlaceCandidate | undefined;
@@ -102,6 +102,14 @@ export async function resolveWikimedia(title: string, category: string, latitude
   if (place?.image) {
     sources.set(`File:${place.image}`, { source: "main" });
     try { infos = await fileInfos([...sources.keys()], limiter); } catch (error) { failure = error; }
+  }
+  if (automaticMainOnly && identity && infos.length) {
+    const info = infos[0];
+    if (info.imageURL && info.sourceURL && info.credit && info.licenseName && info.licenseURL) {
+      const main: WikimediaPhoto[] = [{ image_url: info.imageURL, source_url: info.sourceURL, credit: info.credit, provider: "wikimedia", provider_place_id: identity.id, license_name: info.licenseName, license_url: info.licenseURL, confidence: "verified", caption: info.candidate.title.replace(/^File:/, "").replace(/\.[a-z]+$/i, "") }];
+      if (identityCache) await identityCache.store(identity, main);
+      return main;
+    }
   }
   async function optional<T>(load: () => Promise<T>, empty: T): Promise<T> {
     try { return await load(); } catch (error) {
