@@ -213,7 +213,7 @@ struct TicketShape: Shape {
 
 /// Runder Poststempel: Ring mit Ortsname und Datum, leicht schräg aufgedrückt.
 struct Postmark: View {
-    var top = "PRAHA"
+    var top = "ALBUM"
     var bottom: String
     var color = Stitch.red
     var size: CGFloat = 76

@@ -94,7 +94,7 @@ struct VisitedTrack: View {
 /// Poststempel „BESUCHT“, der auf dem Foto landet, wenn der Ort besucht ist.
 struct VisitedStamp: View {
     var body: some View {
-        Postmark(top: "PRAHA", bottom: "BESUCHT", color: Stitch.onAccent, size: 84)
+        Postmark(top: "ALBUM", bottom: "BESUCHT", color: Stitch.onAccent, size: 84)
             .background(Stitch.redFill.opacity(0.88), in: Circle())
             .allowsHitTesting(false)
     }

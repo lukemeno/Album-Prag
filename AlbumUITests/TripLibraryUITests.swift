@@ -92,6 +92,7 @@ final class TripLibraryUITests: XCTestCase {
         tap("PlaceEditor-Save", in: app)
         let throwButton = app.buttons["Einwurf-Knopf"]
         if throwButton.waitForExistence(timeout: 4) { throwButton.tap() }
+        XCTAssertTrue(app.buttons["native-new-place"].waitForExistence(timeout: 8), app.debugDescription)
         XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Nur in Paris")).firstMatch.waitForExistence(timeout: 8), app.debugDescription)
         capture("paris-idea-retained", from: app)
 
