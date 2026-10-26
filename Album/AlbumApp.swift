@@ -86,6 +86,22 @@ import UIKit
                     return PlaceImageSearchResult(image: image, candidates: [], selectionVersion: PlaceImageService.ranking)
                 }
             }
+            if ProcessInfo.processInfo.environment["ALBUM_AUTO_PHOTO_LIVE_QA"] == "1" {
+                // Opt-in UI proof only: resolve the saved venue with MapKit and
+                // fetch its official website preview, while bypassing the
+                // authenticated Wikimedia function call in this isolated run.
+                store.data.trip.destination = "Prag"
+                _ = store.persist()
+                store.placeResolutionResolver = { place, context in
+                    await PlaceResolver.resolve(place: place, context: context)
+                }
+                store.placeImageSearchResolver = { _, _ in
+                    PlaceImageSearchResult(image: nil, candidates: [], selectionVersion: PlaceImageService.ranking)
+                }
+                store.placeSourcePreviewResolver = { place, _ in
+                    await PlaceImageService.sourcePreview(for: place, allowNetworkFallback: true)
+                }
+            }
             if ProcessInfo.processInfo.environment["ALBUM_LIVE_IMAGE_QA"] == "1" {
                 if !existed {
                     var trip = TripInfo()
