@@ -1,0 +1,443 @@
+import Foundation
+import Observation
+
+/// The origin is metadata for the library UI only. It is deliberately not
+/// inferred from the contents of a trip folder after a migration.
+enum TripLibraryOrigin: String, Codable {
+    case migrated
+    case starter
+    case blank
+}
+
+struct TripLibraryEntry: Codable, Identifiable, Equatable {
+    let id: UUID
+    let albumID: String
+    var origin: TripLibraryOrigin
+    var title: String
+    var destination: String?
+    var startDate: TripDay?
+    var endDate: TripDay?
+    var remoteTripID: UUID?
+    var travelers: [String]
+    var createdAt: Date
+    var lastOpenedAt: Date?
+    var unavailableReason: String?
+
+    init(id: UUID = UUID(), albumID: String, origin: TripLibraryOrigin,
+         title: String, destination: String? = nil, startDate: TripDay? = nil,
+         endDate: TripDay? = nil, remoteTripID: UUID? = nil,
+         travelers: [String] = [], createdAt: Date = Date(),
+         lastOpenedAt: Date? = nil, unavailableReason: String? = nil) {
+        self.id = id; self.albumID = albumID; self.origin = origin; self.title = title
+        self.destination = destination; self.startDate = startDate; self.endDate = endDate
+        self.remoteTripID = remoteTripID; self.travelers = travelers; self.createdAt = createdAt
+        self.lastOpenedAt = lastOpenedAt; self.unavailableReason = unavailableReason
+    }
+}
+
+struct TripLibraryIndex: Codable, Equatable {
+    let version: Int
+    var entries: [TripLibraryEntry]
+    var lastOpenedID: UUID?
+
+    init(version: Int = 1, entries: [TripLibraryEntry] = [], lastOpenedID: UUID? = nil) {
+        self.version = version; self.entries = entries; self.lastOpenedID = lastOpenedID
+    }
+
+    private enum CodingKeys: String, CodingKey { case version, entries, lastOpenedID }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        version = try values.decodeIfPresent(Int.self, forKey: .version) ?? 1
+        entries = try values.decodeIfPresent([TripLibraryEntry].self, forKey: .entries) ?? []
+        lastOpenedID = try values.decodeIfPresent(UUID.self, forKey: .lastOpenedID)
+    }
+}
+
+struct LegacyMigrationReceipt: Codable, Equatable {
+    enum State: String, Codable { case copying, committed }
+    let id: UUID
+    let state: State
+    let sourceFiles: Int
+    let sourceBytes: Int64
+    let places: Int
+    let documents: Int
+    let memories: Int
+    let albumID: String
+    let committedAt: Date?
+}
+
+/// Owns the index and lifecycle of one or more AlbumStore folders. The index
+/// is only a cache; each trip folder remains the source of truth.
+@MainActor @Observable final class TripLibrary {
+    let root: URL
+    let legacyRoot: URL
+    let shareInbox: ShareInbox
+    private(set) var entries: [TripLibraryEntry] = []
+    private(set) var activeID: UUID?
+    private(set) var activeStore: AlbumStore?
+    var error: String?
+
+    @ObservationIgnored private let availableCapacity: () -> Int64?
+    @ObservationIgnored private let copier: (URL, URL) throws -> Void
+    @ObservationIgnored private let fileManager: FileManager
+    @ObservationIgnored private var readOnlyIndex = false
+    @ObservationIgnored private var indexLastOpenedID: UUID?
+
+    private var indexURL: URL { root.appendingPathComponent("library.json") }
+    private var receiptURL: URL { root.appendingPathComponent("legacy-migration.json") }
+    private var tripsURL: URL { root.appendingPathComponent("Trips", isDirectory: true) }
+
+    init(root: URL? = nil, legacyRoot: URL? = nil, shareInbox: ShareInbox = ShareInbox(),
+         fileManager: FileManager = .default, availableCapacity: @escaping () -> Int64? = {
+             guard let url = try? FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask,
+                                                          appropriateFor: nil, create: true) else { return nil }
+             return try? url.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+                 .volumeAvailableCapacityForImportantUsage
+         }, copier: @escaping (URL, URL) throws -> Void = { source, destination in
+             try FileManager.default.copyItem(at: source, to: destination)
+         }) {
+        self.fileManager = fileManager
+        self.shareInbox = shareInbox
+        self.availableCapacity = availableCapacity
+        self.copier = copier
+
+        #if DEBUG
+        if root == nil, let slot = ProcessInfo.processInfo.environment["ALBUM_TEST_STORE"], !slot.isEmpty {
+            let safe = String(slot.filter { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" })
+            let support = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            self.root = (root ?? support.appendingPathComponent("AlbumUITestLibraries", isDirectory: true))
+                .appendingPathComponent(safe, isDirectory: true)
+            self.legacyRoot = legacyRoot ?? support.appendingPathComponent("AlbumUITests", isDirectory: true)
+                .appendingPathComponent(safe, isDirectory: true)
+        } else {
+            let support = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            self.root = root ?? support.appendingPathComponent("AlbumLibrary", isDirectory: true)
+            self.legacyRoot = legacyRoot ?? support.appendingPathComponent("Album", isDirectory: true)
+        }
+        #else
+        let support = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        self.root = root ?? support.appendingPathComponent("AlbumLibrary", isDirectory: true)
+        self.legacyRoot = legacyRoot ?? support.appendingPathComponent("Album", isDirectory: true)
+        #endif
+
+        do {
+            try fileManager.createDirectory(at: tripsURL, withIntermediateDirectories: true)
+            loadIndex()
+            if !readOnlyIndex { migrateLegacyIfNeeded() }
+            rebuildIfNeeded()
+            persistIndex()
+        } catch {
+            self.error = "Die Reisebibliothek konnte nicht geöffnet werden: \(error.localizedDescription)"
+        }
+    }
+
+    @discardableResult
+    func restoreLastOpenedTrip() -> Bool {
+        let id = indexLastOpenedID.flatMap { candidate in
+            entries.contains(where: { $0.id == candidate && $0.unavailableReason == nil }) ? candidate : nil
+        } ?? entries.first(where: { $0.unavailableReason == nil && folderExists($0.id) })?.id
+        guard let id else { return false }
+        return open(id)
+    }
+
+    @discardableResult
+    func open(_ id: UUID) -> Bool {
+        guard let entry = entries.first(where: { $0.id == id }), entry.unavailableReason == nil else { return false }
+        guard folderExists(id) else {
+            markUnavailable(id, reason: "Der Reiseordner fehlt.")
+            return false
+        }
+        if let current = activeStore, activeID != id {
+            current.stopOwnedCallbacks()
+            Task { await current.shutdown() }
+        }
+        let store = AlbumStore(root: tripURL(id), shareInbox: shareInbox,
+                               seedsPragueExamples: false, publishesShareContext: false)
+        guard !store.loadFailed else {
+            markUnavailable(id, reason: store.error ?? "Die Reise konnte nicht geladen werden.")
+            return false
+        }
+        activeID = id
+        activeStore = store
+        indexLastOpenedID = id
+        refreshActiveEntry()
+        store.publishShareContext()
+        store.drainShareQueue()
+        persistIndex()
+        return true
+    }
+
+    @discardableResult
+    func showLibrary() -> Bool {
+        if let store = activeStore { store.stopOwnedCallbacks(); Task { await store.shutdown() } }
+        activeStore = nil; activeID = nil
+        return persistIndex()
+    }
+
+    @discardableResult
+    func createBlankTrip(title: String = "Neue Reise", destination: String? = nil) -> UUID? {
+        createTrip(origin: .blank, title: title, destination: destination, includeExamples: false)
+    }
+
+    /// Kept for callers that offer an explicit “starter” choice. Starter data is
+    /// intentionally blank in the current product; no Prague examples are
+    /// inserted into new trips.
+    @discardableResult
+    func createStarterTrip(title: String = "Neue Reise", destination: String? = nil) -> UUID? {
+        createTrip(origin: .starter, title: title, destination: destination, includeExamples: false)
+    }
+
+    func refreshActiveEntry() {
+        guard let id = activeID, let store = activeStore,
+              let index = entries.firstIndex(where: { $0.id == id }) else { return }
+        let trip = store.data.trip
+        var entry = entries[index]
+        entry.title = trip.title?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+            ? trip.title! : (trip.destination ?? entry.title)
+        entry.destination = trip.destination
+        entry.startDate = trip.startDate; entry.endDate = trip.endDate
+        entry.remoteTripID = store.data.collaboration?.tripID
+        entry.travelers = trip.travelers ?? []
+        entry.lastOpenedAt = Date()
+        entry.unavailableReason = nil
+        entries[index] = entry
+        persistIndex()
+    }
+
+    /// Joins into a new folder first. A duplicate remote trip is discarded
+    /// before it can replace the active trip or alter the index.
+    func joinInvitation(_ url: URL) async throws -> UUID {
+        let id = UUID()
+        let staging = root.appendingPathComponent(".staging-\(id.uuidString)", isDirectory: true)
+        try fileManager.createDirectory(at: staging, withIntermediateDirectories: true)
+        try writeBlankAlbum(to: staging)
+        let stagedStore = AlbumStore(root: staging, shareInbox: shareInbox,
+                                     seedsPragueExamples: false, publishesShareContext: false)
+        do {
+            try await stagedStore.joinSharedTrip(url: url)
+            guard let remoteID = stagedStore.data.collaboration?.tripID else { throw AlbumSyncError.missingTrip }
+            guard stagedStore.persist() else { throw CocoaError(.fileWriteUnknown) }
+            if let existing = entries.first(where: { $0.remoteTripID == remoteID && $0.unavailableReason == nil }) {
+                await stagedStore.shutdown(); try? fileManager.removeItem(at: staging)
+                _ = open(existing.id)
+                return existing.id
+            }
+            let destination = tripURL(id)
+            try fileManager.moveItem(at: staging, to: destination)
+            let entry = makeEntry(id: id, origin: .migrated, data: stagedStore.data)
+            entries.append(entry)
+            guard persistIndex() else { throw CocoaError(.fileWriteUnknown) }
+            await stagedStore.shutdown()
+            _ = open(id)
+            return id
+        } catch {
+            await stagedStore.shutdown()
+            try? fileManager.removeItem(at: staging)
+            throw error
+        }
+    }
+
+    // MARK: - Index and migration
+
+    private func loadIndex() {
+        guard fileManager.fileExists(atPath: indexURL.path) else { return }
+        do {
+            let index = try JSONDecoder().decode(TripLibraryIndex.self, from: Data(contentsOf: indexURL))
+            entries = index.entries; indexLastOpenedID = index.lastOpenedID
+            if index.version > 1 {
+                readOnlyIndex = true
+                error = "Diese Reisebibliothek stammt aus einer neueren App-Version und wird nur gelesen."
+            }
+        } catch {
+            let backup = root.appendingPathComponent("library.corrupt-\(Int(Date().timeIntervalSince1970)).json")
+            try? fileManager.moveItem(at: indexURL, to: backup)
+            error = "Der Bibliotheksindex war beschädigt und wurde neu aufgebaut."
+        }
+    }
+
+    private func rebuildIfNeeded() {
+        let scanned = scanFolders()
+        var byID = Dictionary(uniqueKeysWithValues: entries.map { ($0.id, $0) })
+        for entry in scanned {
+            if let old = byID[entry.id], old.unavailableReason != nil { continue }
+            byID[entry.id] = entry
+        }
+        entries = byID.values.sorted { $0.createdAt < $1.createdAt }
+        if let last = indexLastOpenedID, !entries.contains(where: { $0.id == last }) { indexLastOpenedID = nil }
+    }
+
+    private func migrateLegacyIfNeeded() {
+        let sourceAlbum = legacyRoot.appendingPathComponent("album.json")
+        guard fileManager.fileExists(atPath: sourceAlbum.path) else { return }
+        let sourceData: AlbumData
+        let sourceBytes: Data
+        do {
+            sourceBytes = try Data(contentsOf: sourceAlbum)
+            sourceData = try JSONDecoder().decode(AlbumData.self, from: sourceBytes)
+        } catch {
+            self.error = "Der bisherige Reisebestand konnte nicht gelesen werden; er bleibt unverändert."
+            return
+        }
+
+        let previous = try? JSONDecoder().decode(LegacyMigrationReceipt.self, from: Data(contentsOf: receiptURL))
+        if let previous, previous.state == .committed {
+            if folderExists(previous.id), loadAlbum(at: tripURL(previous.id)) != nil {
+                ensureEntry(id: previous.id, origin: .migrated, data: loadAlbum(at: tripURL(previous.id))!)
+            } else {
+                ensureUnavailableEntry(id: previous.id, albumID: previous.albumID, reason: "Die migrierte Reise fehlt.")
+            }
+            return
+        }
+
+        let id = previous?.id ?? UUID()
+        let sourceSize = treeBytes(legacyRoot)
+        if let capacity = availableCapacity(), capacity < Int64(Double(max(sourceSize, 0)) * 1.2) + 50_000_000 {
+            error = "Nicht genügend Speicherplatz für die Reisekopie. Sie wird beim nächsten Start erneut versucht."
+            return
+        }
+        let receipt = LegacyMigrationReceipt(id: id, state: .copying, sourceFiles: treeFiles(legacyRoot),
+                                             sourceBytes: sourceSize, places: sourceData.places.count,
+                                             documents: sourceData.documents.count, memories: sourceData.tripMemories.count,
+                                             albumID: sourceData.albumID, committedAt: nil)
+        guard writeReceipt(receipt) else { return }
+        let staging = root.appendingPathComponent(".staging-\(id.uuidString)", isDirectory: true)
+        let target = tripURL(id)
+        try? fileManager.removeItem(at: staging)
+        do {
+            if fileManager.fileExists(atPath: target.path) {
+                guard treesEqual(legacyRoot, target), loadAlbum(at: target) != nil else {
+                    try fileManager.removeItem(at: target)
+                    throw CocoaError(.fileWriteUnknown)
+                }
+            } else {
+                try copier(legacyRoot, staging)
+                guard treesEqual(legacyRoot, staging), loadAlbum(at: staging)?.albumID == sourceData.albumID else {
+                    throw CocoaError(.fileReadCorruptFile)
+                }
+                try fileManager.moveItem(at: staging, to: target)
+            }
+            let copied = loadAlbum(at: target) ?? sourceData
+            ensureEntry(id: id, origin: .migrated, data: copied)
+            guard persistIndex() else { throw CocoaError(.fileWriteUnknown) }
+            let committed = LegacyMigrationReceipt(id: id, state: .committed, sourceFiles: receipt.sourceFiles,
+                                                   sourceBytes: receipt.sourceBytes, places: copied.places.count,
+                                                   documents: copied.documents.count, memories: copied.tripMemories.count,
+                                                   albumID: copied.albumID, committedAt: Date())
+            _ = writeReceipt(committed)
+        } catch {
+            try? fileManager.removeItem(at: staging)
+            error = "Die Reise konnte noch nicht übernommen werden: \(error.localizedDescription)"
+        }
+    }
+
+    private func createTrip(origin: TripLibraryOrigin, title: String, destination: String?, includeExamples: Bool) -> UUID? {
+        let id = UUID()
+        let staging = root.appendingPathComponent(".staging-\(id.uuidString)", isDirectory: true)
+        do {
+            try fileManager.createDirectory(at: staging, withIntermediateDirectories: true)
+            try writeBlankAlbum(to: staging, title: title, destination: destination, includeExamples: includeExamples)
+            let target = tripURL(id)
+            try fileManager.moveItem(at: staging, to: target)
+            let data = loadAlbum(at: target)!
+            entries.append(makeEntry(id: id, origin: origin, data: data))
+            guard persistIndex() else { throw CocoaError(.fileWriteUnknown) }
+            return id
+        } catch {
+            try? fileManager.removeItem(at: staging)
+            error = "Die neue Reise konnte nicht angelegt werden: \(error.localizedDescription)"
+            return nil
+        }
+    }
+
+    private func writeBlankAlbum(to folder: URL, title: String? = nil, destination: String? = nil, includeExamples: Bool = false) throws {
+        var data = AlbumData()
+        if !includeExamples { data.places = [] }
+        data.schemaVersion = 2
+        data.trip = TripInfo()
+        data.trip.hotel = ""
+        data.trip.planningSchemaVersion = 2
+        data.trip.title = title
+        data.trip.destination = destination
+        try JSONEncoder().encode(data).write(to: folder.appendingPathComponent("album.json"), options: .atomic)
+    }
+
+    private func makeEntry(id: UUID, origin: TripLibraryOrigin, data: AlbumData) -> TripLibraryEntry {
+        TripLibraryEntry(id: id, albumID: data.albumID, origin: origin,
+                         title: data.trip.title?.isEmpty == false ? data.trip.title! : (data.trip.destination ?? "Neue Reise"),
+                         destination: data.trip.destination, startDate: data.trip.startDate, endDate: data.trip.endDate,
+                         remoteTripID: data.collaboration?.tripID, travelers: data.trip.travelers ?? [])
+    }
+
+    private func ensureEntry(id: UUID, origin: TripLibraryOrigin, data: AlbumData) {
+        let entry = makeEntry(id: id, origin: origin, data: data)
+        if let index = entries.firstIndex(where: { $0.id == id }) { entries[index] = entry } else { entries.append(entry) }
+    }
+
+    private func ensureUnavailableEntry(id: UUID, albumID: String, reason: String) {
+        if let index = entries.firstIndex(where: { $0.id == id }) { entries[index].unavailableReason = reason; return }
+        entries.append(TripLibraryEntry(id: id, albumID: albumID, origin: .migrated, title: "Nicht verfügbar", unavailableReason: reason))
+    }
+
+    private func markUnavailable(_ id: UUID, reason: String) {
+        if let index = entries.firstIndex(where: { $0.id == id }) { entries[index].unavailableReason = reason; persistIndex() }
+    }
+
+    @discardableResult private func persistIndex() -> Bool {
+        guard !readOnlyIndex else { return false }
+        do {
+            try fileManager.createDirectory(at: root, withIntermediateDirectories: true)
+            let index = TripLibraryIndex(entries: entries.sorted { $0.createdAt < $1.createdAt }, lastOpenedID: indexLastOpenedID)
+            try JSONEncoder().encode(index).write(to: indexURL, options: .atomic)
+            return true
+        } catch { error = "Der Bibliotheksindex konnte nicht gespeichert werden: \(error.localizedDescription)"; return false }
+    }
+
+    private func writeReceipt(_ receipt: LegacyMigrationReceipt) -> Bool {
+        do { try JSONEncoder().encode(receipt).write(to: receiptURL, options: .atomic); return true }
+        catch { error = "Der Migrationsbeleg konnte nicht gespeichert werden: \(error.localizedDescription)"; return false }
+    }
+
+    private func scanFolders() -> [TripLibraryEntry] {
+        guard let urls = try? fileManager.contentsOfDirectory(at: tripsURL, includingPropertiesForKeys: [.isDirectoryKey], options: .skipsHiddenFiles) else { return [] }
+        return urls.compactMap { url in
+            guard let id = UUID(uuidString: url.lastPathComponent), let data = loadAlbum(at: url) else { return nil }
+            return makeEntry(id: id, origin: .migrated, data: data)
+        }
+    }
+
+    private func folderExists(_ id: UUID) -> Bool { fileManager.fileExists(atPath: tripURL(id).path) }
+    private func tripURL(_ id: UUID) -> URL { tripsURL.appendingPathComponent(id.uuidString, isDirectory: true) }
+    private func loadAlbum(at folder: URL) -> AlbumData? {
+        guard let bytes = try? Data(contentsOf: folder.appendingPathComponent("album.json")) else { return nil }
+        return try? JSONDecoder().decode(AlbumData.self, from: bytes)
+    }
+
+    private func treeFiles(_ folder: URL) -> Int {
+        guard let enumerator = fileManager.enumerator(at: folder, includingPropertiesForKeys: [.isDirectoryKey], options: []) else { return 0 }
+        return enumerator.compactMap { ($0 as? URL).flatMap { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true ? nil : $0 } }.count
+    }
+
+    private func treeBytes(_ folder: URL) -> Int64 {
+        guard let enumerator = fileManager.enumerator(at: folder, includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey], options: []) else { return 0 }
+        return enumerator.reduce(Int64(0)) { total, item in
+            guard let url = item as? URL, let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey]), values.isDirectory != true else { return total }
+            return total + Int64(values.fileSize ?? 0)
+        }
+    }
+
+    private func treesEqual(_ lhs: URL, _ rhs: URL) -> Bool {
+        func manifest(_ root: URL) -> [String: Data]? {
+            guard let enumerator = fileManager.enumerator(at: root, includingPropertiesForKeys: [.isDirectoryKey], options: []) else { return nil }
+            var result: [String: Data] = [:]
+            for item in enumerator {
+                guard let url = item as? URL,
+                      let values = try? url.resourceValues(forKeys: [.isDirectoryKey]), values.isDirectory != true,
+                      let bytes = try? Data(contentsOf: url) else { return nil }
+                result[url.path.replacingOccurrences(of: root.path + "/", with: "")] = bytes
+            }
+            return result
+        }
+        return manifest(lhs) == manifest(rhs)
+    }
+}

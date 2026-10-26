@@ -96,6 +96,10 @@ enum SupabaseConfiguration {
 @MainActor extension AlbumSyncService {
     /// Test and alternate sync services may not expose an authenticated server identity.
     func authenticatedUserID() async throws -> String { throw AlbumSyncError.missingConfiguration }
+
+    /// Lifecycle hook for stores that are replaced by the trip library. Older
+    /// test doubles remain source compatible and simply do nothing.
+    func stopRealtime() async {}
 }
 
 private struct CreateTripResponse: Decodable {

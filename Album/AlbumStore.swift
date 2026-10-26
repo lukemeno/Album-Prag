@@ -45,7 +45,8 @@ private struct PlaceResolutionSnapshot: Equatable {
     /// In-flight/backfill guards keep repeated view updates from starting duplicate previews.
     @ObservationIgnored var collectionMetadataRefreshIDs = Set<String>()
     @ObservationIgnored var collectionMetadataBackfilledIDs = Set<String>()
-    private var loadFailed = false
+    private(set) var loadFailed = false
+    private var callbacksActive = true
     private var pendingSync: Task<Void, Never>?
     private var syncRequestedWhileRunning = false
     /// Test hooks keep the production services as the default while allowing paused, deterministic regressions.
@@ -164,7 +165,7 @@ private struct PlaceResolutionSnapshot: Equatable {
         return changed
     }
 
-    init(root: URL? = nil, shareInbox: ShareInbox? = nil) {
+    init(root: URL? = nil, shareInbox: ShareInbox? = nil, seedsPragueExamples: Bool = false, publishesShareContext: Bool = true) {
         self.shareInbox = shareInbox ?? ShareInbox()
         self.root = root ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Album", isDirectory: true)
         var legacyAlbumID = false
@@ -259,7 +260,7 @@ private struct PlaceResolutionSnapshot: Equatable {
         #else
         let isAutomatedTest = false
         #endif
-        if !isAutomatedTest {
+        if seedsPragueExamples && !isAutomatedTest {
             let existingIDs = Set(data.places.map(\.id))
             let missingPragueIdeas = Place.examples.filter { $0.id.hasPrefix("prague-") && !existingIDs.contains($0.id) }
             if !missingPragueIdeas.isEmpty {
@@ -291,11 +292,13 @@ private struct PlaceResolutionSnapshot: Equatable {
         if needsInitialPersist, !persist() { shouldPublishShareContext = false }
         photoResolutionCoordinator = PhotoResolutionCoordinator(store: self, root: self.root)
         guard shouldPublishShareContext else { return }
-        #if DEBUG
-        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil && ProcessInfo.processInfo.environment["ALBUM_TEST_STORE"] == nil { publishShareContext() }
-        #else
-        publishShareContext()
-        #endif
+        if publishesShareContext {
+            #if DEBUG
+            if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil && ProcessInfo.processInfo.environment["ALBUM_TEST_STORE"] == nil { publishShareContext() }
+            #else
+            publishShareContext()
+            #endif
+        }
     }
 
     static let legacyPlanningBackupName = "album.legacy-planning-backup.json"
@@ -384,7 +387,7 @@ private struct PlaceResolutionSnapshot: Equatable {
     }
 
     func publishShareContext() {
-        guard !loadFailed, persist() else { return }
+        guard callbacksActive, !loadFailed, persist() else { return }
         let key = data.collaboration.map { "trip:\($0.tripID.uuidString)" } ?? "local:\(data.albumID)"
         try? shareInbox.saveContext(ShareContext(tripKey: key, albumID: data.albumID))
     }
@@ -398,16 +401,20 @@ private struct PlaceResolutionSnapshot: Equatable {
             shareQueueRevision += 1
             return
         }
+        let ownKey = data.collaboration.map { "trip:\($0.tripID.uuidString)" } ?? "local:\(data.albumID)"
+        guard context.tripKey == ownKey else {
+            shareQueueError = "Die geteilten Beiträge gehören zu einer anderen Reise."
+            shareQueueRevision += 1
+            return
+        }
         for var item in queued where item.state != .cancelled {
             if item.lastErrorCode == "queue-decode-failed" {
                 shareQueueError = "Ein geteilter Beitrag ist beschädigt. Erneut versuchen oder verwerfen."
                 continue
             }
-            guard item.tripKey == context.tripKey else {
-                item.state = .failed; item.lastErrorCode = "trip-mismatch"
-                do { try inbox.update(item); shareQueueError = "Geteilter Beitrag gehört zu einer anderen Reise." } catch { shareQueueError = error.localizedDescription }
-                continue
-            }
+            // A single app-group inbox can contain items for another trip.
+            // Leave those entries untouched until that trip becomes active.
+            guard item.tripKey == context.tripKey else { continue }
             do {
                 if let url = item.url {
                     _ = try addCollectionPost(text: "", url: url, caption: item.payload, deterministicID: item.id)
@@ -435,6 +442,16 @@ private struct PlaceResolutionSnapshot: Equatable {
         guard !loadFailed else { return false }
         do { try JSONEncoder().encode(data).write(to: root.appendingPathComponent("album.json"), options: .atomic); return true }
         catch { self.error = "Speichern fehlgeschlagen: \(error.localizedDescription)"; return false }
+    }
+
+    /// Synchronous half of `shutdown()`, used immediately before replacing a
+    /// store from the library. Realtime transport shutdown is awaited by the
+    /// async method; delayed local work must stop first.
+    func stopOwnedCallbacks() {
+        callbacksActive = false
+        pendingSync?.cancel()
+        pendingSync = nil
+        photoResolutionCoordinator?.cancel()
     }
 
     @discardableResult func upsert(_ input: Place, photoAutomation: PhotoAutomationIntent = .automatic) -> Bool {
@@ -647,8 +664,21 @@ private struct PlaceResolutionSnapshot: Equatable {
 
     func scheduleCollectionSync() { scheduleSync() }
 
+    /// Stops every callback owned by this store before its trip folder is
+    /// switched or the store is discarded. Realtime transports supplied by
+    /// tests may use the protocol's no-op default.
+    func shutdown() async {
+        callbacksActive = false
+        pendingSync?.cancel()
+        pendingSync = nil
+        photoResolutionCoordinator?.cancel()
+        await syncService?.stopRealtime()
+        syncService = nil
+        storedDiscoverySession = nil
+    }
+
     private func scheduleSync() {
-        guard isShared else { return }
+        guard callbacksActive, isShared else { return }
         pendingSync?.cancel()
         pendingSync = Task { [weak self] in
             do { try await Task.sleep(for: .seconds(1)) } catch { return }
@@ -1350,6 +1380,7 @@ private struct PlaceResolutionSnapshot: Equatable {
     }
 
     @discardableResult func sync() async -> Bool {
+        guard callbacksActive else { return false }
         guard isShared, !loadFailed else { return !loadFailed }
         if syncing {
             syncRequestedWhileRunning = true
