@@ -1392,7 +1392,7 @@ private struct PlaceResolutionSnapshot: Equatable {
             // A successful sync can add or update confirmed places. Resume the
             // durable photo queue after that merge, without coupling queue
             // state to the server sync transaction itself.
-            photoResolutionCoordinator?.resume()
+            if shareContextActive { photoResolutionCoordinator?.resume() }
             syncStatus = "Synchronisiert"
             succeeded = true
         } catch {
@@ -1448,8 +1448,10 @@ private struct PlaceResolutionSnapshot: Equatable {
         let beforeByID = Dictionary(uniqueKeysWithValues: data.places.map { ($0.id, $0) })
         let beforeContexts = Dictionary(uniqueKeysWithValues: data.places.map { ($0.id, tripRegionContext(for: $0)) })
         try await service.sync(store: self)
-        enqueueAutomaticPhotosAfterSync(beforeByID: beforeByID, beforeContexts: beforeContexts)
-        photoResolutionCoordinator?.resume()
+        if shareContextActive {
+            enqueueAutomaticPhotosAfterSync(beforeByID: beforeByID, beforeContexts: beforeContexts)
+            photoResolutionCoordinator?.resume()
+        }
         discovery.switchToCurrentScope(copyLocal: false)
         if shareContextActive { service.startRealtime { [weak self] in await self?.sync() } }
         syncStatus = "Album verbunden"

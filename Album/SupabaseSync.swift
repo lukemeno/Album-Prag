@@ -90,6 +90,7 @@ enum SupabaseConfiguration {
     func joinTrip(token: String) async throws -> CollaborationState
     func sync(store: AlbumStore) async throws
     func startRealtime(onChange: @escaping @MainActor @Sendable () async -> Void)
+    func stopRealtime() async
     func authenticatedUserID() async throws -> String
 }
 

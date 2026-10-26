@@ -177,6 +177,7 @@ struct LegacyMigrationReceipt: Codable, Equatable {
 
     @discardableResult
     func showLibrary() -> Bool {
+        refreshActiveEntry()
         if let store = activeStore { store.stopOwnedCallbacks(); Task { await store.shutdown() } }
         activeStore = nil; activeID = nil
         return persistIndex()
@@ -278,7 +279,15 @@ struct LegacyMigrationReceipt: Codable, Equatable {
         var byID = Dictionary(uniqueKeysWithValues: entries.map { ($0.id, $0) })
         for entry in scanned {
             if let old = byID[entry.id], old.unavailableReason != nil { continue }
-            byID[entry.id] = entry
+            if let old = byID[entry.id] {
+                var refreshed = entry
+                refreshed.origin = old.origin
+                refreshed.createdAt = old.createdAt
+                refreshed.lastOpenedAt = old.lastOpenedAt
+                byID[entry.id] = refreshed
+            } else {
+                byID[entry.id] = entry
+            }
         }
         entries = byID.values.sorted { $0.createdAt < $1.createdAt }
         if let last = indexLastOpenedID, !entries.contains(where: { $0.id == last }) { indexLastOpenedID = nil }
@@ -322,12 +331,16 @@ struct LegacyMigrationReceipt: Codable, Equatable {
         let target = tripURL(id)
         try? fileManager.removeItem(at: staging)
         do {
-            if fileManager.fileExists(atPath: target.path) {
-                guard treesEqual(legacyRoot, target), loadAlbum(at: target) != nil else {
-                    try fileManager.removeItem(at: target)
-                    throw CocoaError(.fileWriteUnknown)
-                }
-            } else {
+            if fileManager.fileExists(atPath: target.path),
+               (!treesEqual(legacyRoot, target) || loadAlbum(at: target) == nil) {
+                // A stale copying receipt may leave a target folder that was
+                // modified after a crash. Remove only that UUID and recopy it
+                // in this same startup, retaining the receipt ID.
+                try fileManager.removeItem(at: target)
+                entries.removeAll { $0.id == id }
+                if indexLastOpenedID == id { indexLastOpenedID = nil }
+            }
+            if !fileManager.fileExists(atPath: target.path) {
                 try copier(legacyRoot, staging)
                 guard treesEqual(legacyRoot, staging), loadAlbum(at: staging)?.albumID == sourceData.albumID else {
                     throw CocoaError(.fileReadCorruptFile)
