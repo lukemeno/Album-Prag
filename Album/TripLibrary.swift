@@ -562,8 +562,9 @@ struct LegacyMigrationReceipt: Codable, Equatable {
             var result = Set<String>()
             for item in enumerator {
                 guard let url = item as? URL,
-                      let values = try? url.resourceValues(forKeys: [.isDirectoryKey]), values.isDirectory != true,
-                      let relative = relativePath(url, root: root) else { return nil }
+                      let values = try? url.resourceValues(forKeys: [.isDirectoryKey]) else { return nil }
+                if values.isDirectory == true { continue }
+                guard let relative = relativePath(url, root: root) else { return nil }
                 result.insert(relative)
             }
             return result
