@@ -11,6 +11,7 @@ declare
   user_two uuid := '22222222-2222-4222-8222-222222222222';
   trip_id uuid := '33333333-3333-4333-8333-333333333333';
   run_id uuid := gen_random_uuid();
+  run_b uuid := gen_random_uuid();
   result jsonb;
 begin
   claim := public.place_photo_cache_claim(key, 'google', 1, token, now());
@@ -40,6 +41,15 @@ begin
 
   result := public.place_photo_reserve_run(run_id, user_id, null, null, false, now());
   if not (result->>'ok')::boolean then raise exception 'run reservation failed: %', result; end if;
+  result := public.place_photo_reserve_run(run_b, user_id, null, null, false, now());
+  if not (result->>'ok')::boolean then raise exception 'run B reservation failed: %', result; end if;
+  result := public.place_photo_reserve_upstream(run_id, 'wikimedia', now()-interval '2 minutes');
+  if not (result->>'ok')::boolean then raise exception 'active lease A failed: %', result; end if;
+  if (public.place_photo_reserve_upstream(run_b, 'wikimedia', now()-interval '2 minutes'))->>'code' <> 'active_request' then raise exception 'active request semaphore did not block B'; end if;
+  perform public.place_photo_release_upstream(run_id, (result->>'sequence')::integer);
+  result := public.place_photo_reserve_upstream(run_b, 'wikimedia', now()-interval '2 minutes');
+  if not (result->>'ok')::boolean then raise exception 'active lease B did not recover: %', result; end if;
+  perform public.place_photo_release_upstream(run_b, (result->>'sequence')::integer);
   for i in 1..10 loop
     result := public.place_photo_reserve_upstream(run_id, 'wikimedia', now());
     if not (result->>'ok')::boolean then raise exception 'upstream reservation % failed: %', i, result; end if;

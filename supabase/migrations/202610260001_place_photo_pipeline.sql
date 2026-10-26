@@ -189,7 +189,7 @@ begin
   if auth.role() is distinct from 'service_role' then raise exception using errcode='42501',message='service role required'; end if;
   delete from place_photo_private.upstream_calls where created_at < now()-interval '8 days';
   delete from place_photo_private.resolution_runs where created_at < now()-interval '8 days';
-  delete from place_photo_private.public_cache where stale_until < now()-interval '90 days';
+  delete from place_photo_private.public_cache where stale_until < now();
   delete from place_photo_private.private_cache where expires_at < now()-interval '30 days';
   update place_photo_private.public_cache set lease_token=null,lease_until=null where lease_until < now();
   update place_photo_private.private_cache set lease_token=null,lease_until=null where lease_until < now();
