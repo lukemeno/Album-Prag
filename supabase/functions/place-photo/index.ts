@@ -32,7 +32,7 @@ Deno.serve(async request => {
     const automaticMode = body.mode === "automatic_photo_v1";
     const manualMode = body.mode === "manual" || body.manual === true;
     const revision = body.revision == null ? "1" : typeof body.revision === "string" ? body.revision.trim() : "invalid";
-    const cacheRevision = `${revision}:${automaticMode ? "auto-main-v1" : "manual-gallery-v1"}`;
+    const cacheRevision = await publicPhotoCacheKey({ protocol: "private-revision", id: `${revision}\u001f${automaticMode ? "auto-main-v1" : "manual-gallery-v1"}` });
     const latitude = typeof body.latitude === "number" ? body.latitude : NaN;
     const longitude = typeof body.longitude === "number" ? body.longitude : NaN;
     if (!title || title.length > 200 || address.length > 500 || category.length > 64 || !validCoordinate(latitude, longitude) || (tripID !== null && !isUuid(tripID)) || (placeID === "invalid" || placeID && (placeID.length < 1 || placeID.length > 128)) || revision === "invalid" || revision.length > 64 || typeof body.manual !== "undefined" && typeof body.manual !== "boolean" || (body.mode !== undefined && !automaticMode && !manualMode) || (automaticMode && (!placeID || typeof body.revision !== "string" || !revision || !validCoordinate(latitude, longitude)))) return json({ error: "Ungültige Ortsdaten" }, 400);
