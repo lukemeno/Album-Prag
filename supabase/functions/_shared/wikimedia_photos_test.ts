@@ -235,6 +235,26 @@ Deno.test("verified source-bound photos need no optional depicts lookup", () =>
 Deno.test("automatic main-image mode keeps the verified P18 and avoids gallery calls", () =>
   aliasFixture(null, "Café Louvre", true));
 
+async function automaticRejectFixture(fileTitle: string, category: string) {
+  const original = globalThis.fetch;
+  const calls: URL[] = [];
+  globalThis.fetch = async input => {
+    const url = new URL(String(input)); calls.push(url);
+    const action = url.searchParams.get("action");
+    if (url.hostname === "www.wikidata.org" && action === "wbsearchentities") return Response.json({ search: [{ id: "Q123" }] });
+    if (url.hostname === "www.wikidata.org" && action === "wbgetentities") return Response.json({ entities: { Q123: { labels: { en: { value: category === "Aussicht" ? "Viewpoint" : "Museum" } }, claims: { P625: [{ mainsnak: { datavalue: { value: { latitude: 50, longitude: 14 } } } }], P18: [{ mainsnak: { datavalue: { value: fileTitle } } }] } } } });
+    return Response.json({ query: { pages: { 10: { pageid: 10, title: `File:${fileTitle}`, imageinfo: [{ thumburl: "https://example.com/photo.jpg", descriptionurl: "https://example.com/file", width: 2000, height: 1200, extmetadata: { Artist: { value: "Author" }, LicenseShortName: { value: "CC BY 4.0" }, LicenseUrl: { value: "https://creativecommons.org/licenses/by/4.0/" } } }] } } } });
+  };
+  try {
+    const images = await resolveWikimedia(category === "Aussicht" ? "Viewpoint" : "Museum", category, 50, 14, "", "", undefined, undefined, undefined, true);
+    assertEquals(images, []);
+    assertEquals(calls.some(url => url.searchParams.get("list") === "categorymembers" || url.searchParams.get("list") === "geosearch"), false);
+  } finally { globalThis.fetch = original; }
+}
+Deno.test("automatic mode rejects an SVG P18 without gallery fallback", () => automaticRejectFixture("Museum.svg", "Sehenswert"));
+Deno.test("automatic mode rejects a logo P18 without gallery fallback", () => automaticRejectFixture("Museum logo.jpg", "Sehenswert"));
+Deno.test("automatic mode rejects an unqualified Aussicht P18 without gallery fallback", () => automaticRejectFixture("Building facade.jpg", "Aussicht"));
+
 Deno.test("verified QID cache skips the second Commons/media sequence", async () => {
   const original = globalThis.fetch;
   let commonsCalls = 0;

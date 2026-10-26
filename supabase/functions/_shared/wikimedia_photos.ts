@@ -90,6 +90,7 @@ export async function resolveWikimedia(title: string, category: string, latitude
     place = choosePlace(wikipediaCandidates, title, latitude, longitude, address);
   }
   const identity = place?.id && /^Q[1-9][0-9]*$/.test(place.id) ? { protocol: "wikidata" as const, id: place.id } : null;
+  if (automaticMainOnly && !identity) return [];
   if (identity && identityCache) {
     const cached = await identityCache.load(identity);
     if (cached) return cached;
@@ -103,14 +104,16 @@ export async function resolveWikimedia(title: string, category: string, latitude
     sources.set(`File:${place.image}`, { source: "main" });
     try { infos = await fileInfos([...sources.keys()], limiter); } catch (error) { failure = error; }
   }
-  if (automaticMainOnly && identity && infos.length) {
+  if (automaticMainOnly && identity) {
     const info = infos[0];
-    const checked = rankPhotos([{ ...info.candidate, source: "main" }], [...new Set(names)], category, 1)[0];
+    const checked = info ? rankPhotos([{ ...info.candidate, source: "main" }], [...new Set(names)], category, 1)[0] : null;
     if (checked?.confidence === "verified" && info.imageURL && info.sourceURL && info.credit && info.licenseName && info.licenseURL) {
       const main: WikimediaPhoto[] = [{ image_url: info.imageURL, source_url: info.sourceURL, credit: info.credit, provider: "wikimedia", provider_place_id: identity.id, license_name: info.licenseName, license_url: info.licenseURL, confidence: "verified", caption: info.candidate.title.replace(/^File:/, "").replace(/\.[a-z]+$/i, "") }];
       if (identityCache) await identityCache.store(identity, main);
       return main;
     }
+    if (identityCache) await identityCache.store(identity, []);
+    return [];
   }
   async function optional<T>(load: () => Promise<T>, empty: T): Promise<T> {
     try { return await load(); } catch (error) {
