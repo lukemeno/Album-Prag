@@ -87,7 +87,7 @@ final class TripLibraryTests: XCTestCase {
 
         let library = TripLibrary(root: libraryRoot, legacyRoot: legacy,
                                   shareInbox: ShareInbox(root: root.appendingPathComponent("share")))
-        let entry = try XCTUnwrap(library.entries.first)
+        let entry = try XCTUnwrap(library.entries.first, library.error ?? "no library entry; index=\(library.entries)")
         XCTAssertEqual(entry.origin, .migrated)
         XCTAssertTrue(FileManager.default.fileExists(atPath: libraryRoot.appendingPathComponent("legacy-migration.json").path))
         XCTAssertTrue(library.open(entry.id))
