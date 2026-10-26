@@ -48,14 +48,32 @@ struct PlaceImageSearchResult: Decodable {
     let image: PlaceImage?
     let candidates: [PlaceImage]?
     let selectionVersion: Int?
-    let status: String? = nil
-    let retryAfterSeconds: Int? = nil
+    var status: String?
+    var retryAfterSeconds: Int?
+
+    init(image: PlaceImage?, candidates: [PlaceImage]?, selectionVersion: Int?, status: String? = nil,
+         retryAfterSeconds: Int? = nil) {
+        self.image = image
+        self.candidates = candidates
+        self.selectionVersion = selectionVersion
+        self.status = status
+        self.retryAfterSeconds = retryAfterSeconds
+    }
 
     enum CodingKeys: String, CodingKey {
         case image, candidates
         case selectionVersion = "selection_version"
         case status
         case retryAfterSeconds = "retry_after_seconds"
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        image = try values.decodeIfPresent(PlaceImage.self, forKey: .image)
+        candidates = try values.decodeIfPresent([PlaceImage].self, forKey: .candidates)
+        selectionVersion = try values.decodeIfPresent(Int.self, forKey: .selectionVersion)
+        status = try values.decodeIfPresent(String.self, forKey: .status)
+        retryAfterSeconds = try values.decodeIfPresent(Int.self, forKey: .retryAfterSeconds)
     }
 
     var isCurrent: Bool { (selectionVersion ?? 0) >= PlaceImageService.ranking }
@@ -81,7 +99,7 @@ enum PlaceImageService {
 
     struct Request: Encodable {
         let selection_version = PlaceImageService.ranking
-        let mode: String
+        let mode: String?
         let tripID: String?
         let placeID: String?
         let revision: String?
@@ -138,7 +156,7 @@ enum PlaceImageService {
             return try await client.functions.invoke(
                 "place-photo",
                 options: FunctionInvokeOptions(body: Request(
-                    mode: mode.rawValue,
+                    mode: mode == .automatic ? mode.rawValue : nil,
                     tripID: tripID,
                     placeID: placeID,
                     revision: revision,
@@ -168,7 +186,7 @@ enum PlaceImageService {
                                languageCode: String? = nil) throws -> Data {
         guard place.coordinate != nil else { throw CocoaError(.validationMissingMandatoryProperty) }
         let coordinate = place.coordinate!
-        return try JSONEncoder().encode(Request(mode: mode.rawValue, tripID: tripID, placeID: placeID,
+        return try JSONEncoder().encode(Request(mode: mode == .automatic ? mode.rawValue : nil, tripID: tripID, placeID: placeID,
                                                 revision: revision, manual: mode == .manual,
                                                 title: place.title, latitude: coordinate.latitude,
                                                 longitude: coordinate.longitude, category: place.category,

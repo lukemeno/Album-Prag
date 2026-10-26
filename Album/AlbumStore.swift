@@ -1079,8 +1079,14 @@ private struct PlaceResolutionSnapshot: Equatable {
                                                                 mode: automatic ? .automatic : .manual,
                                                                 tripID: data.collaboration?.tripID.uuidString,
                                                                 placeID: automatic ? id : nil,
-                                                                revision: automatic ? PhotoResolutionCoordinator.fingerprint(place: current, context: context, albumID: data.albumID) : nil)
+                                                                revision: automatic ? PhotoResolutionCoordinator.serverRevision(place: current, context: context) : nil)
                 }
+            } catch let error as PlaceImageService.RequestError {
+                switch error {
+                case .retryable(let retryAfter):
+                    placeImageStatuses[id] = .deferred(retryAfter: max(retryAfter ?? 60, 1))
+                }
+                return
             } catch {
                 searchFailed = true
             }

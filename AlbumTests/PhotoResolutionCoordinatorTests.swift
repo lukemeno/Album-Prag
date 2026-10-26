@@ -66,8 +66,9 @@ final class PhotoResolutionCoordinatorTests: XCTestCase {
         for index in 0..<8 {
             XCTAssertTrue(store.upsert(Place(id: "auto-\(index)", title: "Place \(index)", category: "Sehenswert", lat: 35.0 + Double(index) / 100, lng: 139.0)))
         }
-        let manual = Place(id: "manual", title: "Eigene Aufnahme", category: "Sehenswert", lat: 35.7, lng: 139.7,
-                           image: .external(ExternalPlaceImage(imageURL: "https://example.test/mine.jpg", sourceURL: "https://example.test/mine", credit: "Eigenes Foto", provider: .wikimedia, userSelected: true)))
+        let manual = Place(id: "manual", title: "Eigene Aufnahme", category: "Sehenswert",
+                           image: .external(ExternalPlaceImage(imageURL: "https://example.test/mine.jpg", sourceURL: "https://example.test/mine", credit: "Eigenes Foto", provider: .wikimedia, userSelected: true)),
+                           lat: 35.7, lng: 139.7)
         XCTAssertTrue(store.upsert(manual))
         await store.drainAutomaticPhotoResolutionForTesting()
         XCTAssertEqual(counter.value, 8)
@@ -96,8 +97,9 @@ final class PhotoResolutionCoordinatorTests: XCTestCase {
 
     func testExplicitRemovalPersistsAutomaticPhotoSuppression() async throws {
         let store = makeStore()
-        let original = Place(id: "suppressed", title: "Museum", category: "Sehenswert", lat: 35.7, lng: 139.7,
-                             image: .external(ExternalPlaceImage(imageURL: "https://example.test/auto.jpg", sourceURL: "https://example.test/auto", credit: "Auto", provider: .wikimedia)))
+        let original = Place(id: "suppressed", title: "Museum", category: "Sehenswert",
+                             image: .external(ExternalPlaceImage(imageURL: "https://example.test/auto.jpg", sourceURL: "https://example.test/auto", credit: "Auto", provider: .wikimedia)),
+                             lat: 35.7, lng: 139.7)
         XCTAssertTrue(store.upsert(original))
         var removed = original
         removed.image = nil
@@ -139,8 +141,8 @@ final class PhotoResolutionCoordinatorTests: XCTestCase {
         guard case .external(let image) = saved.image else { return XCTFail("No live automatic image result") }
         XCTAssertEqual(image.provider, .sourcePreview)
         XCTAssertFalse(image.sourceURL.isEmpty)
-        let request = URLRequest(url: try XCTUnwrap(URL(string: image.imageURL)))
-        let (bytes, _) = try await URLSession.shared.data(for: request)
+        let imageRequest = URLRequest(url: try XCTUnwrap(URL(string: image.imageURL)))
+        let (bytes, _) = try await URLSession.shared.data(for: imageRequest)
         XCTAssertNotNil(UIImage(data: bytes))
         print("AUTO_PHOTO_LIVE name=\(saved.title) source=\(image.sourceURL) image=\(image.imageURL)")
     }
@@ -159,8 +161,13 @@ final class PhotoResolutionCoordinatorTests: XCTestCase {
         XCTAssertEqual(object["revision"] as? String, "sha256-revision")
         let manualPayload = try PlaceImageService.requestPayload(for: place)
         let manual = try XCTUnwrap(JSONSerialization.jsonObject(with: manualPayload) as? [String: Any])
-        XCTAssertEqual(manual["mode"] as? String, "manual")
+        XCTAssertNil(manual["mode"])
         XCTAssertEqual(manual["manual"] as? Bool, true)
+        let context = TripRegionContext(name: "Prag", region: nil, preferredLanguageCode: "de", source: .destinationOnly)
+        let sharedRevision = PhotoResolutionCoordinator.serverRevision(place: place, context: context)
+        XCTAssertEqual(sharedRevision, PhotoResolutionCoordinator.serverRevision(place: place, context: context))
+        XCTAssertNotEqual(PhotoResolutionCoordinator.fingerprint(place: place, context: context, albumID: "device-a"),
+                          PhotoResolutionCoordinator.fingerprint(place: place, context: context, albumID: "device-b"))
     }
 
     func testDeferredResponsePreservesServerRetryAfter() throws {
@@ -172,9 +179,12 @@ final class PhotoResolutionCoordinatorTests: XCTestCase {
 
     func testDeferredPhotoResponseDoesNotBecomeNoMatch() async throws {
         let store = makeStore()
+        var calls = 0
         store.placeImageSearchResolver = { _, _ in
+            calls += 1
             PlaceImageSearchResult(image: nil, candidates: [], selectionVersion: PlaceImageService.ranking,
-                                   status: "deferred", retryAfterSeconds: 42)
+                                   status: calls == 1 ? "deferred" : nil,
+                                   retryAfterSeconds: calls == 1 ? 1 : nil)
         }
         let place = Place(id: "deferred-place", title: "Café", category: "Essen & Trinken", lat: 35.7, lng: 139.7)
         XCTAssertTrue(store.upsert(place))
@@ -182,6 +192,9 @@ final class PhotoResolutionCoordinatorTests: XCTestCase {
         let job = try XCTUnwrap(store.automaticPhotoJob(for: place.id))
         XCTAssertEqual(job.state, .retryAt)
         XCTAssertEqual(job.lastErrorCode, "deferred")
-        XCTAssertGreaterThanOrEqual(job.nextAttemptAt ?? .distantPast, Date().addingTimeInterval(35))
+        XCTAssertGreaterThanOrEqual(job.nextAttemptAt ?? .distantPast, Date().addingTimeInterval(0.5))
+        try await Task.sleep(for: .seconds(1.2))
+        await store.drainAutomaticPhotoResolutionForTesting()
+        XCTAssertEqual(calls, 2)
     }
 }

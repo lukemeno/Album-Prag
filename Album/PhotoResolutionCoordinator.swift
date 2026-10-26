@@ -156,9 +156,9 @@ final class PhotoResolutionCoordinator {
             jobs[index] = job; save(); return
         }
 
+        let retry = job.state == .retryAt || job.state == .noMatch || job.attempts > 0
         job.state = .running; job.leaseUntil = now().addingTimeInterval(leaseDuration); job.updatedAt = now()
         jobs[index] = job; save()
-        let retry = job.state == .retryAt || job.state == .noMatch || job.attempts > 0
         await store.refreshPlaceImage(id: place.id, force: retry, automatic: true)
         guard jobs.indices.contains(index), let current = store.places.first(where: { $0.id == place.id }) else { return }
         job = jobs[index]
@@ -236,6 +236,18 @@ final class PhotoResolutionCoordinator {
         let region = context.region.map { "\($0.center.latitude),\($0.center.longitude),\($0.span.latitudeDelta),\($0.span.longitudeDelta)" } ?? "none"
         let raw = [albumID, place.id, normalized(place.title), normalized(place.address), normalized(place.category),
                    coordinate, place.sourceURL, context.name ?? "", String(describing: context.source), region].joined(separator: "\u{1F}")
+        let digest = SHA256.hash(data: Data(raw.utf8)).map { String(format: "%02x", $0) }.joined()
+        return digest
+    }
+
+    /// Revision shared by collaborators for the same place/context. It excludes
+    /// the installation-local album ID and device locale so backend leases can
+    /// converge for one shared trip.
+    static func serverRevision(place: Place, context: TripRegionContext) -> String {
+        let coordinate = place.coordinate.map { "\($0.latitude),\($0.longitude)" } ?? "none"
+        let region = context.region.map { "\($0.center.latitude),\($0.center.longitude),\($0.span.latitudeDelta),\($0.span.longitudeDelta)" } ?? "none"
+        let raw = [place.id, normalized(place.title), normalized(place.address), normalized(place.category),
+                   place.sourceURL, coordinate, context.name ?? "", String(describing: context.source), region].joined(separator: "\u{1F}")
         let digest = SHA256.hash(data: Data(raw.utf8)).map { String(format: "%02x", $0) }.joined()
         return digest
     }
