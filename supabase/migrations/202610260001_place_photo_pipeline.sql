@@ -178,7 +178,7 @@ begin
   if auth.role() is distinct from 'service_role' or p_provider not in ('wikimedia','google') then raise exception using errcode='22023',message='invalid upstream'; end if;
   if not exists(select 1 from place_photo_private.resolution_runs where resolution_id=p_resolution_id) then return jsonb_build_object('ok',false,'code','run_missing'); end if;
   perform pg_advisory_xact_lock(hashtextextended('place-photo-upstream-global',0));
-  if exists(select 1 from place_photo_private.upstream_lease where singleton and lease_until > p_now) then
+  if p_provider = 'wikimedia' and exists(select 1 from place_photo_private.upstream_lease where singleton and lease_until > p_now) then
     return jsonb_build_object('ok',false,'code','active_request','retry_after_seconds',greatest(1,ceil(extract(epoch from (select lease_until from place_photo_private.upstream_lease where singleton)-p_now))::integer));
   end if;
   select count(*)::integer,min(created_at) into total_min,oldest from place_photo_private.upstream_calls where created_at >= p_now-interval '1 minute';
@@ -188,7 +188,9 @@ begin
   select coalesce(max(sequence),0)+1 into seq from place_photo_private.upstream_calls where resolution_id=p_resolution_id;
   if seq > 12 then return jsonb_build_object('ok',false,'code','resolution_limit','retry_after_seconds',3600); end if;
   insert into place_photo_private.upstream_calls(resolution_id,sequence,provider,created_at) values(p_resolution_id,seq,p_provider,p_now);
-  insert into place_photo_private.upstream_lease(singleton,resolution_id,sequence,lease_until) values(true,p_resolution_id,seq,p_now+interval '30 seconds') on conflict(singleton) do update set resolution_id=excluded.resolution_id,sequence=excluded.sequence,lease_until=excluded.lease_until;
+  if p_provider = 'wikimedia' then
+    insert into place_photo_private.upstream_lease(singleton,resolution_id,sequence,lease_until) values(true,p_resolution_id,seq,p_now+interval '30 seconds') on conflict(singleton) do update set resolution_id=excluded.resolution_id,sequence=excluded.sequence,lease_until=excluded.lease_until;
+  end if;
   return jsonb_build_object('ok',true,'sequence',seq);
 end $$;
 
