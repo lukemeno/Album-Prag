@@ -182,9 +182,9 @@ final class PhotoResolutionCoordinatorTests: XCTestCase {
         var calls = 0
         store.placeImageSearchResolver = { _, _ in
             calls += 1
-            PlaceImageSearchResult(image: nil, candidates: [], selectionVersion: PlaceImageService.ranking,
-                                   status: calls == 1 ? "deferred" : nil,
-                                   retryAfterSeconds: calls == 1 ? 1 : nil)
+            return PlaceImageSearchResult(image: nil, candidates: [], selectionVersion: PlaceImageService.ranking,
+                                          status: calls == 1 ? "deferred" : nil,
+                                          retryAfterSeconds: calls == 1 ? 1 : nil)
         }
         let place = Place(id: "deferred-place", title: "Café", category: "Essen & Trinken", lat: 35.7, lng: 139.7)
         XCTAssertTrue(store.upsert(place))

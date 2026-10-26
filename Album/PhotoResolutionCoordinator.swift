@@ -246,10 +246,15 @@ final class PhotoResolutionCoordinator {
     static func serverRevision(place: Place, context: TripRegionContext) -> String {
         let coordinate = place.coordinate.map { "\($0.latitude),\($0.longitude)" } ?? "none"
         let region = context.region.map { "\($0.center.latitude),\($0.center.longitude),\($0.span.latitudeDelta),\($0.span.longitudeDelta)" } ?? "none"
-        let raw = [place.id, normalized(place.title), normalized(place.address), normalized(place.category),
-                   place.sourceURL, coordinate, context.name ?? "", String(describing: context.source), region].joined(separator: "\u{1F}")
+        let raw = [place.id, serverNormalized(place.title), serverNormalized(place.address), serverNormalized(place.category),
+                   coordinate, serverNormalized(context.name ?? ""), String(describing: context.source), region].joined(separator: "\u{1F}")
         let digest = SHA256.hash(data: Data(raw.utf8)).map { String(format: "%02x", $0) }.joined()
         return digest
+    }
+
+    private static func serverNormalized(_ value: String) -> String {
+        value.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+            .split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
     }
 
     private static func jobID(placeID: String, fingerprint: String) -> String { "\(placeID):\(fingerprint)" }

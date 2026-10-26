@@ -501,10 +501,22 @@ private struct PlaceResolutionSnapshot: Equatable {
         // existing backoff/no-match jobs.
         for place in places where !place.deleted && !place.automaticPhotoSuppressed
                 && !PlaceImageService.isUserChosen(place.image)
-                && (place.image == nil || PlaceImageService.shouldSearch(for: place, force: false)) {
+                && shouldBootstrapAutomaticPhoto(for: place) {
             photoResolutionCoordinator?.enqueue(place: place, context: tripRegionContext(for: place))
         }
         photoResolutionCoordinator?.resume()
+    }
+
+    private func shouldBootstrapAutomaticPhoto(for place: Place) -> Bool {
+        guard let image = place.image else { return true }
+        if case .external(let external) = image,
+           external.userSelected != true,
+           let resolvedFor = external.resolvedFor,
+           resolvedFor.matches(place),
+           (external.provider == .sourcePreview || (external.provider == .wikimedia && (external.ranking ?? 1) >= PlaceImageService.ranking)) {
+            return false
+        }
+        return PlaceImageService.shouldSearch(for: place, force: false)
     }
 
     func pauseAutomaticPhotoResolution() {
