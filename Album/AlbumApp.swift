@@ -84,11 +84,9 @@ import UIKit
                     }
                 }
                 .fullScreenCover(item: $invitation) { request in
-                    if let store = library.activeStore {
-                        InvitationMoment(request: request, onDone: { invitation = nil }).environment(store)
-                    } else {
-                        ProgressView().task { invitation = nil }
-                    }
+                    InvitationMoment(request: request,
+                                     onDone: { invitation = nil },
+                                     summaryProvider: invitationSummary)
                 }
                 .task {
                     ensureActiveTrip()
@@ -118,7 +116,7 @@ import UIKit
         #if DEBUG
         let environment = ProcessInfo.processInfo.environment
         guard environment["ALBUM_TEST_STORE"] != nil else { return }
-        let fixtureFlag = ["ALBUM_GLOBAL_IMAGE_QA", "ALBUM_AUTO_PHOTO_QA", "ALBUM_AUTO_PHOTO_LIVE_QA", "ALBUM_LIVE_IMAGE_QA", "ALBUM_DISCOVERY_QA", "ALBUM_DISCOVERY_LIVE_QA", "ALBUM_LEGACY_HOME_QA"].contains { environment[$0] == "1" }
+        let fixtureFlag = ["ALBUM_GLOBAL_IMAGE_QA", "ALBUM_AUTO_PHOTO_QA", "ALBUM_AUTO_PHOTO_LIVE_QA", "ALBUM_LIVE_IMAGE_QA", "ALBUM_DISCOVERY_QA", "ALBUM_DISCOVERY_LIVE_QA", "ALBUM_LEGACY_HOME_QA", "ALBUM_DEMO_INVITE"].contains { environment[$0] == "1" }
         guard fixtureFlag, let id = library.createBlankTrip(title: "QA-Reise", destination: "Prag") else { return }
         _ = library.open(id)
         #endif
@@ -131,6 +129,14 @@ import UIKit
     private func clearPresentedError() {
         library.error = nil
         library.activeStore?.error = nil
+    }
+
+    private func invitationSummary() -> String {
+        guard let store = library.activeStore else { return "Reise bereit" }
+        let places = store.places.count
+        let days = Set(store.places.compactMap(\.plannedDate)).count
+        if places == 0 { return "Reise bereit" }
+        return "\(places) \(places == 1 ? "Ort" : "Orte")" + (days > 0 ? " · \(days) \(days == 1 ? "Tag" : "Tage")" : "")
     }
 
     #if DEBUG

@@ -20,7 +20,7 @@ struct NativeHomeView: View {
         #endif
         let raw = store.tripName
             .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "en_US_POSIX"))
-        let slug = raw.unicodeScalars.filter { $0.isASCII && ($0.properties.isAlphabetic || $0.properties.isNumeric) }
+        let slug = raw.unicodeScalars.filter { $0.isASCII && CharacterSet.alphanumerics.contains($0) }
             .map(String.init).joined().lowercased()
         return "native-trip-\(slug.isEmpty ? "trip" : slug)"
     }

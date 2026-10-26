@@ -14,6 +14,7 @@ final class TripLibraryUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchEnvironment["ALBUM_TEST_STORE"] = slot
         app.launchEnvironment["ALBUM_EMPTY_TEST_STORE"] = "1"
+        app.launchEnvironment["ALBUM_LIBRARY_QA"] = "1"
         app.launchArguments += ["-AppleLanguages", "(de)", "-AppleLocale", "de_DE"]
         app.launch()
         return app

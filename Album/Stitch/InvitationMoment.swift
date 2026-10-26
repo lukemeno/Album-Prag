@@ -26,14 +26,14 @@ struct InvitationRequest: Identifiable {
 struct InvitationMoment: View {
     let request: InvitationRequest
     var onDone: () -> Void
-    @Environment(AlbumStore.self) private var store
+    var summaryProvider: () -> String = { "Reise bereit" }
     @State private var busy = false
 
     var body: some View {
         SlotScene(labels: SlotLabels(flap: "Album", cardLabel: ticketLabel, cardHint: "Nach oben ziehen zum Einlösen",
                                      action: "Einlösen", cardID: "Einladungs-Karte", buttonID: "Einladungs-Knopf",
                                      idle: "Einladung einlösen", working: "Album wird geöffnet …", done: "Album ansehen",
-                                     announcement: "Einladung eingelöst. Album geöffnet. \(summary)"),
+                                     announcement: "Einladung eingelöst. Album geöffnet. \(summaryProvider())"),
                   commit: {
                       busy = true
                       defer { busy = false }
@@ -58,24 +58,15 @@ struct InvitationMoment: View {
         ["Einladung für eure Reise", request.sender.map { "von \($0)" }].compactMap { $0 }.joined(separator: ", ")
     }
 
-    /// „13 Orte · 5 Tage“ aus den geladenen Daten; Tage nur, wenn schon welche geplant sind.
-    private var summary: String {
-        let places = store.places.count
-        let days = Set(store.places.compactMap(\.plannedDate)).count
-        var parts = [places == 1 ? "1 Ort" : "\(places) Orte"]
-        if days > 0 { parts.append(days == 1 ? "1 Tag" : "\(days) Tage") }
-        return parts.joined(separator: " · ")
-    }
-
     private var receipt: some View {
         VStack(spacing: Stitch.Space.xxs) {
             Text("Album geöffnet").font(Stitch.Face.place(22, relativeTo: .headline)).foregroundStyle(Stitch.ink)
-            Text(summary).font(.subheadline.monospacedDigit()).foregroundStyle(Stitch.inkSoft)
+            Text(summaryProvider()).font(.subheadline.monospacedDigit()).foregroundStyle(Stitch.inkSoft)
         }
         .padding(.horizontal, Stitch.Space.l).padding(.vertical, Stitch.Space.m)
         .frame(width: 228)
         .background(Stitch.card, in: RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
-        .overlay(alignment: .topTrailing) { Postmark(bottom: "4.–9.10.", size: 48).offset(x: 14, y: -18) }
+        .overlay(alignment: .topTrailing) { Postmark(bottom: "Album", size: 48).offset(x: 14, y: -18) }
         .stitchElevation(.pinned)
         .accessibilityElement(children: .combine)
     }
@@ -98,7 +89,7 @@ struct InvitationTicket: View {
             .padding(Stitch.Space.m)
             .frame(width: 220, alignment: .leading)
             .background(Stitch.card)
-            .overlay(alignment: .topTrailing) { Postmark(bottom: "2026", size: 56).padding(Stitch.Space.s) }
+            .overlay(alignment: .topTrailing) { Postmark(bottom: "Reise", size: 56).padding(Stitch.Space.s) }
         }
     }
 }
