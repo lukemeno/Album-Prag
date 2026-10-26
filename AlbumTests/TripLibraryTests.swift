@@ -3,6 +3,17 @@ import XCTest
 
 @MainActor
 final class TripLibraryTests: XCTestCase {
+    @MainActor
+    private final class LifecycleService: AlbumSyncService {
+        var stopped = false
+        func createTrip(store: AlbumStore) async throws -> CollaborationState { throw AlbumSyncError.missingConfiguration }
+        func joinTrip(token: String) async throws -> CollaborationState { throw AlbumSyncError.missingConfiguration }
+        func sync(store: AlbumStore) async throws { throw AlbumSyncError.missingConfiguration }
+        func startRealtime(onChange: @escaping @MainActor @Sendable () async -> Void) {}
+        func authenticatedUserID() async throws -> String { "test-user" }
+        func stopRealtime() async { stopped = true }
+    }
+
     private func temporaryRoot(_ name: String = #function) throws -> URL {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("TripLibrary-\(name)-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -111,5 +122,34 @@ final class TripLibraryTests: XCTestCase {
         XCTAssertTrue(library.entries.isEmpty)
         XCTAssertTrue(FileManager.default.fileExists(atPath: legacy.appendingPathComponent("album.json").path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: libraryRoot.appendingPathComponent("legacy-migration.json").path))
+    }
+
+    func testForeignShareQueueItemsRemainForTheirTrip() throws {
+        let root = try temporaryRoot()
+        let inbox = ShareInbox(root: root.appendingPathComponent("share"))
+        let storeRoot = root.appendingPathComponent("trip-a")
+        var data = AlbumData(); data.places = []; data.albumID = "album-a"
+        try FileManager.default.createDirectory(at: storeRoot, withIntermediateDirectories: true)
+        try JSONEncoder().encode(data).write(to: storeRoot.appendingPathComponent("album.json"), options: .atomic)
+        let store = AlbumStore(root: storeRoot, shareInbox: inbox, publishesShareContext: false)
+        store.activateShareContext(); store.publishShareContext()
+        let foreign = ShareQueueItem(payload: "other trip", url: nil, tripKey: "local:album-b")
+        try inbox.save(foreign)
+        store.drainShareQueue()
+        XCTAssertEqual(inbox.items().first?.id, foreign.id)
+        XCTAssertEqual(inbox.items().first?.state, .pending)
+    }
+
+    func testShutdownStopsRealtimeAndLocalCallbacks() async throws {
+        let root = try temporaryRoot()
+        let store = AlbumStore(root: root.appendingPathComponent("trip"),
+                               shareInbox: ShareInbox(root: root.appendingPathComponent("share")),
+                               publishesShareContext: false)
+        let service = LifecycleService()
+        store.syncService = service
+        await store.shutdown()
+        XCTAssertTrue(service.stopped)
+        let didSync = await store.sync()
+        XCTAssertFalse(didSync)
     }
 }
