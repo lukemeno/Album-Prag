@@ -329,20 +329,22 @@ struct LegacyMigrationReceipt: Codable, Equatable {
 
         let id = previous?.id ?? UUID()
         let target = tripURL(id)
-        // A crash can occur after the folder rename but before the receipt is
-        // committed. If that UUID is already indexed and the folder decodes,
-        // the indexed copy is authoritative: preserve user edits and only
-        // finish the receipt commit. Never compare it with the old legacy
-        // folder in this case.
-        if previous?.state == .copying, let index = entries.firstIndex(where: { $0.id == id }) {
-            guard let targetData = loadAlbum(at: target),
-                  targetData.albumID == previous?.albumID,
-                  entries[index].albumID == targetData.albumID else {
-                entries[index].unavailableReason = "Die angefangene Migration ist beschädigt oder nicht verfügbar."
-                _ = persistIndex()
-                return
+        // The index is only a cache. A valid target matching the receipt's
+        // album identity is authoritative even after an index corruption;
+        // preserve user edits and finish the pending receipt commit.
+        if previous?.state == .copying,
+           let targetData = loadAlbum(at: target),
+           targetData.albumID == previous?.albumID {
+            if let index = entries.firstIndex(where: { $0.id == id }) {
+                guard entries[index].albumID == targetData.albumID else {
+                    entries[index].unavailableReason = "Die angefangene Migration ist beschädigt oder nicht verfügbar."
+                    _ = persistIndex()
+                    return
+                }
+                entries[index].unavailableReason = nil
+            } else {
+                ensureEntry(id: id, origin: .migrated, data: targetData)
             }
-            entries[index].unavailableReason = nil
             guard persistIndex() else { return }
             let committed = LegacyMigrationReceipt(id: id, state: .committed,
                                                    sourceFiles: previous?.sourceFiles ?? treeFiles(legacyRoot),
@@ -354,23 +356,11 @@ struct LegacyMigrationReceipt: Codable, Equatable {
             _ = writeReceipt(committed)
             return
         }
-        // Cleanup itself writes a marker after the verified copy. If the app
-        // crashed before the index commit, that marker proves this is our
-        // transformed orphan rather than an unrelated folder; keep its edits.
-        if previous?.state == .copying,
-           !entries.contains(where: { $0.id == id }),
-           fileManager.fileExists(atPath: target.appendingPathComponent(Self.pristineCleanupMarker).path),
-           let targetData = loadAlbum(at: target), targetData.albumID == previous?.albumID {
-            ensureEntry(id: id, origin: .migrated, data: targetData)
-            guard persistIndex() else { return }
-            let committed = LegacyMigrationReceipt(id: id, state: .committed,
-                                                   sourceFiles: previous?.sourceFiles ?? treeFiles(legacyRoot),
-                                                   sourceBytes: previous?.sourceBytes ?? treeBytes(legacyRoot),
-                                                   places: targetData.places.count,
-                                                   documents: targetData.documents.count,
-                                                   memories: targetData.tripMemories.count,
-                                                   albumID: targetData.albumID, committedAt: Date())
-            _ = writeReceipt(committed)
+        if previous?.state == .copying, let index = entries.firstIndex(where: { $0.id == id }) {
+            // An indexed target that is missing, corrupt, or belongs to a
+            // different album must not be silently restored from legacy.
+            entries[index].unavailableReason = "Die angefangene Migration ist beschädigt oder nicht verfügbar."
+            _ = persistIndex()
             return
         }
         let sourceSize = treeBytes(legacyRoot)

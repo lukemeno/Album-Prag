@@ -296,12 +296,12 @@ final class TripLibraryTests: XCTestCase {
         let joinedLibrary = TripLibrary(root: root.appendingPathComponent("join-library"),
                                         legacyRoot: root.appendingPathComponent("join-legacy"),
                                         shareInbox: inbox,
-                                        indexWriter: failingWriter,
                                         storeFactory: { path, shareInbox, publishes in
                                             let store = AlbumStore(root: path, shareInbox: shareInbox, publishesShareContext: publishes)
                                             store.syncService = JoinService(behavior: behavior)
                                             return store
-                                        })
+                                        },
+                                        indexWriter: failingWriter)
         let invite = try XCTUnwrap(InvitationLink.make(token: String(repeating: "b", count: 32)))
         do {
             _ = try await joinedLibrary.joinInvitation(invite)
