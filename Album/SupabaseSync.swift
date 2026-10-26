@@ -90,6 +90,12 @@ enum SupabaseConfiguration {
     func joinTrip(token: String) async throws -> CollaborationState
     func sync(store: AlbumStore) async throws
     func startRealtime(onChange: @escaping @MainActor @Sendable () async -> Void)
+    func authenticatedUserID() async throws -> String
+}
+
+@MainActor extension AlbumSyncService {
+    /// Test and alternate sync services may not expose an authenticated server identity.
+    func authenticatedUserID() async throws -> String { throw AlbumSyncError.missingConfiguration }
 }
 
 private struct CreateTripResponse: Decodable {
@@ -274,6 +280,32 @@ struct CollectionSyncRow: Codable {
     }
 }
 
+private struct TripFeatureRow: Decodable {
+    let id: UUID
+    let tripID: UUID
+    let kind: String
+    let payload: TripMemoryPhoto
+    let ownerID: UUID
+    let version: Int64
+    let mutationToken: UUID
+    let deleted: Bool
+    let storagePath: String?
+    enum CodingKeys: String, CodingKey {
+        case id, kind, payload, version, deleted
+        case tripID = "trip_id", ownerID = "owner_id", mutationToken = "mutation_token", storagePath = "storage_path"
+    }
+}
+
+private struct CommitTripFeatureParameters: Encodable {
+    let tripID: UUID; let id: UUID; let kind = "photo"; let payload: String; let ownerID: UUID
+    let deleted: Bool; let mutationToken: UUID; let expectedVersion: Int64?; let storagePath: String?
+    enum CodingKeys: String, CodingKey {
+        case kind = "p_kind", payload = "p_payload", deleted = "p_deleted"
+        case tripID = "p_trip_id", id = "p_id", ownerID = "p_owner_id", mutationToken = "p_mutation_token"
+        case expectedVersion = "p_expected_version", storagePath = "p_storage_path"
+    }
+}
+
 @MainActor
 protocol CollectionSyncTransport: AnyObject {
     func pull(tripID: UUID) async throws -> [CollectionSyncRow]
@@ -427,6 +459,7 @@ private final class SupabaseRealtimeTransportLive: SupabaseRealtimeTransport {
         let documentChanges = channel.postgresChange(AnyAction.self, schema: "public", table: "documents", filter: .eq("trip_id", value: tripFilterValue))
         let tripChanges = channel.postgresChange(AnyAction.self, schema: "public", table: "trips", filter: .eq("id", value: tripFilterValue))
         let collectionChanges = channel.postgresChange(AnyAction.self, schema: "public", table: "collection_entries", filter: .eq("trip_id", value: tripFilterValue))
+        let tripFeatureChanges = channel.postgresChange(AnyAction.self, schema: "public", table: "trip_feature_entries", filter: .eq("trip_id", value: tripFilterValue))
         do {
             try await channel.subscribeWithError()
             try await waitForReplicationReady(systemMessages)
@@ -453,6 +486,12 @@ private final class SupabaseRealtimeTransportLive: SupabaseRealtimeTransport {
                 }
                 group.addTask {
                     for await _ in collectionChanges {
+                        guard !Task.isCancelled else { break }
+                        await onChange()
+                    }
+                }
+                group.addTask {
+                    for await _ in tripFeatureChanges {
                         guard !Task.isCancelled else { break }
                         await onChange()
                     }
@@ -575,6 +614,11 @@ private struct V2RevisionCache: Codable {
         return CollaborationState(tripID: response.tripID, inviteToken: response.inviteToken)
     }
 
+    func authenticatedUserID() async throws -> String {
+        try await ensureSession()
+        return (try await client.auth.session).user.id.uuidString.lowercased()
+    }
+
     func joinTrip(token: String) async throws -> CollaborationState {
         guard token.count >= 32 else { throw AlbumSyncError.invalidInvitation }
         try await ensureSession()
@@ -610,6 +654,8 @@ private struct V2RevisionCache: Codable {
         let remoteDocuments: [DocumentRow] = try await client.from("documents")
             .select().eq("trip_id", value: collaboration.tripID).execute().value
         let remoteCollections = try await collectionTransport.pull(tripID: collaboration.tripID)
+        let remotePhotos: [TripFeatureRow] = try await client.from("trip_feature_entries").select()
+            .eq("trip_id", value: collaboration.tripID).eq("kind", value: "photo").execute().value
 
         recordRevisions(trip: tripRows.first, places: remotePlaces, tripID: collaboration.tripID, store: store)
 
@@ -654,6 +700,8 @@ private struct V2RevisionCache: Codable {
                 }
             }
         }
+
+        for row in remotePhotos { try await applyTripPhotoRow(row, store: store, tripID: collaboration.tripID) }
 
         guard store.persist() else { throw CocoaError(.fileWriteUnknown) }
         try await pushDirty(store: store, tripID: collaboration.tripID)
@@ -812,6 +860,7 @@ private struct V2RevisionCache: Codable {
             }
         }
         try await pushCollectionEntries(store: store, tripID: tripID)
+        try await pushTripPhotos(store: store, tripID: tripID)
         let imageDeletes = store.data.dirty.filter { $0.hasPrefix("image-delete:") }
         for marker in imageDeletes {
             let path = String(marker.dropFirst("image-delete:".count))
@@ -951,6 +1000,125 @@ private struct V2RevisionCache: Codable {
             store.data.collectionSync[id] = CollectionSyncMetadata(serverVersion: acknowledgedVersion, mutationToken: currentToken ?? token, lastErrorCode: nil)
             if currentToken == token { store.data.dirty.remove(marker) }
         }
+    }
+
+    private func pushTripPhotos(store: AlbumStore, tripID: UUID) async throws {
+        let dirtyIDs = store.data.tripMemories.filter { store.data.dirty.contains("photo-" + $0.id) }.map(\.id)
+        guard !dirtyIDs.isEmpty else { return }
+        let actorID = try await client.auth.session.user.id
+        for id in dirtyIDs {
+            guard let index = store.data.tripMemories.firstIndex(where: { $0.id == id }) else { continue }
+            var snapshot = store.data.tripMemories[index]
+            let token = store.data.tripMemorySync[id]?.mutationToken ?? UUID().uuidString
+            if snapshot.authorID.isEmpty {
+                snapshot.authorID = actorID.uuidString.lowercased()
+                if snapshot.authorName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { snapshot.authorName = store.me }
+            }
+            guard UUID(uuidString: snapshot.authorID) == actorID else {
+                throw NSError(domain: "Album", code: 403, userInfo: [NSLocalizedDescriptionKey: "Nur die Person, die dieses Foto hinzugefügt hat, kann es ändern."])
+            }
+            let expectedPath = "\(tripID.uuidString.lowercased())/\(actorID.uuidString.lowercased())/\(id).jpg"
+            snapshot.storagePath = expectedPath
+            if !snapshot.deleted {
+                if store.data.tripMemorySync[id]?.serverVersion == nil {
+                    let originalURL = TripMemoryStorage.localURL(for: snapshot, thumbnail: false, root: store.root)
+                    let thumbnailURL = TripMemoryStorage.localURL(for: snapshot, thumbnail: true, root: store.root)
+                    let original = try Data(contentsOf: originalURL), thumbnail = try Data(contentsOf: thumbnailURL)
+                    guard original.count <= 5_000_000, thumbnail.count <= 300_000,
+                          isJPEG(original), isJPEG(thumbnail),
+                          TripMemoryStorage.digest(original).caseInsensitiveCompare(snapshot.sha256) == .orderedSame,
+                          TripMemoryStorage.digest(thumbnail).caseInsensitiveCompare(snapshot.thumbnailSHA256) == .orderedSame else {
+                        throw RemoteFileValidationError.invalidImage
+                    }
+                    let thumbPath = "\(tripID.uuidString.lowercased())/\(actorID.uuidString.lowercased())/\(snapshot.thumbnailFilename)"
+                    try await uploadTripPhoto(original, path: expectedPath, digest: snapshot.sha256)
+                    try await uploadTripPhoto(thumbnail, path: thumbPath, digest: snapshot.thumbnailSHA256)
+                }
+            } else if snapshot.storagePath == nil && !snapshot.authorID.isEmpty {
+                // A photo created and deleted offline is represented by a metadata-only tombstone.
+                snapshot.storagePath = nil
+            }
+            guard let currentIndex = store.data.tripMemories.firstIndex(where: { $0.id == id }),
+                  store.data.tripMemorySync[id]?.mutationToken == token else { continue }
+            store.data.tripMemories[currentIndex].authorID = snapshot.authorID
+            store.data.tripMemories[currentIndex].authorName = snapshot.authorName
+            store.data.tripMemories[currentIndex].storagePath = snapshot.storagePath
+            guard store.persist() else { throw CocoaError(.fileWriteUnknown) }
+            let encoder = JSONEncoder()
+            let payload = String(decoding: try encoder.encode(snapshot), as: UTF8.self)
+            let currentVersion = store.data.tripMemorySync[id]?.serverVersion
+            let params = CommitTripFeatureParameters(tripID: tripID, id: UUID(uuidString: id) ?? UUID(), payload: payload,
+                ownerID: actorID, deleted: snapshot.deleted, mutationToken: UUID(uuidString: token) ?? UUID(),
+                expectedVersion: currentVersion, storagePath: snapshot.storagePath)
+            let row: TripFeatureRow = try await client.rpc("commit_trip_feature", params: params).execute().value
+            if snapshot.deleted, let path = snapshot.storagePath {
+                let thumbPath = path.replacingOccurrences(of: ".jpg", with: "-thumb.jpg")
+                try await client.storage.from("trip-album").remove(paths: [path, thumbPath])
+            }
+            guard store.data.tripMemories.contains(where: { $0.id == id }) else { continue }
+            let currentToken = store.data.tripMemorySync[id]?.mutationToken
+            store.data.tripMemorySync[id] = TripMemorySyncMetadata(serverVersion: row.version, mutationToken: currentToken ?? token)
+            if currentToken == token { store.data.dirty.remove("photo-" + id) }
+            if snapshot.deleted { TripMemoryStorage.remove(snapshot, root: store.root) }
+        }
+    }
+
+    private func uploadTripPhoto(_ data: Data, path: String, digest: String) async throws {
+        if let existing = try? await storageDownloadTransport.download(bucket: "trip-album", path: path) {
+            if TripMemoryStorage.digest(existing).caseInsensitiveCompare(digest) == .orderedSame { return }
+            try await client.storage.from("trip-album").remove(paths: [path])
+        }
+        try await client.storage.from("trip-album").upload(path, data: data,
+            options: FileOptions(cacheControl: "86400", contentType: "image/jpeg", upsert: false))
+    }
+
+    private func isJPEG(_ data: Data) -> Bool { data.count >= 3 && data[0] == 0xff && data[1] == 0xd8 && data[2] == 0xff }
+
+    private func applyTripPhotoRow(_ row: TripFeatureRow, store: AlbumStore, tripID: UUID) async throws {
+        guard row.kind == "photo", row.id.uuidString.lowercased() == row.payload.id.lowercased(),
+              row.ownerID.uuidString.lowercased() == row.payload.authorID.lowercased() else { return }
+        var photo = row.payload
+        photo.deleted = row.deleted
+        photo.storagePath = row.storagePath
+        let existingIndex = store.data.tripMemories.firstIndex { $0.id == photo.id }
+        let isDirty = store.data.dirty.contains("photo-" + photo.id)
+        store.data.tripMemorySync[photo.id] = TripMemorySyncMetadata(serverVersion: row.version,
+            mutationToken: store.data.tripMemorySync[photo.id]?.mutationToken ?? row.mutationToken.uuidString)
+        if photo.deleted {
+            if let existingIndex { store.data.tripMemories[existingIndex] = photo } else { store.data.tripMemories.append(photo) }
+            store.data.dirty.remove("photo-" + photo.id)
+            TripMemoryStorage.remove(photo, root: store.root)
+            return
+        }
+        guard !isDirty else { return }
+        if !photo.deleted {
+            let prefix = "\(tripID.uuidString.lowercased())/\(row.ownerID.uuidString.lowercased())/"
+            guard let originalPath = row.storagePath, originalPath.hasPrefix(prefix),
+                  originalPath == prefix + photo.filename else { throw CocoaError(.fileReadNoPermission) }
+            let thumbPath = prefix + photo.thumbnailFilename
+            let originalURL = TripMemoryStorage.localURL(for: photo, thumbnail: false, root: store.root)
+            let thumbURL = TripMemoryStorage.localURL(for: photo, thumbnail: true, root: store.root)
+            let cachedOriginal = try? Data(contentsOf: originalURL), cachedThumb = try? Data(contentsOf: thumbURL)
+            let cacheIsValid = cachedOriginal.map { isJPEG($0) && TripMemoryStorage.digest($0).caseInsensitiveCompare(photo.sha256) == .orderedSame } == true
+                && cachedThumb.map { isJPEG($0) && TripMemoryStorage.digest($0).caseInsensitiveCompare(photo.thumbnailSHA256) == .orderedSame } == true
+            if !cacheIsValid {
+                let originalState = localFileState(at: originalURL), thumbState = localFileState(at: thumbURL)
+                let originalBytes = try await storageDownloadTransport.download(bucket: "trip-album", path: originalPath)
+                let thumbBytes = try await storageDownloadTransport.download(bucket: "trip-album", path: thumbPath)
+                guard originalBytes.count <= 5_000_000, thumbBytes.count <= 300_000,
+                      isJPEG(originalBytes), isJPEG(thumbBytes), UIImage(data: originalBytes) != nil, UIImage(data: thumbBytes) != nil,
+                      TripMemoryStorage.digest(originalBytes).caseInsensitiveCompare(photo.sha256) == .orderedSame,
+                      TripMemoryStorage.digest(thumbBytes).caseInsensitiveCompare(photo.thumbnailSHA256) == .orderedSame else {
+                    throw RemoteFileValidationError.invalidImage
+                }
+                guard localFileState(at: originalURL) == originalState, localFileState(at: thumbURL) == thumbState,
+                      !store.data.dirty.contains("photo-" + photo.id) else { return }
+                try commit(DownloadedFile(data: originalBytes, destination: originalURL))
+                try commit(DownloadedFile(data: thumbBytes, destination: thumbURL))
+            }
+        }
+        if let existingIndex { store.data.tripMemories[existingIndex] = photo } else { store.data.tripMemories.append(photo) }
+        store.data.dirty.remove("photo-" + photo.id)
     }
 
     #if DEBUG

@@ -92,6 +92,7 @@ struct AlbumExperienceRoot: View {
                 }
             case .expenses: NativeExpensesView().environment(store)
             case .memories: NativeMemoriesView().environment(store)
+            case .cameraMemories: NativeMemoriesView(startWithCamera: true).environment(store)
             }
         }
         .onAppear {
@@ -168,7 +169,7 @@ enum NativeTripSection: String, CaseIterable, Identifiable {
 }
 
 enum NativeSheet: Identifiable {
-    case add(Place), detail(String), documents, inbox, collection, sharing, name, extraction(ExtractedTrip), assistant, expenses, memories
+    case add(Place), detail(String), documents, inbox, collection, sharing, name, extraction(ExtractedTrip), assistant, expenses, memories, cameraMemories
     var id: String {
         switch self {
         case .add(let place): "add-\(place.id)"
@@ -182,6 +183,7 @@ enum NativeSheet: Identifiable {
         case .assistant: "assistant"
         case .expenses: "expenses"
         case .memories: "memories"
+        case .cameraMemories: "camera-memories"
         }
     }
 }

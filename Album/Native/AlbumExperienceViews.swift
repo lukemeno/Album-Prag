@@ -179,6 +179,7 @@ struct NativeTripExperience: View {
             NativeArcFAB(isOpen: $fanOpen, contextLabel: fanContext, onAction: { action in
                 switch action {
                 case .memories: sheet = .memories
+                case .camera: sheet = .cameraMemories
                 case .expenses: sheet = .expenses
                 case .documents: sheet = .documents
                 case .assistant(let prompt): onAssistant(prompt)
@@ -751,6 +752,7 @@ private struct NativeGroupLink: View {
 
 enum NativeFABAction {
     case memories
+    case camera
     case expenses
     case documents
     case assistant(String?)
@@ -775,7 +777,9 @@ struct NativeArcFAB: View {
     private let dwell: TimeInterval = 0.48
 
     private enum FanMode: Equatable { case closed, main, sub }
-    private let positions: [(CGFloat, CGFloat)] = [(-41, -165), (-130, -110), (-161, -55), (-170, 0)]
+    private let mainPositions: [(CGFloat, CGFloat)] = [(-34, -216), (-86, -162), (-128, -108), (-158, -54), (-170, 0)]
+    private let submenuPositions: [(CGFloat, CGFloat)] = [(-41, -165), (-130, -110), (-161, -55), (-170, 0)]
+    private var positions: [(CGFloat, CGFloat)] { mode == .sub ? submenuPositions : mainPositions }
 
     init(
         isOpen: Binding<Bool>,
@@ -792,7 +796,7 @@ struct NativeArcFAB: View {
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
             if mode != .closed {
-                ForEach(0..<4, id: \.self) { index in
+                ForEach(0..<(mode == .sub ? 4 : 5), id: \.self) { index in
                     fanNode(index: index)
                         .id("native-fan-node-\(index)")
                 }
@@ -810,11 +814,11 @@ struct NativeArcFAB: View {
             .buttonStyle(.plain)
             .highPriorityGesture(dragGesture)
             .accessibilityLabel(mode == .closed ? "Aktionen öffnen" : "Aktionen schließen")
-            .accessibilityHint("Öffnet Assistent, Erinnerungen, Ausgaben und Unterlagen")
+            .accessibilityHint("Öffnet Assistent, Kamera, Erinnerungen, Ausgaben und Unterlagen")
             .accessibilityIdentifier("native-fab")
             .accessibilityAddTraits(.isButton)
         }
-        .frame(width: 220, height: 220, alignment: .bottomTrailing)
+        .frame(width: 220, height: 272, alignment: .bottomTrailing)
         .overlay(alignment: .topTrailing) {
             if mode == .sub {
                 Label(contextLabel, systemImage: "map")
@@ -825,7 +829,7 @@ struct NativeArcFAB: View {
                     .frame(minHeight: 32)
                     .background(Stitch.card, in: Capsule())
                     .overlay(Capsule().strokeBorder(Stitch.rule))
-                    .offset(y: -40)
+                    .offset(y: 12)
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
                     .transition(.opacity)
@@ -894,7 +898,7 @@ struct NativeArcFAB: View {
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
         }
-        .position(x: 192 + positions[index].0, y: 192 + positions[index].1)
+        .position(x: 192 + positions[index].0, y: 244 + positions[index].1)
         .opacity(mode == .closed ? 0 : 1)
         .scaleEffect(mode == .closed ? 0.84 : 1)
         .allowsHitTesting(mode != .closed)
@@ -913,8 +917,9 @@ struct NativeArcFAB: View {
         }
         switch index {
         case 0: return ("sparkles", "Reise fragen", "native-fan-ai", true)
-        case 1: return ("photo.stack", "Erinnerungen", "native-fan-mem", false)
-        case 2: return ("eurosign.circle", "Ausgaben", "native-fan-exp", false)
+        case 1: return ("camera", "Kamera", "native-fan-camera", false)
+        case 2: return ("photo.stack", "Erinnerungen", "native-fan-mem", false)
+        case 3: return ("eurosign.circle", "Ausgaben", "native-fan-exp", false)
         default: return ("doc.text", "Unterlagen", "native-fan-doc", false)
         }
     }
@@ -924,9 +929,10 @@ struct NativeArcFAB: View {
         case .main:
             switch index {
             case 0: switchToSub()
-            case 1: commit(.memories)
-            case 2: commit(.expenses)
-            case 3: commit(.documents)
+            case 1: commit(.camera)
+            case 2: commit(.memories)
+            case 3: commit(.expenses)
+            case 4: commit(.documents)
             default: break
             }
         case .sub:
@@ -1051,7 +1057,7 @@ struct NativeArcFAB: View {
     private func commitCandidate(_ index: Int) {
         switch mode {
         case .main:
-            switch index { case 0: switchToSub(); case 1: commit(.memories); case 2: commit(.expenses); case 3: commit(.documents); default: break }
+            switch index { case 0: switchToSub(); case 1: commit(.camera); case 2: commit(.memories); case 3: commit(.expenses); case 4: commit(.documents); default: break }
         case .sub:
             switch index {
             case 0: commit(.assistant(nil))

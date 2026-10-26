@@ -126,6 +126,72 @@ struct UploadedPlaceImage: Codable, Equatable {
     var filename: String { "place-image-\(id).jpg" }
 }
 
+/// A photo shared with the trip, whether or not it has been linked to a place.
+struct TripMemoryPhoto: Codable, Equatable, Identifiable {
+    let id: String
+    var placeID: String?
+    var caption: String
+    var authorID: String
+    var authorName: String
+    var createdAt: Date
+    var width: Int
+    var height: Int
+    let filename: String
+    let thumbnailFilename: String
+    var sha256: String
+    var thumbnailSHA256: String
+    var storagePath: String?
+    var deleted: Bool
+
+    var photoFilename: String { "\(id).jpg" }
+    var thumbnailPhotoFilename: String { "\(id)-thumb.jpg" }
+
+    enum CodingKeys: String, CodingKey {
+        case id, placeID, caption, authorID, authorName, width, height, filename, thumbnailFilename
+        case sha256, thumbnailSHA256, storagePath, deleted
+        case createdAt
+    }
+
+    init(id: String = UUID().uuidString.lowercased(), placeID: String? = nil, caption: String = "", authorID: String = "", authorName: String, createdAt: Date = Date(), width: Int, height: Int, sha256: String, thumbnailSHA256: String, storagePath: String? = nil, deleted: Bool = false) {
+        self.id = id; self.placeID = placeID; self.caption = caption; self.authorID = authorID
+        self.authorName = authorName; self.createdAt = createdAt; self.width = width; self.height = height
+        filename = "\(id).jpg"; thumbnailFilename = "\(id)-thumb.jpg"
+        self.sha256 = sha256; self.thumbnailSHA256 = thumbnailSHA256; self.storagePath = storagePath; self.deleted = deleted
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decode(String.self, forKey: .id)
+        placeID = try values.decodeIfPresent(String.self, forKey: .placeID)
+        caption = try values.decode(String.self, forKey: .caption)
+        authorID = try values.decode(String.self, forKey: .authorID)
+        authorName = try values.decode(String.self, forKey: .authorName)
+        createdAt = Date(timeIntervalSince1970: try values.decode(Double.self, forKey: .createdAt))
+        width = try values.decode(Int.self, forKey: .width); height = try values.decode(Int.self, forKey: .height)
+        filename = try values.decode(String.self, forKey: .filename)
+        thumbnailFilename = try values.decode(String.self, forKey: .thumbnailFilename)
+        sha256 = try values.decode(String.self, forKey: .sha256); thumbnailSHA256 = try values.decode(String.self, forKey: .thumbnailSHA256)
+        storagePath = try values.decodeIfPresent(String.self, forKey: .storagePath)
+        deleted = try values.decodeIfPresent(Bool.self, forKey: .deleted) ?? false
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(id, forKey: .id); try values.encode(placeID, forKey: .placeID)
+        try values.encode(caption, forKey: .caption); try values.encode(authorID, forKey: .authorID)
+        try values.encode(authorName, forKey: .authorName); try values.encode(createdAt.timeIntervalSince1970, forKey: .createdAt)
+        try values.encode(width, forKey: .width); try values.encode(height, forKey: .height)
+        try values.encode(filename, forKey: .filename); try values.encode(thumbnailFilename, forKey: .thumbnailFilename)
+        try values.encode(sha256, forKey: .sha256); try values.encode(thumbnailSHA256, forKey: .thumbnailSHA256)
+        try values.encodeIfPresent(storagePath, forKey: .storagePath); try values.encode(deleted, forKey: .deleted)
+    }
+}
+
+struct TripMemorySyncMetadata: Codable, Equatable {
+    var serverVersion: Int64?
+    var mutationToken: String
+}
+
 enum PlaceImageAsset: Codable, Equatable {
     case bundled(name: String)
     case linkPreview(pageURL: String, thumbnailURL: String?, credit: String?)
@@ -570,9 +636,11 @@ struct AlbumData: Codable {
     var collaboration: CollaborationState?
     var collectionEntries: [CollectionEntry] = []
     var collectionSync: [String: CollectionSyncMetadata] = [:]
+    var tripMemories: [TripMemoryPhoto] = []
+    var tripMemorySync: [String: TripMemorySyncMetadata] = [:]
 
     private enum CodingKeys: String, CodingKey {
-        case albumID, schemaVersion, places, trip, documents, dirty, collaboration, collectionEntries, collectionSync
+        case albumID, schemaVersion, places, trip, documents, dirty, collaboration, collectionEntries, collectionSync, tripMemories, tripMemorySync
     }
 
     init() {}
@@ -588,6 +656,8 @@ struct AlbumData: Codable {
         collaboration = try values.decodeIfPresent(CollaborationState.self, forKey: .collaboration)
         collectionEntries = try values.decodeIfPresent([CollectionEntry].self, forKey: .collectionEntries) ?? []
         collectionSync = try values.decodeIfPresent([String: CollectionSyncMetadata].self, forKey: .collectionSync) ?? [:]
+        tripMemories = try values.decodeIfPresent([TripMemoryPhoto].self, forKey: .tripMemories) ?? []
+        tripMemorySync = try values.decodeIfPresent([String: TripMemorySyncMetadata].self, forKey: .tripMemorySync) ?? [:]
     }
 }
 

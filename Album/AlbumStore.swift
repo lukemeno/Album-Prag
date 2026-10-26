@@ -39,6 +39,7 @@ private struct PlaceResolutionSnapshot: Equatable {
     let root: URL
     let shareInbox: ShareInbox
     var syncService: AlbumSyncService?
+    private(set) var authenticatedUserID: String?
     /// Nur fokussierte Tests setzen diese Identität; produktiv bleibt sie die Installations-UUID.
     var collectionParticipantIDOverride: String? = nil
     /// In-flight/backfill guards keep repeated view updates from starting duplicate previews.
@@ -468,6 +469,53 @@ private struct PlaceResolutionSnapshot: Equatable {
             data = previous
         }
         return saved
+    }
+
+    var tripMemories: [TripMemoryPhoto] { data.tripMemories.filter { !$0.deleted }.sorted { $0.createdAt > $1.createdAt } }
+
+    func tripMemoryURL(for photo: TripMemoryPhoto, thumbnail: Bool = false) -> URL {
+        TripMemoryStorage.localURL(for: photo, thumbnail: thumbnail, root: root)
+    }
+
+    @discardableResult func addTripMemory(data source: Data, caption: String = "", placeID: String? = nil) -> TripMemoryPhoto? {
+        guard !loadFailed else { return nil }
+        let previous = data
+        do {
+            let photo = try TripMemoryStorage.save(source, root: root, placeID: placeID, caption: caption, authorName: me)
+            data.tripMemories.append(photo)
+            data.tripMemorySync[photo.id] = TripMemorySyncMetadata(serverVersion: nil, mutationToken: UUID().uuidString)
+            data.dirty.insert("photo-" + photo.id)
+            guard persist() else { data = previous; TripMemoryStorage.remove(photo, root: root); return nil }
+            scheduleSync()
+            return photo
+        } catch {
+            self.error = "Foto konnte nicht gespeichert werden: \(error.localizedDescription)"
+            return nil
+        }
+    }
+
+    @discardableResult func updateTripMemory(_ input: TripMemoryPhoto) -> Bool {
+        guard !loadFailed, let index = data.tripMemories.firstIndex(where: { $0.id == input.id && !$0.deleted }) else { return false }
+        let previous = data
+        data.tripMemories[index] = input
+        data.tripMemorySync[input.id] = TripMemorySyncMetadata(serverVersion: data.tripMemorySync[input.id]?.serverVersion,
+                                                               mutationToken: UUID().uuidString)
+        data.dirty.insert("photo-" + input.id)
+        guard persist() else { data = previous; return false }
+        scheduleSync()
+        return true
+    }
+
+    @discardableResult func deleteTripMemory(id: String) -> Bool {
+        guard !loadFailed, let index = data.tripMemories.firstIndex(where: { $0.id == id && !$0.deleted }) else { return false }
+        let previous = data
+        data.tripMemories[index].deleted = true
+        data.tripMemorySync[id] = TripMemorySyncMetadata(serverVersion: data.tripMemorySync[id]?.serverVersion,
+                                                         mutationToken: UUID().uuidString)
+        data.dirty.insert("photo-" + id)
+        guard persist() else { data = previous; return false }
+        scheduleSync()
+        return true
     }
 
     /// Saves assistant place recommendations into the shared Ideas inbox in one local commit.
@@ -1278,5 +1326,11 @@ private struct PlaceResolutionSnapshot: Equatable {
         let service = try SupabaseSync.configured()
         syncService = service
         return service
+    }
+
+    func refreshAuthenticatedUserID() async {
+        guard isShared else { authenticatedUserID = nil; return }
+        do { authenticatedUserID = try await service().authenticatedUserID().lowercased() }
+        catch { authenticatedUserID = nil }
     }
 }

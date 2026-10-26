@@ -1,6 +1,7 @@
 import XCTest
 import PDFKit
 import CoreLocation
+import UIKit
 @testable import Album
 
 @MainActor
@@ -271,6 +272,61 @@ final class StoreRegressionTests: XCTestCase {
         await store.sync()
         try await Task.sleep(for: .milliseconds(1_100))
         XCTAssertEqual(service.syncCount, 1)
+    }
+
+    func testTripMemorySavesWithoutPlaceAndSurvivesRestart() throws {
+        let root = makeRoot()
+        let store = makeStore(at: root)
+        let placeCount = store.places.count
+        let photo = try XCTUnwrap(store.addTripMemory(data: tinyJPEG(), caption: "Gruppe"))
+        XCTAssertNil(photo.placeID)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: store.tripMemoryURL(for: photo).path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: store.tripMemoryURL(for: photo, thumbnail: true).path))
+        XCTAssertTrue(store.data.dirty.contains("photo-" + photo.id))
+
+        let reloaded = makeStore(at: root)
+        XCTAssertEqual(reloaded.tripMemories.map(\.id), [photo.id])
+        XCTAssertEqual(reloaded.tripMemories.first?.caption, "Gruppe")
+        XCTAssertEqual(reloaded.places.count, placeCount)
+    }
+
+    func testLinkingTripMemoryDoesNotMarkPlaceVisited() throws {
+        let root = makeRoot()
+        let store = makeStore(at: root)
+        var place = Place(id: "cafe", title: "Café Savoy", author: store.me)
+        place.visited = false
+        store.data.places = [place]
+        XCTAssertTrue(store.persist())
+        let photo = try XCTUnwrap(store.addTripMemory(data: tinyJPEG()))
+        var linked = photo
+        linked.placeID = place.id
+        XCTAssertTrue(store.updateTripMemory(linked))
+        XCTAssertEqual(store.tripMemories.first?.placeID, place.id)
+        XCTAssertFalse(store.places.first?.visited ?? true)
+
+        linked.placeID = nil
+        XCTAssertTrue(store.updateTripMemory(linked))
+        XCTAssertNil(store.tripMemories.first?.placeID)
+    }
+
+    func testDeletedTripMemoryDisappearsButKeepsFilesForSync() throws {
+        let root = makeRoot()
+        let store = makeStore(at: root)
+        let photo = try XCTUnwrap(store.addTripMemory(data: tinyJPEG()))
+        XCTAssertTrue(store.deleteTripMemory(id: photo.id))
+        XCTAssertTrue(store.tripMemories.isEmpty)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: store.tripMemoryURL(for: photo).path))
+        let reloaded = makeStore(at: root)
+        XCTAssertTrue(reloaded.tripMemories.isEmpty)
+        XCTAssertTrue(reloaded.data.tripMemories.contains { $0.id == photo.id && $0.deleted })
+    }
+
+    private func tinyJPEG() -> Data {
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 8, height: 8)).image { context in
+            UIColor.red.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 8, height: 8))
+        }
+        return image.jpegData(compressionQuality: 0.8) ?? Data()
     }
 }
 

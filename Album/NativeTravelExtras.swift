@@ -383,68 +383,53 @@ private struct NativeSettlementView: View {
 public struct NativeMemoriesView: View {
     @Environment(AlbumStore.self) private var store
     @Environment(\.dismiss) private var dismiss
-    @State private var targetPicker = false
-    @State private var addPlace = false
-    @State private var source: MemoryCaptureSource?
-    @State private var targetID: String?
-    @State private var replaceConfirmation = false
+    private let startWithCamera: Bool
     @State private var cameraPresented = false
     @State private var cameraUnavailable = false
     @State private var photoPickerPresented = false
     @State private var photoItem: PhotosPickerItem?
     @State private var photoLoadTask: Task<Void, Never>?
     @State private var viewing: NativeMemoryPhoto?
+    @State private var viewingTripPhoto: TripMemoryPhoto?
+    @State private var linkingPhoto: TripMemoryPhoto?
     @State private var error: String?
-    @State private var feedbackTick = 0
+    @State private var didStartCamera = false
 
-    public init() {}
+    public init(startWithCamera: Bool = false) { self.startWithCamera = startWithCamera }
 
-    private var photoPlaces: [Place] {
-        store.places.filter { $0.image != nil }
+    private var photoPlaces: [Place] { store.places.filter { $0.image != nil } }
+    private var tripPhotos: [TripMemoryPhoto] {
+        store.data.tripMemories.filter { !$0.deleted }.sorted { $0.createdAt > $1.createdAt }
     }
 
     public var body: some View {
         NavigationStack {
             ScrollView {
-                if photoPlaces.isEmpty {
-                    emptyState
-                } else {
-                    photoGrid
-                }
+                if photoPlaces.isEmpty && tripPhotos.isEmpty { emptyState } else { photoGrid }
             }
             .background(PaperBackground())
             .navigationTitle("Erinnerungen")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button { dismiss() } label: {
-                        Image(systemName: "xmark").frame(minWidth: 44, minHeight: 44)
-                    }
-                    .accessibilityLabel("Erinnerungen schließen")
+                    Button { dismiss() } label: { Image(systemName: "xmark").frame(minWidth: 44, minHeight: 44) }
+                        .accessibilityLabel("Erinnerungen schließen")
                 }
                 ToolbarItem(placement: .primaryAction) {
-                    Button { beginCapture(.library) } label: { Label("Foto aus Mediathek", systemImage: "photo.on.rectangle") }
+                    Button { photoPickerPresented = true } label: { Label("Foto aus Mediathek", systemImage: "photo.on.rectangle") }
                         .accessibilityIdentifier("memories-library")
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                Button { beginCapture(.camera) } label: {
+                Button { openCamera() } label: {
                     Image(systemName: "camera.fill").font(.title2.weight(.semibold)).frame(width: 72, height: 72)
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(Stitch.onAccent)
-                .background(Stitch.redFill, in: Circle())
-                .frame(width: 72, height: 72)
-                .contentShape(Circle())
+                .buttonStyle(.plain).foregroundStyle(Stitch.onAccent).background(Stitch.redFill, in: Circle())
+                .frame(width: 72, height: 72).contentShape(Circle())
                 .accessibilityLabel("Mit Kamera fotografieren")
                 .accessibilityIdentifier("memories-camera")
                 .padding(.bottom, Stitch.Space.s)
             }
-            .sheet(isPresented: $targetPicker, onDismiss: {
-                guard targetID != nil else { source = nil; return }
-                openCaptureAfterConfirmation()
-            }) { targetPickerView }
-            .sheet(isPresented: $addPlace) { PlaceEditor(place: Place(title: "Neue Reiseidee")) }
             .sheet(isPresented: $cameraPresented) {
                 CameraImagePicker { imageData in
                     cameraPresented = false
@@ -455,36 +440,17 @@ public struct NativeMemoriesView: View {
             .onChange(of: photoItem) { _, item in
                 guard let item else { return }
                 photoLoadTask?.cancel()
-                let capturedTargetID = targetID
                 photoLoadTask = Task {
                     do {
                         let data = try await item.loadTransferable(type: Data.self)
                         guard !Task.isCancelled else { return }
-                        await MainActor.run {
-                            guard self.targetID == capturedTargetID, self.photoItem != nil else { return }
-                            save(data: data, targetID: capturedTargetID)
-                        }
+                        await MainActor.run { if photoItem != nil { save(data: data) } }
                     } catch {
                         guard !Task.isCancelled else { return }
-                        await MainActor.run {
-                            guard self.targetID == capturedTargetID else { return }
-                            self.error = "Das Foto konnte nicht geladen werden."
-                        }
+                        await MainActor.run { self.error = "Das Foto konnte nicht geladen werden." }
                     }
-                    await MainActor.run {
-                        if self.targetID == capturedTargetID { photoItem = nil }
-                        photoLoadTask = nil
-                    }
+                    await MainActor.run { photoItem = nil; photoLoadTask = nil }
                 }
-            }
-            .confirmationDialog("Vorhandenes Foto ersetzen?", isPresented: $replaceConfirmation, titleVisibility: .visible) {
-                Button("Foto ersetzen", role: .destructive) {
-                    guard let source else { return }
-                    openCapture(source)
-                }
-                Button("Abbrechen", role: .cancel) { source = nil; targetID = nil }
-            } message: {
-                Text(replacementMessage)
             }
             .alert("Kamera nicht verfügbar", isPresented: $cameraUnavailable) {
                 Button("Schließen", role: .cancel) {}
@@ -497,157 +463,175 @@ public struct NativeMemoriesView: View {
             .fullScreenCover(item: $viewing) { photo in
                 NativeMemoryZoom(place: photo.place, asset: photo.asset, root: store.root)
             }
-            .onDisappear {
-                photoLoadTask?.cancel()
-                photoLoadTask = nil
+            .fullScreenCover(item: $viewingTripPhoto) { photo in
+                NativeTripMemoryZoom(photo: photo, imageURL: store.tripMemoryURL(for: photo))
             }
+            .sheet(item: $linkingPhoto) { photo in
+                NavigationStack {
+                    List {
+                        Section("Foto zuordnen") {
+                            Button("Ohne Ortszuordnung") { setPlace(nil, for: photo) }
+                            ForEach(store.places.filter { !$0.deleted }) { place in
+                                Button(place.title) { setPlace(place.id, for: photo) }.foregroundStyle(Stitch.ink)
+                            }
+                        }
+                    }
+                    .scrollContentBackground(.hidden).background(PaperBackground())
+                    .navigationTitle("Ort verknüpfen").navigationBarTitleDisplayMode(.inline)
+                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Schließen") { linkingPhoto = nil } } }
+                }
+                .presentationDetents([.medium, .large])
+            }
+            .onAppear {
+                guard startWithCamera, !didStartCamera else { return }
+                didStartCamera = true
+                openCamera()
+            }
+            .task { await store.refreshAuthenticatedUserID() }
+            .onDisappear { photoLoadTask?.cancel(); photoLoadTask = nil }
         }
     }
 
     private var emptyState: some View {
         VStack(alignment: .leading, spacing: Stitch.Space.s) {
             Image(systemName: "photo.on.rectangle.angled").font(.title2).foregroundStyle(Stitch.red)
-            Text(store.places.isEmpty ? "Noch keine Orte" : "Noch keine Fotos")
-                .font(.headline).foregroundStyle(Stitch.ink)
-            Text(store.places.isEmpty
-                 ? "Füge zuerst einen Ort hinzu, damit du ein Foto damit verbinden kannst."
-                 : "Füge einem bestehenden Ort ein eigenes Foto hinzu.")
-                .font(.subheadline).foregroundStyle(Stitch.inkSoft)
-                .fixedSize(horizontal: false, vertical: true)
-            Button(store.places.isEmpty ? "Ort hinzufügen" : "Foto hinzufügen") {
-                if store.places.isEmpty { addPlace = true } else { beginCapture(.camera) }
-            }
-                .buttonStyle(TextActionButton())
+            Text("Noch keine Erinnerungen").font(.headline).foregroundStyle(Stitch.ink)
+            Text("Teile Fotos mit eurer Reisegruppe. Du kannst sie später freiwillig mit einem Ort verknüpfen.")
+                .font(.subheadline).foregroundStyle(Stitch.inkSoft).fixedSize(horizontal: false, vertical: true)
+            Button("Foto aufnehmen") { openCamera() }.buttonStyle(TextActionButton())
         }
-        .padding(Stitch.Space.page)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(Stitch.Space.page).frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var photoGrid: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: Stitch.Space.s)], spacing: Stitch.Space.s) {
-            ForEach(photoPlaces) { place in
-                memoryCard(place)
+        VStack(alignment: .leading, spacing: Stitch.Space.l) {
+            if !tripPhotos.isEmpty {
+                VStack(alignment: .leading, spacing: Stitch.Space.s) {
+                    Text("Gemeinsame Fotos").font(.headline).foregroundStyle(Stitch.ink)
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: Stitch.Space.s)], spacing: Stitch.Space.s) {
+                        ForEach(tripPhotos) { tripMemoryCard($0) }
+                    }
+                }
+            }
+            if !photoPlaces.isEmpty {
+                VStack(alignment: .leading, spacing: Stitch.Space.s) {
+                    Text("Fotos von Orten").font(.headline).foregroundStyle(Stitch.ink)
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: Stitch.Space.s)], spacing: Stitch.Space.s) {
+                        ForEach(photoPlaces) { memoryCard($0) }
+                    }
+                }
             }
         }
-        .padding(.horizontal, Stitch.Space.page)
-        .padding(.top, Stitch.Space.s)
-        .padding(.bottom, 110)
+        .padding(.horizontal, Stitch.Space.page).padding(.top, Stitch.Space.s).padding(.bottom, 110)
+    }
+
+    private func tripMemoryCard(_ photo: TripMemoryPhoto) -> some View {
+        let imageURL = store.tripMemoryURL(for: photo, thumbnail: true)
+        return Button { viewingTripPhoto = photo } label: {
+            VStack(alignment: .leading, spacing: Stitch.Space.xs) {
+                Group {
+                    if let image = UIImage(contentsOfFile: imageURL.path) {
+                        Image(uiImage: image).resizable().scaledToFill()
+                    } else {
+                        ZStack { Stitch.paperDeep; Image(systemName: "photo").foregroundStyle(Stitch.inkSoft) }
+                    }
+                }
+                .frame(height: 150).frame(maxWidth: .infinity).clipped()
+                .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
+                Text(photo.placeID.flatMap { id in store.places.first(where: { $0.id == id })?.title } ?? "Ohne Ortszuordnung")
+                    .font(.body.weight(.semibold)).foregroundStyle(Stitch.ink).lineLimit(2)
+                Text(photo.authorName.isEmpty ? photo.createdAt.formatted(date: .abbreviated, time: .omitted) : "Von \(photo.authorName)")
+                    .font(.footnote).foregroundStyle(Stitch.inkSoft)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading).stitchCard(padding: Stitch.Space.s)
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            if canManage(photo) {
+                Button("Mit einem Ort verknüpfen", systemImage: "mappin.and.ellipse") { linkingPhoto = photo }
+                if photo.placeID != nil {
+                    Button("Ortsverknüpfung entfernen", systemImage: "link.badge.minus") { setPlace(nil, for: photo) }
+                }
+                Button("Foto löschen", systemImage: "trash", role: .destructive) { store.deleteTripMemory(id: photo.id) }
+            }
+        }
+        .accessibilityLabel(photo.placeID == nil ? "Reisefoto ohne Ortszuordnung, vergrößern" : "Reisefoto mit Ort, vergrößern")
     }
 
     private func memoryCard(_ place: Place) -> some View {
         Button {
             if let asset = place.displayImage { viewing = NativeMemoryPhoto(place: place, asset: asset) }
-            else { targetID = place.id; source = .library; openCaptureAfterConfirmation() }
         } label: {
             VStack(alignment: .leading, spacing: Stitch.Space.xs) {
                 AlbumPhoto(asset: place.displayImage, root: store.root, thumbnailWidth: 500)
                     .frame(height: 150).clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
                 Text(place.title).font(.body.weight(.semibold)).foregroundStyle(Stitch.ink).lineLimit(2)
-                Text(place.image == nil ? "Foto ergänzen" : place.category)
-                    .font(.footnote).foregroundStyle(Stitch.inkSoft)
+                Text(place.category).font(.footnote).foregroundStyle(Stitch.inkSoft)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .stitchCard(padding: Stitch.Space.s)
+            .frame(maxWidth: .infinity, alignment: .leading).stitchCard(padding: Stitch.Space.s)
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(place.image == nil ? "\(place.title), Foto ergänzen" : "Foto von \(place.title), vergrößern")
+        .buttonStyle(.plain).accessibilityLabel("Foto von \(place.title), vergrößern")
     }
 
-    private func beginCapture(_ requested: MemoryCaptureSource) {
-        guard !store.places.isEmpty else { addPlace = true; return }
-        source = requested; targetPicker = true
-    }
-
-    private var targetPickerView: some View {
-        NavigationStack {
-            List {
-                Section("Foto zuordnen") {
-                    ForEach(store.places) { place in
-                        Button {
-                            targetID = place.id; targetPicker = false
-                        } label: {
-                            HStack {
-                                Image(systemName: place.image == nil ? "photo" : "photo.fill")
-                                Text(place.title)
-                                Spacer()
-                                Image(systemName: "chevron.right").font(.footnote)
-                            }
-                            .frame(minHeight: Stitch.Size.touch)
-                        }
-                    }
-                }
+    private func openCamera() {
+        guard UIImagePickerController.isSourceTypeAvailable(.camera) else { cameraUnavailable = true; return }
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .denied, .restricted: cameraUnavailable = true
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { granted in
+                Task { @MainActor in if granted { cameraPresented = true } else { cameraUnavailable = true } }
             }
-            .scrollContentBackground(.hidden).background(PaperBackground())
-            .navigationTitle("Ort auswählen")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { targetID = nil; source = nil; targetPicker = false } } }
+        case .authorized: cameraPresented = true
+        @unknown default: cameraUnavailable = true
         }
-        .presentationDetents([.medium, .large])
     }
 
-    private func openCaptureAfterConfirmation() {
-        guard let targetID, let source else { return }
-        if store.places.first(where: { $0.id == targetID })?.image != nil {
-            replaceConfirmation = true
+    private func save(data: Data?) {
+        guard let data, store.addTripMemory(data: data) != nil else {
+            error = "Das Foto konnte nicht gespeichert werden."
             return
         }
-        openCapture(source)
     }
 
-    private func openCapture(_ requested: MemoryCaptureSource) {
-        switch requested {
-        case .library: photoPickerPresented = true
-        case .camera:
-            guard UIImagePickerController.isSourceTypeAvailable(.camera) else { cameraUnavailable = true; return }
-            switch AVCaptureDevice.authorizationStatus(for: .video) {
-            case .denied, .restricted:
-                cameraUnavailable = true
-            case .notDetermined:
-                AVCaptureDevice.requestAccess(for: .video) { granted in
-                    Task { @MainActor in
-                        if granted { cameraPresented = true } else { cameraUnavailable = true }
-                    }
-                }
-            case .authorized:
-                cameraPresented = true
-            @unknown default:
-                cameraUnavailable = true
-            }
-        }
+    private func setPlace(_ placeID: String?, for photo: TripMemoryPhoto) {
+        var updated = photo
+        updated.placeID = placeID
+        store.updateTripMemory(updated)
+        linkingPhoto = nil
     }
 
-    private func save(data: Data?, targetID capturedTargetID: String? = nil) {
-        guard let data, let targetID = capturedTargetID ?? targetID,
-              let place = store.places.first(where: { $0.id == targetID }) else { return }
-        do {
-            let uploaded = try PlaceImageStorage.save(data, root: store.root)
-            var updated = place
-            updated.image = .uploaded(uploaded)
-            guard store.upsert(updated) else {
-                PlaceImageStorage.remove(uploaded, root: store.root)
-                error = "Das Foto konnte nicht gespeichert werden."
-                return
-            }
-            feedbackTick += 1
-            source = nil; self.targetID = nil
-        } catch {
-            self.error = error.localizedDescription
-        }
+    private func canManage(_ photo: TripMemoryPhoto) -> Bool {
+        if !photo.authorID.isEmpty { return photo.authorID.caseInsensitiveCompare(store.authenticatedUserID ?? "") == .orderedSame }
+        return store.data.dirty.contains("photo-" + photo.id)
     }
 
-    private var replacementMessage: String {
-        guard let targetID, let place = store.places.first(where: { $0.id == targetID }), let image = place.image else {
-            return "Das bisherige Foto dieses Orts wird ersetzt. Externe Galerie-Fotos bleiben erhalten."
-        }
-        if case .external = image {
-            return "Das externe Ortsfoto wird durch dein neues Foto ersetzt. Externe Galerie-Fotos bleiben erhalten."
-        }
-        return "Das bisherige eigene Foto dieses Orts wird ersetzt. Externe Galerie-Fotos bleiben erhalten."
-    }
-
-    private enum MemoryCaptureSource { case camera, library }
     private struct NativeMemoryPhoto: Identifiable {
         let id = UUID(); let place: Place; let asset: PlaceImageAsset
+    }
+}
+
+private struct NativeTripMemoryZoom: View {
+    let photo: TripMemoryPhoto
+    let imageURL: URL?
+    @Environment(\.dismiss) private var dismiss
+    @State private var scale: CGFloat = 1
+    @State private var baseScale: CGFloat = 1
+
+    var body: some View {
+        ZStack {
+            Stitch.scrim.ignoresSafeArea()
+            if let imageURL, let image = UIImage(contentsOfFile: imageURL.path) {
+                Image(uiImage: image).resizable().scaledToFit().frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .scaleEffect(scale)
+                    .gesture(MagnificationGesture().onChanged { value in scale = min(max(baseScale * value, 1), 4) }.onEnded { _ in baseScale = scale })
+                    .accessibilityLabel("Gemeinsames Reisefoto")
+            } else {
+                ProgressView().tint(.white)
+            }
+            VStack { HStack { Spacer(); Button("Schließen", systemImage: "xmark") { dismiss() }.buttonStyle(.bordered).tint(.white).frame(minWidth: 44, minHeight: 44) }; Spacer() }
+                .padding()
+        }
+        .statusBarHidden(true)
     }
 }
 
