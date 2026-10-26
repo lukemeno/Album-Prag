@@ -81,6 +81,7 @@ struct LegacyMigrationReceipt: Codable, Equatable {
     @ObservationIgnored private let availableCapacity: () -> Int64?
     @ObservationIgnored private let copier: (URL, URL) throws -> Void
     @ObservationIgnored private let storeFactory: (URL, ShareInbox, Bool) -> AlbumStore
+    @ObservationIgnored private let indexWriter: ((Data, URL) throws -> Void)?
     @ObservationIgnored private let fileManager: FileManager
     @ObservationIgnored private var readOnlyIndex = false
     @ObservationIgnored private var indexLastOpenedID: UUID?
@@ -97,11 +98,13 @@ struct LegacyMigrationReceipt: Codable, Equatable {
                  .volumeAvailableCapacityForImportantUsage
          }, copier: @escaping (URL, URL) throws -> Void = { source, destination in
              try FileManager.default.copyItem(at: source, to: destination)
-         }, storeFactory: ((URL, ShareInbox, Bool) -> AlbumStore)? = nil) {
+         }, storeFactory: ((URL, ShareInbox, Bool) -> AlbumStore)? = nil,
+         indexWriter: ((Data, URL) throws -> Void)? = nil) {
         self.fileManager = fileManager
         self.shareInbox = shareInbox
         self.availableCapacity = availableCapacity
         self.copier = copier
+        self.indexWriter = indexWriter
         self.storeFactory = storeFactory ?? { path, inbox, publishesContext in
             AlbumStore(root: path, shareInbox: inbox, publishesShareContext: publishesContext)
         }
@@ -229,8 +232,11 @@ struct LegacyMigrationReceipt: Codable, Equatable {
     /// Joins into a new folder first. A duplicate remote trip is discarded
     /// before it can replace the active trip or alter the index.
     func joinInvitation(_ url: URL) async throws -> UUID {
+        let previousEntries = entries
+        let previousLastOpenedID = indexLastOpenedID
         let id = UUID()
         let staging = root.appendingPathComponent(".staging-\(id.uuidString)", isDirectory: true)
+        var destination: URL?
         try fileManager.createDirectory(at: staging, withIntermediateDirectories: true)
         try writeBlankAlbum(to: staging)
         let stagedStore = storeFactory(staging, shareInbox, false)
@@ -243,8 +249,8 @@ struct LegacyMigrationReceipt: Codable, Equatable {
                 _ = open(existing.id)
                 return existing.id
             }
-            let destination = tripURL(id)
-            try fileManager.moveItem(at: staging, to: destination)
+            destination = tripURL(id)
+            try fileManager.moveItem(at: staging, to: destination!)
             let entry = makeEntry(id: id, origin: .migrated, data: stagedStore.data)
             entries.append(entry)
             guard persistIndex() else { throw CocoaError(.fileWriteUnknown) }
@@ -254,6 +260,9 @@ struct LegacyMigrationReceipt: Codable, Equatable {
         } catch {
             await stagedStore.shutdown()
             try? fileManager.removeItem(at: staging)
+            if let destination { try? fileManager.removeItem(at: destination) }
+            entries = previousEntries
+            indexLastOpenedID = previousLastOpenedID
             throw error
         }
     }
@@ -402,6 +411,8 @@ struct LegacyMigrationReceipt: Codable, Equatable {
         let id = UUID()
         let staging = root.appendingPathComponent(".staging-\(id.uuidString)", isDirectory: true)
         let target = tripURL(id)
+        let previousEntries = entries
+        let previousLastOpenedID = indexLastOpenedID
         do {
             try fileManager.createDirectory(at: staging, withIntermediateDirectories: true)
             try writeBlankAlbum(to: staging, title: title, destination: destination,
@@ -414,6 +425,8 @@ struct LegacyMigrationReceipt: Codable, Equatable {
         } catch {
             try? fileManager.removeItem(at: staging)
             try? fileManager.removeItem(at: target)
+            entries = previousEntries
+            indexLastOpenedID = previousLastOpenedID
             self.error = "Die neue Reise konnte nicht angelegt werden: \(error.localizedDescription)"
             return nil
         }
@@ -469,7 +482,9 @@ struct LegacyMigrationReceipt: Codable, Equatable {
         do {
             try fileManager.createDirectory(at: root, withIntermediateDirectories: true)
             let index = TripLibraryIndex(entries: entries.sorted { $0.createdAt < $1.createdAt }, lastOpenedID: indexLastOpenedID)
-            try JSONEncoder().encode(index).write(to: indexURL, options: .atomic)
+            let bytes = try JSONEncoder().encode(index)
+            if let indexWriter { try indexWriter(bytes, indexURL) }
+            else { try bytes.write(to: indexURL, options: .atomic) }
             return true
         } catch { self.error = "Der Bibliotheksindex konnte nicht gespeichert werden: \(error.localizedDescription)"; return false }
     }

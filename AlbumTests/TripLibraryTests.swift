@@ -239,4 +239,36 @@ final class TripLibraryTests: XCTestCase {
         XCTAssertEqual(library.entries.count, 1)
         XCTAssertEqual(library.activeID, first)
     }
+
+    func testIndexCommitFailureRollsBackCreatedTripAndJoinedFolder() async throws {
+        let root = try temporaryRoot()
+        let inbox = ShareInbox(root: root.appendingPathComponent("share"))
+        let failingWriter: (Data, URL) throws -> Void = { _, _ in throw CocoaError(.fileWriteUnknown) }
+        let blankLibrary = TripLibrary(root: root.appendingPathComponent("blank-library"),
+                                       legacyRoot: root.appendingPathComponent("blank-legacy"),
+                                       shareInbox: inbox, indexWriter: failingWriter)
+        XCTAssertNil(blankLibrary.createBlankTrip(title: "Rollback"))
+        XCTAssertTrue(blankLibrary.entries.isEmpty)
+        let blankTrips = try FileManager.default.contentsOfDirectory(at: blankLibrary.root.appendingPathComponent("Trips"), includingPropertiesForKeys: nil)
+        XCTAssertTrue(blankTrips.isEmpty)
+
+        let behavior = JoinService.Behavior(remoteID: UUID())
+        let joinedLibrary = TripLibrary(root: root.appendingPathComponent("join-library"),
+                                        legacyRoot: root.appendingPathComponent("join-legacy"),
+                                        shareInbox: inbox,
+                                        indexWriter: failingWriter,
+                                        storeFactory: { path, shareInbox, publishes in
+                                            let store = AlbumStore(root: path, shareInbox: shareInbox, publishesShareContext: publishes)
+                                            store.syncService = JoinService(behavior: behavior)
+                                            return store
+                                        })
+        let invite = try XCTUnwrap(InvitationLink.make(token: String(repeating: "b", count: 32)))
+        do {
+            _ = try await joinedLibrary.joinInvitation(invite)
+            XCTFail("Expected index commit failure")
+        } catch {}
+        XCTAssertTrue(joinedLibrary.entries.isEmpty)
+        let joinTrips = try FileManager.default.contentsOfDirectory(at: joinedLibrary.root.appendingPathComponent("Trips"), includingPropertiesForKeys: nil)
+        XCTAssertTrue(joinTrips.isEmpty)
+    }
 }
