@@ -11,10 +11,11 @@ const cachedWikimedia = createPhotoCache(async key => {
   return await resolveWikimedia(title, category, latitude, longitude, address, region, languageCode);
 });
 
-Deno.serve(async request => {
+export function createPlacePhotoHandler(clientFactory: typeof clients = clients) {
+  return async (request: Request) => {
   if (request.method !== "POST") return new Response(null, { status: 405 });
   try {
-    const { user, admin } = await clients(request);
+    const { user, admin } = await clientFactory(request);
     const endpointQuota = await admin.rpc("place_photo_reserve_endpoint", { p_user_id: user.id });
     if (endpointQuota.error || !endpointQuota.data?.ok) return new Response(JSON.stringify({ error: "Zu viele Bildanfragen", code: "endpoint_rate_limit", retry_after_seconds: Number(endpointQuota.data?.retry_after_seconds) || 60 }), { status: 429, headers: { ...jsonHeaders, "Retry-After": String(Number(endpointQuota.data?.retry_after_seconds) || 60) } });
     const contentLength = Number(request.headers.get("content-length") ?? 0);
@@ -131,7 +132,10 @@ Deno.serve(async request => {
     }
     return respond(error);
   }
-});
+  };
+}
+
+if (import.meta.main) Deno.serve(createPlacePhotoHandler());
 
 async function resolveTripadvisor(title: string, address: string, category: string, latitude: number, longitude: number, key: string, region: string, languageCode?: string) {
   const search = new URL("https://terra.tripadvisor.com/api/locations/search");
