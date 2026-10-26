@@ -12,6 +12,12 @@ struct PlaceEditor: View {
     var onSaved: ((Place) -> Void)?
     @State private var query = ""
     @State private var results: [MKMapItem] = []
+    @State private var ideaSuggestions: [MKMapItem] = []
+    @State private var ideaSuggestionTask: Task<Void, Never>?
+    @State private var ideaSuggestionGeneration = 0
+    @State private var searchingEverywhere = false
+    @State private var suggestingIdeas = false
+    @State private var suppressTitleSuggestionFor: String?
     @State private var searching = false
     @State private var searchError: String?
     @State private var enriching = false
@@ -147,6 +153,37 @@ struct PlaceEditor: View {
                 .font(.body).frame(minHeight: Stitch.Size.touch)
                 .accessibilityLabel("Name der Idee")
                 .accessibilityIdentifier("PlaceEditor-Title")
+                .onChange(of: place.title) { _, title in
+                    if suppressTitleSuggestionFor == title {
+                        suppressTitleSuggestionFor = nil
+                    } else {
+                        suppressTitleSuggestionFor = nil
+                        scheduleIdeaSuggestions(for: title)
+                    }
+                }
+            if place.title.trimmingCharacters(in: .whitespacesAndNewlines).count >= 2 {
+                VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
+                    if suggestingIdeas {
+                        Label("Orte werden gesucht …", systemImage: "magnifyingglass")
+                            .font(.caption).foregroundStyle(Stitch.inkSoft)
+                    } else if !ideaSuggestions.isEmpty {
+                        Text("Meinst du diesen Ort?")
+                            .font(.caption.weight(.semibold)).foregroundStyle(Stitch.inkSoft)
+                        ForEach(Array(ideaSuggestions.enumerated()), id: \.offset) { _, item in
+                            ideaSuggestionRow(item)
+                        }
+                    } else {
+                        Text(searchingEverywhere ? "Keine passenden Orte gefunden." : "Kein Treffer im Reiseziel gefunden.")
+                            .font(.caption).foregroundStyle(Stitch.inkSoft)
+                    }
+                    if !searchingEverywhere, store.tripRegionContext(for: place).name != nil {
+                        Button("Auch andere Städte durchsuchen") { searchIdeaSuggestions(for: place.title, everywhere: true) }
+                            .font(.footnote)
+                            .accessibilityIdentifier("PlaceEditor-SearchEverywhere")
+                    }
+                }
+                .padding(.vertical, Stitch.Space.xxs)
+            }
             TextField("Link zur Idee", text: $place.sourceURL)
                 .font(.body).frame(minHeight: Stitch.Size.touch)
                 .accessibilityLabel("Link von TikTok oder Instagram")
@@ -166,6 +203,108 @@ struct PlaceEditor: View {
             Text("Idee").foregroundStyle(Stitch.ink)
         }
         .listRowBackground(Stitch.card)
+    }
+
+
+    private func ideaSuggestionRow(_ item: MKMapItem) -> some View {
+        Button {
+            let oldCoordinate = place.coordinate
+            let coordinate = item.placemark.coordinate
+            let moved = PlaceImageService.locationMoved(from: oldCoordinate, to: coordinate)
+            let selectedTitle = item.name ?? place.title
+            suppressTitleSuggestionFor = selectedTitle
+            place.title = selectedTitle
+            place.address = item.placemark.title ?? ""
+            place.lat = coordinate.latitude
+            place.lng = coordinate.longitude
+            if moved {
+                if PlaceImageService.shouldDiscardImageAfterLocationMove(place.image) { place.image = nil }
+                place.gallery = nil
+            }
+            ideaSuggestions = []
+            invalidateIdeaSuggestions()
+            query = place.address
+            invalidateLocationSearch(clearResults: true)
+            beginImageSearch(force: false)
+        } label: {
+            VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
+                Text(item.name ?? "Ort").font(.body.weight(.medium)).foregroundStyle(Stitch.ink)
+                if let detail = item.placemark.title, !detail.isEmpty {
+                    Text(detail).font(.caption).foregroundStyle(Stitch.inkSoft)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.vertical, Stitch.Space.xxs)
+        .accessibilityIdentifier("PlaceEditor-IdeaSuggestion")
+    }
+
+    private func scheduleIdeaSuggestions(for title: String) {
+        ideaSuggestionTask?.cancel()
+        ideaSuggestionGeneration += 1
+        let generation = ideaSuggestionGeneration
+        ideaSuggestions = []
+        searchingEverywhere = false
+        let term = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard term.count >= 2 else { suggestingIdeas = false; return }
+        suggestingIdeas = true
+        let context = store.tripRegionContext(for: place)
+        ideaSuggestionTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(450))
+            guard !Task.isCancelled, !editorFinished, ideaSuggestionGeneration == generation,
+                  place.title.trimmingCharacters(in: .whitespacesAndNewlines) == term else { return }
+            await loadIdeaSuggestions(term, context: context, everywhere: false, generation: generation)
+        }
+    }
+
+    private func searchIdeaSuggestions(for title: String, everywhere: Bool) {
+        ideaSuggestionTask?.cancel()
+        ideaSuggestionGeneration += 1
+        let generation = ideaSuggestionGeneration
+        let term = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        searchingEverywhere = everywhere
+        suggestingIdeas = true
+        let context = store.tripRegionContext(for: place)
+        ideaSuggestionTask = Task { @MainActor in
+            await loadIdeaSuggestions(term, context: context, everywhere: everywhere, generation: generation)
+        }
+    }
+
+    @MainActor
+    private func loadIdeaSuggestions(_ term: String, context: TripRegionContext, everywhere: Bool, generation: Int) async {
+        guard !term.isEmpty, !editorFinished, ideaSuggestionGeneration == generation else { return }
+        if ProcessInfo.processInfo.environment["ALBUM_TEST_STORE"] != nil {
+            suggestingIdeas = false
+            return
+        }
+        let request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = if !everywhere, let destination = context.name, !destination.isEmpty {
+            "\(term), \(destination)"
+        } else {
+            term
+        }
+        if !everywhere, let region = context.region { request.region = region }
+        do {
+            let response = try await MKLocalSearch(request: request).start()
+            guard !Task.isCancelled, !editorFinished, ideaSuggestionGeneration == generation,
+                  place.title.trimmingCharacters(in: .whitespacesAndNewlines) == term,
+                  store.tripRegionContext(for: place) == context else { return }
+            ideaSuggestions = Array(response.mapItems.prefix(5))
+            suggestingIdeas = false
+        } catch {
+            guard !Task.isCancelled, ideaSuggestionGeneration == generation else { return }
+            ideaSuggestions = []
+            suggestingIdeas = false
+        }
+    }
+
+    private func invalidateIdeaSuggestions() {
+        ideaSuggestionGeneration += 1
+        ideaSuggestionTask?.cancel()
+        ideaSuggestionTask = nil
+        suggestingIdeas = false
     }
 
     private var locationSection: some View {
@@ -600,6 +739,7 @@ struct PlaceEditor: View {
         guard !editorFinished else { return }
         editorFinished = true
         searchGeneration += 1
+        invalidateIdeaSuggestions()
         enrichGeneration += 1
         imageGeneration += 1
         photoGeneration += 1

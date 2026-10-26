@@ -1,6 +1,6 @@
 # Planung: Ortsvorschläge und Reiseerinnerungen
 
-Stand 24.10.2026. Nutzerentscheidungen: Ortsvorschläge zuerst am Reiseziel, auf andere Städte erweiterbar; Kamera als eigener Punkt im bestehenden aufgefächerten Aktionsmenü; Fotos dürfen ohne Ortsauswahl aufgenommen und später optional mit einem Ort verknüpft werden. Noch lokale Issue-Entwürfe, keine App-Umsetzung. Plan Mode wurde vorgeschlagen, aktueller Modus ist Default.
+Stand 24.10.2026. Nutzerentscheidungen: Ortsvorschläge zuerst am Reiseziel, auf andere Städte erweiterbar; Kamera als eigener Punkt im bestehenden aufgefächerten Aktionsmenü; Fotos dürfen ohne Ortsauswahl aufgenommen und später optional mit einem Ort verknüpft werden; unzugeordnete Fotos sind gemeinsame Reiseerinnerungen. Umsetzung läuft lokal. Plan Mode wurde vorgeschlagen, aktueller Modus ist Default.
 
 ## Bestehender Anschluss
 `Album/PlaceEditor.swift` hat im Feld „Ort oder Adresse“ bereits MapKit `MKLocalSearch`, Reise-Kontext, Ergebniszeilen sowie Abbruch-/Generationenschutz. Das Namensfeld startet bisher keine Suche. Die Reiseshell hat ein gemeinsames Vierer-Aktionsmenü. „Erinnerungen“ öffnet `NativeMemoriesView`; dort muss Kamera und Mediathek heute erst einen existierenden Ort auswählen. `PlaceImageAsset` speichert Fotos bisher als Ortsbild in `Place`; es gibt noch kein separates Fotoobjekt der Reise.
@@ -30,13 +30,13 @@ Stand 24.10.2026. Nutzerentscheidungen: Ortsvorschläge zuerst am Reiseziel, auf
 ## Issue-Entwurf 3: Fotos als Reiseerinnerungen unabhängig von Orten speichern
 **Ziel:** Fotos können direkt aufgenommen oder aus der Mediathek gewählt werden, auch wenn noch kein passender Ort existiert oder bekannt ist.
 
-**Umfang:** Eigenes Fotoobjekt in der Reise mit Bilddatei, Erstellungszeit und Autor. Die Fotoaufnahme und Mediatheksauswahl speichern es unmittelbar als Reiseerinnerung; Ortszuordnung ist optional und kann später erfolgen. Erinnerungen zeigt sowohl unabhängige Fotos als auch Ortsbilder. Ein unabhängiges Foto wird nicht als Ortsbild oder Besuchsbestätigung ausgegeben. Vorhandene lokale Dateispeicherung/-löschung, Sync- und Wiederherstellungsregeln wiederverwenden, soweit möglich. Noch offen: Sichtbarkeit/Sync für die ganze Reisegruppe oder nur auf diesem Gerät.
+**Umfang:** Eigenes Fotoobjekt in der Reise mit Bilddatei, Erstellungszeit und Autor. Die Fotoaufnahme und Mediatheksauswahl speichern es unmittelbar als gemeinsame Reiseerinnerung; Ortszuordnung ist optional und kann später erfolgen. Erinnerungen zeigt sowohl unabhängige Gruppenfotos als auch Ortsbilder. Ein unabhängiges Foto wird nicht als Ortsbild oder Besuchsbestätigung ausgegeben. Vorhandene lokale Dateispeicherung/-löschung, Sync- und Wiederherstellungsregeln wiederverwenden, soweit möglich. Das bestehende private Backend-Protokoll `trip_feature_entries`/`commit_trip_feature(kind=photo)` und den Bucket `trip-album` prüfen und wiederverwenden; den Live-Migrationsstand vor echter Gruppenabnahme nur lesend verifizieren.
 
-**Akzeptanz:** Foto ohne Orte aufnehmen/importieren und nach Neustart wiederfinden. Kein Ort wird vorausgewählt, erzeugt oder als besucht markiert. Späteres Verknüpfen erhält Bild und Autor und kann rückgängig gemacht werden. Ort zuordnen bleibt freiwillig. Löschen und fehlgeschlagener Upload hinterlassen keine verwaisten Bilddateien. Kamerazugriff wird erst beim tatsächlichen Aufnehmen benötigt.
+**Akzeptanz:** Foto ohne Orte aufnehmen/importieren und nach Neustart wiederfinden sowie auf einem zweiten Gruppenmitglied sehen. Kein Ort wird vorausgewählt, erzeugt oder als besucht markiert. Späteres Verknüpfen erhält Bild und Autor und kann rückgängig gemacht werden. Ort zuordnen bleibt freiwillig. Löschen und fehlgeschlagener Upload hinterlassen keine verwaisten Bilddateien. Kamerazugriff wird erst beim tatsächlichen Aufnehmen benötigt. V1 übernimmt die bestehende RPC-Regel, dass nur der ursprüngliche Urheber ein Foto verknüpfen, lösen oder löschen darf.
 
-**Abhängigkeiten:** Bestehender Erinnerungsbereich, `PlaceImageStorage`, Reise-Serialisierung und Sync. Vor Umsetzung die Gruppen-/Privatsichtbarkeit entscheiden.
+**Abhängigkeiten:** Bestehender Erinnerungsbereich und vorhandene Foto-Sync-Verträge. Keine neue Migration erwartet; vor der echten Gruppenabnahme muss bestätigt werden, dass die Foto-Migration live ist.
 
-**Prüfung:** Kamera und Mediathek ohne existierende Orte; ohne Zuordnung speichern; Neustart und Offline-Rückkehr; optional zuordnen/entfernen; löschen; Berechtigung verweigert; Sync zweier Teilnehmer, falls gemeinsame Sichtbarkeit gewählt wird.
+**Prüfung:** Kamera und Mediathek ohne existierende Orte; ohne Zuordnung speichern; Neustart und Offline-Rückkehr; optional zuordnen/entfernen; löschen; Berechtigung verweigert; Sync zweier Teilnehmer.
 
 ## Issue-Entwurf 4: Kamera im gemeinsamen Aktionsmenü
 **Ziel:** Die Kamera ist mit weniger Schritten aus jedem Reisetab erreichbar.
@@ -50,7 +50,7 @@ Stand 24.10.2026. Nutzerentscheidungen: Ortsvorschläge zuerst am Reiseziel, auf
 **Prüfung:** Simulator aus allen vier Tabs, Layout und VoiceOver; Kamera abbrechen und unabhängiges Foto in Erinnerungen wiederfinden. Kamera-Hardware separat auf einem echten iPhone prüfen.
 
 ## Reihenfolge
-Issue 1 → 2. Issue 3 → 4. Abschließend kombinierter Simulatorlauf. Die Entscheidung, ob Reiseerinnerungen für die Gruppe synchronisiert werden, muss vor Issue 3 fallen.
+Issue 1 → 2. Issue 3 → 4. Abschließend kombinierter Simulatorlauf. Gruppensichtbarkeit ist entschieden. Solange der Live-Migrationsstand nicht geprüft ist, keine Veröffentlichung oder echte Zwei-Geräte-Abnahme behaupten.
 
 ## Linear
 Die Workspace-Suche enthält kein Album-Projekt; sichtbar ist nur das Codex-Team. Noch keine Issues in Linear angelegt. Issue-Entwürfe bleiben lokal, bis der Nutzer einen passenden Team-/Projektort angibt.
