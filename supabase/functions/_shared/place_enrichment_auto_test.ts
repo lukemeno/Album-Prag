@@ -9,11 +9,15 @@ const base = {
 
 Deno.test("automatic photo requests require confirmed coordinates", () => {
   assertThrows(() => parseEnrichmentAction({ ...base, place: { ...base.place, latitude: null, longitude: null } }));
-  assertEquals(parseEnrichmentAction(base).request.mode, "automatic_photo_v1");
+  const parsed = parseEnrichmentAction(base);
+  if (parsed.action !== "enqueue") throw new Error("expected enqueue");
+  assertEquals(parsed.request.mode, "automatic_photo_v1");
 });
 
 Deno.test("provider hints do not change the privacy-safe request key unexpectedly", async () => {
-  const a = await requestKey(parseEnrichmentAction(base).request);
-  const b = await requestKey(parseEnrichmentAction({ ...base, place: { ...base.place, provider_place_id: "client-hint", provider_protocol: "google" } }).request);
+  const first = parseEnrichmentAction(base), second = parseEnrichmentAction({ ...base, place: { ...base.place, provider_place_id: "client-hint", provider_protocol: "google" } });
+  if (first.action !== "enqueue" || second.action !== "enqueue") throw new Error("expected enqueue");
+  const a = await requestKey(first.request);
+  const b = await requestKey(second.request);
   assertEquals(a === b, false);
 });

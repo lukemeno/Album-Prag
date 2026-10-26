@@ -197,7 +197,8 @@ async function wikimedia(host: string, params: Record<string, string>, limiter?:
     } catch (error) {
       // Quota/defer errors from the distributed limiter must retain their
       // original code and retry-after; only network failures become 503s.
-      if (limiter && !(error instanceof TypeError)) throw error;
+      const isQuotaError = error instanceof WikimediaUnavailable || (typeof error === "object" && error !== null && "retryAfterSeconds" in error && "code" in error);
+      if (limiter && isQuotaError) throw error;
       throw new WikimediaUnavailable(host, operation, "timeout_or_network");
     }
     if (response.ok) {

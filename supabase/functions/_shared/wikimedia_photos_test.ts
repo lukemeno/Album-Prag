@@ -221,6 +221,34 @@ Deno.test("optional category failure preserves the verified main image", () =>
 Deno.test("verified source-bound photos need no optional depicts lookup", () =>
   aliasFixture("depicts"));
 
+Deno.test("verified QID cache skips the second Commons/media sequence", async () => {
+  const original = globalThis.fetch;
+  let commonsCalls = 0;
+  let stored: Awaited<ReturnType<typeof resolveWikimedia>> | null = null;
+  globalThis.fetch = async input => {
+    const url = new URL(String(input));
+    const action = url.searchParams.get("action");
+    if (url.hostname === "www.wikidata.org" && action === "wbsearchentities") return Response.json({ search: [{ id: "Q123" }] });
+    if (url.hostname === "www.wikidata.org" && action === "wbgetentities") return Response.json({ entities: { Q123: { labels: { en: { value: "Museum" } }, claims: { P625: [{ mainsnak: { datavalue: { value: { latitude: 50, longitude: 14 } } } }] } } } });
+    commonsCalls++;
+    if (url.searchParams.get("list") === "geosearch") return Response.json({ query: { geosearch: [] } });
+    if (url.searchParams.get("list") === "categorymembers") return Response.json({ query: { categorymembers: [] } });
+    return Response.json({ query: { pages: {} } });
+  };
+  const cache = {
+    load: async (_identity: { protocol: "wikidata"; id: string }) => stored,
+    store: async (_identity: { protocol: "wikidata"; id: string }, photos: Awaited<ReturnType<typeof resolveWikimedia>>) => { stored = photos; },
+  };
+  try {
+    await resolveWikimedia("Museum", "Sehenswert", 50, 14, "", "", undefined, undefined, cache);
+    const afterFirst = commonsCalls;
+    await resolveWikimedia("Museum", "Sehenswert", 50, 14, "", "", undefined, undefined, cache);
+    assertEquals(commonsCalls, afterFirst);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
 Deno.test("a Wikimedia API error is not a successful empty search", async () => {
   const original = globalThis.fetch;
   globalThis.fetch = async () => Response.json({ error: { code: "maxlag" } });
