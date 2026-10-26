@@ -624,7 +624,10 @@ struct PlaceEditor: View {
             let result = try await PlaceImageService.search(
                 for: requested,
                 region: context.name,
-                languageCode: context.preferredLanguageCode
+                languageCode: context.preferredLanguageCode,
+                tripID: store.data.collaboration?.tripID.uuidString,
+                placeID: requested.id,
+                revision: PhotoResolutionCoordinator.serverRevision(place: requested, context: context)
             )
             guard isCurrentImageOperation(generation), PlaceImageService.matchesRequest(requested, place), requested.image == place.image,
                   store.tripRegionContext(for: requested) == context else { return }
@@ -653,6 +656,13 @@ struct PlaceEditor: View {
                 return
             }
             searchError = nil
+        } catch let error as PlaceImageService.RequestError {
+            guard isCurrentImageOperation(generation), PlaceImageService.matchesRequest(requested, place) else { return }
+            switch error {
+            case .retryable(let retryAfter):
+                let seconds = Int((retryAfter ?? 60).rounded())
+                searchError = "Bildsuche wartet noch etwa (seconds) Sekunden."
+            }
         } catch {
             guard isCurrentImageOperation(generation), PlaceImageService.matchesRequest(requested, place), requested.image == place.image,
                   store.tripRegionContext(for: requested) == context else { return }
