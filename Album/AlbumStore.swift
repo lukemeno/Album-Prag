@@ -47,6 +47,7 @@ private struct PlaceResolutionSnapshot: Equatable {
     @ObservationIgnored var collectionMetadataBackfilledIDs = Set<String>()
     private(set) var loadFailed = false
     private var callbacksActive = true
+    private var shareContextActive: Bool
     private var pendingSync: Task<Void, Never>?
     private var syncRequestedWhileRunning = false
     /// Test hooks keep the production services as the default while allowing paused, deterministic regressions.
@@ -165,8 +166,9 @@ private struct PlaceResolutionSnapshot: Equatable {
         return changed
     }
 
-    init(root: URL? = nil, shareInbox: ShareInbox? = nil, seedsPragueExamples: Bool = false, publishesShareContext: Bool = true) {
+    init(root: URL? = nil, shareInbox: ShareInbox? = nil, publishesShareContext: Bool = true) {
         self.shareInbox = shareInbox ?? ShareInbox()
+        self.shareContextActive = publishesShareContext
         self.root = root ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Album", isDirectory: true)
         var legacyAlbumID = false
         var needsInitialPersist = false
@@ -254,35 +256,6 @@ private struct PlaceResolutionSnapshot: Equatable {
             ]
         }
         #endif
-        #if DEBUG
-        let isAutomatedTest = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
-            || ProcessInfo.processInfo.environment["ALBUM_TEST_STORE"] != nil
-        #else
-        let isAutomatedTest = false
-        #endif
-        if seedsPragueExamples && !isAutomatedTest {
-            let existingIDs = Set(data.places.map(\.id))
-            let missingPragueIdeas = Place.examples.filter { $0.id.hasPrefix("prague-") && !existingIDs.contains($0.id) }
-            if !missingPragueIdeas.isEmpty {
-                data.places.append(contentsOf: missingPragueIdeas)
-                data.dirty.formUnion(missingPragueIdeas.map(\.id))
-                needsInitialPersist = true
-            }
-
-            // Refresh these untouched built-in ideas with their current official links and addresses.
-            // Places edited or voted on by a traveler have a newer timestamp and remain untouched.
-            let refreshedSeedIDs = ["prague-planetum-program", "prague-ghost-legends-tour"]
-            for id in refreshedSeedIDs where existingIDs.contains(id) {
-                guard let template = Place.examples.first(where: { $0.id == id }),
-                      let index = data.places.firstIndex(where: { $0.id == id }),
-                      data.places[index].updatedAt == .distantPast else { continue }
-                var refreshed = template
-                refreshed.updatedAt = Date()
-                data.places[index] = refreshed
-                data.dirty.insert(id)
-                needsInitialPersist = true
-            }
-        }
         if !loadFailed, data.schemaVersion != 2, migrateLegacyPlanning(originalBytes: storedBytes) {
             needsInitialPersist = false
         }
@@ -387,7 +360,7 @@ private struct PlaceResolutionSnapshot: Equatable {
     }
 
     func publishShareContext() {
-        guard callbacksActive, !loadFailed, persist() else { return }
+        guard callbacksActive, shareContextActive, !loadFailed, persist() else { return }
         let key = data.collaboration.map { "trip:\($0.tripID.uuidString)" } ?? "local:\(data.albumID)"
         try? shareInbox.saveContext(ShareContext(tripKey: key, albumID: data.albumID))
     }
@@ -452,6 +425,13 @@ private struct PlaceResolutionSnapshot: Equatable {
         pendingSync?.cancel()
         pendingSync = nil
         photoResolutionCoordinator?.cancel()
+    }
+
+    /// Enables the app-group context only after TripLibrary has validated and
+    /// activated this folder. Staged invitation stores never call this.
+    func activateShareContext() {
+        guard callbacksActive, !loadFailed else { return }
+        shareContextActive = true
     }
 
     @discardableResult func upsert(_ input: Place, photoAutomation: PhotoAutomationIntent = .automatic) -> Bool {
@@ -1408,7 +1388,7 @@ private struct PlaceResolutionSnapshot: Equatable {
             if oldDestination != (data.trip.destination ?? tripName) { storedDiscoverySession?.destinationDidChange() }
             // Beim ersten Abgleich ist alles neu; das ist keine Neuigkeit der anderen Person.
             if !before.isEmpty { syncChange = SyncChange.between(before: before, after: data.places, me: me) ?? syncChange }
-            service.startRealtime { [weak self] in await self?.sync() }
+            if shareContextActive { service.startRealtime { [weak self] in await self?.sync() } }
             // A successful sync can add or update confirmed places. Resume the
             // durable photo queue after that merge, without coupling queue
             // state to the server sync transaction itself.
@@ -1452,7 +1432,7 @@ private struct PlaceResolutionSnapshot: Equatable {
         discovery.switchToCurrentScope(copyLocal: true)
         publishShareContext()
         guard persist() else { throw CocoaError(.fileWriteUnknown) }
-        service.startRealtime { [weak self] in await self?.sync() }
+        if shareContextActive { service.startRealtime { [weak self] in await self?.sync() } }
         guard let url = inviteURL else { throw AlbumSyncError.invalidInvitation }
         syncStatus = "Album kann geteilt werden"
         return url
@@ -1471,7 +1451,7 @@ private struct PlaceResolutionSnapshot: Equatable {
         enqueueAutomaticPhotosAfterSync(beforeByID: beforeByID, beforeContexts: beforeContexts)
         photoResolutionCoordinator?.resume()
         discovery.switchToCurrentScope(copyLocal: false)
-        service.startRealtime { [weak self] in await self?.sync() }
+        if shareContextActive { service.startRealtime { [weak self] in await self?.sync() } }
         syncStatus = "Album verbunden"
     }
 

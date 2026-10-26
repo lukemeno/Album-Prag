@@ -496,7 +496,7 @@ struct TripInfo: Codable, Equatable {
     var endDate: TripDay? = nil
     var timeZoneIdentifier: String? = nil
     var planningSchemaVersion: Int? = nil
-    var hotel = "Hotel Urban Crème"
+    var hotel = ""
     var outbound = ""
     var arrival = ""
     var route = ""
@@ -634,7 +634,7 @@ struct AlbumData: Codable {
     var albumID = UUID().uuidString
     /// 2 = Orte planen mit `plannedDate`; nil = alte Tageszahlen, einmalig zu migrieren.
     var schemaVersion: Int? = nil
-    var places = Place.examples
+    var places: [Place] = []
     var trip = TripInfo()
     var documents: [TravelDocument] = []
     var dirty: Set<String> = []
@@ -654,7 +654,7 @@ struct AlbumData: Codable {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         albumID = try values.decodeIfPresent(String.self, forKey: .albumID) ?? UUID().uuidString
         schemaVersion = try values.decodeIfPresent(Int.self, forKey: .schemaVersion)
-        places = try values.decodeIfPresent([Place].self, forKey: .places) ?? Place.examples
+        places = try values.decodeIfPresent([Place].self, forKey: .places) ?? []
         trip = try values.decodeIfPresent(TripInfo.self, forKey: .trip) ?? TripInfo()
         documents = try values.decodeIfPresent([TravelDocument].self, forKey: .documents) ?? []
         dirty = try values.decodeIfPresent(Set<String>.self, forKey: .dirty) ?? []

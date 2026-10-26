@@ -144,24 +144,31 @@ struct LegacyMigrationReceipt: Codable, Equatable {
     @discardableResult
     func open(_ id: UUID) -> Bool {
         guard let entry = entries.first(where: { $0.id == id }), entry.unavailableReason == nil else { return false }
+        if activeID == id, activeStore != nil {
+            refreshActiveEntry()
+            return true
+        }
         guard folderExists(id) else {
             markUnavailable(id, reason: "Der Reiseordner fehlt.")
             return false
         }
-        if let current = activeStore, activeID != id {
-            current.stopOwnedCallbacks()
-            Task { await current.shutdown() }
-        }
+        // Build and validate the candidate first. A corrupt target must not
+        // deactivate the currently usable trip.
         let store = AlbumStore(root: tripURL(id), shareInbox: shareInbox,
-                               seedsPragueExamples: false, publishesShareContext: false)
+                               publishesShareContext: false)
         guard !store.loadFailed else {
             markUnavailable(id, reason: store.error ?? "Die Reise konnte nicht geladen werden.")
             return false
+        }
+        if let current = activeStore {
+            current.stopOwnedCallbacks()
+            Task { await current.shutdown() }
         }
         activeID = id
         activeStore = store
         indexLastOpenedID = id
         refreshActiveEntry()
+        store.activateShareContext()
         store.publishShareContext()
         store.drainShareQueue()
         persistIndex()
@@ -176,8 +183,10 @@ struct LegacyMigrationReceipt: Codable, Equatable {
     }
 
     @discardableResult
-    func createBlankTrip(title: String = "Neue Reise", destination: String? = nil) -> UUID? {
-        createTrip(origin: .blank, title: title, destination: destination, includeExamples: false)
+    func createBlankTrip(title: String = "Neue Reise", destination: String? = nil,
+                         startDate: TripDay? = nil, endDate: TripDay? = nil) -> UUID? {
+        createTrip(origin: .blank, title: title, destination: destination,
+                   startDate: startDate, endDate: endDate, includeExamples: false)
     }
 
     /// Kept for callers that offer an explicit “starter” choice. Starter data is
@@ -185,7 +194,15 @@ struct LegacyMigrationReceipt: Codable, Equatable {
     /// inserted into new trips.
     @discardableResult
     func createStarterTrip(title: String = "Neue Reise", destination: String? = nil) -> UUID? {
-        createTrip(origin: .starter, title: title, destination: destination, includeExamples: false)
+        createTrip(origin: .starter, title: title, destination: destination,
+                   startDate: nil, endDate: nil, includeExamples: false)
+    }
+
+    /// Re-reads folder metadata without constructing AlbumStores for every
+    /// trip. This is used after a background import or a scene transition.
+    func refreshEntries() {
+        rebuildIfNeeded()
+        persistIndex()
     }
 
     func refreshActiveEntry() {
@@ -213,7 +230,7 @@ struct LegacyMigrationReceipt: Codable, Equatable {
         try fileManager.createDirectory(at: staging, withIntermediateDirectories: true)
         try writeBlankAlbum(to: staging)
         let stagedStore = AlbumStore(root: staging, shareInbox: shareInbox,
-                                     seedsPragueExamples: false, publishesShareContext: false)
+                                     publishesShareContext: false)
         do {
             try await stagedStore.joinSharedTrip(url: url)
             guard let remoteID = stagedStore.data.collaboration?.tripID else { throw AlbumSyncError.missingTrip }
@@ -331,12 +348,18 @@ struct LegacyMigrationReceipt: Codable, Equatable {
         }
     }
 
-    private func createTrip(origin: TripLibraryOrigin, title: String, destination: String?, includeExamples: Bool) -> UUID? {
+    private func createTrip(origin: TripLibraryOrigin, title: String, destination: String?,
+                            startDate: TripDay?, endDate: TripDay?, includeExamples: Bool) -> UUID? {
+        guard (startDate == nil) == (endDate == nil), startDate == nil || endDate! >= startDate! else {
+            error = "Bitte wähle einen gültigen Reisezeitraum."
+            return nil
+        }
         let id = UUID()
         let staging = root.appendingPathComponent(".staging-\(id.uuidString)", isDirectory: true)
         do {
             try fileManager.createDirectory(at: staging, withIntermediateDirectories: true)
-            try writeBlankAlbum(to: staging, title: title, destination: destination, includeExamples: includeExamples)
+            try writeBlankAlbum(to: staging, title: title, destination: destination,
+                                startDate: startDate, endDate: endDate, includeExamples: includeExamples)
             let target = tripURL(id)
             try fileManager.moveItem(at: staging, to: target)
             let data = loadAlbum(at: target)!
@@ -350,7 +373,9 @@ struct LegacyMigrationReceipt: Codable, Equatable {
         }
     }
 
-    private func writeBlankAlbum(to folder: URL, title: String? = nil, destination: String? = nil, includeExamples: Bool = false) throws {
+    private func writeBlankAlbum(to folder: URL, title: String? = nil, destination: String? = nil,
+                                 startDate: TripDay? = nil, endDate: TripDay? = nil,
+                                 includeExamples: Bool = false) throws {
         var data = AlbumData()
         if !includeExamples { data.places = [] }
         data.schemaVersion = 2
@@ -359,6 +384,8 @@ struct LegacyMigrationReceipt: Codable, Equatable {
         data.trip.planningSchemaVersion = 2
         data.trip.title = title
         data.trip.destination = destination
+        data.trip.startDate = startDate
+        data.trip.endDate = endDate
         try JSONEncoder().encode(data).write(to: folder.appendingPathComponent("album.json"), options: .atomic)
     }
 
@@ -427,17 +454,28 @@ struct LegacyMigrationReceipt: Codable, Equatable {
     }
 
     private func treesEqual(_ lhs: URL, _ rhs: URL) -> Bool {
-        func manifest(_ root: URL) -> [String: Data]? {
+        func files(_ root: URL) -> Set<String>? {
             guard let enumerator = fileManager.enumerator(at: root, includingPropertiesForKeys: [.isDirectoryKey], options: []) else { return nil }
-            var result: [String: Data] = [:]
+            var result = Set<String>()
             for item in enumerator {
                 guard let url = item as? URL,
                       let values = try? url.resourceValues(forKeys: [.isDirectoryKey]), values.isDirectory != true,
-                      let bytes = try? Data(contentsOf: url) else { return nil }
-                result[url.path.replacingOccurrences(of: root.path + "/", with: "")] = bytes
+                      let relative = relativePath(url, root: root) else { return nil }
+                result.insert(relative)
             }
             return result
         }
-        return manifest(lhs) == manifest(rhs)
+        guard let left = files(lhs), let right = files(rhs), left == right else { return false }
+        return left.allSatisfy { relative in
+            fileManager.contentsEqual(atPath: lhs.appendingPathComponent(relative).path,
+                                      andPath: rhs.appendingPathComponent(relative).path)
+        }
+    }
+
+    private func relativePath(_ file: URL, root: URL) -> String? {
+        let prefix = root.standardizedFileURL.path.hasSuffix("/") ? root.standardizedFileURL.path : root.standardizedFileURL.path + "/"
+        let path = file.standardizedFileURL.path
+        guard path.hasPrefix(prefix) else { return nil }
+        return String(path.dropFirst(prefix.count))
     }
 }

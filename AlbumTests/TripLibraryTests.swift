@@ -26,13 +26,16 @@ final class TripLibraryTests: XCTestCase {
         let library = TripLibrary(root: root.appendingPathComponent("AlbumLibrary"),
                                   legacyRoot: root.appendingPathComponent("Album"),
                                   shareInbox: ShareInbox(root: inboxRoot))
-        let first = try XCTUnwrap(library.createBlankTrip(title: "Paris", destination: "Frankreich"))
+        let first = try XCTUnwrap(library.createBlankTrip(title: "Paris", destination: "Frankreich",
+                                                          startDate: TripDay(rawValue: "2027-04-01"),
+                                                          endDate: TripDay(rawValue: "2027-04-03")))
         let second = try XCTUnwrap(library.createBlankTrip(title: "Rom", destination: "Italien"))
         XCTAssertEqual(library.entries.count, 2)
         XCTAssertNotEqual(first, second)
         XCTAssertTrue(library.open(first))
         XCTAssertTrue(library.activeStore?.data.places.isEmpty == true)
         XCTAssertEqual(library.activeStore?.data.trip.hotel, "")
+        XCTAssertEqual(library.activeStore?.data.trip.startDate?.rawValue, "2027-04-01")
         XCTAssertFalse(library.activeStore?.data.places.contains(where: { $0.id.hasPrefix("prague-") }) == true)
         XCTAssertTrue(library.showLibrary())
         XCTAssertTrue(library.open(second))
