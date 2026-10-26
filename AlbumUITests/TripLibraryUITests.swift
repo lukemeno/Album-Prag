@@ -27,6 +27,13 @@ final class TripLibraryUITests: XCTestCase {
         element.tap()
     }
 
+    private func capture(_ name: String, from app: XCUIApplication) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "trip-library-\(name)"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
     private func create(_ title: String, destination: String, in app: XCUIApplication) {
         tap("library-create-trip", in: app)
         let titleField = app.textFields["trip-create-title"]
@@ -42,9 +49,11 @@ final class TripLibraryUITests: XCTestCase {
     func testEmptyLibraryCreateCancelAndSwitchTrips() {
         let app = launch()
         XCTAssertTrue(app.staticTexts["Noch keine Reise"].waitForExistence(timeout: 8), app.debugDescription)
+        capture("empty-library", from: app)
 
         tap("library-create-trip-empty", in: app)
         XCTAssertTrue(app.buttons["trip-create-cancel"].waitForExistence(timeout: 4))
+        capture("create-form", from: app)
         tap("trip-create-cancel", in: app)
         XCTAssertTrue(app.staticTexts["Noch keine Reise"].exists)
 
@@ -57,6 +66,7 @@ final class TripLibraryUITests: XCTestCase {
         let berlin = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label CONTAINS %@", "library-trip-", "Berlin")).firstMatch
         XCTAssertTrue(paris.waitForExistence(timeout: 8), app.debugDescription)
         XCTAssertTrue(berlin.exists, app.debugDescription)
+        capture("two-trip-cards", from: app)
         berlin.tap()
         XCTAssertTrue(app.buttons["native-tab-plan"].waitForExistence(timeout: 8), app.debugDescription)
 
@@ -83,6 +93,7 @@ final class TripLibraryUITests: XCTestCase {
         let throwButton = app.buttons["Einwurf-Knopf"]
         if throwButton.waitForExistence(timeout: 4) { throwButton.tap() }
         XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Nur in Paris")).firstMatch.waitForExistence(timeout: 8), app.debugDescription)
+        capture("paris-idea-retained", from: app)
 
         tap("trip-back-library", in: app)
         create("Berlin", destination: "Berlin", in: app)
