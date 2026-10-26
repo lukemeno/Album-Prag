@@ -212,6 +212,7 @@ final class TripLibraryTests: XCTestCase {
         let legacy = root.appendingPathComponent("Album")
         var source = AlbumData(); source.places = [Place(id: "source", title: "Source", category: "Sehenswert")]
         try write(source, to: legacy)
+        let legacyBytes = try Data(contentsOf: legacy.appendingPathComponent("album.json"))
         let id = UUID()
         let target = libraryRoot.appendingPathComponent("Trips", isDirectory: true).appendingPathComponent(id.uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: target.appendingPathComponent("images"), withIntermediateDirectories: true)
@@ -229,8 +230,7 @@ final class TripLibraryTests: XCTestCase {
         XCTAssertNotNil(library.entries.first?.unavailableReason)
         XCTAssertTrue(FileManager.default.fileExists(atPath: sidecar.path))
         XCTAssertEqual(try Data(contentsOf: sidecar), Data([0xFF, 0xD8, 0xFF, 0xD9]))
-        XCTAssertEqual(try Data(contentsOf: legacy.appendingPathComponent("album.json")),
-                       try JSONEncoder().encode(source))
+        XCTAssertEqual(try Data(contentsOf: legacy.appendingPathComponent("album.json")), legacyBytes)
     }
 
     func testInsufficientCapacityLeavesLegacyUntouched() throws {
