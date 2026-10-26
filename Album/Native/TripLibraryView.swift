@@ -158,8 +158,19 @@ struct TripCreateView: View {
                         let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
                         guard !cleanTitle.isEmpty else { saveError = "Gib der Reise einen Namen."; return }
                         let cleanDestination = destination.trimmingCharacters(in: .whitespacesAndNewlines)
-                        let start = includeDates ? tripDay(startDate) : nil
-                        let end = includeDates ? tripDay(endDate) : nil
+                        let start: TripDay?
+                        let end: TripDay?
+                        if includeDates {
+                            guard startDate <= endDate, let parsedStart = tripDay(startDate), let parsedEnd = tripDay(endDate) else {
+                                saveError = "Prüfe den Reisezeitraum."
+                                return
+                            }
+                            start = parsedStart
+                            end = parsedEnd
+                        } else {
+                            start = nil
+                            end = nil
+                        }
                         guard onSave(cleanTitle, cleanDestination.isEmpty ? nil : cleanDestination, start, end) else {
                             saveError = "Die Reise konnte nicht gespeichert werden."
                             return
@@ -173,7 +184,7 @@ struct TripCreateView: View {
         }
     }
 
-    private func tripDay(_ date: Date) -> TripDay {
+    private func tripDay(_ date: Date) -> TripDay? {
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .gregorian)
         formatter.locale = Locale(identifier: "en_US_POSIX")

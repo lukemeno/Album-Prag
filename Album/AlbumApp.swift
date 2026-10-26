@@ -13,9 +13,7 @@ import UIKit
         URLCache.shared = URLCache(memoryCapacity: 20_000_000, diskCapacity: 100_000_000)
     }
     @State private var library: TripLibrary = TripLibrary()
-    #if DEBUG
     @State private var invitation: InvitationRequest?
-    #endif
     @Environment(\.scenePhase) private var scenePhase
     /// Automatisierte und isolierte UI-Tests dürfen weder echte Daten synchronisieren noch Bilder nachladen.
     private let isUnitTestHost = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
@@ -69,13 +67,22 @@ import UIKit
                             }
                         } catch { library.error = error.localizedDescription }
                     } else if InvitationLink.token(from: url) != nil {
-                        Task {
-                            do { _ = try await library.joinInvitation(url) }
-                            catch { library.error = "Das hat nicht geklappt. \(error.localizedDescription)" }
+                        let request = InvitationRequest(sender: nil) {
+                            do {
+                                _ = try await library.joinInvitation(url)
+                                return nil
+                            } catch {
+                                return "Das hat nicht geklappt. \(error.localizedDescription)"
+                            }
+                        }
+                        if library.activeStore != nil { invitation = request }
+                        else {
+                            Task {
+                                if let message = await request.join() { library.error = message }
+                            }
                         }
                     }
                 }
-#if DEBUG
                 .fullScreenCover(item: $invitation) { request in
                     if let store = library.activeStore {
                         InvitationMoment(request: request, onDone: { invitation = nil }).environment(store)
@@ -83,7 +90,6 @@ import UIKit
                         ProgressView().task { invitation = nil }
                     }
                 }
-#endif
                 .task {
                     ensureActiveTrip()
                     guard let store = library.activeStore else { return }
