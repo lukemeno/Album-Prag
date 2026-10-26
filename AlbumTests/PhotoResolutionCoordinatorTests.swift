@@ -7,6 +7,21 @@ import MapKit
 @MainActor
 final class PhotoResolutionCoordinatorTests: XCTestCase {
     private final class Counter { var value = 0 }
+    @MainActor
+    private final class PausedResolverGate {
+        private(set) var requested = false
+        private var continuation: CheckedContinuation<PlaceImageSearchResult, Never>?
+
+        func wait() async -> PlaceImageSearchResult {
+            requested = true
+            return await withCheckedContinuation { continuation = $0 }
+        }
+
+        func resume(_ value: PlaceImageSearchResult) {
+            continuation?.resume(returning: value)
+            continuation = nil
+        }
+    }
     private var roots: [URL] = []
 
     override func tearDownWithError() throws {
@@ -93,6 +108,31 @@ final class PhotoResolutionCoordinatorTests: XCTestCase {
         await store.drainAutomaticPhotoResolutionForTesting()
         XCTAssertEqual(counter.value, 2)
         XCTAssertNil(store.places.first?.image)
+    }
+
+    func testPausedAutomaticWorkerDoesNotPublishStaleQueueStateAfterResume() async throws {
+        let store = makeStore()
+        let gate = PausedResolverGate()
+        store.placeImageSearchResolver = { _, _ in await gate.wait() }
+        let place = Place(id: "paused-worker", title: "Museum", category: "Sehenswert", lat: 35.7, lng: 139.7)
+        XCTAssertTrue(store.upsert(place))
+        while !gate.requested { await Task.yield() }
+
+        // The first resolver deliberately ignores cancellation. A resumed
+        // generation must not let that old callback overwrite its queue job.
+        store.pauseAutomaticPhotoResolution()
+        store.resumeAutomaticPhotoResolution()
+        try await Task.sleep(for: .milliseconds(50))
+        let resumed = try XCTUnwrap(store.automaticPhotoJob(for: place.id))
+        XCTAssertNotEqual(resumed.state, .completed)
+        XCTAssertNotEqual(resumed.state, .noMatch)
+
+        gate.resume(PlaceImageSearchResult(image: nil, candidates: [], selectionVersion: PlaceImageService.ranking))
+        try await Task.sleep(for: .milliseconds(50))
+        let afterStaleCallback = try XCTUnwrap(store.automaticPhotoJob(for: place.id))
+        XCTAssertNotEqual(afterStaleCallback.state, .completed)
+        XCTAssertNotEqual(afterStaleCallback.state, .noMatch)
+        store.pauseAutomaticPhotoResolution()
     }
 
     func testExplicitRemovalPersistsAutomaticPhotoSuppression() async throws {

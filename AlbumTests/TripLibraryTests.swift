@@ -21,6 +21,7 @@ final class TripLibraryTests: XCTestCase {
             var failNextJoin = false
             var pauseNextJoin = false
             var joinStarted = false
+            var pausedJoinCount = 0
             var releasePausedJoin = false
             var failPausedJoin = false
             init(remoteID: UUID) { self.remoteID = remoteID }
@@ -32,9 +33,11 @@ final class TripLibraryTests: XCTestCase {
             if behavior.pauseNextJoin {
                 behavior.pauseNextJoin = false
                 behavior.joinStarted = true
+                behavior.pausedJoinCount += 1
                 let failAfterPause = behavior.failPausedJoin
                 while !behavior.releasePausedJoin { await Task.yield() }
-                behavior.releasePausedJoin = false
+                behavior.pausedJoinCount -= 1
+                if behavior.pausedJoinCount == 0 { behavior.releasePausedJoin = false }
                 if failAfterPause { throw AlbumSyncError.invalidInvitation }
             }
             if behavior.failNextJoin {
@@ -511,6 +514,36 @@ final class TripLibraryTests: XCTestCase {
         XCTAssertEqual(library.entries.count, 1)
         XCTAssertEqual(library.entries.first?.remoteTripID, remoteID)
         XCTAssertEqual(library.activeID, successfulID)
+    }
+
+    func testConcurrentSuccessfulInvitationsConvergeAfterStagedShutdown() async throws {
+        let root = try temporaryRoot()
+        let remoteID = UUID()
+        let behavior = JoinService.Behavior(remoteID: remoteID)
+        let library = TripLibrary(root: root.appendingPathComponent("library"),
+                                  legacyRoot: root.appendingPathComponent("legacy"),
+                                  shareInbox: ShareInbox(root: root.appendingPathComponent("share")),
+                                  storeFactory: { path, inbox, publishes in
+                                      let store = AlbumStore(root: path, shareInbox: inbox, publishesShareContext: publishes)
+                                      store.syncService = JoinService(behavior: behavior)
+                                      return store
+                                  })
+        let invite = try XCTUnwrap(InvitationLink.make(token: String(repeating: "d", count: 32)))
+        behavior.pauseNextJoin = true
+        let first = Task { try? await library.joinInvitation(invite) }
+        while behavior.pausedJoinCount < 1 { await Task.yield() }
+        behavior.pauseNextJoin = true
+        let second = Task { try? await library.joinInvitation(invite) }
+        while behavior.pausedJoinCount < 2 { await Task.yield() }
+        behavior.releasePausedJoin = true
+
+        let firstResult = await first.value
+        let secondResult = await second.value
+        let firstID = try XCTUnwrap(firstResult)
+        let secondID = try XCTUnwrap(secondResult)
+        XCTAssertEqual(firstID, secondID)
+        XCTAssertEqual(library.entries.count, 1)
+        XCTAssertEqual(library.entries.first?.remoteTripID, remoteID)
     }
 
     func testIndexCommitFailureRollsBackCreatedTripAndJoinedFolder() async throws {

@@ -175,13 +175,10 @@ final class PhotoResolutionCoordinator {
         jobs[index] = job; save()
         await store.refreshPlaceImage(id: place.id, force: retry, automatic: true)
         guard workerGeneration == generation, !Task.isCancelled else {
-            if jobs.indices.contains(index), jobs[index].state == .running {
-                jobs[index].state = .pending
-                jobs[index].leaseUntil = nil
-                jobs[index].nextAttemptAt = nil
-                jobs[index].updatedAt = now()
-                save()
-            }
+            // cancel() already releases the old worker's lease. A new
+            // generation may have claimed this same queue index while the
+            // resolver ignored cancellation; never overwrite that newer
+            // state from the stale callback.
             return
         }
         guard jobs.indices.contains(index), let current = store.places.first(where: { $0.id == place.id }) else { return }

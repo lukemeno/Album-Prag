@@ -254,6 +254,15 @@ struct LegacyMigrationReceipt: Codable, Equatable {
             // the library. After this point the operation is synchronous and
             // cannot interleave with another join.
             await stagedStore.shutdown()
+            // Another join may have published the same remote trip while the
+            // staged shutdown was suspended. Re-check at the publication
+            // boundary so two concurrent successful invitations still
+            // converge on one local folder.
+            if let existing = entries.first(where: { $0.remoteTripID == remoteID && $0.unavailableReason == nil }) {
+                try? fileManager.removeItem(at: staging)
+                _ = open(existing.id)
+                return existing.id
+            }
             destination = tripURL(id)
             try fileManager.moveItem(at: staging, to: destination!)
             let entry = makeEntry(id: id, origin: .migrated, data: stagedStore.data)
