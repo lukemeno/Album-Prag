@@ -113,7 +113,10 @@ struct TripLibraryView: View {
 
     private func period(_ entry: TripLibraryEntry) -> String {
         guard let start = entry.startDate, let end = entry.endDate else { return "Zeitraum offen" }
-        return "\(start.rawValue) – \(end.rawValue)"
+        var trip = TripInfo()
+        trip.startDate = start
+        trip.endDate = end
+        return TripCalendar(trip: trip).rangeLabel(wideMonth: true, includeYear: true) ?? "Zeitraum prüfen"
     }
 }
 
@@ -180,9 +183,9 @@ struct TripCreateView: View {
 
     private func tripDay(_ date: Date) -> TripDay? {
         let formatter = DateFormatter()
-        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.calendar = Calendar.current
         formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.timeZone = Calendar.current.timeZone
         formatter.dateFormat = "yyyy-MM-dd"
         return TripDay(rawValue: formatter.string(from: date))
     }
