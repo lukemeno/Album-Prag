@@ -432,7 +432,8 @@ final class TripLibraryTests: XCTestCase {
         while !service.syncEntered { await Task.yield() }
         store.stopOwnedCallbacks()
         service.releaseSync = true
-        XCTAssertFalse(await task.value)
+        let syncResult = await task.value
+        XCTAssertFalse(syncResult)
         XCTAssertEqual(service.realtimeStarts, 0)
     }
 
@@ -510,7 +511,8 @@ final class TripLibraryTests: XCTestCase {
         XCTAssertEqual(library.entries.count, 1)
         XCTAssertEqual(library.activeID, successfulID)
         behavior.releasePausedJoin = true
-        XCTAssertNil(await failedJoin.value)
+        let failedResult = await failedJoin.value
+        XCTAssertNil(failedResult)
         XCTAssertEqual(library.entries.count, 1)
         XCTAssertEqual(library.entries.first?.remoteTripID, remoteID)
         XCTAssertEqual(library.activeID, successfulID)
