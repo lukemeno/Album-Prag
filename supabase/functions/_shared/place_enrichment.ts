@@ -1,14 +1,16 @@
 import { isUuid } from "./assistant_validation.ts";
 import { validCoordinate, normalize, tokenSimilarity } from "./place_photo.ts";
+import type { PublicPhotoIdentity } from "./place_photo_cache.ts";
+import type { WikimediaRequestLimiter } from "./wikimedia_photos.ts";
 
 export const MAX_ENRICHMENT_BODY = 32 * 1024;
 export const ENRICHMENT_STATUSES = ["queued", "processing", "ready", "needs_review", "not_found", "retry_wait", "failed"] as const;
 export type EnrichmentStatus = typeof ENRICHMENT_STATUSES[number];
-export type EnrichmentPlace = { id: string; title: string; category: string; address: string; source_url: string; latitude: number | null; longitude: number | null };
-export type EnrichmentRequest = { trip_id: string | null; google_photos: boolean; place: EnrichmentPlace; region: { name: string; latitude: number | null; longitude: number | null } };
+export type EnrichmentPlace = { id: string; title: string; category: string; address: string; source_url: string; latitude: number | null; longitude: number | null; provider_place_id?: string | null; provider_protocol?: string | null };
+export type EnrichmentRequest = { trip_id: string | null; google_photos: boolean; mode?: "automatic_photo_v1"; place: EnrichmentPlace; region: { name: string; latitude: number | null; longitude: number | null } };
 export type PlaceImage = { image_url: string; source_url: string; credit: string; provider: "wikimedia" | "sourcePreview"; license_name?: string; license_url?: string; provider_place_id?: string | null; confidence: "verified" | "suggested"; caption?: string };
 export type EnrichmentResult = { resolution: null | { provider: "google" | "wikidata" | "existing"; provider_place_id: string | null; latitude: number; longitude: number; confidence: "verified" }; image: PlaceImage | null; candidates: PlaceImage[]; selection_version: 4; review_reason: string | null };
-export class EnrichmentError extends Error { constructor(readonly code: string, message: string, readonly status = 400) { super(message); } }
+export class EnrichmentError extends Error { constructor(readonly code: string, message: string, readonly status = 400, readonly retryAfterSeconds = 60) { super(message); } }
 
 const object = (v: unknown): Record<string, unknown> => {
   if (!v || typeof v !== "object" || Array.isArray(v)) throw new EnrichmentError("invalid_request", "Ungültige Anfrage");
@@ -35,10 +37,11 @@ export function parseEnrichmentAction(value: unknown): { action: "enqueue"; requ
     return { action: body.action, job_id: body.job_id };
   }
   if (body.action !== "enqueue") throw new EnrichmentError("invalid_request", "Ungültige Aktion");
-  onlyKeys(body, ["action", "trip_id", "google_photos", "place", "region"]);
+  onlyKeys(body, ["action", "trip_id", "google_photos", "mode", "place", "region"]);
+  if (body.mode !== undefined && body.mode !== "automatic_photo_v1") throw new EnrichmentError("invalid_request", "Ungültiger Modus");
   if (body.google_photos !== undefined && typeof body.google_photos !== "boolean") throw new EnrichmentError("invalid_request", "Ungültiger Wert für google_photos");
   const rawPlace = object(body.place), rawRegion = object(body.region);
-  onlyKeys(rawPlace, ["id", "title", "category", "address", "source_url", "latitude", "longitude"]);
+  onlyKeys(rawPlace, ["id", "title", "category", "address", "source_url", "latitude", "longitude", "provider_place_id", "provider_protocol"]);
   onlyKeys(rawRegion, ["name", "latitude", "longitude"]);
   const trip = body.trip_id ?? null;
   if (trip !== null && !isUuid(trip)) throw new EnrichmentError("invalid_request", "Ungültige Reise-ID");
@@ -49,15 +52,18 @@ export function parseEnrichmentAction(value: unknown): { action: "enqueue"; requ
   const regionLng = coordinate(rawRegion.longitude ?? null, "region.longitude", true);
   if ((regionLat === null) !== (regionLng === null)) throw new EnrichmentError("invalid_request", "Regionskoordinaten müssen gemeinsam angegeben werden");
   const request = {
-    trip_id: trip as string | null, google_photos: body.google_photos === true,
+    trip_id: trip as string | null, google_photos: body.google_photos === true, ...(body.mode ? { mode: "automatic_photo_v1" as const } : {}),
     place: {
       id: text(rawPlace.id, "place.id", 128), title: text(rawPlace.title, "place.title", 200),
       category: text(rawPlace.category, "place.category", 64), address: text(rawPlace.address ?? "", "place.address", 500, true),
       source_url: text(rawPlace.source_url ?? "", "place.source_url", 2048, true), latitude, longitude,
+      provider_place_id: rawPlace.provider_place_id == null ? null : text(rawPlace.provider_place_id, "place.provider_place_id", 256),
+      provider_protocol: rawPlace.provider_protocol == null ? null : text(rawPlace.provider_protocol, "place.provider_protocol", 32),
     },
     region: { name: text(rawRegion.name ?? "", "region.name", 200, true), latitude: regionLat, longitude: regionLng },
   };
   if (regionLat !== null && regionLng !== null && !validCoordinate(regionLat, regionLng)) throw new EnrichmentError("invalid_request", "Ungültige Region");
+  if (body.mode === "automatic_photo_v1" && (latitude === null || longitude === null)) throw new EnrichmentError("invalid_request", "Automatische Bildsuche benötigt Koordinaten");
   return { action: "enqueue", request };
 }
 
@@ -66,8 +72,10 @@ export async function requestKey(request: EnrichmentRequest) {
   const stableRequest: Record<string, unknown> = { trip_id: request.trip_id, place: {
     id: clean(request.place.id), title: clean(request.place.title), category: clean(request.place.category),
     address: clean(request.place.address), source_url: clean(request.place.source_url), latitude: request.place.latitude, longitude: request.place.longitude,
+    provider_place_id: request.place.provider_place_id ?? null, provider_protocol: request.place.provider_protocol ?? null,
   }, region: { name: clean(request.region.name), latitude: request.region.latitude, longitude: request.region.longitude } };
   if (request.google_photos) stableRequest.google_photos = true;
+  if (request.mode) stableRequest.mode = request.mode;
   const stable = JSON.stringify(stableRequest);
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(stable));
   return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("");
@@ -326,6 +334,8 @@ export type WorkerDependencies = {
   googleKey: () => string | undefined;
   fetchGoogle?: typeof searchGoogle;
   fetchWikimedia?: typeof import("./wikimedia_photos.ts").resolveWikimedia;
+  wikimediaLimiter?: (job: Record<string, any>) => WikimediaRequestLimiter;
+  cacheWikimedia?: (job: Record<string, any>, input: EnrichmentRequest, identity: PublicPhotoIdentity | null, load: () => Promise<PlaceImage[]>) => Promise<PlaceImage[]>;
   fetchPreview?: typeof fetchPreviewImage;
   waitUntil?: (promise: Promise<unknown>) => void;
 };
@@ -341,9 +351,12 @@ export function createPlaceEnrichmentWorker(deps: WorkerDependencies) {
       try {
         const input = job.snapshot as EnrichmentRequest;
         const hasCoordinates = input.place.latitude !== null && input.place.longitude !== null;
+        // Provider IDs supplied by clients are hints only.  A durable public
+        // cache is populated after this worker verifies a Google match below.
+        let publicIdentity: PublicPhotoIdentity | null = null;
         let resolution: EnrichmentResult["resolution"] = hasCoordinates ? { provider: "existing", provider_place_id: null, latitude: input.place.latitude!, longitude: input.place.longitude!, confidence: "verified" } : null;
         let latitude = input.place.latitude, longitude = input.place.longitude;
-        if (latitude === null || input.google_photos) {
+        if (latitude === null || (input.google_photos && input.mode !== "automatic_photo_v1")) {
           if (!hasLocationContext(input)) {
             const result: EnrichmentResult = { resolution: null, image: null, candidates: [], selection_version: 4, review_reason: "insufficient_location_context" };
             await deps.complete(job, result, "needs_review"); processed++; continue;
@@ -367,9 +380,11 @@ export function createPlaceEnrichmentWorker(deps: WorkerDependencies) {
           if (matches.selected) {
             latitude = matches.selected.latitude; longitude = matches.selected.longitude;
             resolution = { provider: "google", provider_place_id: matches.selected.id, latitude, longitude, confidence: "verified" };
+            publicIdentity = { id: matches.selected.id, protocol: "google" };
           }
         }
-        const photos = await (deps.fetchWikimedia ?? (await import("./wikimedia_photos.ts")).resolveWikimedia)(input.place.title, input.place.category, latitude!, longitude!, input.place.address, input.region.name);
+        const loadWikimedia = async (): Promise<PlaceImage[]> => (await (deps.fetchWikimedia ?? (await import("./wikimedia_photos.ts")).resolveWikimedia)(input.place.title, input.place.category, latitude!, longitude!, input.place.address, input.region.name, undefined, deps.wikimediaLimiter?.(job))).map(photo => ({ ...photo, provider: "wikimedia" as const }));
+        const photos = await (deps.cacheWikimedia ? deps.cacheWikimedia(job, input, publicIdentity, loadWikimedia) : loadWikimedia());
         const safePhotos: PlaceImage[] = photos.filter(photo => photo.confidence === "verified" || photo.confidence === "suggested").map(photo => ({ ...photo, provider: "wikimedia" as const }));
         const verified = safePhotos.find(photo => photo.confidence === "verified") ?? null;
         if (!verified && input.place.source_url) {
@@ -382,7 +397,10 @@ export function createPlaceEnrichmentWorker(deps: WorkerDependencies) {
       } catch (error) {
         const code = error instanceof EnrichmentError ? error.code : "provider_unavailable";
         const retryable = !(error instanceof EnrichmentError && error.code === "google_not_configured");
-        try { await deps.fail(job, code, retryable); } catch { /* expired lease is reclaimed by the database */ }
+        try {
+          if (error instanceof EnrichmentError && error.status === 429 && deps.defer) await deps.defer(job, error.retryAfterSeconds, code);
+          else await deps.fail(job, code, retryable);
+        } catch { /* expired lease is reclaimed by the database */ }
       }
     }
     return { processed };

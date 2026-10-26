@@ -1,5 +1,5 @@
 import { assertEquals, assertRejects } from "jsr:@std/assert";
-import { createPhotoCache } from "./place_photo_cache.ts";
+import { createDistributedPhotoCache, createPhotoCache, publicPhotoCacheKey } from "./place_photo_cache.ts";
 Deno.test("identical photo lookups share one request and expire", async () => {
   let calls = 0, time = 0;
   const load = createPhotoCache(async () => {
@@ -37,4 +37,32 @@ Deno.test("empty results are retried after a short cache interval", async () => 
   time = 60_001;
   await load("place");
   assertEquals(calls, 2);
+});
+
+Deno.test("distributed cache uses a fresh claim and completes once", async () => {
+  let loads = 0, completes = 0;
+  const cache = createDistributedPhotoCache<string>({
+    claim: async () => ({ state: "claimed", payload: [] }),
+    complete: async (_key, _token, payload) => { completes++; assertEquals(payload, ["one"]); },
+    release: async () => { throw new Error("must not release"); },
+  });
+  assertEquals(await cache("k", async () => { loads++; return ["one"]; }), ["one"]);
+  assertEquals(loads, 1); assertEquals(completes, 1);
+});
+
+Deno.test("distributed cache returns durable payload on a concurrent lease", async () => {
+  let loads = 0;
+  const cache = createDistributedPhotoCache<string>({
+    claim: async () => ({ state: "busy", payload: ["stale"] }),
+    complete: async () => undefined, release: async () => undefined,
+  });
+  assertEquals(await cache("k", async () => { loads++; return ["new"]; }), ["stale"]);
+  assertEquals(loads, 0);
+});
+
+Deno.test("public cache key is deterministic and identity-scoped", async () => {
+  const a = await publicPhotoCacheKey({ id: "ChIJ1", protocol: "Google" });
+  assertEquals(a, await publicPhotoCacheKey({ id: "ChIJ1", protocol: "google" }));
+  const b = await publicPhotoCacheKey({ id: "ChIJ2", protocol: "google" });
+  assertEquals(a === b, false);
 });

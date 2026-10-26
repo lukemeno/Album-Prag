@@ -4,6 +4,7 @@ import { supportedWikipediaLanguage } from "./photo_context.ts";
 const wikimediaHeaders = { "User-Agent": Deno.env.get("WIKIMEDIA_USER_AGENT") || "Album/1.0 (private travel app)" };
 
 export type WikimediaDiscoveryLimiter = { run<T>(signal: AbortSignal, work: () => Promise<T>): Promise<T> };
+export type WikimediaRequestLimiter = { run<T>(work: () => Promise<T>): Promise<T> };
 export type WikimediaDiscoveryImageEntry = { qid: string; title: string };
 
 /// Exact-QID P18 metadata in batches; unlike resolveWikimedia this never searches or ranks by name.
@@ -25,7 +26,7 @@ export async function fetchWikimediaP18Images(entries: WikimediaDiscoveryImageEn
     const url = new URL("https://commons.wikimedia.org/w/api.php");
     for (const [key, value] of Object.entries({ format: "json", action: "query", titles: batch.map(([, title]) => title).join("|"), redirects: "1", prop: "imageinfo", iiprop: "url|extmetadata", iiurlwidth: "1600", iiextmetadatafilter: "Artist|Credit|LicenseShortName|LicenseUrl" })) url.searchParams.set(key, value);
     const payload = await limiter.run(signal, async () => {
-      const response = await fetch(url, { headers: wikimediaHeaders, signal });
+      const response = await fetch(url, { redirect: "error", headers: wikimediaHeaders, signal });
       if (!response.ok) throw new WikimediaUnavailable("commons.wikimedia.org", "query", `HTTP ${response.status}`, Math.max(1, Number(response.headers.get("retry-after")) || 30));
       const payload = await response.json();
       if (payload?.error) throw new WikimediaUnavailable("commons.wikimedia.org", "query", String(payload.error.code ?? "api_error"), Math.max(1, Number(response.headers.get("retry-after")) || Number(payload.error.lag) || 30));
@@ -54,7 +55,7 @@ export async function fetchWikimediaP18Images(entries: WikimediaDiscoveryImageEn
 }
 
 /// Sammelt Fotos aus drei Quellen (Hauptbild, Commons-Kategorie, Umgebung) und gibt die typischsten zuerst zurück.
-export async function resolveWikimedia(title: string, category: string, latitude: number, longitude: number, address = "", regionName = "", languageCode?: string) {
+export async function resolveWikimedia(title: string, category: string, latitude: number, longitude: number, address = "", regionName = "", languageCode?: string, limiter?: WikimediaRequestLimiter) {
   let failure: unknown;
   const entities: Array<{ id: string; value: any }> = [];
   let place: PlaceCandidate | undefined;
@@ -62,13 +63,13 @@ export async function resolveWikimedia(title: string, category: string, latitude
   const ids = new Set<string>();
   for (const language of languages) {
     try {
-      const matches = await wikidataSearch(title, language);
+      const matches = await wikidataSearch(title, language, limiter);
       for (const item of matches.slice(0, 6)) if (item.id) ids.add(item.id);
     } catch (error) { failure = error; break; }
   }
   if (ids.size) {
     try {
-      entities.push(...await wikidataEntities([...ids].slice(0, 12), languages));
+      entities.push(...await wikidataEntities([...ids].slice(0, 12), languages, limiter));
     } catch (error) { failure = error; }
   }
   const wikidataPlaces = entities.flatMap(entityCandidate);
@@ -78,7 +79,7 @@ export async function resolveWikimedia(title: string, category: string, latitude
     const wikipediaCandidates: PlaceCandidate[] = [];
     for (const language of languages) {
       try {
-        wikipediaCandidates.push(...await wikipediaPlaces(language, latitude, longitude));
+        wikipediaCandidates.push(...await wikipediaPlaces(language, latitude, longitude, limiter));
       } catch (error) { failure = error; }
     }
     place = choosePlace(wikipediaCandidates, title, latitude, longitude, address);
@@ -90,7 +91,7 @@ export async function resolveWikimedia(title: string, category: string, latitude
   let infos: Awaited<ReturnType<typeof fileInfos>> = [];
   if (place?.image) {
     sources.set(`File:${place.image}`, { source: "main" });
-    try { infos = await fileInfos([...sources.keys()]); } catch (error) { failure = error; }
+    try { infos = await fileInfos([...sources.keys()], limiter); } catch (error) { failure = error; }
   }
   async function optional<T>(load: () => Promise<T>, empty: T): Promise<T> {
     try { return await load(); } catch (error) {
@@ -99,19 +100,19 @@ export async function resolveWikimedia(title: string, category: string, latitude
       return empty;
     }
   }
-  const members = place?.commonsCategory ? await optional(() => categoryFiles(place!.commonsCategory!), []) : [];
+  const members = place?.commonsCategory ? await optional(() => categoryFiles(place!.commonsCategory!, limiter), []) : [];
   for (const file of members) if (!sources.has(file)) sources.set(file, { source: "category" });
   if (!infos.length && !members.length) {
-    const nearby = await optional(() => nearbyFiles(latitude, longitude), []);
+    const nearby = await optional(() => nearbyFiles(latitude, longitude, limiter), []);
     for (const file of nearby) if (!sources.has(file.title)) sources.set(file.title, { source: "nearby", meters: file.meters });
   }
   const extraTitles = [...sources.keys()].filter(title => !infos.some(info => info.candidate.title === title)).slice(0, 24);
-  if (extraTitles.length) infos.push(...await optional(() => fileInfos(extraTitles), []));
+  if (extraTitles.length) infos.push(...await optional(() => fileInfos(extraTitles, limiter), []));
   const mediaIDs = infos.filter(info => sources.get(info.candidate.title)?.source === "nearby").map(info => `M${info.pageID}`);
   const depicted = new Set<number>();
   if (place) {
     for (let index = 0; index < mediaIDs.length; index += 50) {
-      const payload = await optional(() => commons({ action: "wbgetentities", ids: mediaIDs.slice(index, index + 50).join("|"), props: "claims" }), null);
+      const payload = await optional(() => commons({ action: "wbgetentities", ids: mediaIDs.slice(index, index + 50).join("|"), props: "claims" }, limiter), null);
       for (const [id, entity] of Object.entries(payload?.entities ?? {}) as Array<[string, any]>) {
         const statements = entity.statements ?? entity.claims;
         if (statements?.P180?.some((claim: any) => claim.rank !== "deprecated" && claim.mainsnak?.datavalue?.value?.id === place.id)) depicted.add(Number(id.slice(1)));
@@ -172,13 +173,13 @@ export class WikimediaUnavailable extends Error {
   }
 }
 
-async function wikimedia(host: string, params: Record<string, string>) {
+async function wikimedia(host: string, params: Record<string, string>, limiter?: WikimediaRequestLimiter) {
   const url = new URL(`https://${host}/w/api.php`);
   Object.entries({ format: "json", ...params }).forEach(([key, value]) => url.searchParams.set(key, value));
   for (let attempt = 0; attempt < 2; attempt++) {
     const operation = params.list ?? params.action;
     let response: Response;
-    try { response = await fetch(url, { headers: wikimediaHeaders, signal: AbortSignal.timeout(8000) }); }
+    try { response = await (limiter ? limiter.run(() => fetch(url, { redirect: "error", headers: wikimediaHeaders, signal: AbortSignal.timeout(8000) })) : fetch(url, { redirect: "error", headers: wikimediaHeaders, signal: AbortSignal.timeout(8000) })); }
     catch { throw new WikimediaUnavailable(host, operation, "timeout_or_network"); }
     if (response.ok) {
       const payload = await response.json();
@@ -192,16 +193,16 @@ async function wikimedia(host: string, params: Record<string, string>) {
   }
 }
 
-const commons = (params: Record<string, string>) => wikimedia("commons.wikimedia.org", params);
+const commons = (params: Record<string, string>, limiter?: WikimediaRequestLimiter) => wikimedia("commons.wikimedia.org", params, limiter);
 
-async function categoryFiles(category: string): Promise<string[]> {
-  const payload = await commons({ action: "query", list: "categorymembers", cmtitle: `Category:${category}`, cmtype: "file", cmlimit: "20" });
+async function categoryFiles(category: string, limiter?: WikimediaRequestLimiter): Promise<string[]> {
+  const payload = await commons({ action: "query", list: "categorymembers", cmtitle: `Category:${category}`, cmtype: "file", cmlimit: "20" }, limiter);
   return (payload?.query?.categorymembers ?? []).map((member: any) => member.title);
 }
 
 /// Fotos, die im Umkreis von 400 m aufgenommen wurden.
-async function nearbyFiles(latitude: number, longitude: number): Promise<Array<{ title: string; meters: number }>> {
-  const payload = await commons({ action: "query", list: "geosearch", gscoord: `${latitude}|${longitude}`, gsradius: "400", gsnamespace: "6", gslimit: "20" });
+async function nearbyFiles(latitude: number, longitude: number, limiter?: WikimediaRequestLimiter): Promise<Array<{ title: string; meters: number }>> {
+  const payload = await commons({ action: "query", list: "geosearch", gscoord: `${latitude}|${longitude}`, gsradius: "400", gsnamespace: "6", gslimit: "20" }, limiter);
   return (payload?.query?.geosearch ?? []).map((item: any) => ({
     title: item.title,
     meters: typeof item.dist === "number" ? item.dist : distanceMeters(item.lat, item.lon, latitude, longitude),
@@ -209,7 +210,7 @@ async function nearbyFiles(latitude: number, longitude: number): Promise<Array<{
 }
 
 /// Größe, Auszeichnungen, Verwendung in Wikipedia-Artikeln und Lizenz, in Gruppen zu 50 Dateien.
-async function fileInfos(titles: string[]) {
+async function fileInfos(titles: string[], limiter?: WikimediaRequestLimiter) {
   const batches = [];
   for (let index = 0; index < titles.length; index += 50) batches.push(titles.slice(index, index + 50));
   const payloads = [];
@@ -218,7 +219,7 @@ async function fileInfos(titles: string[]) {
     iiprop: "url|size|extmetadata", iiurlwidth: "1600",
     iiextmetadatafilter: "Artist|Credit|LicenseShortName|LicenseUrl|Assessments",
     gulimit: "50", gunamespace: "0",
-  }));
+  }, limiter));
   const pages = payloads.flatMap(payload => Object.values(payload?.query?.pages ?? {})) as any[];
   return pages.flatMap(page => {
     const info = page?.imageinfo?.[0];
@@ -239,15 +240,15 @@ async function fileInfos(titles: string[]) {
   });
 }
 
-async function wikidataSearch(title: string, language: string) {
-  const payload = await wikimedia("www.wikidata.org", { action: "wbsearchentities", search: title, language, uselang: language, type: "item", limit: "6" });
+async function wikidataSearch(title: string, language: string, limiter?: WikimediaRequestLimiter) {
+  const payload = await wikimedia("www.wikidata.org", { action: "wbsearchentities", search: title, language, uselang: language, type: "item", limit: "6" }, limiter);
   return firstArray(payload) as Array<{ id: string }>;
 }
 
 /// Alle Einträge in einer Anfrage (statt einer pro Eintrag).
-async function wikidataEntities(ids: string[], languages: string[]) {
+async function wikidataEntities(ids: string[], languages: string[], limiter?: WikimediaRequestLimiter) {
   if (!ids.length) return [];
-  const payload = await wikimedia("www.wikidata.org", { action: "wbgetentities", ids: ids.join("|"), props: "claims|labels|aliases", languages: [...new Set([...languages, "en"])].join("|") });
+  const payload = await wikimedia("www.wikidata.org", { action: "wbgetentities", ids: ids.join("|"), props: "claims|labels|aliases", languages: [...new Set([...languages, "en"])].join("|") }, limiter);
   return ids.flatMap(id => payload?.entities?.[id]?.claims ? [{ id, value: payload.entities[id] }] : []);
 }
 
@@ -272,12 +273,12 @@ function entityCandidate(entity: { id: string; value: any } | null): PlaceCandid
   });
 }
 
-async function wikipediaPlaces(language: string, latitude: number, longitude: number): Promise<PlaceCandidate[]> {
+async function wikipediaPlaces(language: string, latitude: number, longitude: number, limiter?: WikimediaRequestLimiter): Promise<PlaceCandidate[]> {
   const payload = await wikimedia(`${language}.wikipedia.org`, {
     action: "query", generator: "geosearch", ggscoord: `${latitude}|${longitude}`,
     ggsradius: "350", ggsnamespace: "0", ggslimit: "10",
     prop: "coordinates|pageimages|pageprops", piprop: "name", ppprop: "wikibase_item", colimit: "1",
-  });
+  }, limiter);
   return Object.values(payload?.query?.pages ?? {}).flatMap((page: any) => {
     const coordinate = page.coordinates?.[0];
     if (!coordinate || !page.title) return [];
