@@ -250,20 +250,24 @@ struct LegacyMigrationReceipt: Codable, Equatable {
                 _ = open(existing.id)
                 return existing.id
             }
+            // Close all staged callbacks before its folder becomes visible in
+            // the library. After this point the operation is synchronous and
+            // cannot interleave with another join.
+            await stagedStore.shutdown()
             destination = tripURL(id)
             try fileManager.moveItem(at: staging, to: destination!)
             let entry = makeEntry(id: id, origin: .migrated, data: stagedStore.data)
             entries.append(entry)
             guard persistIndex() else { throw CocoaError(.fileWriteUnknown) }
-            await stagedStore.shutdown()
             _ = open(id)
             return id
         } catch {
-            await stagedStore.shutdown()
+            stagedStore.stopOwnedCallbacks()
             try? fileManager.removeItem(at: staging)
             if let destination { try? fileManager.removeItem(at: destination) }
             entries.removeAll { $0.id == id }
             if indexLastOpenedID == id { indexLastOpenedID = previousLastOpenedID }
+            await stagedStore.shutdown()
             throw error
         }
     }
@@ -320,8 +324,13 @@ struct LegacyMigrationReceipt: Codable, Equatable {
 
         let previous = try? JSONDecoder().decode(LegacyMigrationReceipt.self, from: Data(contentsOf: receiptURL))
         if let previous, previous.state == .committed {
-            if folderExists(previous.id), loadAlbum(at: tripURL(previous.id)) != nil {
-                ensureEntry(id: previous.id, origin: .migrated, data: loadAlbum(at: tripURL(previous.id))!)
+            if folderExists(previous.id), let targetData = loadAlbum(at: tripURL(previous.id)),
+               targetData.albumID == previous.albumID {
+                if let index = entries.firstIndex(where: { $0.id == previous.id }), entries[index].albumID != targetData.albumID {
+                    entries[index].unavailableReason = "Die migrierte Reise gehört zu einer anderen Identität."
+                } else {
+                    ensureEntry(id: previous.id, origin: .migrated, data: targetData)
+                }
             } else {
                 ensureUnavailableEntry(id: previous.id, albumID: previous.albumID, reason: "Die migrierte Reise fehlt.")
             }
@@ -336,24 +345,33 @@ struct LegacyMigrationReceipt: Codable, Equatable {
         if previous?.state == .copying,
            let targetData = loadAlbum(at: target),
            targetData.albumID == previous?.albumID {
+            let recoveredData: AlbumData
+            do {
+                recoveredData = try cleanupPristineTemplates(in: target)
+            } catch {
+                ensureUnavailableEntry(id: id, albumID: previous?.albumID ?? targetData.albumID,
+                                       reason: "Die angefangene Migration konnte nicht abgeschlossen werden.")
+                _ = persistIndex()
+                return
+            }
             if let index = entries.firstIndex(where: { $0.id == id }) {
-                guard entries[index].albumID == targetData.albumID else {
+                guard entries[index].albumID == recoveredData.albumID else {
                     entries[index].unavailableReason = "Die angefangene Migration ist beschädigt oder nicht verfügbar."
                     _ = persistIndex()
                     return
                 }
                 entries[index].unavailableReason = nil
             } else {
-                ensureEntry(id: id, origin: .migrated, data: targetData)
+                ensureEntry(id: id, origin: .migrated, data: recoveredData)
             }
             guard persistIndex() else { return }
             let committed = LegacyMigrationReceipt(id: id, state: .committed,
                                                    sourceFiles: previous?.sourceFiles ?? treeFiles(legacyRoot),
                                                    sourceBytes: previous?.sourceBytes ?? treeBytes(legacyRoot),
-                                                   places: targetData.places.count,
-                                                   documents: targetData.documents.count,
-                                                   memories: targetData.tripMemories.count,
-                                                   albumID: targetData.albumID, committedAt: Date())
+                                                   places: recoveredData.places.count,
+                                                   documents: recoveredData.documents.count,
+                                                   memories: recoveredData.tripMemories.count,
+                                                   albumID: recoveredData.albumID, committedAt: Date())
             _ = writeReceipt(committed)
             return
         }

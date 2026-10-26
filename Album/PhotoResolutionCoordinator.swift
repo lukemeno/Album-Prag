@@ -104,6 +104,13 @@ final class PhotoResolutionCoordinator {
         workerGeneration += 1
         worker?.cancel()
         worker = nil
+        for index in jobs.indices where jobs[index].state == .running {
+            jobs[index].state = .pending
+            jobs[index].leaseUntil = nil
+            jobs[index].nextAttemptAt = nil
+            jobs[index].updatedAt = now()
+        }
+        save()
     }
 
     /// Test and lifecycle hook. It starts the same worker used by production;
@@ -124,11 +131,11 @@ final class PhotoResolutionCoordinator {
                 do { try await Task.sleep(for: .seconds(due.timeIntervalSince(now()))) } catch { return }
                 continue
             }
-            await process(index: index)
+            await process(index: index, generation: generation)
         }
     }
 
-    private func process(index: Int) async {
+    private func process(index: Int, generation: Int) async {
         guard let store, jobs.indices.contains(index) else { return }
         var job = jobs[index]
         guard let place = store.places.first(where: { $0.id == job.placeID }) else {
@@ -167,6 +174,16 @@ final class PhotoResolutionCoordinator {
         job.state = .running; job.leaseUntil = now().addingTimeInterval(leaseDuration); job.updatedAt = now()
         jobs[index] = job; save()
         await store.refreshPlaceImage(id: place.id, force: retry, automatic: true)
+        guard workerGeneration == generation, !Task.isCancelled else {
+            if jobs.indices.contains(index), jobs[index].state == .running {
+                jobs[index].state = .pending
+                jobs[index].leaseUntil = nil
+                jobs[index].nextAttemptAt = nil
+                jobs[index].updatedAt = now()
+                save()
+            }
+            return
+        }
         guard jobs.indices.contains(index), let current = store.places.first(where: { $0.id == place.id }) else { return }
         job = jobs[index]
         job.leaseUntil = nil

@@ -47,6 +47,7 @@ private struct PlaceResolutionSnapshot: Equatable {
     @ObservationIgnored var collectionMetadataBackfilledIDs = Set<String>()
     private(set) var loadFailed = false
     private var callbacksActive = true
+    private var lifecycleGeneration = 0
     private var shareContextActive: Bool
     private var pendingSync: Task<Void, Never>?
     private var syncRequestedWhileRunning = false
@@ -422,6 +423,8 @@ private struct PlaceResolutionSnapshot: Equatable {
     /// async method; delayed local work must stop first.
     func stopOwnedCallbacks() {
         callbacksActive = false
+        shareContextActive = false
+        lifecycleGeneration &+= 1
         pendingSync?.cancel()
         pendingSync = nil
         photoResolutionCoordinator?.cancel()
@@ -649,6 +652,8 @@ private struct PlaceResolutionSnapshot: Equatable {
     /// tests may use the protocol's no-op default.
     func shutdown() async {
         callbacksActive = false
+        shareContextActive = false
+        lifecycleGeneration &+= 1
         pendingSync?.cancel()
         pendingSync = nil
         photoResolutionCoordinator?.cancel()
@@ -987,6 +992,7 @@ private struct PlaceResolutionSnapshot: Equatable {
     }
 
     func refreshPlaceImages(force: Bool = false, automatic: Bool = false) async {
+        let generation = lifecycleGeneration
         var attempted = 0
         let orderedPlaces = places.enumerated().sorted { left, right in
             let leftPriority = left.element.image == nil && Self.isMapProviderSource(left.element.sourceURL)
@@ -995,7 +1001,7 @@ private struct PlaceResolutionSnapshot: Equatable {
             return left.offset < right.offset
         }.map(\.element)
         for place in orderedPlaces {
-            guard !Task.isCancelled, attempted < 5 else { return }
+            guard isActive(generation), !Task.isCancelled, attempted < 5 else { return }
             let context = tripRegionContext(for: place)
             if place.coordinate == nil {
                 let snapshot = PlaceResolutionSnapshot(title: place.title, address: place.address,
@@ -1014,7 +1020,8 @@ private struct PlaceResolutionSnapshot: Equatable {
     }
 
     func refreshPlaceImage(id: String, force: Bool = false, automatic: Bool = false) async {
-        guard !placeImageInFlight.contains(id), let requested = places.first(where: { $0.id == id }) else { return }
+        let generation = lifecycleGeneration
+        guard isActive(generation), !placeImageInFlight.contains(id), let requested = places.first(where: { $0.id == id }) else { return }
         var context = tripRegionContext(for: requested)
         var snapshot = PlaceResolutionSnapshot(title: requested.title, address: requested.address,
                                                category: requested.category, context: context,
@@ -1035,7 +1042,7 @@ private struct PlaceResolutionSnapshot: Equatable {
             } else {
                 outcome = await PlaceResolver.resolve(place: requested, context: context)
             }
-            guard !Task.isCancelled else {
+            guard isActive(generation), !Task.isCancelled else {
                 placeImageStatuses[id] = .idle
                 placeResolutionAttempts.remove(id)
                 placeResolutionSnapshots[id] = nil
@@ -1112,7 +1119,7 @@ private struct PlaceResolutionSnapshot: Equatable {
             } catch {
                 searchFailed = true
             }
-            guard !Task.isCancelled else {
+            guard isActive(generation), !Task.isCancelled else {
                 placeImageStatuses[id] = .idle
                 placeImageAttempts.remove(imageKey)
                 return
@@ -1148,7 +1155,7 @@ private struct PlaceResolutionSnapshot: Equatable {
                 } else {
                     preview = await PlaceImageService.sourcePreview(for: latest)
                 }
-                guard !Task.isCancelled else {
+                guard isActive(generation), !Task.isCancelled else {
                     placeImageStatuses[id] = .idle
                     placeImageAttempts.remove(imageKey)
                     return
@@ -1180,7 +1187,7 @@ private struct PlaceResolutionSnapshot: Equatable {
                       !PlaceImageService.canRetain(updated.image, for: updated),
                       let coordinate = updated.coordinate {
                 let local = await PlaceImageResolver.localSnapshot(at: coordinate)
-                guard !Task.isCancelled else {
+                guard isActive(generation), !Task.isCancelled else {
                     placeImageStatuses[id] = .idle
                     placeImageAttempts.remove(imageKey)
                     return
@@ -1218,7 +1225,7 @@ private struct PlaceResolutionSnapshot: Equatable {
                 placeImageStatuses[id] = .deferred(retryAfter: max(retryAfter ?? 60, 1))
             }
         } catch {
-            if Task.isCancelled {
+            if Task.isCancelled || !isActive(generation) {
                 placeImageStatuses[id] = .idle
                 placeImageAttempts.remove(imageKey)
             } else {
@@ -1243,6 +1250,10 @@ private struct PlaceResolutionSnapshot: Equatable {
             "\($0.center.latitude),\($0.center.longitude),\($0.span.latitudeDelta),\($0.span.longitudeDelta)"
         } ?? "none"
         return "\(context.source)|\(context.name ?? "")|\(region)|\(context.preferredLanguageCode ?? "")"
+    }
+
+    private func isActive(_ generation: Int) -> Bool {
+        callbacksActive && lifecycleGeneration == generation
     }
 
     private static func isMapProviderSource(_ value: String) -> Bool {
@@ -1362,6 +1373,7 @@ private struct PlaceResolutionSnapshot: Equatable {
     @discardableResult func sync() async -> Bool {
         guard callbacksActive else { return false }
         guard isShared, !loadFailed else { return !loadFailed }
+        let generation = lifecycleGeneration
         if syncing {
             syncRequestedWhileRunning = true
             return false
@@ -1384,6 +1396,7 @@ private struct PlaceResolutionSnapshot: Equatable {
         do {
             let service = try service()
             try await service.sync(store: self)
+            guard callbacksActive, lifecycleGeneration == generation else { return false }
             enqueueAutomaticPhotosAfterSync(beforeByID: beforeByID, beforeContexts: beforeContexts)
             if oldDestination != (data.trip.destination ?? tripName) { storedDiscoverySession?.destinationDidChange() }
             // Beim ersten Abgleich ist alles neu; das ist keine Neuigkeit der anderen Person.
@@ -1422,6 +1435,7 @@ private struct PlaceResolutionSnapshot: Equatable {
 
     func createSharedTrip() async throws -> URL {
         guard !loadFailed else { throw CocoaError(.fileReadCorruptFile) }
+        let generation = lifecycleGeneration
         let discovery = discoverySession
         let service = try service()
         data.dirty.formUnion(data.places.map(\.id))
@@ -1429,6 +1443,7 @@ private struct PlaceResolutionSnapshot: Equatable {
         data.dirty.insert("trip")
         guard persist() else { throw CocoaError(.fileWriteUnknown) }
         data.collaboration = try await service.createTrip(store: self)
+        guard isActive(generation) else { throw CancellationError() }
         discovery.switchToCurrentScope(copyLocal: true)
         publishShareContext()
         guard persist() else { throw CocoaError(.fileWriteUnknown) }
@@ -1440,14 +1455,17 @@ private struct PlaceResolutionSnapshot: Equatable {
 
     func joinSharedTrip(url: URL) async throws {
         guard let token = InvitationLink.token(from: url) else { throw AlbumSyncError.invalidInvitation }
+        let generation = lifecycleGeneration
         let service = try service()
         let discovery = discoverySession
         data.collaboration = try await service.joinTrip(token: token)
+        guard isActive(generation) else { throw CancellationError() }
         publishShareContext()
         guard persist() else { throw CocoaError(.fileWriteUnknown) }
         let beforeByID = Dictionary(uniqueKeysWithValues: data.places.map { ($0.id, $0) })
         let beforeContexts = Dictionary(uniqueKeysWithValues: data.places.map { ($0.id, tripRegionContext(for: $0)) })
         try await service.sync(store: self)
+        guard isActive(generation) else { throw CancellationError() }
         if shareContextActive {
             enqueueAutomaticPhotosAfterSync(beforeByID: beforeByID, beforeContexts: beforeContexts)
             photoResolutionCoordinator?.resume()
