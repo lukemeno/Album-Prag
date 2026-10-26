@@ -557,6 +557,8 @@ private struct NativeIdeaRow: View {
             imageStatus("Ort wird gesucht …")
         case .loadingPhoto:
             imageStatus("Bild wird gesucht …")
+        case .deferred(let retryAfter):
+            imageStatus("Bildsuche wartet \(Int(retryAfter.rounded())) s …")
         case .notFound:
             HStack {
                 imageStatus("Kein passender Treffer")

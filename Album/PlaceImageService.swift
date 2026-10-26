@@ -48,13 +48,21 @@ struct PlaceImageSearchResult: Decodable {
     let image: PlaceImage?
     let candidates: [PlaceImage]?
     let selectionVersion: Int?
+    let status: String? = nil
+    let retryAfterSeconds: Int? = nil
 
     enum CodingKeys: String, CodingKey {
         case image, candidates
         case selectionVersion = "selection_version"
+        case status
+        case retryAfterSeconds = "retry_after_seconds"
     }
 
     var isCurrent: Bool { (selectionVersion ?? 0) >= PlaceImageService.ranking }
+    var deferredRetryAfter: TimeInterval? {
+        guard status?.lowercased() == "deferred" else { return nil }
+        return TimeInterval(max(retryAfterSeconds ?? 60, 1))
+    }
     var choices: [PlaceImage] {
         var seen: Set<URL> = []
         return ((image.map { [$0] } ?? []) + (candidates ?? [])).filter { seen.insert($0.imageURL).inserted }
@@ -68,8 +76,16 @@ struct PlaceImageSearchResult: Decodable {
 enum PlaceImageService {
     static let ranking = 4
 
-    private struct Request: Encodable {
+    enum RequestMode: String { case manual, automatic = "automatic_photo_v1" }
+    enum RequestError: Error, Equatable { case retryable(retryAfter: TimeInterval?) }
+
+    struct Request: Encodable {
         let selection_version = PlaceImageService.ranking
+        let mode: String
+        let tripID: String?
+        let placeID: String?
+        let revision: String?
+        let manual: Bool
         let title: String
         let latitude: Double
         let longitude: Double
@@ -79,7 +95,10 @@ enum PlaceImageService {
         let languageCode: String?
 
         enum CodingKeys: String, CodingKey {
-            case selection_version, title, latitude, longitude, category, address, region
+            case selection_version, mode, title, latitude, longitude, category, address, region, manual
+            case tripID = "trip_id"
+            case placeID = "place_id"
+            case revision
             case languageCode = "language_code"
         }
     }
@@ -93,7 +112,9 @@ enum PlaceImageService {
         try await search(for: place, bundle: bundle, region: region, languageCode: languageCode).automaticImages
     }
 
-    static func search(for place: Place, bundle: Bundle = .main, region: String? = nil, languageCode: String? = nil) async throws -> PlaceImageSearchResult {
+    static func search(for place: Place, bundle: Bundle = .main, region: String? = nil, languageCode: String? = nil,
+                       mode: RequestMode = .manual, tripID: String? = nil, placeID: String? = nil,
+                       revision: String? = nil) async throws -> PlaceImageSearchResult {
         guard let coordinate = place.coordinate,
               !place.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return .init(image: nil, candidates: [], selectionVersion: ranking) }
         #if DEBUG
@@ -113,19 +134,45 @@ enum PlaceImageService {
         #endif
         let client = try SupabaseConfiguration.client(bundle: bundle)
         if (try? await client.auth.session) == nil { _ = try await client.auth.signInAnonymously() }
-        let response: PlaceImageSearchResult = try await client.functions.invoke(
-            "place-photo",
-            options: FunctionInvokeOptions(body: Request(
-                title: place.title,
-                latitude: coordinate.latitude,
-                longitude: coordinate.longitude,
-                category: place.category,
-                address: place.address,
-                region: region,
-                languageCode: languageCode
-            ))
-        )
-        return response
+        do {
+            return try await client.functions.invoke(
+                "place-photo",
+                options: FunctionInvokeOptions(body: Request(
+                    mode: mode.rawValue,
+                    tripID: tripID,
+                    placeID: placeID,
+                    revision: revision,
+                    manual: mode == .manual,
+                    title: place.title,
+                    latitude: coordinate.latitude,
+                    longitude: coordinate.longitude,
+                    category: place.category,
+                    address: place.address,
+                    region: region,
+                    languageCode: languageCode
+                ))
+            )
+        } catch let error as FunctionsError {
+            if case .httpError(let status, let data) = error, status == 429 || status == 503 {
+                let payload = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+                let retry = payload?["retry_after_seconds"] as? Int
+                throw RequestError.retryable(retryAfter: retry.map(TimeInterval.init))
+            }
+            throw error
+        }
+    }
+
+    /// Encodes the exact function body for deterministic request-contract tests.
+    static func requestPayload(for place: Place, mode: RequestMode = .manual, tripID: String? = nil,
+                               placeID: String? = nil, revision: String? = nil, region: String? = nil,
+                               languageCode: String? = nil) throws -> Data {
+        guard place.coordinate != nil else { throw CocoaError(.validationMissingMandatoryProperty) }
+        let coordinate = place.coordinate!
+        return try JSONEncoder().encode(Request(mode: mode.rawValue, tripID: tripID, placeID: placeID,
+                                                revision: revision, manual: mode == .manual,
+                                                title: place.title, latitude: coordinate.latitude,
+                                                longitude: coordinate.longitude, category: place.category,
+                                                address: place.address, region: region, languageCode: languageCode))
     }
 
     static func testStoreResponse(environment: [String: String]) throws -> PlaceImageSearchResult? {

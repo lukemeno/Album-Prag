@@ -496,7 +496,19 @@ private struct PlaceResolutionSnapshot: Equatable {
 
     /// Resumes persisted automatic work after launch, foregrounding or sync.
     func resumeAutomaticPhotoResolution() {
+        // Older stores predate the sidecar queue. Bootstrap eligible existing
+        // places once per fingerprint; enqueue is idempotent and preserves
+        // existing backoff/no-match jobs.
+        for place in places where !place.deleted && !place.automaticPhotoSuppressed
+                && !PlaceImageService.isUserChosen(place.image)
+                && (place.image == nil || PlaceImageService.shouldSearch(for: place, force: false)) {
+            photoResolutionCoordinator?.enqueue(place: place, context: tripRegionContext(for: place))
+        }
         photoResolutionCoordinator?.resume()
+    }
+
+    func pauseAutomaticPhotoResolution() {
+        photoResolutionCoordinator?.cancel()
     }
 
     /// Deterministic hook for unit tests; production uses the lifecycle method above.
@@ -1063,7 +1075,11 @@ private struct PlaceResolutionSnapshot: Equatable {
                     result = .init(image: nil, candidates: [], selectionVersion: PlaceImageService.ranking)
                 } else {
                     result = try await PlaceImageService.search(for: current, region: context.name,
-                                                                languageCode: context.preferredLanguageCode)
+                                                                languageCode: context.preferredLanguageCode,
+                                                                mode: automatic ? .automatic : .manual,
+                                                                tripID: data.collaboration?.tripID.uuidString,
+                                                                placeID: automatic ? id : nil,
+                                                                revision: automatic ? PhotoResolutionCoordinator.fingerprint(place: current, context: context, albumID: data.albumID) : nil)
                 }
             } catch {
                 searchFailed = true
@@ -1079,6 +1095,10 @@ private struct PlaceResolutionSnapshot: Equatable {
                   tripRegionContext(for: latest) == context else {
                 placeImageStatuses[id] = .idle
                 placeImageAttempts.remove(imageKey)
+                return
+            }
+            if let deferred = result?.deferredRetryAfter {
+                placeImageStatuses[id] = .deferred(retryAfter: deferred)
                 return
             }
             let found = result?.automaticImages ?? []
@@ -1163,6 +1183,11 @@ private struct PlaceResolutionSnapshot: Equatable {
                 placeImageStatuses[id] = .failed(retryable: true)
             } else {
                 placeImageStatuses[id] = (updated.displayImage == nil && needsImage) ? .notFound : .ready
+            }
+        } catch let error as PlaceImageService.RequestError {
+            switch error {
+            case .retryable(let retryAfter):
+                placeImageStatuses[id] = .deferred(retryAfter: max(retryAfter ?? 60, 1))
             }
         } catch {
             if Task.isCancelled {

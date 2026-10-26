@@ -1,6 +1,7 @@
 import XCTest
 import Foundation
 import UIKit
+import MapKit
 @testable import Album
 
 @MainActor
@@ -117,18 +118,70 @@ final class PhotoResolutionCoordinatorTests: XCTestCase {
             throw XCTSkip("Set ALBUM_LIVE_AUTO_PHOTO_QA=1 for the real automatic-save proof")
         }
         let store = makeStore()
-        store.placeImageSearchResolver = { place, context in
-            try await PlaceImageService.search(for: place, region: context.name, languageCode: context.preferredLanguageCode)
+        var request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = "Knedlín Prague"
+        request.region = MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: 50.0822, longitude: 14.4190),
+                                             span: MKCoordinateSpan(latitudeDelta: 0.08, longitudeDelta: 0.08))
+        let response = try await MKLocalSearch(request: request).start()
+        let item = try XCTUnwrap(response.mapItems.first { ($0.name ?? "").localizedCaseInsensitiveContains("Knedl") })
+        let coordinate = item.placemark.coordinate
+        store.data.trip.destination = "Prag"
+        store.placeImageSearchResolver = { _, _ in
+            PlaceImageSearchResult(image: nil, candidates: [], selectionVersion: PlaceImageService.ranking)
         }
-        let place = Place(id: "live-knedlin", title: "Knedlín", sourceURL: "https://knedlin.cz/", category: "Essen & Trinken", lat: 50.0872, lng: 14.4237)
+        store.placeSourcePreviewResolver = { place, _ in
+            await PlaceImageService.sourcePreview(for: place, allowNetworkFallback: true)
+        }
+        let place = Place(id: "live-knedlin", title: item.name ?? "Knedlín", sourceURL: "https://knedlin.cz/", category: "Essen & Trinken", lat: coordinate.latitude, lng: coordinate.longitude)
         XCTAssertTrue(store.upsert(place))
         await store.drainAutomaticPhotoResolutionForTesting()
         let saved = try XCTUnwrap(store.places.first { $0.id == place.id })
         guard case .external(let image) = saved.image else { return XCTFail("No live automatic image result") }
+        XCTAssertEqual(image.provider, .sourcePreview)
         XCTAssertFalse(image.sourceURL.isEmpty)
         let request = URLRequest(url: try XCTUnwrap(URL(string: image.imageURL)))
         let (bytes, _) = try await URLSession.shared.data(for: request)
         XCTAssertNotNil(UIImage(data: bytes))
         print("AUTO_PHOTO_LIVE name=\(saved.title) source=\(image.sourceURL) image=\(image.imageURL)")
+    }
+
+    func testAutomaticRequestCarriesLeaseAndRevisionContext() throws {
+        let place = Place(id: "request-place", title: "Knedlín", category: "Essen & Trinken", lat: 50.0822, lng: 14.4190)
+        let payload = try PlaceImageService.requestPayload(for: place, mode: .automatic,
+                                                            tripID: "trip-123", placeID: place.id,
+                                                            revision: "sha256-revision", region: "Prag",
+                                                            languageCode: "de")
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: payload) as? [String: Any])
+        XCTAssertEqual(object["mode"] as? String, "automatic_photo_v1")
+        XCTAssertEqual(object["manual"] as? Bool, false)
+        XCTAssertEqual(object["trip_id"] as? String, "trip-123")
+        XCTAssertEqual(object["place_id"] as? String, place.id)
+        XCTAssertEqual(object["revision"] as? String, "sha256-revision")
+        let manualPayload = try PlaceImageService.requestPayload(for: place)
+        let manual = try XCTUnwrap(JSONSerialization.jsonObject(with: manualPayload) as? [String: Any])
+        XCTAssertEqual(manual["mode"] as? String, "manual")
+        XCTAssertEqual(manual["manual"] as? Bool, true)
+    }
+
+    func testDeferredResponsePreservesServerRetryAfter() throws {
+        let data = #"{"status":"deferred","retry_after_seconds":173,"selection_version":4}"#.data(using: .utf8)!
+        let response = try JSONDecoder().decode(PlaceImageSearchResult.self, from: data)
+        XCTAssertEqual(response.deferredRetryAfter, 173)
+        XCTAssertTrue(response.automaticImages.isEmpty)
+    }
+
+    func testDeferredPhotoResponseDoesNotBecomeNoMatch() async throws {
+        let store = makeStore()
+        store.placeImageSearchResolver = { _, _ in
+            PlaceImageSearchResult(image: nil, candidates: [], selectionVersion: PlaceImageService.ranking,
+                                   status: "deferred", retryAfterSeconds: 42)
+        }
+        let place = Place(id: "deferred-place", title: "Café", category: "Essen & Trinken", lat: 35.7, lng: 139.7)
+        XCTAssertTrue(store.upsert(place))
+        await store.drainAutomaticPhotoResolutionForTesting()
+        let job = try XCTUnwrap(store.automaticPhotoJob(for: place.id))
+        XCTAssertEqual(job.state, .retryAt)
+        XCTAssertEqual(job.lastErrorCode, "deferred")
+        XCTAssertGreaterThanOrEqual(job.nextAttemptAt ?? .distantPast, Date().addingTimeInterval(35))
     }
 }

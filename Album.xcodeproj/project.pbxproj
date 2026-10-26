@@ -76,6 +76,8 @@
 		AC6404650055536371E3B44A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 698FD5EFCD8113A93B0565ED /* Assets.xcassets */; };
 		AED1D6ADEDB8D1D54D2E8B82 /* ReiseExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77AD0E6783FBAB9D06D1ED1F /* ReiseExtras.swift */; };
 		B345DBC55D76FE4E1524ECBC /* TravelExpense.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6432A860A31F49D39112CBF /* TravelExpense.swift */; };
+		B6A100000000000000000001 /* PhotoResolutionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6A100000000000000000002 /* PhotoResolutionCoordinator.swift */; };
+		B6A100000000000000000003 /* PhotoResolutionCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6A100000000000000000004 /* PhotoResolutionCoordinatorTests.swift */; };
 		B5D6FBE21EDFAA41B793135D /* SyncRegressionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18B48EB7B1E493C6787D0A3E /* SyncRegressionTests.swift */; };
 		BDD051A80BEB9B918BDF27E7 /* DayPlanGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEF3D84A242FCDE6BDFF7FD9 /* DayPlanGenerator.swift */; };
 		BE775928E9BAB7CC06D6E7EA /* ShareInbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EB90CB6210D527945129D1D /* ShareInbox.swift */; };
@@ -212,6 +214,8 @@
 		B1FCE1CF99BCC1C1B3B75511 /* DownloadRegressionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadRegressionTests.swift; sourceTree = "<group>"; };
 		B5087B9A07A8429684CC0D9C /* IBMPlexSans-OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "IBMPlexSans-OFL.txt"; sourceTree = "<group>"; };
 		B94DDFBE5E857BDD53D02A27 /* IBMPlexMono-OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "IBMPlexMono-OFL.txt"; sourceTree = "<group>"; };
+		B6A100000000000000000002 /* PhotoResolutionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoResolutionCoordinator.swift; sourceTree = "<group>"; };
+		B6A100000000000000000004 /* PhotoResolutionCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoResolutionCoordinatorTests.swift; sourceTree = "<group>"; };
 		BCE836BE61A8D249C17073DC /* TripCalendar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripCalendar.swift; sourceTree = "<group>"; };
 		BD151282F78468CBAA24448C /* Album.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Album.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BEF3D84A242FCDE6BDFF7FD9 /* DayPlanGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayPlanGenerator.swift; sourceTree = "<group>"; };
@@ -334,6 +338,7 @@
 				D7B31B8F1432C7E322ABAC8E /* TripCalendarTests.swift */,
 				0E9100E4BE1E772D69FD21C1 /* PlaceImageServiceRegionTests.swift */,
 				F3F3115183A4AEA3AA2249C2 /* PlaceResolutionTests.swift */,
+				B6A100000000000000000004 /* PhotoResolutionCoordinatorTests.swift */,
 				59B8A29D9DFA3799069A7E19 /* TripMigrationTests.swift */,
 			);
 			path = AlbumTests;
@@ -376,6 +381,7 @@
 				328C91DA0E5D75DF6C20603C /* AlbumRoot.swift */,
 				F288A095809BE84F03E8D0A2 /* AlbumSettings.swift */,
 				5AEC4D2DA5E025826995EB60 /* AlbumStore.swift */,
+				B6A100000000000000000002 /* PhotoResolutionCoordinator.swift */,
 				698FD5EFCD8113A93B0565ED /* Assets.xcassets */,
 				763051C072C9657DC7CBE9F2 /* AssistantActions.swift */,
 				22872D356669187AA49A1124 /* AssistantModels.swift */,
@@ -652,6 +658,7 @@
 				2D6DB86157ACB391484154E7 /* AlbumRoot.swift in Sources */,
 				861C66CA273B9FCF131CC452 /* AlbumSettings.swift in Sources */,
 				D0C566058D79B60933A7D110 /* AlbumStore.swift in Sources */,
+				B6A100000000000000000001 /* PhotoResolutionCoordinator.swift in Sources */,
 				03E4CDC2074063B7BF311CCF /* AssistantActions.swift in Sources */,
 				04889952C8A1641F06247576 /* AssistantModels.swift in Sources */,
 				758EF5A135BFE61254A29749 /* AssistantService.swift in Sources */,
@@ -713,6 +720,7 @@
 				CEFF067573D0D3E3ED4AFBF8 /* TripCalendarTests.swift in Sources */,
 				6CF51F4C171C343B8E7E27B0 /* PlaceImageServiceRegionTests.swift in Sources */,
 				8EBD13C41C5363E3AE9C3753 /* PlaceResolutionTests.swift in Sources */,
+				B6A100000000000000000003 /* PhotoResolutionCoordinatorTests.swift in Sources */,
 				E5A3708C7A4698794D451138 /* DiscoveryTests.swift in Sources */,
 				09CB9B05BA79027EF71A640E /* TripMigrationTests.swift in Sources */,
 			);

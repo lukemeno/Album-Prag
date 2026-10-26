@@ -154,6 +154,8 @@ import UIKit
                         }
                         store.resumeAutomaticPhotoResolution()
                         if !isUnitTestHost && !isIsolatedStoreTest { Task { await store.sync(); await store.refreshPlaceImages() } }
+                    } else if phase == .inactive || phase == .background {
+                        store.pauseAutomaticPhotoResolution()
                     }
                 }
                 .onOpenURL { url in

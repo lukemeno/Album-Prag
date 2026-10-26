@@ -158,7 +158,8 @@ final class PhotoResolutionCoordinator {
 
         job.state = .running; job.leaseUntil = now().addingTimeInterval(leaseDuration); job.updatedAt = now()
         jobs[index] = job; save()
-        await store.refreshPlaceImage(id: place.id, automatic: true)
+        let retry = job.state == .retryAt || job.state == .noMatch || job.attempts > 0
+        await store.refreshPlaceImage(id: place.id, force: retry, automatic: true)
         guard jobs.indices.contains(index), let current = store.places.first(where: { $0.id == place.id }) else { return }
         job = jobs[index]
         job.leaseUntil = nil
@@ -179,6 +180,10 @@ final class PhotoResolutionCoordinator {
             job.state = .completed; job.nextAttemptAt = nil; job.lastErrorCode = nil
         case .notFound:
             job.state = .noMatch; job.nextAttemptAt = now().addingTimeInterval(7 * 86400); job.lastErrorCode = "no-match"
+        case .deferred(let retryAfter):
+            // A backend quota/lease response is not a no-match. Preserve its
+            // server-provided wake-up time and do not consume retry attempts.
+            job.state = .retryAt; job.nextAttemptAt = now().addingTimeInterval(max(retryAfter, 1)); job.lastErrorCode = "deferred"
         case .needsReview(_, let reason):
             job.state = .needsReview; job.nextAttemptAt = nil; job.lastErrorCode = String(describing: reason)
         case .failed(let retryable) where retryable && job.attempts < retryDelays.count:

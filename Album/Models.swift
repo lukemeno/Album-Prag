@@ -59,6 +59,7 @@ enum PlaceImageStatus: Equatable {
     case idle
     case resolvingPlace
     case loadingPhoto
+    case deferred(retryAfter: TimeInterval)
     case ready
     case notFound
     case needsReview([PlaceResolutionCandidate], PlaceResolutionReviewReason)
