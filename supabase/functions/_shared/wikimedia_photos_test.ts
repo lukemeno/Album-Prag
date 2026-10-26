@@ -254,6 +254,21 @@ async function automaticRejectFixture(fileTitle: string, category: string) {
 Deno.test("automatic mode rejects an SVG P18 without gallery fallback", () => automaticRejectFixture("Museum.svg", "Sehenswert"));
 Deno.test("automatic mode rejects a logo P18 without gallery fallback", () => automaticRejectFixture("Museum logo.jpg", "Sehenswert"));
 Deno.test("automatic mode rejects an unqualified Aussicht P18 without gallery fallback", () => automaticRejectFixture("Building facade.jpg", "Aussicht"));
+Deno.test("automatic mode does not negative-cache a failed P18 lookup", async () => {
+  const original = globalThis.fetch;
+  let stores = 0;
+  globalThis.fetch = async input => {
+    const url = new URL(String(input));
+    const action = url.searchParams.get("action");
+    if (url.hostname === "www.wikidata.org" && action === "wbsearchentities") return Response.json({ search: [{ id: "Q123" }] });
+    if (url.hostname === "www.wikidata.org" && action === "wbgetentities") return Response.json({ entities: { Q123: { labels: { en: { value: "Museum" } }, claims: { P625: [{ mainsnak: { datavalue: { value: { latitude: 50, longitude: 14 } } } }], P18: [{ mainsnak: { datavalue: { value: "Museum facade.jpg" } } }] } } } });
+    return Response.json({ error: { code: "maxlag" } });
+  };
+  try {
+    await assertRejects(() => resolveWikimedia("Museum", "Sehenswert", 50, 14, "", "", undefined, undefined, { load: async () => null, store: async () => { stores++; } }, true), Error, "maxlag");
+    assertEquals(stores, 0);
+  } finally { globalThis.fetch = original; }
+});
 
 Deno.test("verified QID cache skips the second Commons/media sequence", async () => {
   const original = globalThis.fetch;

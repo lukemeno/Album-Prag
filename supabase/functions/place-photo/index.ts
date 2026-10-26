@@ -64,7 +64,7 @@ export function createPlacePhotoHandler(clientFactory: typeof clients = clients)
         const claim = await admin.rpc("place_photo_cache_claim", { p_cache_key: key, p_identity_protocol: identity.protocol, p_pipeline_version: 1, p_lease_token: token });
         if (claim.error) throw claim.error;
         if (claim.data?.state === "busy") throw new WikimediaUnavailable("place-photo", "cache", "busy", Number(claim.data.retry_after_seconds) || 10);
-        if (claim.data?.state === "fresh") return (claim.data.payload ?? []).filter((photo: any) => photo?.provider === "wikimedia" && photo?.provider_place_id === identity.id && photo?.confidence === "verified" && typeof photo?.license_name === "string" && typeof photo?.license_url === "string");
+        if (claim.data?.state === "fresh") return (claim.data.payload ?? []).filter((photo: any) => photo?.provider === "wikimedia" && photo?.provider_place_id === identity.id && photo?.confidence === "verified" && typeof photo?.license_name === "string" && (typeof photo?.license_url === "string" || /public\s+domain/i.test(photo.license_name)));
         publicLease = { key, token, id: identity.id };
         return null;
       },
