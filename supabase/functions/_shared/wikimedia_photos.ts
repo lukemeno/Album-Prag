@@ -105,7 +105,8 @@ export async function resolveWikimedia(title: string, category: string, latitude
   }
   if (automaticMainOnly && identity && infos.length) {
     const info = infos[0];
-    if (info.imageURL && info.sourceURL && info.credit && info.licenseName && info.licenseURL) {
+    const checked = rankPhotos([{ ...info.candidate, source: "main" }], [...new Set(names)], category, 1)[0];
+    if (checked?.confidence === "verified" && info.imageURL && info.sourceURL && info.credit && info.licenseName && info.licenseURL) {
       const main: WikimediaPhoto[] = [{ image_url: info.imageURL, source_url: info.sourceURL, credit: info.credit, provider: "wikimedia", provider_place_id: identity.id, license_name: info.licenseName, license_url: info.licenseURL, confidence: "verified", caption: info.candidate.title.replace(/^File:/, "").replace(/\.[a-z]+$/i, "") }];
       if (identityCache) await identityCache.store(identity, main);
       return main;

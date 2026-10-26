@@ -85,7 +85,7 @@ Deno.test("exact P18 discovery lookup keeps case-distinct Commons files bound to
   }
 });
 
-async function aliasFixture(optionalFailure: string | null = null, query = "Café Louvre") {
+async function aliasFixture(optionalFailure: string | null = null, query = "Café Louvre", automaticMainOnly = false) {
   const original = globalThis.fetch;
   const calls: URL[] = [];
   globalThis.fetch = async (input) => {
@@ -190,11 +190,19 @@ async function aliasFixture(optionalFailure: string | null = null, query = "Caf�
       "Essen & Trinken",
       50.0819,
       14.4185,
+      "",
+      "",
+      undefined,
+      undefined,
+      undefined,
+      automaticMainOnly,
     );
-    assertEquals(images.length, optionalFailure === "category" ? 1 : 2);
+    assertEquals(images.length, automaticMainOnly ? 1 : optionalFailure === "category" ? 1 : 2);
     assertEquals(
       images[0].caption,
-      optionalFailure === "category"
+      automaticMainOnly
+        ? "Café Louvre exterior"
+        : optionalFailure === "category"
         ? "Café Louvre exterior"
         : "Kavárna Louvre interior",
     );
@@ -206,6 +214,10 @@ async function aliasFixture(optionalFailure: string | null = null, query = "Caf�
         url.searchParams.get("action") === "wbsearchentities"
       ).length === 1,
     );
+    if (automaticMainOnly) {
+      assertEquals(images.length, 1);
+      assertEquals(calls.some(url => url.searchParams.get("list") === "categorymembers" || url.searchParams.get("list") === "geosearch"), false);
+    }
   } finally {
     globalThis.fetch = original;
   }
@@ -220,6 +232,8 @@ Deno.test("optional category failure preserves the verified main image", () =>
   aliasFixture("category"));
 Deno.test("verified source-bound photos need no optional depicts lookup", () =>
   aliasFixture("depicts"));
+Deno.test("automatic main-image mode keeps the verified P18 and avoids gallery calls", () =>
+  aliasFixture(null, "Café Louvre", true));
 
 Deno.test("verified QID cache skips the second Commons/media sequence", async () => {
   const original = globalThis.fetch;

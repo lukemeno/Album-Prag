@@ -387,7 +387,7 @@ export function createPlaceEnrichmentWorker(deps: WorkerDependencies) {
         const photos = await (deps.cacheWikimedia ? deps.cacheWikimedia(job, input, publicIdentity, loadWikimedia) : loadWikimedia());
         const safePhotos: PlaceImage[] = photos.filter(photo => photo.confidence === "verified" || photo.confidence === "suggested").map(photo => ({ ...photo, provider: "wikimedia" as const }));
         const verified = safePhotos.find(photo => photo.confidence === "verified") ?? null;
-        if (!verified && input.place.source_url) {
+        if (!verified && input.mode !== "automatic_photo_v1" && input.place.source_url) {
           const preview = await (deps.fetchPreview ?? fetchPreviewImage)(input.place.source_url);
           if (preview) safePhotos.push(preview);
         }

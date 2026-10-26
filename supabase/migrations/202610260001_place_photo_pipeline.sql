@@ -243,7 +243,7 @@ grant execute on function public.place_photo_private_cache_release(uuid,uuid,tex
 do $$
 begin
   if exists (select 1 from pg_extension where extname = 'pg_cron') then
-    perform cron.schedule('place-photo-prune', '17 3 * * *', 'select public.place_photo_prune()');
+    perform cron.schedule('place-photo-prune', '17 3 * * *', $cron$select set_config('request.jwt.claim.role','service_role',true); select public.place_photo_prune();$cron$);
   end if;
 exception when unique_violation then null;
 end $$;
