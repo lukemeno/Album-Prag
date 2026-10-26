@@ -97,6 +97,46 @@ final class TripLibraryTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: libraryRoot.appendingPathComponent("Trips", isDirectory: true).appendingPathComponent(entry.id.uuidString).appendingPathComponent("images/original.jpg").path))
     }
 
+    func testLegacyCleanupRemovesOnlyExactUntouchedTemplates() throws {
+        let root = try temporaryRoot()
+        let libraryRoot = root.appendingPathComponent("AlbumLibrary")
+        let legacy = root.appendingPathComponent("Album")
+        let pristine = try XCTUnwrap(Place.examples.first)
+        var edited = pristine; edited.note = "Meine Notiz"
+        var ownPhoto = pristine; ownPhoto.image = .bundled(name: "my-photo")
+        var voted = pristine; voted.approvals = ["Luke"]
+        var data = AlbumData(); data.places = [pristine, edited, ownPhoto, voted]
+        try write(data, to: legacy)
+        let library = TripLibrary(root: libraryRoot, legacyRoot: legacy,
+                                  shareInbox: ShareInbox(root: root.appendingPathComponent("share")))
+        let entry = try XCTUnwrap(library.entries.first)
+        XCTAssertTrue(library.open(entry.id))
+        let places = library.activeStore?.data.places ?? []
+        XCTAssertFalse(places.contains(where: { $0 == pristine }))
+        XCTAssertTrue(places.contains(where: { $0.note == "Meine Notiz" }))
+        XCTAssertTrue(places.contains(where: { $0.image == .bundled(name: "my-photo") }))
+        XCTAssertTrue(places.contains(where: { $0.approvals == ["Luke"] }))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: libraryRoot.appendingPathComponent("Trips", isDirectory: true)
+            .appendingPathComponent(entry.id.uuidString).appendingPathComponent("legacy-pristine-cleanup-v1").path))
+    }
+
+    func testSharedLegacyCleanupUsesPlaceTombstones() throws {
+        let root = try temporaryRoot()
+        let libraryRoot = root.appendingPathComponent("AlbumLibrary")
+        let legacy = root.appendingPathComponent("Album")
+        let pristine = try XCTUnwrap(Place.examples.first)
+        var data = AlbumData(); data.places = [pristine]
+        data.collaboration = CollaborationState(tripID: UUID(), inviteToken: nil)
+        try write(data, to: legacy)
+        let library = TripLibrary(root: libraryRoot, legacyRoot: legacy,
+                                  shareInbox: ShareInbox(root: root.appendingPathComponent("share")))
+        let entry = try XCTUnwrap(library.entries.first)
+        XCTAssertTrue(library.open(entry.id))
+        let tombstone = try XCTUnwrap(library.activeStore?.data.places.first)
+        XCTAssertTrue(tombstone.deleted)
+        XCTAssertTrue(library.activeStore?.data.dirty.contains(tombstone.id) == true)
+    }
+
     func testInterruptedCopyReusesReceiptIDOnRetry() throws {
         let root = try temporaryRoot()
         let libraryRoot = root.appendingPathComponent("AlbumLibrary")

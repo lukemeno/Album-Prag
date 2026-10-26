@@ -89,6 +89,7 @@ struct LegacyMigrationReceipt: Codable, Equatable {
     private var indexURL: URL { root.appendingPathComponent("library.json") }
     private var receiptURL: URL { root.appendingPathComponent("legacy-migration.json") }
     private var tripsURL: URL { root.appendingPathComponent("Trips", isDirectory: true) }
+    private static let pristineCleanupMarker = "legacy-pristine-cleanup-v1"
 
     init(root: URL? = nil, legacyRoot: URL? = nil, shareInbox: ShareInbox = ShareInbox(),
          fileManager: FileManager = .default, availableCapacity: @escaping () -> Int64? = {
@@ -232,7 +233,6 @@ struct LegacyMigrationReceipt: Codable, Equatable {
     /// Joins into a new folder first. A duplicate remote trip is discarded
     /// before it can replace the active trip or alter the index.
     func joinInvitation(_ url: URL) async throws -> UUID {
-        let previousEntries = entries
         let previousLastOpenedID = indexLastOpenedID
         let id = UUID()
         let staging = root.appendingPathComponent(".staging-\(id.uuidString)", isDirectory: true)
@@ -261,8 +261,8 @@ struct LegacyMigrationReceipt: Codable, Equatable {
             await stagedStore.shutdown()
             try? fileManager.removeItem(at: staging)
             if let destination { try? fileManager.removeItem(at: destination) }
-            entries = previousEntries
-            indexLastOpenedID = previousLastOpenedID
+            entries.removeAll { $0.id == id }
+            if indexLastOpenedID == id { indexLastOpenedID = previousLastOpenedID }
             throw error
         }
     }
@@ -354,6 +354,25 @@ struct LegacyMigrationReceipt: Codable, Equatable {
             _ = writeReceipt(committed)
             return
         }
+        // Cleanup itself writes a marker after the verified copy. If the app
+        // crashed before the index commit, that marker proves this is our
+        // transformed orphan rather than an unrelated folder; keep its edits.
+        if previous?.state == .copying,
+           !entries.contains(where: { $0.id == id }),
+           fileManager.fileExists(atPath: target.appendingPathComponent(Self.pristineCleanupMarker).path),
+           let targetData = loadAlbum(at: target), targetData.albumID == previous?.albumID {
+            ensureEntry(id: id, origin: .migrated, data: targetData)
+            guard persistIndex() else { return }
+            let committed = LegacyMigrationReceipt(id: id, state: .committed,
+                                                   sourceFiles: previous?.sourceFiles ?? treeFiles(legacyRoot),
+                                                   sourceBytes: previous?.sourceBytes ?? treeBytes(legacyRoot),
+                                                   places: targetData.places.count,
+                                                   documents: targetData.documents.count,
+                                                   memories: targetData.tripMemories.count,
+                                                   albumID: targetData.albumID, committedAt: Date())
+            _ = writeReceipt(committed)
+            return
+        }
         let sourceSize = treeBytes(legacyRoot)
         if let capacity = availableCapacity(), capacity < Int64(Double(max(sourceSize, 0)) * 1.2) + 50_000_000 {
             error = "Nicht genügend Speicherplatz für die Reisekopie. Sie wird beim nächsten Start erneut versucht."
@@ -383,7 +402,7 @@ struct LegacyMigrationReceipt: Codable, Equatable {
                 }
                 try fileManager.moveItem(at: staging, to: target)
             }
-            let copied = loadAlbum(at: target) ?? sourceData
+            let copied = try cleanupPristineTemplates(in: target)
             ensureEntry(id: id, origin: .migrated, data: copied)
             guard persistIndex() else { throw CocoaError(.fileWriteUnknown) }
             let committed = LegacyMigrationReceipt(id: id, state: .committed, sourceFiles: receipt.sourceFiles,
@@ -446,6 +465,31 @@ struct LegacyMigrationReceipt: Codable, Equatable {
         data.trip.startDate = startDate
         data.trip.endDate = endDate
         try JSONEncoder().encode(data).write(to: folder.appendingPathComponent("album.json"), options: .atomic)
+    }
+
+    /// Removes only exact untouched built-in templates from the migrated copy.
+    /// The old folder is never changed. Shared trips retain a tombstone so
+    /// other members receive the cleanup through normal place sync.
+    private func cleanupPristineTemplates(in folder: URL) throws -> AlbumData {
+        let marker = folder.appendingPathComponent(Self.pristineCleanupMarker)
+        if fileManager.fileExists(atPath: marker.path) {
+            guard let data = loadAlbum(at: folder) else { throw CocoaError(.fileReadCorruptFile) }
+            return data
+        }
+        guard var data = loadAlbum(at: folder) else { throw CocoaError(.fileReadCorruptFile) }
+        let templates = Place.examples
+        if data.collaboration != nil {
+            for index in data.places.indices where templates.contains(data.places[index]) {
+                data.places[index].deleted = true
+                data.places[index].updatedAt = Date()
+                data.dirty.insert(data.places[index].id)
+            }
+        } else {
+            data.places.removeAll { templates.contains($0) }
+        }
+        try JSONEncoder().encode(data).write(to: folder.appendingPathComponent("album.json"), options: .atomic)
+        try Data(Self.pristineCleanupMarker.utf8).write(to: marker, options: .atomic)
+        return data
     }
 
     private func makeEntry(id: UUID, origin: TripLibraryOrigin, data: AlbumData) -> TripLibraryEntry {
