@@ -123,12 +123,20 @@ import UIKit
     private static func makeLibrary() -> TripLibrary {
         #if DEBUG
         let environment = ProcessInfo.processInfo.environment
+        let nativeShare = environment["ALBUM_QA_NATIVE_SHARE"] == "1"
         if environment["XCTestConfigurationFilePath"] != nil,
            environment["ALBUM_TEST_STORE"] == nil {
             let sandbox = FileManager.default.temporaryDirectory
                 .appendingPathComponent("AlbumUnitLibrary-\(UUID().uuidString)", isDirectory: true)
             let legacy = sandbox.appendingPathComponent("Legacy", isDirectory: true)
-            return TripLibrary(root: sandbox.appendingPathComponent("Library", isDirectory: true), legacyRoot: legacy)
+            return TripLibrary(root: sandbox.appendingPathComponent("Library", isDirectory: true), legacyRoot: legacy,
+                               shareInbox: ShareInbox(root: sandbox.appendingPathComponent("Share", isDirectory: true)))
+        }
+        if let slot = environment["ALBUM_TEST_STORE"], !nativeShare {
+            let safeSlot = String(slot.filter { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" })
+            let shareRoot = FileManager.default.temporaryDirectory
+                .appendingPathComponent("AlbumUITestShare-\(safeSlot)", isDirectory: true)
+            return TripLibrary(shareInbox: ShareInbox(root: shareRoot))
         }
         #endif
         return TripLibrary()
