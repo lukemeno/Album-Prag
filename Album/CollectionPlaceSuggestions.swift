@@ -261,6 +261,9 @@ enum PlaceResolver {
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
             .joined(separator: ", ")
+        // A named venue must resolve to a POI. Without this filter MapKit can
+        // return the city itself for queries such as “Knedlín, Prag”.
+        request.resultTypes = .pointOfInterest
         if let region = context.region { request.region = region }
         do {
             let response = try await MKLocalSearch(request: request).start()

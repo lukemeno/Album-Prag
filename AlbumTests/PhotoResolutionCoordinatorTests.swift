@@ -147,6 +147,25 @@ final class PhotoResolutionCoordinatorTests: XCTestCase {
         print("AUTO_PHOTO_LIVE name=\(saved.title) source=\(image.sourceURL) image=\(image.imageURL)")
     }
 
+    func testLiveNamedVenueResolverDoesNotAcceptTheCityResult() async throws {
+        guard ProcessInfo.processInfo.environment["ALBUM_LIVE_AUTO_PHOTO_QA"] == "1" else {
+            throw XCTSkip("Set ALBUM_LIVE_AUTO_PHOTO_QA=1 for the real venue resolver proof")
+        }
+        let place = Place(id: "live-resolver-knedlin", title: "Knedlín", category: "Essen & Trinken")
+        let context = TripRegionContext(name: "Prag", region: MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: 50.0822, longitude: 14.4190), span: MKCoordinateSpan(latitudeDelta: 0.08, longitudeDelta: 0.08)), preferredLanguageCode: "de", source: .destinationOnly)
+        let outcome = await PlaceResolver.resolve(place: place, context: context)
+        switch outcome {
+        case .resolved(let candidate):
+            XCTAssertTrue(candidate.title.localizedCaseInsensitiveContains("knedl"), "Unexpected venue result: \(candidate.title)")
+        case .needsReview(let candidates, _):
+            XCTAssertFalse(candidates.contains { $0.title.localizedCaseInsensitiveContains("prag") && !$0.title.localizedCaseInsensitiveContains("knedl") })
+        case .notFound:
+            throw XCTSkip("MapKit returned no named Knedlín candidate in this environment")
+        case .failed(let retryable):
+            throw XCTSkip("MapKit resolver unavailable (retryable=\(retryable))")
+        }
+    }
+
     func testAutomaticRequestCarriesLeaseAndRevisionContext() throws {
         let place = Place(id: "request-place", title: "Knedlín", category: "Essen & Trinken", lat: 50.0822, lng: 14.4190)
         let payload = try PlaceImageService.requestPayload(for: place, mode: .automatic,
