@@ -186,6 +186,7 @@ struct LegacyMigrationReceipt: Codable, Equatable {
     func showLibrary() -> Bool {
         refreshActiveEntry()
         if let store = activeStore { store.stopOwnedCallbacks(); Task { await store.shutdown() } }
+        try? shareInbox.clearContext()
         activeStore = nil; activeID = nil
         return persistIndex()
     }

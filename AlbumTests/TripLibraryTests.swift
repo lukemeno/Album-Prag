@@ -262,6 +262,28 @@ final class TripLibraryTests: XCTestCase {
         XCTAssertEqual(inbox.items().first?.state, .pending)
     }
 
+    func testLibraryOverviewClearsContextButRetainsTripQueue() throws {
+        let root = try temporaryRoot()
+        let inbox = ShareInbox(root: root.appendingPathComponent("share"))
+        let library = TripLibrary(root: root.appendingPathComponent("library"),
+                                  legacyRoot: root.appendingPathComponent("legacy"),
+                                  shareInbox: inbox)
+        let tripA = try XCTUnwrap(library.createBlankTrip(title: "A"))
+        let tripB = try XCTUnwrap(library.createBlankTrip(title: "B"))
+        XCTAssertTrue(library.open(tripA))
+        let contextA = try XCTUnwrap(inbox.loadContext())
+        try inbox.save(ShareQueueItem(payload: "A queue item", url: nil, tripKey: contextA.tripKey))
+        XCTAssertTrue(library.showLibrary())
+        XCTAssertNil(inbox.loadContext())
+        XCTAssertEqual(inbox.items().count, 1)
+        XCTAssertTrue(library.open(tripB))
+        XCTAssertNotEqual(inbox.loadContext()?.tripKey, contextA.tripKey)
+        XCTAssertEqual(inbox.items().count, 1)
+        XCTAssertTrue(library.open(tripA))
+        XCTAssertEqual(inbox.loadContext()?.tripKey, contextA.tripKey)
+        XCTAssertTrue(inbox.items().isEmpty)
+    }
+
     func testShutdownStopsRealtimeAndLocalCallbacks() async throws {
         let root = try temporaryRoot()
         let store = AlbumStore(root: root.appendingPathComponent("trip"),

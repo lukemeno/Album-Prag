@@ -56,6 +56,14 @@ public struct ShareInbox {
         return try? JSONDecoder().decode(ShareContext.self, from: bytes)
     }
 
+    /// Clears only the active routing context. Queue files for other trips are
+    /// intentionally retained until that trip is opened again.
+    public func clearContext() throws {
+        let url = try contextURL()
+        guard fileManager.fileExists(atPath: url.path) else { return }
+        try fileManager.removeItem(at: url)
+    }
+
     public func save(_ item: ShareQueueItem) throws { try atomicWrite(JSONEncoder().encode(item), to: try queueURL(item.id)) }
 
     public func items() -> [ShareQueueItem] {
