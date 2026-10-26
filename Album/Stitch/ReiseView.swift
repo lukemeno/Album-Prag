@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Startseite der Reise: Prag, die sechs Tage als Streifen, der Plan des gewählten Tages und die Tickets.
+/// Startseite der Reise: Ziel, Tagesstreifen, Plan und Tickets.
 /// Vor der Reise steht der erste Tag offen, unterwegs „heute“ und danach der Erinnerungs-Einstieg.
 struct ReiseView: View {
     @Environment(AlbumStore.self) private var store
@@ -70,7 +70,7 @@ struct ReiseView: View {
     private var header: some View {
         HStack(alignment: .top, spacing: Stitch.Space.s) {
             VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
-                Text("Prag").font(Stitch.Face.display(48, relativeTo: .largeTitle)).foregroundStyle(Stitch.ink)
+                Text(store.tripName).font(Stitch.Face.display(48, relativeTo: .largeTitle)).foregroundStyle(Stitch.ink)
                     .accessibilityAddTraits(.isHeader)
                 Text(subtitle)
                     .font(.subheadline)
@@ -101,7 +101,7 @@ struct ReiseView: View {
         case .during:
             if let today, let index = tripDays.firstIndex(of: today) { parts.append("Tag \(index + 1) von \(tripDays.count)") }
         case .after:
-            parts.append(tripDays.count == 1 ? "1 Tag in Prag" : "\(tripDays.count) Tage in Prag")
+            parts.append(tripDays.count == 1 ? "1 Tag in \(store.tripName)" : "\(tripDays.count) Tage in \(store.tripName)")
         case nil:
             break
         }

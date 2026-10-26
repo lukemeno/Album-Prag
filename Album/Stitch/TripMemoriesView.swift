@@ -78,7 +78,7 @@ struct TripMemoriesView: View {
 
     private var introduction: some View {
         VStack(alignment: .leading, spacing: Stitch.Space.xs) {
-            Text("Prag, wie es war")
+            Text("\(store.tripName), wie es war")
                 .font(Stitch.Face.display(36, relativeTo: .largeTitle)).foregroundStyle(Stitch.ink)
                 .accessibilityAddTraits(.isHeader)
             Text(summary)

@@ -29,7 +29,7 @@ struct AlbumSettings: View {
 
                     VStack(alignment: .leading, spacing: Stitch.Space.s) {
                         if let inviteURL = store.inviteURL {
-                            ShareLink(item: inviteURL, subject: Text("Prag 2026"), message: Text("Komm in unser Prag-Album")) {
+                            ShareLink(item: inviteURL, subject: Text(store.tripName), message: Text("Komm in unser \(store.tripName)-Album")) {
                                 Label("Einladung senden", systemImage: "paperplane")
                             }
                             .buttonStyle(StitchButton(primary: true))

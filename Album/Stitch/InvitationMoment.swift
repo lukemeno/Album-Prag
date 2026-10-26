@@ -55,7 +55,7 @@ struct InvitationMoment: View {
     }
 
     private var ticketLabel: String {
-        ["Einladung nach Prag, 4. bis 9. Oktober", request.sender.map { "von \($0)" }].compactMap { $0 }.joined(separator: ", ")
+        ["Einladung für eure Reise", request.sender.map { "von \($0)" }].compactMap { $0 }.joined(separator: ", ")
     }
 
     /// „13 Orte · 5 Tage“ aus den geladenen Daten; Tage nur, wenn schon welche geplant sind.
@@ -81,17 +81,17 @@ struct InvitationMoment: View {
     }
 }
 
-/// Die Fahrkarte als Briefmarke: „Prag“ in Fraunces, Reisedaten, Perforation, Poststempel.
+/// Die Fahrkarte als Briefmarke mit Reisedaten, Perforation und Poststempel.
 struct InvitationTicket: View {
     var sender: String?
     var body: some View {
         StampFrame(mat: Stitch.Mat.sky, inset: 9, matWidth: 5, elevation: .floating) {
             VStack(alignment: .leading, spacing: Stitch.Space.s) {
                 Image(systemName: "airplane").font(.body.weight(.semibold)).foregroundStyle(Stitch.red)
-                Text("Prag").font(Stitch.Face.display(52, relativeTo: .largeTitle)).foregroundStyle(Stitch.ink)
+                Text("Eure Reise").font(Stitch.Face.display(44, relativeTo: .largeTitle)).foregroundStyle(Stitch.ink)
                 PerforationLine()
                 VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
-                    Text("4.–9. Oktober").font(Stitch.Face.place(22, relativeTo: .headline)).foregroundStyle(Stitch.ink)
+                    Text("Zeitraum offen").font(Stitch.Face.place(22, relativeTo: .headline)).foregroundStyle(Stitch.ink)
                     Text(sender.map { "Einladung von \($0)" } ?? "Einladung").font(.footnote).foregroundStyle(Stitch.inkSoft)
                 }
             }
