@@ -32,13 +32,14 @@ Deno.serve(async request => {
     const automaticMode = body.mode === "automatic_photo_v1";
     const manualMode = body.mode === "manual" || body.manual === true;
     const revision = body.revision == null ? "1" : typeof body.revision === "string" ? body.revision.trim() : "invalid";
+    const cacheRevision = `${revision}:${automaticMode ? "auto-main-v1" : "manual-gallery-v1"}`;
     const latitude = typeof body.latitude === "number" ? body.latitude : NaN;
     const longitude = typeof body.longitude === "number" ? body.longitude : NaN;
     if (!title || title.length > 200 || address.length > 500 || category.length > 64 || !validCoordinate(latitude, longitude) || (tripID !== null && !isUuid(tripID)) || (placeID === "invalid" || placeID && (placeID.length < 1 || placeID.length > 128)) || revision === "invalid" || revision.length > 64 || typeof body.manual !== "undefined" && typeof body.manual !== "boolean" || (body.mode !== undefined && !automaticMode && !manualMode) || (automaticMode && (!placeID || typeof body.revision !== "string" || !revision || !validCoordinate(latitude, longitude)))) return json({ error: "Ungültige Ortsdaten" }, 400);
 
     const resolutionID = crypto.randomUUID();
     const manualQuotaKey = manualMode && placeID ? await publicPhotoCacheKey({ protocol: "private-manual", id: [tripID ? `trip:${tripID}` : `user:${user.id}`, placeID].join(":" ) }) : null;
-    const ramKey = photoCacheKey({ title, category, latitude, longitude, address, region, languageCode });
+    const ramKey = `${photoCacheKey({ title, category, latitude, longitude, address, region, languageCode })}:${automaticMode ? "auto-main-v1" : "manual-gallery-v1"}`;
     let runReserved = false;
     const reserveRun = async () => {
       if (runReserved) return;
@@ -56,7 +57,7 @@ Deno.serve(async request => {
     let publicLease: { key: string; token: string; id: string } | null = null;
     const identityCache: WikimediaIdentityCache = {
       load: async identity => {
-        const key = await publicPhotoCacheKey(identity);
+        const key = await publicPhotoCacheKey(identity, automaticMode ? 2 : 1);
         const token = crypto.randomUUID();
         const claim = await admin.rpc("place_photo_cache_claim", { p_cache_key: key, p_identity_protocol: identity.protocol, p_pipeline_version: 1, p_lease_token: token });
         if (claim.error) throw claim.error;
@@ -66,7 +67,7 @@ Deno.serve(async request => {
         return null;
       },
       store: async (identity, photos) => {
-        const key = await publicPhotoCacheKey(identity);
+        const key = await publicPhotoCacheKey(identity, automaticMode ? 2 : 1);
         const lease = publicLease;
         if (!lease || lease.key !== key || lease.id !== identity.id) return;
         const now = new Date();
@@ -92,7 +93,7 @@ Deno.serve(async request => {
     let photos: Awaited<ReturnType<typeof resolveWikimedia>> = [];
     if (placeID) {
       const token = crypto.randomUUID();
-      const claim = await admin.rpc("place_photo_private_cache_claim", { p_user_id: user.id, p_trip_id: tripID, p_place_id: placeID, p_revision: revision, p_lease_token: token });
+      const claim = await admin.rpc("place_photo_private_cache_claim", { p_user_id: user.id, p_trip_id: tripID, p_place_id: placeID, p_revision: cacheRevision, p_lease_token: token });
       if (claim.error) throw claim.error;
       if (claim.data?.state === "forbidden") return json({ error: "Reisezugriff erforderlich" }, 403);
       if (claim.data?.state === "fresh") photos = (claim.data.payload ?? []) as Awaited<ReturnType<typeof resolveWikimedia>>;
@@ -101,10 +102,10 @@ Deno.serve(async request => {
         try {
           photos = await loadPhotos();
           const now = new Date();
-          const completed = await admin.rpc("place_photo_private_cache_complete", { p_user_id: user.id, p_trip_id: tripID, p_place_id: placeID, p_revision: revision, p_lease_token: token, p_payload: photos, p_expires_at: new Date(now.getTime() + (photos.length ? 30 : 7) * 86400000).toISOString() });
+          const completed = await admin.rpc("place_photo_private_cache_complete", { p_user_id: user.id, p_trip_id: tripID, p_place_id: placeID, p_revision: cacheRevision, p_lease_token: token, p_payload: photos, p_expires_at: new Date(now.getTime() + (photos.length ? 30 : 7) * 86400000).toISOString() });
           if (completed.error || completed.data !== true) throw new WikimediaUnavailable("place-photo", "cache", "lease_expired", 10);
         } catch (error) {
-          await admin.rpc("place_photo_private_cache_release", { p_user_id: user.id, p_trip_id: tripID, p_place_id: placeID, p_revision: revision, p_lease_token: token });
+          await admin.rpc("place_photo_private_cache_release", { p_user_id: user.id, p_trip_id: tripID, p_place_id: placeID, p_revision: cacheRevision, p_lease_token: token });
           throw error;
         }
       }

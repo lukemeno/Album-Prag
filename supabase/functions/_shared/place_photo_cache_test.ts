@@ -65,4 +65,5 @@ Deno.test("public cache key is deterministic and identity-scoped", async () => {
   assertEquals(a, await publicPhotoCacheKey({ id: "ChIJ1", protocol: "google" }));
   const b = await publicPhotoCacheKey({ id: "ChIJ2", protocol: "google" });
   assertEquals(a === b, false);
+  assertEquals(a === await publicPhotoCacheKey({ id: "ChIJ1", protocol: "google" }, 2), false);
 });
