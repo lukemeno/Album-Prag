@@ -67,15 +67,9 @@ struct TripLibraryView: View {
         }
         .sheet(isPresented: $showingCreate) {
             TripCreateView { title, destination, startDate, endDate in
-                guard let id = library.createBlankTrip(title: title, destination: destination), library.open(id), let store = library.activeStore else { return false }
-                if startDate != nil || endDate != nil {
-                    var trip = store.data.trip
-                    trip.startDate = startDate
-                    trip.endDate = endDate
-                    _ = store.updateTrip(trip)
-                    library.refreshActiveEntry()
-                }
-                return true
+                guard let id = library.createBlankTrip(title: title, destination: destination,
+                                                       startDate: startDate, endDate: endDate) else { return false }
+                return library.open(id)
             }
             .environment(library)
         }
