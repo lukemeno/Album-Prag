@@ -10,12 +10,12 @@ final class TripLibraryUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    private func launch() -> XCUIApplication {
+    private func launch(withName: Bool = true) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment["ALBUM_TEST_STORE"] = slot
         app.launchEnvironment["ALBUM_EMPTY_TEST_STORE"] = "1"
         app.launchEnvironment["ALBUM_LIBRARY_QA"] = "1"
-        app.launchEnvironment["ALBUM_MY_NAME"] = "QA"
+        if withName { app.launchEnvironment["ALBUM_MY_NAME"] = "QA" }
         app.launchArguments += ["-AppleLanguages", "(de)", "-AppleLocale", "de_DE"]
         app.launch()
         return app
@@ -112,5 +112,17 @@ final class TripLibraryUITests: XCTestCase {
         XCTAssertTrue(app.buttons["native-tab-ideas"].waitForExistence(timeout: 8), app.debugDescription)
         tap("native-tab-ideas", in: app)
         XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Nur in Paris")).firstMatch.waitForExistence(timeout: 8), app.debugDescription)
+    }
+
+    func testFreshTripPromptsForNameBeforePlanIsUsable() {
+        let app = launch(withName: false)
+        create("Name-Test", destination: "Wien", in: app)
+        XCTAssertTrue(app.staticTexts["Wie heißt du?"].waitForExistence(timeout: 8), app.debugDescription)
+        let field = app.textFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5), app.debugDescription)
+        field.tap()
+        field.typeText("Alex")
+        tap("Los geht’s", in: app)
+        XCTAssertTrue(app.buttons["native-tab-plan"].waitForExistence(timeout: 8), app.debugDescription)
     }
 }

@@ -124,6 +124,11 @@ import UIKit
         #if DEBUG
         let environment = ProcessInfo.processInfo.environment
         let nativeShare = environment["ALBUM_QA_NATIVE_SHARE"] == "1"
+        if environment["ALBUM_LIBRARY_QA"] == "1", environment["ALBUM_MY_NAME"] == nil {
+            // Keep the opt-in fresh-library UI proof independent from a
+            // previous simulator run's global onboarding preference.
+            UserDefaults.standard.removeObject(forKey: "album.myName")
+        }
         if environment["XCTestConfigurationFilePath"] != nil,
            environment["ALBUM_TEST_STORE"] == nil {
             let sandbox = FileManager.default.temporaryDirectory
