@@ -39,16 +39,21 @@ struct TripLibraryView: View {
                     }
 
                     if library.entries.isEmpty {
-                        ContentUnavailableView {
+                        VStack(alignment: .leading, spacing: Stitch.Space.s) {
                             Label("Noch keine Reise", systemImage: "book.closed")
-                        } description: {
+                                .font(.headline)
+                                .foregroundStyle(Stitch.ink)
                             Text("Erstelle deine erste Reise oder öffne eine Einladung.")
-                        } actions: {
+                                .font(.body)
+                                .foregroundStyle(Stitch.inkSoft)
+                                .fixedSize(horizontal: false, vertical: true)
                             Button("Reise erstellen", systemImage: "plus") { showingCreate = true }
                                 .buttonStyle(StitchButton(primary: true))
                                 .accessibilityIdentifier("library-create-trip-empty")
+                                .frame(minHeight: Stitch.Size.touch)
                         }
-                        .padding(.vertical, Stitch.Space.l)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, Stitch.Space.xl)
                     } else {
                         LazyVStack(spacing: Stitch.Space.s) {
                             ForEach(library.entries) { entry in
