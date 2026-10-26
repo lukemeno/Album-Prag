@@ -452,8 +452,16 @@ final class TripLibraryTests: XCTestCase {
         let task = Task { await store.refreshPlaceImage(id: place.id, force: true, automatic: true) }
         while !gate.requested { await Task.yield() }
         store.stopOwnedCallbacks()
-        gate.resume(PlaceImageSearchResult(image: nil, candidates: [], selectionVersion: PlaceImageService.ranking))
+        let lateImage = PlaceImage(imageURL: URL(fileURLWithPath: "/tmp/paused-photo.jpg"),
+                                   sourceURL: URL(string: "https://commons.wikimedia.org/wiki/PausedPhoto")!,
+                                   credit: "Fixture Wikimedia", provider: .wikimedia,
+                                   licenseName: "CC0", licenseURL: nil,
+                                   providerPlaceID: place.id, confidence: .verified,
+                                   caption: place.title)
+        gate.resume(PlaceImageSearchResult(image: lateImage, candidates: [], selectionVersion: PlaceImageService.ranking))
         await task.value
+        // The resolver completed with a valid image after the store stopped;
+        // the late callback must not publish that mutation.
         XCTAssertNil(store.places.first(where: { $0.id == place.id })?.image)
         if case .idle = store.placeImageStatus(for: place.id) {} else {
             XCTFail("A stopped store must not publish the paused photo result")
