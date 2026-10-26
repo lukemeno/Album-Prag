@@ -19,12 +19,24 @@ final class TripLibraryTests: XCTestCase {
         final class Behavior {
             let remoteID: UUID
             var failNextJoin = false
+            var pauseNextJoin = false
+            var joinStarted = false
+            var releasePausedJoin = false
+            var failPausedJoin = false
             init(remoteID: UUID) { self.remoteID = remoteID }
         }
         let behavior: Behavior
         init(behavior: Behavior) { self.behavior = behavior }
         func createTrip(store: AlbumStore) async throws -> CollaborationState { throw AlbumSyncError.missingConfiguration }
         func joinTrip(token: String) async throws -> CollaborationState {
+            if behavior.pauseNextJoin {
+                behavior.pauseNextJoin = false
+                behavior.joinStarted = true
+                let failAfterPause = behavior.failPausedJoin
+                while !behavior.releasePausedJoin { await Task.yield() }
+                behavior.releasePausedJoin = false
+                if failAfterPause { throw AlbumSyncError.invalidInvitation }
+            }
             if behavior.failNextJoin {
                 behavior.failNextJoin = false
                 throw AlbumSyncError.invalidInvitation
@@ -50,6 +62,40 @@ final class TripLibraryTests: XCTestCase {
             let url = legacy.appendingPathComponent(extraFile)
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             try Data("preserve-me".utf8).write(to: url)
+        }
+    }
+
+    @MainActor
+    private final class PausedCallbackService: AlbumSyncService {
+        var syncEntered = false
+        var releaseSync = false
+        var realtimeStarts = 0
+
+        func createTrip(store: AlbumStore) async throws -> CollaborationState { throw AlbumSyncError.missingConfiguration }
+        func joinTrip(token: String) async throws -> CollaborationState { throw AlbumSyncError.missingConfiguration }
+        func sync(store: AlbumStore) async throws {
+            syncEntered = true
+            while !releaseSync { await Task.yield() }
+        }
+        func startRealtime(onChange: @escaping @MainActor @Sendable () async -> Void) {
+            realtimeStarts += 1
+        }
+        func authenticatedUserID() async throws -> String { "test-user" }
+    }
+
+    @MainActor
+    private final class PausedResultGate<Value> {
+        private(set) var requested = false
+        private var continuation: CheckedContinuation<Value, Never>?
+
+        func wait() async -> Value {
+            requested = true
+            return await withCheckedContinuation { continuation = $0 }
+        }
+
+        func resume(_ value: Value) {
+            continuation?.resume(returning: value)
+            continuation = nil
         }
     }
 
@@ -206,6 +252,77 @@ final class TripLibraryTests: XCTestCase {
         XCTAssertEqual(committed.state, .committed)
     }
 
+    func testUnindexedCopyingReceiptPreservesUncleanTargetAndSidecars() throws {
+        let root = try temporaryRoot()
+        let libraryRoot = root.appendingPathComponent("AlbumLibrary")
+        let legacy = root.appendingPathComponent("Album")
+        var source = AlbumData()
+        source.places = [Place(id: "source", title: "Source", category: "Sehenswert")]
+        try write(source, to: legacy)
+        let id = UUID()
+        let target = libraryRoot.appendingPathComponent("Trips", isDirectory: true)
+            .appendingPathComponent(id.uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: target.appendingPathComponent("images"), withIntermediateDirectories: true)
+        var edited = source
+        edited.places[0].note = "Während der Migration ergänzt"
+        try JSONEncoder().encode(edited).write(to: target.appendingPathComponent("album.json"), options: .atomic)
+        let sidecar = target.appendingPathComponent("images/edited.jpg")
+        let sidecarBytes = Data([0xFF, 0xD8, 0xEE, 0xD9])
+        try sidecarBytes.write(to: sidecar)
+        let receipt = LegacyMigrationReceipt(id: id, state: .copying, sourceFiles: 1, sourceBytes: 1,
+                                             places: 1, documents: 0, memories: 0,
+                                             albumID: source.albumID, committedAt: nil)
+        try FileManager.default.createDirectory(at: libraryRoot, withIntermediateDirectories: true)
+        try JSONEncoder().encode(receipt).write(to: libraryRoot.appendingPathComponent("legacy-migration.json"), options: .atomic)
+
+        let library = TripLibrary(root: libraryRoot, legacyRoot: legacy,
+                                  shareInbox: ShareInbox(root: root.appendingPathComponent("share")))
+        let entry = try XCTUnwrap(library.entries.first(where: { $0.id == id }))
+        XCTAssertNil(entry.unavailableReason)
+        XCTAssertTrue(library.open(id))
+        XCTAssertEqual(library.activeStore?.places.first?.note, "Während der Migration ergänzt")
+        XCTAssertEqual(try Data(contentsOf: sidecar), sidecarBytes)
+        let committed = try JSONDecoder().decode(LegacyMigrationReceipt.self,
+                                                  from: Data(contentsOf: libraryRoot.appendingPathComponent("legacy-migration.json")))
+        XCTAssertEqual(committed.state, .committed)
+    }
+
+    func testCommittedForeignAlbumIdentityIsUnavailableWithoutDeletingTarget() throws {
+        let root = try temporaryRoot()
+        let libraryRoot = root.appendingPathComponent("AlbumLibrary")
+        let legacy = root.appendingPathComponent("Album")
+        var source = AlbumData()
+        source.places = [Place(id: "source", title: "Source", category: "Sehenswert")]
+        try write(source, to: legacy)
+        let id = UUID()
+        let target = libraryRoot.appendingPathComponent("Trips", isDirectory: true)
+            .appendingPathComponent(id.uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: target.appendingPathComponent("documents"), withIntermediateDirectories: true)
+        var foreign = AlbumData()
+        foreign.albumID = "foreign-album"
+        foreign.places = [Place(id: "foreign", title: "Andere Reise", category: "Sehenswert")]
+        let foreignBytes = try JSONEncoder().encode(foreign)
+        try foreignBytes.write(to: target.appendingPathComponent("album.json"), options: .atomic)
+        let document = target.appendingPathComponent("documents/keep.pdf")
+        let documentBytes = Data("foreign-document".utf8)
+        try documentBytes.write(to: document)
+        let receipt = LegacyMigrationReceipt(id: id, state: .committed, sourceFiles: 1, sourceBytes: 1,
+                                             places: 1, documents: 0, memories: 0,
+                                             albumID: source.albumID, committedAt: Date())
+        try FileManager.default.createDirectory(at: libraryRoot, withIntermediateDirectories: true)
+        try JSONEncoder().encode(receipt).write(to: libraryRoot.appendingPathComponent("legacy-migration.json"), options: .atomic)
+
+        let library = TripLibrary(root: libraryRoot, legacyRoot: legacy,
+                                  shareInbox: ShareInbox(root: root.appendingPathComponent("share")))
+        let entry = try XCTUnwrap(library.entries.first(where: { $0.id == id }))
+        XCTAssertNotNil(entry.unavailableReason)
+        XCTAssertEqual(try Data(contentsOf: target.appendingPathComponent("album.json")), foreignBytes)
+        XCTAssertEqual(try Data(contentsOf: document), documentBytes)
+        let preservedReceipt = try JSONDecoder().decode(LegacyMigrationReceipt.self,
+                                                        from: Data(contentsOf: libraryRoot.appendingPathComponent("legacy-migration.json")))
+        XCTAssertEqual(preservedReceipt.state, .committed)
+    }
+
     func testCorruptExistingTargetIsUnavailableWithoutDeletingSidecars() throws {
         let root = try temporaryRoot()
         let libraryRoot = root.appendingPathComponent("AlbumLibrary")
@@ -297,6 +414,45 @@ final class TripLibraryTests: XCTestCase {
         XCTAssertFalse(didSync)
     }
 
+    func testStoppedStoreDropsPausedSyncCallbackAfterResume() async throws {
+        let root = try temporaryRoot()
+        let store = AlbumStore(root: root.appendingPathComponent("trip"),
+                               shareInbox: ShareInbox(root: root.appendingPathComponent("share")),
+                               publishesShareContext: false)
+        let service = PausedCallbackService()
+        store.syncService = service
+        store.data.collaboration = CollaborationState(tripID: UUID(), inviteToken: nil)
+        XCTAssertTrue(store.persist())
+        store.activateShareContext()
+
+        let task = Task { await store.sync() }
+        while !service.syncEntered { await Task.yield() }
+        store.stopOwnedCallbacks()
+        service.releaseSync = true
+        XCTAssertFalse(await task.value)
+        XCTAssertEqual(service.realtimeStarts, 0)
+    }
+
+    func testStoppedStoreDropsPausedPhotoCallbackAfterResume() async throws {
+        let root = try temporaryRoot()
+        let store = AlbumStore(root: root.appendingPathComponent("trip"),
+                               shareInbox: ShareInbox(root: root.appendingPathComponent("share")),
+                               publishesShareContext: false)
+        let place = Place(id: "paused-photo", title: "Museum", category: "Sehenswert", lat: 50.08, lng: 14.42)
+        XCTAssertTrue(store.upsert(place))
+        let gate = PausedResultGate<PlaceImageSearchResult>()
+        store.placeImageSearchResolver = { _, _ in await gate.wait() }
+        let task = Task { await store.refreshPlaceImage(id: place.id, force: true, automatic: true) }
+        while !gate.requested { await Task.yield() }
+        store.stopOwnedCallbacks()
+        gate.resume(PlaceImageSearchResult(image: nil, candidates: [], selectionVersion: PlaceImageService.ranking))
+        await task.value
+        XCTAssertNil(store.places.first(where: { $0.id == place.id })?.image)
+        if case .idle = store.placeImageStatus(for: place.id) {} else {
+            XCTFail("A stopped store must not publish the paused photo result")
+        }
+    }
+
     func testJoinInvitationUsesStagingAndDeduplicatesRemoteTrip() async throws {
         let root = try temporaryRoot()
         let remoteID = UUID()
@@ -327,6 +483,34 @@ final class TripLibraryTests: XCTestCase {
         XCTAssertEqual(second, first)
         XCTAssertEqual(library.entries.count, 1)
         XCTAssertEqual(library.activeID, first)
+    }
+
+    func testFailedPausedInvitationCannotEraseConcurrentSuccessfulJoin() async throws {
+        let root = try temporaryRoot()
+        let remoteID = UUID()
+        let behavior = JoinService.Behavior(remoteID: remoteID)
+        let library = TripLibrary(root: root.appendingPathComponent("library"),
+                                  legacyRoot: root.appendingPathComponent("legacy"),
+                                  shareInbox: ShareInbox(root: root.appendingPathComponent("share")),
+                                  storeFactory: { path, inbox, publishes in
+                                      let store = AlbumStore(root: path, shareInbox: inbox, publishesShareContext: publishes)
+                                      store.syncService = JoinService(behavior: behavior)
+                                      return store
+                                  })
+        let invite = try XCTUnwrap(InvitationLink.make(token: String(repeating: "c", count: 32)))
+        behavior.pauseNextJoin = true
+        behavior.failPausedJoin = true
+        let failedJoin = Task { try? await library.joinInvitation(invite) }
+        while !behavior.joinStarted { await Task.yield() }
+
+        let successfulID = try await library.joinInvitation(invite)
+        XCTAssertEqual(library.entries.count, 1)
+        XCTAssertEqual(library.activeID, successfulID)
+        behavior.releasePausedJoin = true
+        XCTAssertNil(await failedJoin.value)
+        XCTAssertEqual(library.entries.count, 1)
+        XCTAssertEqual(library.entries.first?.remoteTripID, remoteID)
+        XCTAssertEqual(library.activeID, successfulID)
     }
 
     func testIndexCommitFailureRollsBackCreatedTripAndJoinedFolder() async throws {
