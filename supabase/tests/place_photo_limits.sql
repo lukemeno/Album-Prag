@@ -43,11 +43,14 @@ begin
   for i in 1..10 loop
     result := public.place_photo_reserve_upstream(run_id, 'wikimedia', now());
     if not (result->>'ok')::boolean then raise exception 'upstream reservation % failed: %', i, result; end if;
+    perform public.place_photo_release_upstream(run_id, (result->>'sequence')::integer);
   end loop;
   result := public.place_photo_reserve_upstream(run_id, 'wikimedia', now());
   if result->>'code' <> 'global_rate_limit' then raise exception 'expected global HTTP limit: %', result; end if;
-  perform public.place_photo_reserve_upstream(run_id, 'wikimedia', now()+interval '2 minutes');
-  perform public.place_photo_reserve_upstream(run_id, 'wikimedia', now()+interval '2 minutes');
+  result := public.place_photo_reserve_upstream(run_id, 'wikimedia', now()+interval '2 minutes');
+  perform public.place_photo_release_upstream(run_id, (result->>'sequence')::integer);
+  result := public.place_photo_reserve_upstream(run_id, 'wikimedia', now()+interval '2 minutes');
+  perform public.place_photo_release_upstream(run_id, (result->>'sequence')::integer);
   result := public.place_photo_reserve_upstream(run_id, 'wikimedia', now()+interval '2 minutes');
   if result->>'code' <> 'resolution_limit' then raise exception 'expected per-resolution limit: %', result; end if;
 end;

@@ -32,7 +32,8 @@ const worker = createPlaceEnrichmentWorker({
     run: async <T>(work: () => Promise<T>) => {
       const result = await rpc("place_photo_reserve_upstream", { p_resolution_id: job.job_id, p_provider: "wikimedia" });
       if (!result?.ok) throw new EnrichmentError(String(result?.code ?? "photo_upstream_quota"), "Bildquelle ist vorübergehend begrenzt", 429, Number(result?.retry_after_seconds) || 60);
-      return await work();
+      try { return await work(); }
+      finally { await rpc("place_photo_release_upstream", { p_resolution_id: job.job_id, p_sequence: result.sequence }); }
     },
   } satisfies WikimediaRequestLimiter),
   defer: async (job, seconds, code) => { await rpc("place_enrichment_defer", { p_job_id: job.job_id, p_lease_token: job.lease_token, p_delay_seconds: seconds, p_error_code: code }); },

@@ -51,6 +51,12 @@ create table if not exists place_photo_private.upstream_calls (
   primary key (resolution_id, sequence)
 );
 create index if not exists place_photo_calls_created_idx on place_photo_private.upstream_calls (created_at desc);
+create table if not exists place_photo_private.upstream_lease (
+  singleton boolean primary key default true check (singleton),
+  resolution_id uuid,
+  sequence integer,
+  lease_until timestamptz
+);
 
 alter table place_photo_private.public_cache enable row level security;
 alter table place_photo_private.private_cache enable row level security;
@@ -155,6 +161,9 @@ begin
   if auth.role() is distinct from 'service_role' or p_provider not in ('wikimedia','google') then raise exception using errcode='22023',message='invalid upstream'; end if;
   if not exists(select 1 from place_photo_private.resolution_runs where resolution_id=p_resolution_id) then return jsonb_build_object('ok',false,'code','run_missing'); end if;
   perform pg_advisory_xact_lock(hashtextextended('place-photo-upstream-global',0));
+  if exists(select 1 from place_photo_private.upstream_lease where singleton and lease_until > p_now) then
+    return jsonb_build_object('ok',false,'code','active_request','retry_after_seconds',greatest(1,ceil(extract(epoch from (select lease_until from place_photo_private.upstream_lease where singleton)-p_now))::integer));
+  end if;
   select count(*)::integer,min(created_at) into total_min,oldest from place_photo_private.upstream_calls where created_at >= p_now-interval '1 minute';
   if total_min >= 10 then return jsonb_build_object('ok',false,'code','global_rate_limit','retry_after_seconds',greatest(1,ceil(extract(epoch from oldest+interval '1 minute'-p_now))::integer)); end if;
   select count(*)::integer into total_day from place_photo_private.upstream_calls where created_at >= p_now-interval '1 day';
@@ -162,7 +171,16 @@ begin
   select coalesce(max(sequence),0)+1 into seq from place_photo_private.upstream_calls where resolution_id=p_resolution_id;
   if seq > 12 then return jsonb_build_object('ok',false,'code','resolution_limit','retry_after_seconds',3600); end if;
   insert into place_photo_private.upstream_calls(resolution_id,sequence,provider,created_at) values(p_resolution_id,seq,p_provider,p_now);
+  insert into place_photo_private.upstream_lease(singleton,resolution_id,sequence,lease_until) values(true,p_resolution_id,seq,p_now+interval '30 seconds') on conflict(singleton) do update set resolution_id=excluded.resolution_id,sequence=excluded.sequence,lease_until=excluded.lease_until;
   return jsonb_build_object('ok',true,'sequence',seq);
+end $$;
+
+create or replace function public.place_photo_release_upstream(p_resolution_id uuid,p_sequence integer)
+returns boolean language plpgsql security definer set search_path=public,place_photo_private,pg_temp as $$
+begin
+  if auth.role() is distinct from 'service_role' then raise exception using errcode='42501',message='service role required'; end if;
+  update place_photo_private.upstream_lease set resolution_id=null,sequence=null,lease_until=null where singleton and resolution_id=p_resolution_id and sequence=p_sequence;
+  return found;
 end $$;
 
 create or replace function public.place_photo_prune()
@@ -173,7 +191,12 @@ begin
   delete from place_photo_private.resolution_runs where created_at < now()-interval '8 days';
   delete from place_photo_private.public_cache where stale_until < now()-interval '90 days';
   delete from place_photo_private.private_cache where expires_at < now()-interval '30 days';
+  update place_photo_private.public_cache set lease_token=null,lease_until=null where lease_until < now();
+  update place_photo_private.private_cache set lease_token=null,lease_until=null where lease_until < now();
+  update place_photo_private.upstream_lease set resolution_id=null,sequence=null,lease_until=null where singleton and lease_until < now();
   update place_enrichment_private.jobs set snapshot='{}'::jsonb where status in ('ready','needs_review','not_found','failed') and updated_at < now()-interval '7 days';
+  delete from place_enrichment_private.jobs where status in ('ready','needs_review','not_found','failed') and updated_at < now()-interval '30 days';
+  delete from place_photo_private.public_cache where cache_key in (select cache_key from place_photo_private.public_cache order by updated_at asc offset 100000);
 end $$;
 
 revoke all on function public.place_photo_cache_claim(text,text,integer,uuid,timestamptz) from public,anon,authenticated;
@@ -182,6 +205,7 @@ revoke all on function public.place_photo_cache_release(text,uuid) from public,a
 revoke all on function public.place_photo_reserve_run(uuid,uuid,uuid,text,boolean,timestamptz) from public,anon,authenticated;
 revoke all on function public.place_photo_reserve_upstream(uuid,text,timestamptz) from public,anon,authenticated;
 revoke all on function public.place_photo_prune() from public,anon,authenticated;
+revoke all on function public.place_photo_release_upstream(uuid,integer) from public,anon,authenticated;
 revoke all on function public.place_photo_private_cache_claim(uuid,uuid,text,text,uuid,timestamptz) from public,anon,authenticated;
 revoke all on function public.place_photo_private_cache_complete(uuid,uuid,text,text,uuid,jsonb,timestamptz) from public,anon,authenticated;
 revoke all on function public.place_photo_private_cache_release(uuid,uuid,text,text,uuid) from public,anon,authenticated;
@@ -191,6 +215,7 @@ grant execute on function public.place_photo_cache_release(text,uuid) to service
 grant execute on function public.place_photo_reserve_run(uuid,uuid,uuid,text,boolean,timestamptz) to service_role;
 grant execute on function public.place_photo_reserve_upstream(uuid,text,timestamptz) to service_role;
 grant execute on function public.place_photo_prune() to service_role;
+grant execute on function public.place_photo_release_upstream(uuid,integer) to service_role;
 grant execute on function public.place_photo_private_cache_claim(uuid,uuid,text,text,uuid,timestamptz) to service_role;
 grant execute on function public.place_photo_private_cache_complete(uuid,uuid,text,text,uuid,jsonb,timestamptz) to service_role;
 grant execute on function public.place_photo_private_cache_release(uuid,uuid,text,text,uuid) to service_role;

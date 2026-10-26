@@ -40,7 +40,8 @@ Deno.serve(async request => {
     const limiter: WikimediaRequestLimiter = { run: async <T>(work: () => Promise<T>) => {
       const result = await admin.rpc("place_photo_reserve_upstream", { p_resolution_id: resolutionID, p_provider: "wikimedia" });
       if (result.error || !result.data?.ok) throw new WikimediaUnavailable("commons.wikimedia.org", "quota", String(result.data?.code ?? "quota_unavailable"), Number(result.data?.retry_after_seconds) || 60);
-      return await work();
+      try { return await work(); }
+      finally { await admin.rpc("place_photo_release_upstream", { p_resolution_id: resolutionID, p_sequence: result.data.sequence }); }
     } };
     let publicLease: { key: string; token: string; id: string } | null = null;
     const identityCache: WikimediaIdentityCache = {
@@ -86,7 +87,11 @@ Deno.serve(async request => {
       const claim = await admin.rpc("place_photo_private_cache_claim", { p_user_id: user.id, p_trip_id: tripID, p_place_id: placeID, p_revision: revision, p_lease_token: token });
       if (claim.error) throw claim.error;
       if (claim.data?.state === "forbidden") return json({ error: "Reisezugriff erforderlich" }, 403);
-      if (claim.data?.state === "fresh") photos = (claim.data.payload ?? []) as Awaited<ReturnType<typeof resolveWikimedia>>;
+      if (claim.data?.state === "fresh") {
+        const run = await admin.rpc("place_photo_reserve_run", { p_resolution_id: resolutionID, p_user_id: user.id, p_trip_id: tripID, p_cache_key: manualQuotaKey, p_manual: manualMode });
+        if (run.error || !run.data?.ok) throw new WikimediaUnavailable("place-photo", "quota", String(run.data?.code ?? "quota_unavailable"), Number(run.data?.retry_after_seconds) || 60);
+        photos = (claim.data.payload ?? []) as Awaited<ReturnType<typeof resolveWikimedia>>;
+      }
       else if (claim.data?.state === "busy") return json({ image: null, candidates: [], status: "deferred", retry_after_seconds: Number(claim.data.retry_after_seconds) || 10, selection_version: 4 }, 202);
       else {
         try {
