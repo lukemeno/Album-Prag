@@ -12,146 +12,17 @@ import UIKit
         // Ortsfotos bleiben zwischengespeichert, damit Karte und Liste auch mit schwachem Netz in Prag Bilder zeigen.
         URLCache.shared = URLCache(memoryCapacity: 20_000_000, diskCapacity: 100_000_000)
     }
-    @State private var store: AlbumStore = {
-        #if DEBUG
-        if let name = ProcessInfo.processInfo.environment["ALBUM_TEST_STORE"] {
-            let safeName = String(name.filter { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" })
-            guard !safeName.isEmpty else { return AlbumStore() }
-            let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            let root = support.appendingPathComponent("AlbumUITests", isDirectory: true)
-                .appendingPathComponent(safeName, isDirectory: true)
-            let existed = FileManager.default.fileExists(atPath: root.appendingPathComponent("album.json").path)
-            let store = AlbumStore(root: root)
-            if ProcessInfo.processInfo.environment["ALBUM_GLOBAL_IMAGE_QA"] == "1" {
-                if !existed {
-                    var trip = TripInfo()
-                    trip.title = "Japan"
-                    trip.destination = "Tokyo"
-                    _ = store.updateTrip(trip)
-                    store.data.places = [
-                        Place(id: "global-tokyo", title: "Tokyo Tower", category: "Sehenswert"),
-                        Place(id: "global-cafe", title: "Café Central", category: "Essen & Trinken"),
-                        Place(id: "global-ramen", title: "Ramen", category: "Essen & Trinken"),
-                        Place(id: "global-retry", title: "Tokyo Skytree", category: "Sehenswert")
-                    ]
-                    _ = store.persist()
-                }
-                var retryCount = 0
-                store.placeResolutionResolver = { place, _ in
-                    let tokyo = PlaceResolutionCandidate(id: "qa-tokyo", title: place.title,
-                        address: "Tokyo, Japan", latitude: 35.6586, longitude: 139.7454, category: place.category)
-                    switch place.id {
-                    case "global-cafe":
-                        let second = PlaceResolutionCandidate(id: "qa-cafe-2", title: "Café Central",
-                            address: "Chiyoda, Tokyo, Japan", latitude: 35.68, longitude: 139.76, category: place.category)
-                        return .needsReview([tokyo, second], .ambiguous)
-                    case "global-ramen": return .needsReview([], .genericConcept)
-                    case "global-retry":
-                        retryCount += 1
-                        if retryCount == 1 { return .failed(retryable: true) }
-                        return .resolved(tokyo)
-                    default: return .resolved(tokyo)
-                    }
-                }
-                store.placeImageSearchResolver = { place, _ in
-                    let fixtureURL = root.appendingPathComponent("qa-photo.png")
-                    if !FileManager.default.fileExists(atPath: fixtureURL.path),
-                       let bytes = UIImage(systemName: "photo")?.pngData() {
-                        try bytes.write(to: fixtureURL)
-                    }
-                    let image = PlaceImage(imageURL: fixtureURL,
-                        sourceURL: URL(string: "https://commons.wikimedia.org/")!, credit: "Lokale Testaufnahme",
-                        provider: .wikimedia, licenseName: "CC0", licenseURL: nil,
-                        providerPlaceID: "qa-local", confidence: .verified, caption: place.title)
-                    return PlaceImageSearchResult(image: image, candidates: [], selectionVersion: PlaceImageService.ranking)
-                }
-            }
-            if ProcessInfo.processInfo.environment["ALBUM_AUTO_PHOTO_QA"] == "1" {
-                store.placeResolutionResolver = { place, _ in
-                    let candidate = PlaceResolutionCandidate(id: "auto-photo-qa", title: place.title,
-                        address: "Tokyo, Japan", latitude: 35.6586, longitude: 139.7454, category: place.category)
-                    return .resolved(candidate)
-                }
-                store.placeImageSearchResolver = { place, _ in
-                    let fixtureURL = root.appendingPathComponent("auto-photo-qa.png")
-                    if !FileManager.default.fileExists(atPath: fixtureURL.path),
-                       let bytes = UIImage(systemName: "photo.fill")?.pngData() {
-                        try bytes.write(to: fixtureURL, options: .atomic)
-                    }
-                    let image = PlaceImage(imageURL: fixtureURL,
-                        sourceURL: URL(string: "https://commons.wikimedia.org/wiki/Category:Tokyo_Tower")!,
-                        credit: "Automatisches Testfoto", provider: .wikimedia,
-                        licenseName: "CC0", licenseURL: nil, providerPlaceID: "auto-photo-qa",
-                        confidence: .verified, caption: place.title)
-                    return PlaceImageSearchResult(image: image, candidates: [], selectionVersion: PlaceImageService.ranking)
-                }
-            }
-            if ProcessInfo.processInfo.environment["ALBUM_AUTO_PHOTO_LIVE_QA"] == "1" {
-                // Opt-in UI proof only: resolve the saved venue with MapKit and
-                // fetch its official website preview, while bypassing the
-                // authenticated Wikimedia function call in this isolated run.
-                store.data.trip.destination = "Prag"
-                _ = store.persist()
-                store.placeResolutionResolver = { place, context in
-                    await PlaceResolver.resolve(place: place, context: context)
-                }
-                store.placeImageSearchResolver = { _, _ in
-                    PlaceImageSearchResult(image: nil, candidates: [], selectionVersion: PlaceImageService.ranking)
-                }
-                store.placeSourcePreviewResolver = { place, _ in
-                    await PlaceImageService.sourcePreview(for: place, allowNetworkFallback: true)
-                }
-            }
-            if ProcessInfo.processInfo.environment["ALBUM_LIVE_IMAGE_QA"] == "1" {
-                if !existed {
-                    var trip = TripInfo()
-                    trip.title = "Japan · Bildtest"
-                    trip.destination = "Tokyo, Japan"
-                    _ = store.updateTrip(trip)
-                    store.data.places = [
-                        Place(id: "live-tokyo", title: "Tokyo Tower", category: "Sehenswert", lat: 35.65858, lng: 139.74543),
-                        Place(id: "live-sensoji", title: "Sensō-ji", category: "Sehenswert", lat: 35.7148, lng: 139.7967),
-                        Place(id: "live-skytree", title: "Tokyo Skytree", category: "Sehenswert", lat: 35.7101, lng: 139.8107)
-                    ]
-                    _ = store.persist()
-                }
-                store.placeImageSearchResolver = { place, context in
-                    try await PlaceImageService.search(for: place, region: context.name,
-                                                       languageCode: context.preferredLanguageCode)
-                }
-            }
-            if ProcessInfo.processInfo.environment["ALBUM_DISCOVERY_QA"] == "1"
-                || ProcessInfo.processInfo.environment["ALBUM_DISCOVERY_LIVE_QA"] == "1" {
-                let fixture = ProcessInfo.processInfo.environment["ALBUM_DISCOVERY_QA"] == "1"
-                if !existed {
-                    var trip = TripInfo()
-                    trip.title = "Prag"
-                    trip.destination = "Prag"
-                    _ = store.updateTrip(trip)
-                    store.data.places = fixture ? [
-                        Place(id: "existing-bridge", title: "Karlsbrücke", sourceURL: "https://www.wikidata.org/wiki/Q204871",
-                              category: "Sehenswert", lat: 50.0865, lng: 14.4114),
-                        Place(id: "removed-cathedral", title: "Veitsdom", sourceURL: "https://www.wikidata.org/wiki/Q5949",
-                              category: "Sehenswert", lat: 50.0909, lng: 14.4005, deleted: true)
-                    ] : []
-                    _ = store.persist()
-                }
-                if fixture { store.discoveryServiceOverride = DiscoveryQAFixtureService() }
-            }
-            return store
-        }
-        #endif
-        return AlbumStore()
-    }()
-    @Environment(\.scenePhase) private var scenePhase
-    /// Ein geöffneter Einladungslink zeigt erst den Moment mit der Fahrkarte; der Beitritt startet beim Einlösen.
+    @State private var library: TripLibrary = TripLibrary()
+    #if DEBUG
     @State private var invitation: InvitationRequest?
+    #endif
+    @Environment(\.scenePhase) private var scenePhase
     /// Automatisierte und isolierte UI-Tests dürfen weder echte Daten synchronisieren noch Bilder nachladen.
     private let isUnitTestHost = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     private let isIsolatedStoreTest = ProcessInfo.processInfo.environment["ALBUM_TEST_STORE"] != nil
     var body: some Scene {
         WindowGroup {
-            AlbumExperienceRoot().environment(store).tint(Stitch.redFill)
+            AlbumExperienceRoot().environment(library).tint(Stitch.redFill)
                 #if DEBUG
                 .transformEnvironment(\._accessibilityReduceMotion) { value in
                     let isolatedStore = ProcessInfo.processInfo.environment["ALBUM_TEST_STORE"] != nil
@@ -162,21 +33,23 @@ import UIKit
                 #endif
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .active {
-                        if nativeShareQA {
-                            store.publishShareContext()
-                            store.drainShareQueue()
-                        } else if !isUnitTestHost && !isIsolatedStoreTest {
-                            store.drainShareQueue()
+                        ensureActiveTrip()
+                        if let store = library.activeStore {
+                            configureQA(store)
+                            if nativeShareQA { store.publishShareContext(); store.drainShareQueue() }
+                            else if !isUnitTestHost && !isIsolatedStoreTest { store.drainShareQueue() }
+                            store.resumeAutomaticPhotoResolution()
+                            if !isUnitTestHost && !isIsolatedStoreTest { Task { await store.sync(); await store.refreshPlaceImages(automatic: true) } }
                         }
-                        store.resumeAutomaticPhotoResolution()
-                        if !isUnitTestHost && !isIsolatedStoreTest { Task { await store.sync(); await store.refreshPlaceImages(automatic: true) } }
                     } else if phase == .inactive || phase == .background {
-                        store.pauseAutomaticPhotoResolution()
+                        library.activeStore?.pauseAutomaticPhotoResolution()
+                        library.refreshActiveEntry()
                     }
                 }
                 .onOpenURL { url in
                     if url.isFileURL && url.pathExtension.lowercased() == "pdf" {
                         do {
+                            guard let store = library.activeStore else { library.error = "Öffne zuerst eine Reise."; return }
                             let id = UUID().uuidString
                             try store.importPDF(url, id: id)
                             if let doc = store.data.documents.first(where: { $0.id == id }) {
@@ -185,41 +58,140 @@ import UIKit
                             }
                         } catch { store.error = error.localizedDescription }
                     } else if InvitationLink.token(from: url) != nil {
-                        invitation = InvitationRequest(sender: nil) {
-                            do { try await store.joinSharedTrip(url: url); return nil }
-                            catch { return "Das hat nicht geklappt. \(error.localizedDescription)" }
+                        Task {
+                            do { _ = try await library.joinInvitation(url) }
+                            catch { library.error = "Das hat nicht geklappt. \(error.localizedDescription)" }
                         }
                     }
                 }
+#if DEBUG
                 .fullScreenCover(item: $invitation) { request in
-                    InvitationMoment(request: request) { invitation = nil }.environment(store)
+                    if let store = library.activeStore {
+                        InvitationMoment(request: request, onDone: { invitation = nil }).environment(store)
+                    } else {
+                        ProgressView().task { invitation = nil }
+                    }
                 }
-                #if DEBUG
-                .onAppear {
-                    if let mode = ProcessInfo.processInfo.environment["ALBUM_DEMO_INVITE"], invitation == nil {
+#endif
+                .task {
+                    ensureActiveTrip()
+                    guard let store = library.activeStore else { return }
+                    configureQA(store)
+#if DEBUG
+                    if invitation == nil, let mode = ProcessInfo.processInfo.environment["ALBUM_DEMO_INVITE"] {
                         invitation = .demo(mode, sender: ProcessInfo.processInfo.environment["ALBUM_DEMO_SENDER"])
                     }
-                }
-                #endif
-                .task {
+#endif
                     if nativeShareQA {
-                        if ShareInbox().containerURL() == nil {
-                            store.error = "Native-Share-QA benötigt die App-Group group.de.privatealbum.prague."
-                        } else {
-                            store.publishShareContext()
-                            store.drainShareQueue()
-                        }
-                    } else if !isUnitTestHost && !isIsolatedStoreTest {
-                        store.drainShareQueue()
-                    }
+                        if ShareInbox().containerURL() == nil { library.error = "Native-Share-QA benötigt die App-Group group.de.privatealbum.prague." }
+                        else { store.publishShareContext(); store.drainShareQueue() }
+                    } else if !isUnitTestHost && !isIsolatedStoreTest { store.drainShareQueue() }
                     store.resumeAutomaticPhotoResolution()
                     if !isUnitTestHost && !isIsolatedStoreTest { await store.sync(); await store.refreshPlaceImages(automatic: true) }
                 }
-                .alert("Album", isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) {
-                    Button("OK") { store.error = nil }
-                } message: { Text(store.error ?? "") }
+                .alert("Album", isPresented: Binding(get: { library.error != nil }, set: { if !$0 { library.error = nil } })) {
+                    Button("OK") { library.error = nil }
+                } message: { Text(library.error ?? "") }
         }
     }
+
+    private func ensureActiveTrip() {
+        guard library.activeStore == nil else { return }
+        if library.restoreLastOpenedTrip() { return }
+        #if DEBUG
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["ALBUM_TEST_STORE"] != nil else { return }
+        let fixtureFlag = ["ALBUM_GLOBAL_IMAGE_QA", "ALBUM_AUTO_PHOTO_QA", "ALBUM_AUTO_PHOTO_LIVE_QA", "ALBUM_LIVE_IMAGE_QA", "ALBUM_DISCOVERY_QA", "ALBUM_DISCOVERY_LIVE_QA", "ALBUM_LEGACY_HOME_QA"].contains { environment[$0] == "1" }
+        guard fixtureFlag, let id = library.createBlankTrip(title: "QA-Reise", destination: "Prag") else { return }
+        _ = library.open(id)
+        #endif
+    }
+
+    #if DEBUG
+    private func configureQA(_ store: AlbumStore) {
+        let environment = ProcessInfo.processInfo.environment
+        let root = store.root
+        // The card-first shell is an explicit compatibility fixture for the
+        // older native-port UI tests only. It is never created in a normal
+        // install or by a user-created blank trip.
+        let hasSpecializedFixture = ["ALBUM_GLOBAL_IMAGE_QA", "ALBUM_AUTO_PHOTO_QA", "ALBUM_AUTO_PHOTO_LIVE_QA", "ALBUM_LIVE_IMAGE_QA", "ALBUM_DISCOVERY_QA", "ALBUM_DISCOVERY_LIVE_QA"].contains { environment[$0] == "1" }
+        if environment["ALBUM_LEGACY_HOME_QA"] == "1" && !hasSpecializedFixture && store.places.isEmpty {
+            var trip = TripInfo.legacyPrague()
+            trip.title = "Prag"
+            _ = store.updateTrip(trip)
+            store.data.places = Place.examples
+            _ = store.persist()
+        }
+        if environment["ALBUM_GLOBAL_IMAGE_QA"] == "1" && store.places.isEmpty {
+            var trip = store.data.trip; trip.title = "Japan"; trip.destination = "Tokyo"; _ = store.updateTrip(trip)
+            store.data.places = [
+                Place(id: "global-tokyo", title: "Tokyo Tower", category: "Sehenswert"),
+                Place(id: "global-cafe", title: "Café Central", category: "Essen & Trinken"),
+                Place(id: "global-ramen", title: "Ramen", category: "Essen & Trinken"),
+                Place(id: "global-retry", title: "Tokyo Skytree", category: "Sehenswert")
+            ]; _ = store.persist()
+        }
+        if environment["ALBUM_GLOBAL_IMAGE_QA"] == "1" {
+            var retryCount = 0
+            store.placeResolutionResolver = { place, _ in
+                let tokyo = PlaceResolutionCandidate(id: "qa-tokyo", title: place.title, address: "Tokyo, Japan", latitude: 35.6586, longitude: 139.7454, category: place.category)
+                if place.id == "global-cafe" { return .needsReview([tokyo, PlaceResolutionCandidate(id: "qa-cafe-2", title: place.title, address: "Chiyoda, Tokyo, Japan", latitude: 35.68, longitude: 139.76, category: place.category)], .ambiguous) }
+                if place.id == "global-ramen" { return .needsReview([], .genericConcept) }
+                if place.id == "global-retry" { retryCount += 1; return retryCount == 1 ? .failed(retryable: true) : .resolved(tokyo) }
+                return .resolved(tokyo)
+            }
+            store.placeImageSearchResolver = { place, _ in
+                let fixtureURL = root.appendingPathComponent("qa-photo.png")
+                if !FileManager.default.fileExists(atPath: fixtureURL.path), let bytes = UIImage(systemName: "photo")?.pngData() { try bytes.write(to: fixtureURL, options: .atomic) }
+                return PlaceImageSearchResult(image: PlaceImage(imageURL: fixtureURL, sourceURL: URL(string: "https://commons.wikimedia.org/")!, credit: "Lokale Testaufnahme", provider: .wikimedia, licenseName: "CC0", licenseURL: nil, providerPlaceID: "qa-local", confidence: .verified, caption: place.title), candidates: [], selectionVersion: PlaceImageService.ranking)
+            }
+        }
+        if environment["ALBUM_AUTO_PHOTO_QA"] == "1" {
+            store.placeResolutionResolver = { place, _ in
+                .resolved(PlaceResolutionCandidate(id: "auto-photo-qa", title: place.title, address: "Tokyo, Japan", latitude: 35.6586, longitude: 139.7454, category: place.category))
+            }
+            store.placeImageSearchResolver = { place, _ in
+                let fixtureURL = root.appendingPathComponent("auto-photo-qa.png")
+                if !FileManager.default.fileExists(atPath: fixtureURL.path), let bytes = UIImage(systemName: "photo.fill")?.pngData() { try bytes.write(to: fixtureURL, options: .atomic) }
+                return PlaceImageSearchResult(image: PlaceImage(imageURL: fixtureURL, sourceURL: URL(string: "https://commons.wikimedia.org/wiki/Category:Tokyo_Tower")!, credit: "Automatisches Testfoto", provider: .wikimedia, licenseName: "CC0", licenseURL: nil, providerPlaceID: "auto-photo-qa", confidence: .verified, caption: place.title), candidates: [], selectionVersion: PlaceImageService.ranking)
+            }
+        }
+        if environment["ALBUM_AUTO_PHOTO_LIVE_QA"] == "1" {
+            store.data.trip.destination = "Prag"; _ = store.persist()
+            store.placeResolutionResolver = { place, context in await PlaceResolver.resolve(place: place, context: context) }
+            store.placeImageSearchResolver = { _, _ in PlaceImageSearchResult(image: nil, candidates: [], selectionVersion: PlaceImageService.ranking) }
+            store.placeSourcePreviewResolver = { place, _ in await PlaceImageService.sourcePreview(for: place, allowNetworkFallback: true) }
+        }
+        if environment["ALBUM_LIVE_IMAGE_QA"] == "1" {
+            if store.places.isEmpty {
+                var trip = store.data.trip
+                trip.title = "Japan · Bildtest"
+                trip.destination = "Tokyo, Japan"
+                _ = store.updateTrip(trip)
+                store.data.places = [
+                    Place(id: "live-tokyo", title: "Tokyo Tower", category: "Sehenswert", lat: 35.65858, lng: 139.74543),
+                    Place(id: "live-sensoji", title: "Sensō-ji", category: "Sehenswert", lat: 35.7148, lng: 139.7967),
+                    Place(id: "live-skytree", title: "Tokyo Skytree", category: "Sehenswert", lat: 35.7101, lng: 139.8107)
+                ]
+                _ = store.persist()
+            }
+            store.placeImageSearchResolver = { place, context in
+                try await PlaceImageService.search(for: place, region: context.name,
+                                                   languageCode: context.preferredLanguageCode)
+            }
+        }
+        if environment["ALBUM_DISCOVERY_QA"] == "1" {
+            if store.places.isEmpty {
+                var trip = store.data.trip; trip.title = "Prag"; trip.destination = "Prag"; _ = store.updateTrip(trip)
+                store.data.places = [Place(id: "existing-bridge", title: "Karlsbrücke", sourceURL: "https://www.wikidata.org/wiki/Q204871", category: "Sehenswert", lat: 50.0865, lng: 14.4114), Place(id: "removed-cathedral", title: "Veitsdom", sourceURL: "https://www.wikidata.org/wiki/Q5949", category: "Sehenswert", lat: 50.0909, lng: 14.4005, deleted: true)]
+                _ = store.persist()
+            }
+            store.discoveryServiceOverride = DiscoveryQAFixtureService()
+        }
+    }
+    #else
+    private func configureQA(_ store: AlbumStore) {}
+    #endif
 }
 
 #if DEBUG

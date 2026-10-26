@@ -21,6 +21,16 @@ struct AlbumExperienceRoot: View {
     @State private var offeredChangeCount = -1
     @State private var fanRequest = 0
 
+    /// The former card-first shell is retained only for explicit native-port
+    /// fixtures. Normal library launches open the selected trip directly.
+    private var legacyHomeFixture: Bool {
+        #if DEBUG
+        return ProcessInfo.processInfo.environment["ALBUM_LEGACY_HOME_QA"] == "1"
+        #else
+        return false
+        #endif
+    }
+
     init() {
         #if DEBUG
         if let raw = ProcessInfo.processInfo.environment["ALBUM_START_TAB"] {
@@ -72,6 +82,7 @@ struct AlbumExperienceRoot: View {
             }
         }
         .background(Stitch.paper.ignoresSafeArea())
+        .id(library.activeID)
         .sheet(item: $sheet) { route in
             if let store = library.activeStore {
                 Group {
@@ -88,11 +99,17 @@ struct AlbumExperienceRoot: View {
                     case .extraction(let extraction): ExtractedTripSheet(extracted: extraction)
                     case .assistant:
                         if let assistantSession {
-                            AssistantView(session: assistantSession).task {
-                                guard let prompt = assistantPrompt else { return }
-                                assistantPrompt = nil
-                                assistantSession.send(prompt)
-                            }
+                            AssistantView(session: assistantSession)
+                                .task {
+                                    guard let prompt = assistantPrompt else { return }
+                                    assistantPrompt = nil
+                                    assistantSession.send(prompt)
+                                }
+                                .onDisappear {
+                                    assistantSession.cancel()
+                                    self.assistantSession = nil
+                                    self.assistantPrompt = nil
+                                }
                         } else {
                             ProgressView().task { self.assistantSession = AssistantSession(store: store) }
                         }
@@ -108,6 +125,10 @@ struct AlbumExperienceRoot: View {
             if library.activeStore == nil {
                 _ = library.restoreLastOpenedTrip()
             }
+            // TripLibrary may restore the last album before this view mounts.
+            // Keep the production entry point direct instead of showing a
+            // redundant home screen in front of the active trip.
+            showingTrip = library.activeStore != nil && !legacyHomeFixture
             if let store = library.activeStore {
                 if store.myName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { sheet = .name }
                 if let extraction = store.pendingExtraction { sheet = .extraction(extraction) }
@@ -120,10 +141,11 @@ struct AlbumExperienceRoot: View {
         }
         .onChange(of: library.activeID) { _, _ in
             // View-local assistant/discovery/sheet state must not leak across trips.
+            assistantSession?.cancel()
             assistantSession = nil
             assistantPrompt = nil
             sheet = nil
-            showingTrip = false
+            showingTrip = library.activeID != nil && !legacyHomeFixture
         }
         .onChange(of: sheet?.id) { oldID, newID in
             if oldID == "extraction", newID == nil { library.activeStore?.pendingExtraction = nil }

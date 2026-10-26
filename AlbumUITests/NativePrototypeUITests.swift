@@ -8,6 +8,10 @@ final class NativePrototypeUITests: XCTestCase {
         app.launchEnvironment["ALBUM_MY_NAME"] = "QA"
         app.launchEnvironment["ALBUM_TODAY"] = "2026-10-06"
         app.launchEnvironment["ALBUM_ASSISTANT_FIXTURE"] = "Antwort aus dem Testalbum."
+        // Legacy card-first assertions are an explicit fixture; production
+        // starts in the selected trip/library flow.
+        app.launchEnvironment["ALBUM_LEGACY_HOME_QA"] = "1"
+        app.launchEnvironment["ALBUM_EMPTY_TEST_STORE"] = "1"
         if reduced { app.launchEnvironment["ALBUM_QA_REDUCE_MOTION"] = "1" }
         if globalImages {
             app.launchEnvironment["ALBUM_EMPTY_TEST_STORE"] = "1"
@@ -43,6 +47,7 @@ final class NativePrototypeUITests: XCTestCase {
         let expectedCredit = live ? "Website-Vorschau" : "Automatisches Testfoto"
         app.launchEnvironment["ALBUM_TEST_STORE"] = "slot-auto-photo-ui-\(UUID().uuidString)"
         app.launchEnvironment["ALBUM_EMPTY_TEST_STORE"] = "1"
+        app.launchEnvironment["ALBUM_LEGACY_HOME_QA"] = "1"
         app.launchEnvironment[live ? "ALBUM_AUTO_PHOTO_LIVE_QA" : "ALBUM_AUTO_PHOTO_QA"] = "1"
         app.launchEnvironment["ALBUM_MY_NAME"] = "QA"
         app.launchArguments += ["-AppleLanguages", "(de)", "-AppleLocale", "de_DE"]

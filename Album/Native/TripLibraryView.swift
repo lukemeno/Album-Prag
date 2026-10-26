@@ -66,13 +66,22 @@ struct TripLibraryView: View {
             .navigationBarHidden(true)
         }
         .sheet(isPresented: $showingCreate) {
-            TripCreateView { title, destination in
-                guard let id = library.createBlankTrip(title: title, destination: destination) else { return false }
-                return library.open(id)
+            TripCreateView { title, destination, startDate, endDate in
+                guard let id = library.createBlankTrip(title: title, destination: destination), library.open(id), let store = library.activeStore else { return false }
+                if startDate != nil || endDate != nil {
+                    var trip = store.data.trip
+                    trip.startDate = startDate
+                    trip.endDate = endDate
+                    _ = store.updateTrip(trip)
+                    library.refreshActiveEntry()
+                }
+                return true
             }
             .environment(library)
         }
-        .task { library.refreshEntries() }
+        // TripLibrary loads its index during initialization and refreshes it
+        // after every create/open/background transition; avoid constructing a
+        // second store merely to redraw this cache view.
     }
 
     private func tripCard(_ entry: TripLibraryEntry) -> some View {
@@ -119,7 +128,10 @@ struct TripCreateView: View {
     @State private var title = ""
     @State private var destination = ""
     @State private var saveError: String?
-    let onSave: (String, String?) -> Bool
+    let onSave: (String, String?, TripDay?, TripDay?) -> Bool
+    @State private var includeDates = false
+    @State private var startDate = Date()
+    @State private var endDate = Calendar.current.date(byAdding: .day, value: 4, to: Date()) ?? Date()
 
     var body: some View {
         NavigationStack {
@@ -129,6 +141,12 @@ struct TripCreateView: View {
                         .accessibilityIdentifier("trip-create-title")
                     TextField("Ziel (optional)", text: $destination)
                         .accessibilityIdentifier("trip-create-destination")
+                    Toggle("Zeitraum festlegen", isOn: $includeDates)
+                        .accessibilityIdentifier("trip-create-dates-toggle")
+                    if includeDates {
+                        DatePicker("Von", selection: $startDate, displayedComponents: .date)
+                        DatePicker("Bis", selection: $endDate, in: startDate..., displayedComponents: .date)
+                    }
                 }
                 if let saveError { Text(saveError).foregroundStyle(Stitch.red) }
             }
@@ -140,7 +158,9 @@ struct TripCreateView: View {
                         let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
                         guard !cleanTitle.isEmpty else { saveError = "Gib der Reise einen Namen."; return }
                         let cleanDestination = destination.trimmingCharacters(in: .whitespacesAndNewlines)
-                        guard onSave(cleanTitle, cleanDestination.isEmpty ? nil : cleanDestination) else {
+                        let start = includeDates ? tripDay(startDate) : nil
+                        let end = includeDates ? tripDay(endDate) : nil
+                        guard onSave(cleanTitle, cleanDestination.isEmpty ? nil : cleanDestination, start, end) else {
                             saveError = "Die Reise konnte nicht gespeichert werden."
                             return
                         }
@@ -151,5 +171,14 @@ struct TripCreateView: View {
                 }
             }
         }
+    }
+
+    private func tripDay(_ date: Date) -> TripDay {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd"
+        return TripDay(rawValue: formatter.string(from: date))
     }
 }

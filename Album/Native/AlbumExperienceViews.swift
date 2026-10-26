@@ -121,6 +121,7 @@ struct NativeTripExperience: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Album-Übersicht")
+                .accessibilityIdentifier("trip-back-library")
                 Text(section == .map ? "Karte" : store.tripName)
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(Stitch.ink)
@@ -1091,9 +1092,10 @@ struct NativeArcFAB: View {
 extension AlbumStore {
     /// Reisename für Überschriften und Chips. Das Modell kennt noch keinen Namen; mit den flexiblen Reisen (B1)
     /// kommt er aus der Reise selbst. Bis dahin gibt es genau eine Reise.
-    /// Name der Reise aus den Reisedaten; "Prag" für Alben ohne Titel.
+    /// Name der Reise aus den Reisedaten. Blank trips must not inherit a
+    /// destination from the historical Prague fixture.
     var tripName: String {
         let title = data.trip.title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return title.isEmpty ? "Prag" : title
+        return title.isEmpty ? (data.trip.destination?.nilIfEmpty ?? "Deine Reise") : title
     }
 }

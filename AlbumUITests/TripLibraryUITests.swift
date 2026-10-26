@@ -1,0 +1,70 @@
+import XCTest
+
+/// Focused UI coverage for the empty-library and multi-trip entry points.
+/// The normal product launch intentionally has no starter album; all data in
+/// this test is created through the visible library UI.
+final class TripLibraryUITests: XCTestCase {
+    private let slot = "library-ui-\(UUID().uuidString)"
+
+    override func setUp() {
+        continueAfterFailure = false
+    }
+
+    private func launch() -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchEnvironment["ALBUM_TEST_STORE"] = slot
+        app.launchEnvironment["ALBUM_EMPTY_TEST_STORE"] = "1"
+        app.launchArguments += ["-AppleLanguages", "(de)", "-AppleLocale", "de_DE"]
+        app.launch()
+        return app
+    }
+
+    private func tap(_ id: String, in app: XCUIApplication, timeout: TimeInterval = 8) {
+        let element = app.buttons[id]
+        XCTAssertTrue(element.waitForExistence(timeout: timeout), "Fehlt: \(id)\n\(app.debugDescription)")
+        element.tap()
+    }
+
+    private func create(_ title: String, destination: String, in app: XCUIApplication) {
+        tap("library-create-trip", in: app)
+        let titleField = app.textFields["trip-create-title"]
+        XCTAssertTrue(titleField.waitForExistence(timeout: 5))
+        titleField.tap()
+        titleField.typeText(title)
+        let destinationField = app.textFields["trip-create-destination"]
+        destinationField.tap()
+        destinationField.typeText(destination)
+        tap("trip-create-save", in: app)
+    }
+
+    func testEmptyLibraryCreateCancelAndSwitchTrips() {
+        let app = launch()
+        XCTAssertTrue(app.staticTexts["Noch keine Reise"].waitForExistence(timeout: 8), app.debugDescription)
+
+        tap("library-create-trip-empty", in: app)
+        XCTAssertTrue(app.buttons["trip-create-cancel"].waitForExistence(timeout: 4))
+        tap("trip-create-cancel", in: app)
+        XCTAssertTrue(app.staticTexts["Noch keine Reise"].exists)
+
+        create("Paris im Frühling", destination: "Paris", in: app)
+        tap("trip-back-library", in: app)
+        create("Berlin im Herbst", destination: "Berlin", in: app)
+
+        tap("trip-back-library", in: app)
+        let paris = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label CONTAINS %@", "library-trip-", "Paris")).firstMatch
+        let berlin = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label CONTAINS %@", "library-trip-", "Berlin")).firstMatch
+        XCTAssertTrue(paris.waitForExistence(timeout: 8), app.debugDescription)
+        XCTAssertTrue(berlin.exists, app.debugDescription)
+        berlin.tap()
+        XCTAssertTrue(app.buttons["native-tab-plan"].waitForExistence(timeout: 8), app.debugDescription)
+
+        tap("trip-back-library", in: app)
+        XCTAssertTrue(paris.waitForExistence(timeout: 8), app.debugDescription)
+        paris.tap()
+        XCTAssertTrue(app.buttons["native-tab-plan"].waitForExistence(timeout: 8), app.debugDescription)
+
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(app.buttons["native-tab-plan"].waitForExistence(timeout: 8), app.debugDescription)
+    }
+}

@@ -83,6 +83,7 @@
 		BE775928E9BAB7CC06D6E7EA /* ShareInbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EB90CB6210D527945129D1D /* ShareInbox.swift */; };
 		C53DEE600665AAA2B6E19221 /* DayPlanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EE81B08538B28F243EE0E24 /* DayPlanTests.swift */; };
 		C83B27037FDD3046220071A8 /* AlbumExperienceRoot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5838C009BCC373634968D3AB /* AlbumExperienceRoot.swift */; };
+		C6A100000000000000000002 /* TripLibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6A100000000000000000001 /* TripLibraryView.swift */; };
 		CBCA254E06A4AEECE13DC690 /* Fraunces-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = 5463C055190AAC2449152828 /* Fraunces-OFL.txt */; };
 		CEFF067573D0D3E3ED4AFBF8 /* TripCalendarTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7B31B8F1432C7E322ABAC8E /* TripCalendarTests.swift */; };
 		D0C566058D79B60933A7D110 /* AlbumStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AEC4D2DA5E025826995EB60 /* AlbumStore.swift */; };
@@ -100,6 +101,7 @@
 		F897B7CB54B3AE251A159BE2 /* IBMPlexMono.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 531AAC118D595F7C5919B514 /* IBMPlexMono.ttf */; };
 		FCA136FBC3036EBCCBE9AF4C /* PhotoStack.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88448A04E96CFF5D69BA1DA3 /* PhotoStack.swift */; };
 		FDA660D58136EC478A8E5C2F /* NativePrototypeUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 732792AA4B23EAD799FBA189 /* NativePrototypeUITests.swift */; };
+		C6A100000000000000000004 /* TripLibraryUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6A100000000000000000003 /* TripLibraryUITests.swift */; };
 		8EBD13C41C5363E3AE9C3753 /* PlaceResolutionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3F3115183A4AEA3AA2249C2 /* PlaceResolutionTests.swift */; };
 		6CF51F4C171C343B8E7E27B0 /* PlaceImageServiceRegionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E9100E4BE1E772D69FD21C1 /* PlaceImageServiceRegionTests.swift */; };
 		D542DBDADC86EE2308C5FB00 /* DiscoveryModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF253C30E31E9ED19265CDD8 /* DiscoveryModels.swift */; };
@@ -181,6 +183,7 @@
 		552B8A4D602E8FEA90CCED25 /* AccessibilityScreenUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityScreenUITests.swift; sourceTree = "<group>"; };
 		570F4FCF87803AE047C0D2A1 /* Design.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Design.swift; sourceTree = "<group>"; };
 		5838C009BCC373634968D3AB /* AlbumExperienceRoot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumExperienceRoot.swift; sourceTree = "<group>"; };
+		C6A100000000000000000001 /* TripLibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripLibraryView.swift; sourceTree = "<group>"; };
 		59B8A29D9DFA3799069A7E19 /* TripMigrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripMigrationTests.swift; sourceTree = "<group>"; };
 		5AEC4D2DA5E025826995EB60 /* AlbumStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumStore.swift; sourceTree = "<group>"; };
 		5EF535FF4FC3F653771EBE05 /* OFL-Inter.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "OFL-Inter.txt"; sourceTree = "<group>"; };
@@ -193,6 +196,7 @@
 		6DE6AA17058CBB6BAF4ED525 /* ShareExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ShareExtension.entitlements; sourceTree = "<group>"; };
 		71D1BC61700EDE79DFB9BFE6 /* SupabaseSwiftIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseSwiftIntegrationTests.swift; sourceTree = "<group>"; };
 		732792AA4B23EAD799FBA189 /* NativePrototypeUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativePrototypeUITests.swift; sourceTree = "<group>"; };
+		C6A100000000000000000003 /* TripLibraryUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripLibraryUITests.swift; sourceTree = "<group>"; };
 		75B1CB672F272D7697D6AF8B /* TripMemoriesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripMemoriesView.swift; sourceTree = "<group>"; };
 		763051C072C9657DC7CBE9F2 /* AssistantActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantActions.swift; sourceTree = "<group>"; };
 		766EB39A908C29824F1B96BD /* CollectionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionStore.swift; sourceTree = "<group>"; };
@@ -288,6 +292,7 @@
 				4363378572D45B75B9EAB0B7 /* DiscoveryView.swift */,
 				5838C009BCC373634968D3AB /* AlbumExperienceRoot.swift */,
 				E14DCE94657DB2424BD88F22 /* AlbumExperienceViews.swift */,
+				C6A100000000000000000001 /* TripLibraryView.swift */,
 			);
 			path = Native;
 			sourceTree = "<group>";
@@ -302,6 +307,7 @@
 				AA976634EA4BE0B62152931F /* CollectionUITests.swift */,
 				E390D0CC63F946CAD5EFCACB /* FullJourneyUITests.swift */,
 				732792AA4B23EAD799FBA189 /* NativePrototypeUITests.swift */,
+				C6A100000000000000000003 /* TripLibraryUITests.swift */,
 				9D75ACB47A8F872ADBDCD917 /* NativeShareUITests.swift */,
 			);
 			path = AlbumUITests;
@@ -631,6 +637,7 @@
 				26E0646402B99DAADBE9FC56 /* CollectionUITests.swift in Sources */,
 				2143B0FE4D8F825511121131 /* FullJourneyUITests.swift in Sources */,
 				FDA660D58136EC478A8E5C2F /* NativePrototypeUITests.swift in Sources */,
+				C6A100000000000000000004 /* TripLibraryUITests.swift in Sources */,
 				95299E122F9529983CD835F9 /* NativeShareUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -654,6 +661,7 @@
 				D542DBDADC86EE2308C5FB00 /* DiscoveryModels.swift in Sources */,
 				5FF288AF18CAB5FED0B579E7 /* AlbumApp.swift in Sources */,
 				C83B27037FDD3046220071A8 /* AlbumExperienceRoot.swift in Sources */,
+				C6A100000000000000000002 /* TripLibraryView.swift in Sources */,
 				653E66A7D0EB83A16F7055EE /* AlbumExperienceViews.swift in Sources */,
 				2D6DB86157ACB391484154E7 /* AlbumRoot.swift in Sources */,
 				861C66CA273B9FCF131CC452 /* AlbumSettings.swift in Sources */,
