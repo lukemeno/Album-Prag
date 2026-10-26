@@ -206,6 +206,33 @@ final class TripLibraryTests: XCTestCase {
         XCTAssertEqual(committed.state, .committed)
     }
 
+    func testCorruptExistingTargetIsUnavailableWithoutDeletingSidecars() throws {
+        let root = try temporaryRoot()
+        let libraryRoot = root.appendingPathComponent("AlbumLibrary")
+        let legacy = root.appendingPathComponent("Album")
+        var source = AlbumData(); source.places = [Place(id: "source", title: "Source", category: "Sehenswert")]
+        try write(source, to: legacy)
+        let id = UUID()
+        let target = libraryRoot.appendingPathComponent("Trips", isDirectory: true).appendingPathComponent(id.uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: target.appendingPathComponent("images"), withIntermediateDirectories: true)
+        try Data("corrupt-json".utf8).write(to: target.appendingPathComponent("album.json"))
+        let sidecar = target.appendingPathComponent("images/keep.jpg")
+        try Data([0xFF, 0xD8, 0xFF, 0xD9]).write(to: sidecar)
+        try FileManager.default.createDirectory(at: libraryRoot, withIntermediateDirectories: true)
+        let receipt = LegacyMigrationReceipt(id: id, state: .copying, sourceFiles: 1, sourceBytes: 1,
+                                             places: 1, documents: 0, memories: 0, albumID: source.albumID, committedAt: nil)
+        try JSONEncoder().encode(receipt).write(to: libraryRoot.appendingPathComponent("legacy-migration.json"), options: .atomic)
+
+        let library = TripLibrary(root: libraryRoot, legacyRoot: legacy,
+                                  shareInbox: ShareInbox(root: root.appendingPathComponent("share")))
+        XCTAssertEqual(library.entries.first?.id, id)
+        XCTAssertNotNil(library.entries.first?.unavailableReason)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: sidecar.path))
+        XCTAssertEqual(try Data(contentsOf: sidecar), Data([0xFF, 0xD8, 0xFF, 0xD9]))
+        XCTAssertEqual(try Data(contentsOf: legacy.appendingPathComponent("album.json")),
+                       try JSONEncoder().encode(source))
+    }
+
     func testInsufficientCapacityLeavesLegacyUntouched() throws {
         let root = try temporaryRoot()
         let legacy = root.appendingPathComponent("Album")

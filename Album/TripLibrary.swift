@@ -363,6 +363,15 @@ struct LegacyMigrationReceipt: Codable, Equatable {
             _ = persistIndex()
             return
         }
+        if previous?.state == .copying, fileManager.fileExists(atPath: target.path) {
+            // An existing but corrupt/foreign target is quarantined in place.
+            // Its PDFs, images and other sidecars may contain user work; only
+            // a completely missing target is safe to reconstruct from legacy.
+            ensureUnavailableEntry(id: id, albumID: previous?.albumID ?? sourceData.albumID,
+                                   reason: "Die angefangene Migration ist beschädigt oder nicht verfügbar.")
+            _ = persistIndex()
+            return
+        }
         let sourceSize = treeBytes(legacyRoot)
         if let capacity = availableCapacity(), capacity < Int64(Double(max(sourceSize, 0)) * 1.2) + 50_000_000 {
             error = "Nicht genügend Speicherplatz für die Reisekopie. Sie wird beim nächsten Start erneut versucht."
@@ -376,15 +385,6 @@ struct LegacyMigrationReceipt: Codable, Equatable {
         let staging = root.appendingPathComponent(".staging-\(id.uuidString)", isDirectory: true)
         try? fileManager.removeItem(at: staging)
         do {
-            if fileManager.fileExists(atPath: target.path),
-               (!treesEqual(legacyRoot, target) || loadAlbum(at: target) == nil) {
-                // A stale copying receipt may leave a target folder that was
-                // modified after a crash. Remove only that UUID and recopy it
-                // in this same startup, retaining the receipt ID.
-                try fileManager.removeItem(at: target)
-                entries.removeAll { $0.id == id }
-                if indexLastOpenedID == id { indexLastOpenedID = nil }
-            }
             if !fileManager.fileExists(atPath: target.path) {
                 try copier(legacyRoot, staging)
                 guard treesEqual(legacyRoot, staging), loadAlbum(at: staging)?.albumID == sourceData.albumID else {
