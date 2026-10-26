@@ -1,6 +1,7 @@
 .build/
 .qa-shots/
 .qa-results/
+.qa-private/
 .DS_Store
 xcuserdata/
 *.xcuserstate
