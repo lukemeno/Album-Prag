@@ -180,7 +180,7 @@ struct NamePrompt: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         VStack(alignment: .leading, spacing: Stitch.Space.m) {
-            Postmark(bottom: "4.–9.10.", size: 84)
+            Postmark(bottom: "Album", size: 84)
                 // Beim ersten Buchstaben drückt der Stempel einmal nach.
                 .phaseAnimator([1.0, reduceMotion ? 1.0 : 1.08, 1.0], trigger: stampTick) { content, scale in
                     content.scaleEffect(scale)

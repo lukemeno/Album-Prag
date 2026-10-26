@@ -75,12 +75,7 @@ import UIKit
                                 return "Das hat nicht geklappt. \(error.localizedDescription)"
                             }
                         }
-                        if library.activeStore != nil { invitation = request }
-                        else {
-                            Task {
-                                if let message = await request.join() { library.error = message }
-                            }
-                        }
+                        invitation = request
                     }
                 }
                 .fullScreenCover(item: $invitation) { request in
