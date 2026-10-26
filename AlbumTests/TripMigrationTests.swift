@@ -16,7 +16,13 @@ final class TripMigrationTests: XCTestCase {
                                  placeExtras: [String: [String: Any]] = [:]) throws -> Data {
         var album = AlbumData()
         album.places = places
-        album.trip = trip
+        var fixtureTrip = trip
+        // The old production fixture carried the Urban Crème hotel implicitly;
+        // make that legacy signal explicit now that new trips are blank.
+        if fixtureTrip.hotel.isEmpty, places.contains(where: { $0.id.hasPrefix("prague-") }) {
+            fixtureTrip.hotel = "Hotel Urban Crème"
+        }
+        album.trip = fixtureTrip
         album.collaboration = collaboration
         var object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(album)) as? [String: Any])
         XCTAssertNil(object["schemaVersion"])
@@ -100,8 +106,10 @@ final class TripMigrationTests: XCTestCase {
     func testSharedLegacyAlbumMigratesLocallyWithoutMarkingDirty() throws {
         let root = try temporaryRoot()
         let collaboration = CollaborationState(tripID: UUID(), inviteToken: String(repeating: "a", count: 40))
+        var legacyTrip = TripInfo.legacyPrague()
+        legacyTrip.planningSchemaVersion = nil
         let original = try legacyAlbumJSON(places: [Place(id: "shared-place", title: "Café", franked: true, day: 5, dayOrder: 0)],
-                                           collaboration: collaboration)
+                                           trip: legacyTrip, collaboration: collaboration)
         try original.write(to: root.appendingPathComponent("album.json"))
 
         let store = AlbumStore(root: root)
@@ -125,7 +133,9 @@ final class TripMigrationTests: XCTestCase {
     func testFreshAlbumGetsLegacyPragueRangeWithoutBackup() throws {
         let root = try temporaryRoot()
         let store = AlbumStore(root: root)
-        XCTAssertEqual(store.tripCalendar.days.count, 6)
+        XCTAssertEqual(store.tripCalendar.days.count, 0)
+        XCTAssertNil(store.data.trip.startDate)
+        XCTAssertNil(store.data.trip.endDate)
         XCTAssertEqual(store.data.schemaVersion, 2)
         XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent(AlbumStore.legacyPlanningBackupName).path))
     }
@@ -133,6 +143,9 @@ final class TripMigrationTests: XCTestCase {
     func testRangeChangeRetainsOutOfRangeDatesAndRejectsInvalidRange() throws {
         let root = try temporaryRoot()
         let store = AlbumStore(root: root)
+        store.data.trip = TripInfo.legacyPrague()
+        store.data.trip.planningSchemaVersion = 2
+        XCTAssertTrue(store.persist())
         var trip = store.data.trip
         let place = Place(id: "dated", title: "Idea", franked: true, plannedDate: TripDay(rawValue: "2026-10-09"), planningSchemaVersion: 2)
         XCTAssertTrue(store.upsert(place))

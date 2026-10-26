@@ -283,6 +283,11 @@ final class AlbumTests: XCTestCase {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
         let store = AlbumStore(root: directory)
+        store.data.places = [
+            Place(id: "vote-one", title: "First idea"),
+            Place(id: "vote-two", title: "Second idea")
+        ]
+        XCTAssertTrue(store.persist())
         store.myName = "Luke"
         var place = try XCTUnwrap(store.inbox.first); place.lat = 50.087; place.lng = 14.423
         store.upsert(store.decided(place, approve: true))
@@ -315,6 +320,9 @@ final class AlbumTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
         let store = AlbumStore(root: directory)
         store.myName = "Luke"
+        store.data.trip = TripInfo.legacyPrague()
+        store.data.trip.planningSchemaVersion = 2
+        XCTAssertTrue(store.persist())
         let day = try XCTUnwrap(store.tripCalendar.days.first)
         var place = Place(id: "plan-vote", title: "Museum", approvals: ["Mia"], passedBy: ["Luke"])
         XCTAssertTrue(store.upsert(place))
@@ -357,6 +365,8 @@ final class AlbumTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
         let store = AlbumStore(root: directory)
         store.myName = "Luke"
+        store.data.places = [Place(id: "no-vote", title: "Idea")]
+        XCTAssertTrue(store.persist())
         let place = try XCTUnwrap(store.inbox.first)
         store.upsert(store.decided(place, approve: false))
         XCTAssertFalse(store.inbox.contains { $0.id == place.id })
@@ -395,6 +405,8 @@ final class AlbumTests: XCTestCase {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
         let store = AlbumStore(root: directory)
+        store.data.places = [Place(id: "persistence-example", title: "Idea")]
+        XCTAssertTrue(store.persist())
         let initialInboxCount = store.inbox.count
         let example = try XCTUnwrap(store.inbox.first)
         store.deferPlace(example)

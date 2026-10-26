@@ -247,6 +247,8 @@ final class StoreRegressionTests: XCTestCase {
         let service = StoreSyncProbe()
         service.pauseFirstSync = true
         store.syncService = service
+        store.data.places = [Place(id: "sync-place", title: "Sync place")]
+        XCTAssertTrue(store.persist())
         store.data.collaboration = CollaborationState(tripID: UUID(), inviteToken: nil)
         XCTAssertTrue(store.persist())
         let first = Task { await store.sync() }

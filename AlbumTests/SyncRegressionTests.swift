@@ -150,7 +150,9 @@ final class SyncRegressionTests: XCTestCase {
         let tripID = UUID()
         store.data.collaboration = CollaborationState(tripID: tripID, inviteToken: "test-invite-token")
         // Vom Server gezogen: v1-Reise ohne Daten, Partner-Ort mit alter Tageszahl und ein ungelöster Wert.
-        store.data.trip = TripInfo()
+        var legacyTrip = TripInfo.legacyPrague()
+        legacyTrip.planningSchemaVersion = nil
+        store.data.trip = legacyTrip
         let pulledPragueDay = Place(id: "partner-day", title: "Museum", franked: true, day: 6, dayOrder: 2)
         let pulledAmbiguous = Place(id: "partner-ambiguous", title: "Café", day: 31, dayOrder: 0)
         let localOnly = Place(id: "local-only", title: "Nur hier")
