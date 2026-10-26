@@ -156,6 +156,18 @@ struct AlbumExperienceRoot: View {
             assistantPrompt = nil
             sheet = nil
             showingTrip = library.activeID != nil && !legacyHomeFixture
+            guard let activeID = library.activeID,
+                  let store = library.activeStore,
+                  store.myName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  !explicitQAName else { return }
+            // A library card can open a store while the create sheet is still
+            // dismissing. Defer the prompt one turn so SwiftUI never stacks
+            // two presentations; this also covers cold-start restore.
+            Task { @MainActor in
+                await Task.yield()
+                guard library.activeID == activeID, library.activeStore != nil else { return }
+                sheet = .name
+            }
         }
         .onChange(of: sheet?.id) { oldID, newID in
             if oldID == "extraction", newID == nil { library.activeStore?.pendingExtraction = nil }
@@ -180,6 +192,15 @@ struct AlbumExperienceRoot: View {
     private func closeTrip() {
         withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.28)) { showingTrip = false }
         _ = library.showLibrary()
+    }
+
+    private var explicitQAName: Bool {
+        #if DEBUG
+        let value = ProcessInfo.processInfo.environment["ALBUM_MY_NAME"] ?? ""
+        return !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        #else
+        return false
+        #endif
     }
 
     private func openAssistant(_ prompt: String? = nil) {
