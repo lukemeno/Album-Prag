@@ -147,6 +147,13 @@ final class PhotoResolutionCoordinator {
             job.state = .completed; job.lastErrorCode = "user-image"; job.updatedAt = now()
             jobs[index] = job; save(); return
         }
+        if Self.hasValidAutomaticImage(place) {
+            // A manual candidate acceptance or another resolver may have
+            // completed the image while this queue job was in flight. Do not
+            // turn that successful result into a retry on the next wake-up.
+            job.state = .completed; job.lastErrorCode = "existing-image"; job.nextAttemptAt = nil; job.updatedAt = now()
+            jobs[index] = job; save(); return
+        }
         if place.automaticPhotoSuppressed {
             job.state = .suppressed; job.lastErrorCode = "user-removed"; job.updatedAt = now()
             jobs[index] = job; save(); return
@@ -258,6 +265,15 @@ final class PhotoResolutionCoordinator {
     }
 
     private static func jobID(placeID: String, fingerprint: String) -> String { "\(placeID):\(fingerprint)" }
+
+    private static func hasValidAutomaticImage(_ place: Place) -> Bool {
+        guard case .external(let image) = place.image,
+              image.userSelected != true,
+              let resolvedFor = image.resolvedFor,
+              resolvedFor.matches(place) else { return false }
+        return image.provider == .sourcePreview
+            || (image.provider == .wikimedia && (image.ranking ?? 1) >= PlaceImageService.ranking)
+    }
 
     private static func normalized(_ value: String) -> String {
         value.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
