@@ -23,6 +23,8 @@ begin
   claim := public.place_photo_cache_claim(key, 'google', 1, other, now());
   if claim->>'state' <> 'fresh' or jsonb_array_length(claim->'payload') <> 1 then raise exception 'fresh cache payload missing'; end if;
 
+  select id into user_id from auth.users order by created_at limit 1;
+  if user_id is null then raise exception 'test requires an auth user fixture'; end if;
   insert into auth.users(id) values(user_two) on conflict do nothing;
   insert into public.trips(id,invite_token_hash) values(trip_id,'qa-place-photo-limits') on conflict do nothing;
   insert into public.trip_members(trip_id,user_id,role) values(trip_id,user_id,'owner'),(trip_id,user_two,'member') on conflict do nothing;
@@ -36,8 +38,6 @@ begin
   claim := public.place_photo_private_cache_claim(user_two,trip_id,'shared-place','r1',other,now());
   if claim->>'state' <> 'busy' then raise exception 'shared trip cache did not share the lease'; end if;
 
-  select id into user_id from auth.users order by created_at limit 1;
-  if user_id is null then raise exception 'test requires an auth user fixture'; end if;
   result := public.place_photo_reserve_run(run_id, user_id, null, null, false, now());
   if not (result->>'ok')::boolean then raise exception 'run reservation failed: %', result; end if;
   for i in 1..10 loop

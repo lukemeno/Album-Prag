@@ -1,7 +1,7 @@
 import { clients, jsonHeaders, respond } from "../_shared/album.ts";
 import { isUuid } from "../_shared/assistant_validation.ts";
 import { choosePlace, firstArray, validCoordinate, type PlaceCandidate } from "../_shared/place_photo.ts";
-import { resolveWikimedia, WikimediaUnavailable, type WikimediaRequestLimiter } from "../_shared/wikimedia_photos.ts";
+import { resolveWikimedia, WikimediaUnavailable, type WikimediaIdentityCache, type WikimediaRequestLimiter } from "../_shared/wikimedia_photos.ts";
 
 import { createPhotoCache, publicPhotoCacheKey } from "../_shared/place_photo_cache.ts";
 import { cleanPhotoRegion, photoCacheKey, supportedWikipediaLanguage } from "../_shared/photo_context.ts";
@@ -27,25 +27,49 @@ Deno.serve(async request => {
     const languageCode = supportedWikipediaLanguage(body.language_code);
     const tripID = body.trip_id == null ? null : typeof body.trip_id === "string" ? body.trip_id : "invalid";
     const placeID = body.place_id == null ? null : typeof body.place_id === "string" ? body.place_id.trim() : "invalid";
+    const automaticMode = body.mode === "automatic_photo_v1";
+    const manualMode = body.mode === "manual" || body.manual === true;
     const revision = body.revision == null ? "1" : typeof body.revision === "string" ? body.revision.trim() : "invalid";
     const latitude = typeof body.latitude === "number" ? body.latitude : NaN;
     const longitude = typeof body.longitude === "number" ? body.longitude : NaN;
-    if (!title || title.length > 200 || address.length > 500 || category.length > 64 || !validCoordinate(latitude, longitude) || (tripID !== null && !isUuid(tripID)) || (placeID === "invalid" || placeID && (placeID.length < 1 || placeID.length > 128)) || revision === "invalid" || revision.length > 64 || typeof body.manual !== "undefined" && typeof body.manual !== "boolean" || (body.mode !== undefined && body.mode !== "automatic_photo_v1") || (body.mode === "automatic_photo_v1" && !validCoordinate(latitude, longitude))) return json({ error: "Ungültige Ortsdaten" }, 400);
+    if (!title || title.length > 200 || address.length > 500 || category.length > 64 || !validCoordinate(latitude, longitude) || (tripID !== null && !isUuid(tripID)) || (placeID === "invalid" || placeID && (placeID.length < 1 || placeID.length > 128)) || revision === "invalid" || revision.length > 64 || typeof body.manual !== "undefined" && typeof body.manual !== "boolean" || (body.mode !== undefined && !automaticMode && !manualMode) || (automaticMode && (!placeID || typeof body.revision !== "string" || !revision || !validCoordinate(latitude, longitude)))) return json({ error: "Ungültige Ortsdaten" }, 400);
 
     const resolutionID = crypto.randomUUID();
-    const manualQuotaKey = body.manual === true && placeID ? await publicPhotoCacheKey({ protocol: "private-manual", id: [user.id, tripID ?? "", placeID, revision].join(":" ) }) : null;
+    const manualQuotaKey = manualMode && placeID ? await publicPhotoCacheKey({ protocol: "private-manual", id: [user.id, tripID ?? "", placeID, revision].join(":" ) }) : null;
     const ramKey = photoCacheKey({ title, category, latitude, longitude, address, region, languageCode });
     const limiter: WikimediaRequestLimiter = { run: async <T>(work: () => Promise<T>) => {
       const result = await admin.rpc("place_photo_reserve_upstream", { p_resolution_id: resolutionID, p_provider: "wikimedia" });
       if (result.error || !result.data?.ok) throw new WikimediaUnavailable("commons.wikimedia.org", "quota", String(result.data?.code ?? "quota_unavailable"), Number(result.data?.retry_after_seconds) || 60);
       return await work();
     } };
+    let publicLease: { key: string; token: string; id: string } | null = null;
+    const identityCache: WikimediaIdentityCache = {
+      load: async identity => {
+        const key = await publicPhotoCacheKey(identity);
+        const token = crypto.randomUUID();
+        const claim = await admin.rpc("place_photo_cache_claim", { p_cache_key: key, p_identity_protocol: identity.protocol, p_pipeline_version: 1, p_lease_token: token });
+        if (claim.error) throw claim.error;
+        if (claim.data?.state === "busy") throw new WikimediaUnavailable("place-photo", "cache", "busy", Number(claim.data.retry_after_seconds) || 10);
+        if (claim.data?.state === "fresh") return claim.data.payload ?? [];
+        publicLease = { key, token, id: identity.id };
+        return null;
+      },
+      store: async (identity, photos) => {
+        const key = await publicPhotoCacheKey(identity);
+        const lease = publicLease;
+        if (!lease || lease.key !== key || lease.id !== identity.id) return;
+        const now = new Date();
+        const completed = await admin.rpc("place_photo_cache_complete", { p_cache_key: key, p_lease_token: lease.token, p_payload: photos, p_fetched_at: now.toISOString(), p_expires_at: new Date(now.getTime() + (photos.length ? 30 : 7) * 86400000).toISOString(), p_stale_until: new Date(now.getTime() + 90 * 86400000).toISOString() });
+        if (completed.error || completed.data !== true) throw new WikimediaUnavailable("place-photo", "cache", "lease_expired", 10);
+        publicLease = null;
+      },
+    };
     const loadPhotos = async () => {
-      const run = await admin.rpc("place_photo_reserve_run", { p_resolution_id: resolutionID, p_user_id: user.id, p_trip_id: tripID, p_cache_key: manualQuotaKey, p_manual: body.manual === true });
+      const run = await admin.rpc("place_photo_reserve_run", { p_resolution_id: resolutionID, p_user_id: user.id, p_trip_id: tripID, p_cache_key: manualQuotaKey, p_manual: manualMode });
       if (run.error || !run.data?.ok) throw new WikimediaUnavailable("commons.wikimedia.org", "quota", String(run.data?.code ?? "quota_unavailable"), Number(run.data?.retry_after_seconds) || 60);
       return await cachedWikimedia(ramKey, async key => {
         const [cachedTitle, cachedCategory, cachedLatitude, cachedLongitude, cachedAddress, cachedRegion, cachedLanguage] = JSON.parse(key);
-        return await resolveWikimedia(cachedTitle, cachedCategory, cachedLatitude, cachedLongitude, cachedAddress, cachedRegion, cachedLanguage, limiter);
+        return await resolveWikimedia(cachedTitle, cachedCategory, cachedLatitude, cachedLongitude, cachedAddress, cachedRegion, cachedLanguage, limiter, identityCache);
       });
     };
     let photos: Awaited<ReturnType<typeof resolveWikimedia>> = [];
@@ -60,7 +84,8 @@ Deno.serve(async request => {
         try {
           photos = await loadPhotos();
           const now = new Date();
-          await admin.rpc("place_photo_private_cache_complete", { p_user_id: user.id, p_trip_id: tripID, p_place_id: placeID, p_revision: revision, p_lease_token: token, p_payload: photos, p_expires_at: new Date(now.getTime() + (photos.length ? 30 : 7) * 86400000).toISOString() });
+          const completed = await admin.rpc("place_photo_private_cache_complete", { p_user_id: user.id, p_trip_id: tripID, p_place_id: placeID, p_revision: revision, p_lease_token: token, p_payload: photos, p_expires_at: new Date(now.getTime() + (photos.length ? 30 : 7) * 86400000).toISOString() });
+          if (completed.error || completed.data !== true) throw new WikimediaUnavailable("place-photo", "cache", "lease_expired", 10);
         } catch (error) {
           await admin.rpc("place_photo_private_cache_release", { p_user_id: user.id, p_trip_id: tripID, p_place_id: placeID, p_revision: revision, p_lease_token: token });
           throw error;
@@ -148,3 +173,4 @@ function firstImageURL(value: unknown): string | null {
 function json(value: unknown, status = 200) {
   return new Response(JSON.stringify(value), { status, headers: jsonHeaders });
 }
+

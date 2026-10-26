@@ -5,6 +5,11 @@ const wikimediaHeaders = { "User-Agent": Deno.env.get("WIKIMEDIA_USER_AGENT") ||
 
 export type WikimediaDiscoveryLimiter = { run<T>(signal: AbortSignal, work: () => Promise<T>): Promise<T> };
 export type WikimediaRequestLimiter = { run<T>(work: () => Promise<T>): Promise<T> };
+export type WikimediaPhoto = { image_url: string; source_url: string; credit: string; provider: "wikimedia"; provider_place_id?: string | null; license_name?: string; license_url?: string; confidence: "verified" | "suggested"; caption?: string };
+export type WikimediaIdentityCache = {
+  load: (identity: { protocol: "wikidata"; id: string }) => Promise<WikimediaPhoto[] | null>;
+  store: (identity: { protocol: "wikidata"; id: string }, photos: WikimediaPhoto[]) => Promise<void>;
+};
 export type WikimediaDiscoveryImageEntry = { qid: string; title: string };
 
 /// Exact-QID P18 metadata in batches; unlike resolveWikimedia this never searches or ranks by name.
@@ -55,7 +60,7 @@ export async function fetchWikimediaP18Images(entries: WikimediaDiscoveryImageEn
 }
 
 /// Sammelt Fotos aus drei Quellen (Hauptbild, Commons-Kategorie, Umgebung) und gibt die typischsten zuerst zurück.
-export async function resolveWikimedia(title: string, category: string, latitude: number, longitude: number, address = "", regionName = "", languageCode?: string, limiter?: WikimediaRequestLimiter) {
+export async function resolveWikimedia(title: string, category: string, latitude: number, longitude: number, address = "", regionName = "", languageCode?: string, limiter?: WikimediaRequestLimiter, identityCache?: WikimediaIdentityCache): Promise<WikimediaPhoto[]> {
   let failure: unknown;
   const entities: Array<{ id: string; value: any }> = [];
   let place: PlaceCandidate | undefined;
@@ -83,6 +88,11 @@ export async function resolveWikimedia(title: string, category: string, latitude
       } catch (error) { failure = error; }
     }
     place = choosePlace(wikipediaCandidates, title, latitude, longitude, address);
+  }
+  const identity = place?.id && /^Q[1-9][0-9]*$/.test(place.id) ? { protocol: "wikidata" as const, id: place.id } : null;
+  if (identity && identityCache) {
+    const cached = await identityCache.load(identity);
+    if (cached) return cached;
   }
   const names = [title, place?.name ?? title, ...entities.filter(entity => entity.id === place?.id)
     .flatMap(entity => [...Object.values(entity.value?.labels ?? {}), ...Object.values(entity.value?.aliases ?? {}).flat()].map((label: any) => label?.value))
@@ -121,13 +131,13 @@ export async function resolveWikimedia(title: string, category: string, latitude
   }
   const ranked = rankPhotos(infos.map(info => ({ ...info.candidate, ...sources.get(info.candidate.title)!, depictsPlace: depicted.has(info.pageID) })), [...new Set(names)], category);
   if (!ranked.length && failure) throw failure;
-  return ranked.map(({ photo, confidence }) => {
+  const resolved = ranked.map(({ photo, confidence }) => {
     const info = infos.find(value => value.candidate.title === photo.title)!;
     return {
       image_url: info.imageURL,
       source_url: info.sourceURL,
       credit: info.credit,
-      provider: "wikimedia",
+      provider: "wikimedia" as const,
       provider_place_id: place?.id ?? null,
       license_name: info.licenseName,
       license_url: info.licenseURL,
@@ -135,6 +145,8 @@ export async function resolveWikimedia(title: string, category: string, latitude
       caption: photo.title.replace(/^File:/, "").replace(/\.[a-z]+$/i, ""),
     };
   });
+  if (identity && identityCache) await identityCache.store(identity, resolved.filter(photo => photo.confidence === "verified" && photo.provider_place_id === identity.id));
+  return resolved;
 }
 
 /// English, device language and a context-derived language keep global lookups bounded.
@@ -179,8 +191,15 @@ async function wikimedia(host: string, params: Record<string, string>, limiter?:
   for (let attempt = 0; attempt < 2; attempt++) {
     const operation = params.list ?? params.action;
     let response: Response;
-    try { response = await (limiter ? limiter.run(() => fetch(url, { redirect: "error", headers: wikimediaHeaders, signal: AbortSignal.timeout(8000) })) : fetch(url, { redirect: "error", headers: wikimediaHeaders, signal: AbortSignal.timeout(8000) })); }
-    catch { throw new WikimediaUnavailable(host, operation, "timeout_or_network"); }
+    try {
+      const request = () => fetch(url, { redirect: "error", headers: wikimediaHeaders, signal: AbortSignal.timeout(8000) });
+      response = limiter ? await limiter.run(request) : await request();
+    } catch (error) {
+      // Quota/defer errors from the distributed limiter must retain their
+      // original code and retry-after; only network failures become 503s.
+      if (limiter && !(error instanceof TypeError)) throw error;
+      throw new WikimediaUnavailable(host, operation, "timeout_or_network");
+    }
     if (response.ok) {
       const payload = await response.json();
       if (payload.error) throw new WikimediaUnavailable(host, operation, String(payload.error.code));

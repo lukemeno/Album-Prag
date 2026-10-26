@@ -19,7 +19,7 @@ create index if not exists place_photo_cache_expiry_idx on place_photo_private.p
 
 create table if not exists place_photo_private.private_cache (
   scope_key text not null check (length(scope_key) between 6 and 200),
-  user_id uuid references auth.users(id) on delete cascade,
+  user_id uuid,
   trip_id uuid,
   place_id text not null check (length(place_id) between 1 and 128),
   revision text not null default '1' check (length(revision) between 1 and 64),
@@ -60,12 +60,13 @@ revoke all on all tables in schema place_photo_private from public, anon, authen
 grant usage on schema place_photo_private to service_role;
 grant select, insert, update, delete on all tables in schema place_photo_private to service_role;
 
+
 create or replace function public.place_photo_private_cache_claim(p_user_id uuid,p_trip_id uuid,p_place_id text,p_revision text,p_lease_token uuid,p_now timestamptz default now())
 returns jsonb language plpgsql security definer set search_path=public,place_photo_private,pg_temp as $$
 declare row place_photo_private.private_cache%rowtype;
         scope text := case when p_trip_id is null then 'user:'||p_user_id::text else 'trip:'||p_trip_id::text end;
 begin
-  if auth.role() <> 'service_role' or p_user_id is null or p_place_id is null or length(p_place_id) not between 1 and 128 or p_lease_token is null then raise exception using errcode='22023',message='invalid private cache claim'; end if;
+  if auth.role() is distinct from 'service_role' or p_user_id is null or p_place_id is null or length(p_place_id) not between 1 and 128 or p_lease_token is null then raise exception using errcode='22023',message='invalid private cache claim'; end if;
   if p_trip_id is not null and not exists(select 1 from public.trip_members where trip_id=p_trip_id and user_id=p_user_id) then return jsonb_build_object('state','forbidden','payload','[]'::jsonb); end if;
   insert into place_photo_private.private_cache(scope_key,user_id,trip_id,place_id,revision) values(scope,p_user_id,p_trip_id,p_place_id,coalesce(nullif(p_revision,''),'1')) on conflict do nothing;
   select * into row from place_photo_private.private_cache where scope_key=scope and place_id=p_place_id and revision=coalesce(nullif(p_revision,''),'1') for update;
@@ -78,7 +79,7 @@ create or replace function public.place_photo_private_cache_complete(p_user_id u
 returns boolean language plpgsql security definer set search_path=public,place_photo_private,pg_temp as $$
 declare scope text := case when p_trip_id is null then 'user:'||p_user_id::text else 'trip:'||p_trip_id::text end;
 begin
-  if auth.role() <> 'service_role' or jsonb_typeof(p_payload) <> 'array' then raise exception using errcode='22023',message='invalid private cache payload'; end if;
+  if auth.role() is distinct from 'service_role' or jsonb_typeof(p_payload) <> 'array' or p_expires_at <= now() then raise exception using errcode='22023',message='invalid private cache payload'; end if;
   update place_photo_private.private_cache set payload=p_payload,expires_at=p_expires_at,lease_token=null,lease_until=null,updated_at=now() where scope_key=scope and place_id=p_place_id and revision=coalesce(nullif(p_revision,''),'1') and lease_token=p_lease_token;
   return found;
 end $$;
@@ -86,7 +87,7 @@ create or replace function public.place_photo_private_cache_release(p_user_id uu
 returns boolean language plpgsql security definer set search_path=public,place_photo_private,pg_temp as $$
 declare scope text := case when p_trip_id is null then 'user:'||p_user_id::text else 'trip:'||p_trip_id::text end;
 begin
-  if auth.role() <> 'service_role' then raise exception using errcode='42501',message='service role required'; end if;
+  if auth.role() is distinct from 'service_role' then raise exception using errcode='42501',message='service role required'; end if;
   update place_photo_private.private_cache set lease_token=null,lease_until=null,updated_at=now() where scope_key=scope and place_id=p_place_id and revision=coalesce(nullif(p_revision,''),'1') and lease_token=p_lease_token;
   return found;
 end $$;
@@ -95,7 +96,7 @@ create or replace function public.place_photo_cache_claim(p_cache_key text, p_id
 returns jsonb language plpgsql security definer set search_path=public,place_photo_private,pg_temp as $$
 declare row place_photo_private.public_cache%rowtype;
 begin
-  if auth.role() <> 'service_role' or p_cache_key is null or p_cache_key !~ '^[0-9a-f]{64}$' or p_lease_token is null then raise exception using errcode='22023', message='invalid cache claim'; end if;
+  if auth.role() is distinct from 'service_role' or p_cache_key is null or p_cache_key !~ '^[0-9a-f]{64}$' or p_lease_token is null then raise exception using errcode='22023', message='invalid cache claim'; end if;
   insert into place_photo_private.public_cache(cache_key,identity_protocol,pipeline_version) values(p_cache_key,lower(p_identity_protocol),p_pipeline_version) on conflict do nothing;
   select * into row from place_photo_private.public_cache where cache_key=p_cache_key for update;
   if row.pipeline_version <> p_pipeline_version or row.identity_protocol <> lower(p_identity_protocol) then
@@ -110,14 +111,14 @@ end $$;
 create or replace function public.place_photo_cache_complete(p_cache_key text,p_lease_token uuid,p_payload jsonb,p_fetched_at timestamptz,p_expires_at timestamptz,p_stale_until timestamptz)
 returns boolean language plpgsql security definer set search_path=public,place_photo_private,pg_temp as $$
 begin
-  if auth.role() <> 'service_role' or jsonb_typeof(p_payload) <> 'array' or p_expires_at <= p_fetched_at or p_stale_until < p_expires_at then raise exception using errcode='22023',message='invalid cache payload'; end if;
+  if auth.role() is distinct from 'service_role' or jsonb_typeof(p_payload) <> 'array' or p_expires_at <= p_fetched_at or p_stale_until < p_expires_at then raise exception using errcode='22023',message='invalid cache payload'; end if;
   update place_photo_private.public_cache set payload=p_payload,fetched_at=p_fetched_at,expires_at=p_expires_at,stale_until=p_stale_until,lease_token=null,lease_until=null,updated_at=p_fetched_at where cache_key=p_cache_key and lease_token=p_lease_token;
   return found;
 end $$;
 create or replace function public.place_photo_cache_release(p_cache_key text,p_lease_token uuid)
 returns boolean language plpgsql security definer set search_path=public,place_photo_private,pg_temp as $$
 begin
-  if auth.role() <> 'service_role' then raise exception using errcode='42501',message='service role required'; end if;
+  if auth.role() is distinct from 'service_role' then raise exception using errcode='42501',message='service role required'; end if;
   update place_photo_private.public_cache set lease_token=null,lease_until=null,updated_at=now() where cache_key=p_cache_key and lease_token=p_lease_token;
   return found;
 end $$;
@@ -126,7 +127,7 @@ create or replace function public.place_photo_reserve_run(p_resolution_id uuid,p
 returns jsonb language plpgsql security definer set search_path=public,place_photo_private,pg_temp as $$
 declare oldest timestamptz; count_hour integer; count_day integer; count_trip integer; count_manual integer;
 begin
-  if auth.role() <> 'service_role' or p_resolution_id is null or p_user_id is null then raise exception using errcode='42501',message='service role required'; end if;
+  if auth.role() is distinct from 'service_role' or p_resolution_id is null or p_user_id is null then raise exception using errcode='42501',message='service role required'; end if;
   perform pg_advisory_xact_lock(hashtextextended('place-photo-run-user:'||p_user_id::text,0));
   if p_trip_id is not null then perform pg_advisory_xact_lock(hashtextextended('place-photo-run-trip:'||p_trip_id::text,0)); end if;
   if exists(select 1 from place_photo_private.resolution_runs where resolution_id=p_resolution_id) then return jsonb_build_object('ok',true,'reused',true); end if;
@@ -151,7 +152,7 @@ create or replace function public.place_photo_reserve_upstream(p_resolution_id u
 returns jsonb language plpgsql security definer set search_path=public,place_photo_private,pg_temp as $$
 declare seq integer; oldest timestamptz; total_min integer; total_day integer;
 begin
-  if auth.role() <> 'service_role' or p_provider not in ('wikimedia','google') then raise exception using errcode='22023',message='invalid upstream'; end if;
+  if auth.role() is distinct from 'service_role' or p_provider not in ('wikimedia','google') then raise exception using errcode='22023',message='invalid upstream'; end if;
   if not exists(select 1 from place_photo_private.resolution_runs where resolution_id=p_resolution_id) then return jsonb_build_object('ok',false,'code','run_missing'); end if;
   perform pg_advisory_xact_lock(hashtextextended('place-photo-upstream-global',0));
   select count(*)::integer,min(created_at) into total_min,oldest from place_photo_private.upstream_calls where created_at >= p_now-interval '1 minute';
@@ -167,7 +168,7 @@ end $$;
 create or replace function public.place_photo_prune()
 returns void language plpgsql security definer set search_path=public,place_photo_private,place_enrichment_private,pg_temp as $$
 begin
-  if auth.role() <> 'service_role' then raise exception using errcode='42501',message='service role required'; end if;
+  if auth.role() is distinct from 'service_role' then raise exception using errcode='42501',message='service role required'; end if;
   delete from place_photo_private.upstream_calls where created_at < now()-interval '8 days';
   delete from place_photo_private.resolution_runs where created_at < now()-interval '8 days';
   delete from place_photo_private.public_cache where stale_until < now()-interval '90 days';
