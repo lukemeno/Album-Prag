@@ -267,6 +267,8 @@ struct Place: Codable, Identifiable, Equatable {
     var deferred = false
     var deleted = false
     var visited = false
+    /// Synchronisierte Sperre nach bewusstem Entfernen des automatischen Ortsfotos.
+    var automaticPhotoSuppressed = false
     /// Geplanter Reisetag. `day` bleibt nur zum Lesen und Migrieren alter Daten.
     var plannedDate: TripDay?
     var planningSchemaVersion: Int?
@@ -317,16 +319,16 @@ struct Place: Codable, Identifiable, Equatable {
         return .linkPreview(pageURL: url.absoluteString, thumbnailURL: nil, credit: sourceLabel)
     }
 
-    init(id: String = UUID().uuidString, title: String, note: String = "", sourceURL: String = "", category: String = "Idee", author: String = "Wir", image: PlaceImageAsset? = nil, address: String = "", lat: Double? = nil, lng: Double? = nil, franked: Bool = false, deferred: Bool = false, deleted: Bool = false, visited: Bool = false, plannedDate: TripDay? = nil, planningSchemaVersion: Int? = nil, planningUpdatedAt: Date? = nil, day: Int? = nil, dayOrder: Int? = nil, approvals: [String] = [], passedBy: [String] = [], updatedAt: Date = Date()) {
+    init(id: String = UUID().uuidString, title: String, note: String = "", sourceURL: String = "", category: String = "Idee", author: String = "Wir", image: PlaceImageAsset? = nil, address: String = "", lat: Double? = nil, lng: Double? = nil, franked: Bool = false, deferred: Bool = false, deleted: Bool = false, visited: Bool = false, plannedDate: TripDay? = nil, planningSchemaVersion: Int? = nil, planningUpdatedAt: Date? = nil, day: Int? = nil, dayOrder: Int? = nil, approvals: [String] = [], passedBy: [String] = [], updatedAt: Date = Date(), automaticPhotoSuppressed: Bool = false) {
         self.id = id; self.title = title; self.note = note; self.sourceURL = sourceURL; self.category = category; self.author = author
         self.image = image; self.address = address; self.lat = lat; self.lng = lng; self.franked = franked; self.deferred = deferred
-        self.deleted = deleted; self.visited = visited; self.plannedDate = plannedDate
+        self.deleted = deleted; self.visited = visited; self.automaticPhotoSuppressed = automaticPhotoSuppressed; self.plannedDate = plannedDate
         self.planningSchemaVersion = planningSchemaVersion; self.planningUpdatedAt = planningUpdatedAt; self.day = day; self.dayOrder = dayOrder
         self.approvals = approvals; self.passedBy = passedBy; self.updatedAt = updatedAt
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, title, note, sourceURL, category, author, image, address, lat, lng, selectedGooglePlace, franked, deferred, deleted, visited, plannedDate, planningSchemaVersion, planningUpdatedAt, day, dayOrder, approvals, passedBy, openingHours, gallery, updatedAt
+        case id, title, note, sourceURL, category, author, image, address, lat, lng, selectedGooglePlace, franked, deferred, deleted, visited, automaticPhotoSuppressed, plannedDate, planningSchemaVersion, planningUpdatedAt, day, dayOrder, approvals, passedBy, openingHours, gallery, updatedAt
         case imageName, remoteImage, imageSourceURL, imageCredit
     }
 
@@ -345,6 +347,7 @@ struct Place: Codable, Identifiable, Equatable {
         deferred = try values.decodeIfPresent(Bool.self, forKey: .deferred) ?? false
         deleted = try values.decodeIfPresent(Bool.self, forKey: .deleted) ?? false
         visited = try values.decodeIfPresent(Bool.self, forKey: .visited) ?? false
+        automaticPhotoSuppressed = try values.decodeIfPresent(Bool.self, forKey: .automaticPhotoSuppressed) ?? false
         plannedDate = try values.decodeIfPresent(TripDay.self, forKey: .plannedDate)
         planningSchemaVersion = try values.decodeIfPresent(Int.self, forKey: .planningSchemaVersion)
         planningUpdatedAt = try values.decodeIfPresent(Date.self, forKey: .planningUpdatedAt)
@@ -377,6 +380,7 @@ struct Place: Codable, Identifiable, Equatable {
         try values.encodeIfPresent(image, forKey: .image); try values.encode(address, forKey: .address); try values.encodeIfPresent(lat, forKey: .lat)
         try values.encodeIfPresent(lng, forKey: .lng); try values.encode(franked, forKey: .franked); try values.encode(deferred, forKey: .deferred)
         try values.encode(deleted, forKey: .deleted); try values.encode(visited, forKey: .visited)
+        try values.encode(automaticPhotoSuppressed, forKey: .automaticPhotoSuppressed)
         try values.encodeIfPresent(plannedDate, forKey: .plannedDate); try values.encodeIfPresent(planningSchemaVersion, forKey: .planningSchemaVersion)
         try values.encodeIfPresent(planningUpdatedAt, forKey: .planningUpdatedAt)
         try values.encodeIfPresent(day, forKey: .day); try values.encodeIfPresent(selectedGooglePlace, forKey: .selectedGooglePlace)

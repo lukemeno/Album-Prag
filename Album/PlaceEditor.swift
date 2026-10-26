@@ -37,6 +37,7 @@ struct PlaceEditor: View {
     @State private var posting = false
     @State private var confirmDelete = false
     @State private var editorFinished = false
+    @State private var automaticPhotoSuppressed = false
     /// Schon gespeichert? Dann gibt es Zurücklegen und Löschen.
     private var exists: Bool { store.places.contains { $0.id == place.id } }
     private var editorTitle: String { exists ? "Bearbeiten" : "Neue Idee" }
@@ -99,6 +100,7 @@ struct PlaceEditor: View {
                         place.image = selected.asset(for: place, userSelected: true)
                         let others = choices.images.filter { $0.imageURL != selected.imageURL && $0.confidence == .verified }
                         place.gallery = selected.confidence == .verified ? PlaceImageService.gallery(from: [selected] + others, for: place) : []
+                        automaticPhotoSuppressed = false
                         imageChoices = nil
                     } streetView: {
                         guard !editorFinished, PlaceImageService.matchesRequest(choices.place, place) else { return }
@@ -220,6 +222,7 @@ struct PlaceEditor: View {
             if moved {
                 if PlaceImageService.shouldDiscardImageAfterLocationMove(place.image) { place.image = nil }
                 place.gallery = nil
+                automaticPhotoSuppressed = false
             }
             ideaSuggestions = []
             invalidateIdeaSuggestions()
@@ -362,7 +365,11 @@ struct PlaceEditor: View {
             Text("Foto: \(credit)\(license.map { " · \($0)" } ?? "")")
                 .font(.footnote).foregroundStyle(Stitch.inkSoft)
         }
-        Button("Bild entfernen", role: .destructive) { place.image = nil; place.gallery = [] }
+        Button("Bild entfernen", role: .destructive) {
+            place.image = nil
+            place.gallery = []
+            automaticPhotoSuppressed = true
+        }
     }
 
     private var planningSection: some View {
@@ -429,6 +436,7 @@ struct PlaceEditor: View {
             if locationMoved {
                 if PlaceImageService.shouldDiscardImageAfterLocationMove(place.image) { place.image = nil }
                 place.gallery = nil
+                automaticPhotoSuppressed = false
             }
             results = []
             beginImageSearch(force: false)
@@ -444,7 +452,7 @@ struct PlaceEditor: View {
 
     private func save() {
         let isNew = !store.places.contains { $0.id == place.id }
-        guard store.upsert(place) else { return }
+        guard store.upsert(place, photoAutomation: automaticPhotoSuppressed ? .suppress : .automatic) else { return }
         if place.coordinate == nil {
             Task { await store.refreshPlaceImage(id: place.id) }
         }
@@ -682,6 +690,7 @@ struct PlaceEditor: View {
             pendingPhotoID = uploaded.id
             place.image = .uploaded(uploaded)
             place.gallery = []
+            automaticPhotoSuppressed = false
             searchError = nil
         } catch {
             guard isCurrentImageOperation(generation) else { return }
@@ -715,6 +724,7 @@ struct PlaceEditor: View {
             }
             place.image = .uploaded(uploaded)
             place.gallery = []
+            automaticPhotoSuppressed = false
             pendingPhotoID = uploaded.id
             searchError = nil
         } catch {

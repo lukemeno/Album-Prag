@@ -10,7 +10,7 @@ import UIKit
 
     init() {
         // Ortsfotos bleiben zwischengespeichert, damit Karte und Liste auch mit schwachem Netz in Prag Bilder zeigen.
-        URLCache.shared = URLCache(memoryCapacity: 40_000_000, diskCapacity: 250_000_000)
+        URLCache.shared = URLCache(memoryCapacity: 20_000_000, diskCapacity: 100_000_000)
     }
     @State private var store: AlbumStore = {
         #if DEBUG
@@ -63,6 +63,26 @@ import UIKit
                         sourceURL: URL(string: "https://commons.wikimedia.org/")!, credit: "Lokale Testaufnahme",
                         provider: .wikimedia, licenseName: "CC0", licenseURL: nil,
                         providerPlaceID: "qa-local", confidence: .verified, caption: place.title)
+                    return PlaceImageSearchResult(image: image, candidates: [], selectionVersion: PlaceImageService.ranking)
+                }
+            }
+            if ProcessInfo.processInfo.environment["ALBUM_AUTO_PHOTO_QA"] == "1" {
+                store.placeResolutionResolver = { place, _ in
+                    let candidate = PlaceResolutionCandidate(id: "auto-photo-qa", title: place.title,
+                        address: "Tokyo, Japan", latitude: 35.6586, longitude: 139.7454, category: place.category)
+                    return .resolved(candidate)
+                }
+                store.placeImageSearchResolver = { place, _ in
+                    let fixtureURL = root.appendingPathComponent("auto-photo-qa.png")
+                    if !FileManager.default.fileExists(atPath: fixtureURL.path),
+                       let bytes = UIImage(systemName: "photo.fill")?.pngData() {
+                        try bytes.write(to: fixtureURL, options: .atomic)
+                    }
+                    let image = PlaceImage(imageURL: fixtureURL,
+                        sourceURL: URL(string: "https://commons.wikimedia.org/wiki/Category:Tokyo_Tower")!,
+                        credit: "Automatisches Testfoto", provider: .wikimedia,
+                        licenseName: "CC0", licenseURL: nil, providerPlaceID: "auto-photo-qa",
+                        confidence: .verified, caption: place.title)
                     return PlaceImageSearchResult(image: image, candidates: [], selectionVersion: PlaceImageService.ranking)
                 }
             }
@@ -132,6 +152,7 @@ import UIKit
                         } else if !isUnitTestHost && !isIsolatedStoreTest {
                             store.drainShareQueue()
                         }
+                        store.resumeAutomaticPhotoResolution()
                         if !isUnitTestHost && !isIsolatedStoreTest { Task { await store.sync(); await store.refreshPlaceImages() } }
                     }
                 }
@@ -173,6 +194,7 @@ import UIKit
                     } else if !isUnitTestHost && !isIsolatedStoreTest {
                         store.drainShareQueue()
                     }
+                    store.resumeAutomaticPhotoResolution()
                     if !isUnitTestHost && !isIsolatedStoreTest { await store.sync(); await store.refreshPlaceImages() }
                 }
                 .alert("Album", isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) {

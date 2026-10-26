@@ -67,6 +67,7 @@ private struct PlaceResolutionSnapshot: Equatable {
     @ObservationIgnored private var placeResolutionAttempts = Set<String>()
     @ObservationIgnored private var placeImageAttempts = Set<String>()
     @ObservationIgnored private var placeImageInFlight = Set<String>()
+    @ObservationIgnored private var photoResolutionCoordinator: PhotoResolutionCoordinator?
     var places: [Place] { data.places.filter { !$0.deleted } }
     /// Was auf diesem iPhone noch zu entscheiden ist, auch Vorschläge, für die nur die andere Person schon ist.
     var inbox: [Place] { places.filter(isOpenForMe) }
@@ -288,6 +289,7 @@ private struct PlaceResolutionSnapshot: Equatable {
         // The share extension may enqueue before the first in-app mutation. Persist
         // the generated installation identity before publishing its share context.
         if needsInitialPersist, !persist() { shouldPublishShareContext = false }
+        photoResolutionCoordinator = PhotoResolutionCoordinator(store: self, root: self.root)
         guard shouldPublishShareContext else { return }
         #if DEBUG
         if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil && ProcessInfo.processInfo.environment["ALBUM_TEST_STORE"] == nil { publishShareContext() }
@@ -435,9 +437,14 @@ private struct PlaceResolutionSnapshot: Equatable {
         catch { self.error = "Speichern fehlgeschlagen: \(error.localizedDescription)"; return false }
     }
 
-    @discardableResult func upsert(_ input: Place) -> Bool {
+    @discardableResult func upsert(_ input: Place, photoAutomation: PhotoAutomationIntent = .automatic) -> Bool {
         var place = input; place.updatedAt = Date()
+        if photoAutomation == .suppress { place.automaticPhotoSuppressed = true }
+        if photoAutomation != .suppress, PlaceImageService.isUserChosen(place.image) { place.automaticPhotoSuppressed = false }
         let previous = data
+        let existingPlace = data.places.first(where: { $0.id == place.id })
+        let previousContext = existingPlace.map { tripRegionContext(for: $0) }
+        let identityChanged = existingPlace.map { Self.photoIdentityChanged($0, place) } ?? true
         var oldImageToRemove: UploadedPlaceImage?
         if let index = data.places.firstIndex(where: { $0.id == place.id }) {
             let existing = data.places[index]
@@ -465,10 +472,46 @@ private struct PlaceResolutionSnapshot: Equatable {
         if saved {
             if let oldImageToRemove { PlaceImageStorage.remove(oldImageToRemove, root: root) }
             scheduleSync()
+            let context = tripRegionContext(for: place)
+            let contextChanged = previousContext.map { $0 != context } ?? false
+            switch photoAutomation {
+            case .suppress:
+                photoResolutionCoordinator?.suppress(place: place, context: context)
+            case .automaticResult:
+                break
+            case .automatic:
+                if place.deleted {
+                    photoResolutionCoordinator?.suppress(place: place, context: context)
+                } else if place.automaticPhotoSuppressed {
+                    photoResolutionCoordinator?.suppress(place: place, context: context)
+                } else if existingPlace == nil || identityChanged || contextChanged {
+                    photoResolutionCoordinator?.enqueue(place: place, context: context)
+                }
+            }
         } else {
             data = previous
         }
         return saved
+    }
+
+    /// Resumes persisted automatic work after launch, foregrounding or sync.
+    func resumeAutomaticPhotoResolution() {
+        photoResolutionCoordinator?.resume()
+    }
+
+    /// Deterministic hook for unit tests; production uses the lifecycle method above.
+    func drainAutomaticPhotoResolutionForTesting() async {
+        await photoResolutionCoordinator?.drainForTesting()
+    }
+
+    func automaticPhotoJob(for placeID: String) -> PhotoResolutionQueueJob? {
+        photoResolutionCoordinator?.job(for: placeID)
+    }
+
+    private static func photoIdentityChanged(_ old: Place, _ new: Place) -> Bool {
+        old.title != new.title || old.address != new.address || old.category != new.category
+            || old.sourceURL != new.sourceURL || old.lat != new.lat || old.lng != new.lng
+            || old.deleted != new.deleted
     }
 
     var tripMemories: [TripMemoryPhoto] { data.tripMemories.filter { !$0.deleted }.sorted { $0.createdAt > $1.createdAt } }
@@ -526,6 +569,7 @@ private struct PlaceResolutionSnapshot: Equatable {
         var added = 0
         var restored = 0
         var existingCount = 0
+        var photoQueuePlaces: [Place] = []
 
         for suggestion in suggestions {
             let title = suggestion.title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -548,6 +592,7 @@ private struct PlaceResolutionSnapshot: Equatable {
                 data.places[matchIndex] = place
                 if wasHidden { restored += 1 } else { existingCount += 1 }
                 if !place.deleted { data.dirty.insert(place.id) }
+                if !place.deleted { photoQueuePlaces.append(place) }
             } else {
                 let place = Place(
                     title: title,
@@ -559,6 +604,7 @@ private struct PlaceResolutionSnapshot: Equatable {
                 )
                 data.places.append(place)
                 data.dirty.insert(place.id)
+                photoQueuePlaces.append(place)
                 added += 1
             }
         }
@@ -569,6 +615,9 @@ private struct PlaceResolutionSnapshot: Equatable {
             return (0, 0, 0)
         }
         scheduleSync()
+        for place in photoQueuePlaces {
+            photoResolutionCoordinator?.enqueue(place: place, context: tripRegionContext(for: place))
+        }
         return (added, restored, existingCount)
     }
 
@@ -825,11 +874,18 @@ private struct PlaceResolutionSnapshot: Equatable {
     @discardableResult func updateTrip(_ trip: TripInfo) -> Bool {
         guard tripDateValidationError(trip) == nil else { return false }
         let previous = data
+        let previousContexts = Dictionary(uniqueKeysWithValues: places.map { ($0.id, tripRegionContext(for: $0)) })
         let oldDestination = data.trip.destination ?? tripName
         data.trip = trip; data.trip.updatedAt = Date(); data.trip.planningSchemaVersion = 2
         data.schemaVersion = 2; data.dirty.insert("trip")
         if persist() {
             if oldDestination != (trip.destination ?? tripName) { storedDiscoverySession?.destinationDidChange() }
+            for place in places {
+                let context = tripRegionContext(for: place)
+                if previousContexts[place.id] != context {
+                    photoResolutionCoordinator?.enqueue(place: place, context: context)
+                }
+            }
             scheduleSync()
             return true
         } else {
@@ -923,7 +979,7 @@ private struct PlaceResolutionSnapshot: Equatable {
         }
     }
 
-    func refreshPlaceImage(id: String, force: Bool = false) async {
+    func refreshPlaceImage(id: String, force: Bool = false, automatic: Bool = false) async {
         guard !placeImageInFlight.contains(id), let requested = places.first(where: { $0.id == id }) else { return }
         var context = tripRegionContext(for: requested)
         var snapshot = PlaceResolutionSnapshot(title: requested.title, address: requested.address,
@@ -1031,7 +1087,9 @@ private struct PlaceResolutionSnapshot: Equatable {
             var resolvedImage = false
             if needsImage, let best = found.first {
                 updated.image = best.asset(for: updated)
-                updated.gallery = PlaceImageService.gallery(from: found, for: updated)
+                // Automatic work adopts only the first sufficient result. Gallery
+                // candidates remain an explicit image-picker action.
+                updated.gallery = latest.gallery
                 resolvedImage = true
             } else if needsImage, PlaceImageService.canUseSourcePreview(for: latest) {
                 let preview: PlaceImage?
@@ -1070,10 +1128,7 @@ private struct PlaceResolutionSnapshot: Equatable {
                 updated.image = nil
                 updated.gallery = []
                 resolvedImage = true
-            } else if !resolvedImage, !needsImage, result?.isCurrent == true {
-                let gallery = PlaceImageService.gallery(from: found, for: updated)
-                if !gallery.isEmpty { updated.gallery = gallery }
-            } else if !resolvedImage, needsImage, !isAutomatedTestStore,
+            } else if !automatic, !resolvedImage, needsImage, !isAutomatedTestStore,
                       !PlaceImageService.canRetain(updated.image, for: updated),
                       let coordinate = updated.coordinate {
                 let local = await PlaceImageResolver.localSnapshot(at: coordinate)
@@ -1103,7 +1158,7 @@ private struct PlaceResolutionSnapshot: Equatable {
                     resolvedImage = true
                 }
             }
-            if updated != latest, !upsert(updated) { placeImageStatuses[id] = .failed(retryable: true); return }
+            if updated != latest, !upsert(updated, photoAutomation: .automaticResult) { placeImageStatuses[id] = .failed(retryable: true); return }
             if searchFailed, updated == latest {
                 placeImageStatuses[id] = .failed(retryable: true)
             } else {
@@ -1269,14 +1324,21 @@ private struct PlaceResolutionSnapshot: Equatable {
             }
         }
         let before = data.places
+        let beforeByID = Dictionary(uniqueKeysWithValues: before.map { ($0.id, $0) })
+        let beforeContexts = Dictionary(uniqueKeysWithValues: before.map { ($0.id, tripRegionContext(for: $0)) })
         let oldDestination = data.trip.destination ?? tripName
         do {
             let service = try service()
             try await service.sync(store: self)
+            enqueueAutomaticPhotosAfterSync(beforeByID: beforeByID, beforeContexts: beforeContexts)
             if oldDestination != (data.trip.destination ?? tripName) { storedDiscoverySession?.destinationDidChange() }
             // Beim ersten Abgleich ist alles neu; das ist keine Neuigkeit der anderen Person.
             if !before.isEmpty { syncChange = SyncChange.between(before: before, after: data.places, me: me) ?? syncChange }
             service.startRealtime { [weak self] in await self?.sync() }
+            // A successful sync can add or update confirmed places. Resume the
+            // durable photo queue after that merge, without coupling queue
+            // state to the server sync transaction itself.
+            photoResolutionCoordinator?.resume()
             syncStatus = "Synchronisiert"
             succeeded = true
         } catch {
@@ -1288,6 +1350,20 @@ private struct PlaceResolutionSnapshot: Equatable {
             self.error = error.localizedDescription
         }
         return succeeded
+    }
+
+    /// SupabaseSync merges remote rows directly so that its conflict resolver
+    /// can preserve field-level timestamps. Reconcile the local photo queue
+    /// after that merge instead of coupling the sync implementation to it.
+    private func enqueueAutomaticPhotosAfterSync(beforeByID: [String: Place], beforeContexts: [String: TripRegionContext]) {
+        for place in data.places where !place.deleted && !place.automaticPhotoSuppressed && !PlaceImageService.isUserChosen(place.image) {
+            let context = tripRegionContext(for: place)
+            let identityChanged = beforeByID[place.id].map { Self.photoIdentityChanged($0, place) } ?? true
+            let contextChanged = beforeContexts[place.id].map { $0 != context } ?? false
+            if identityChanged || contextChanged {
+                photoResolutionCoordinator?.enqueue(place: place, context: context)
+            }
+        }
     }
 
     func createSharedTrip() async throws -> URL {
@@ -1315,7 +1391,11 @@ private struct PlaceResolutionSnapshot: Equatable {
         data.collaboration = try await service.joinTrip(token: token)
         publishShareContext()
         guard persist() else { throw CocoaError(.fileWriteUnknown) }
+        let beforeByID = Dictionary(uniqueKeysWithValues: data.places.map { ($0.id, $0) })
+        let beforeContexts = Dictionary(uniqueKeysWithValues: data.places.map { ($0.id, tripRegionContext(for: $0)) })
         try await service.sync(store: self)
+        enqueueAutomaticPhotosAfterSync(beforeByID: beforeByID, beforeContexts: beforeContexts)
+        photoResolutionCoordinator?.resume()
         discovery.switchToCurrentScope(copyLocal: false)
         service.startRealtime { [weak self] in await self?.sync() }
         syncStatus = "Album verbunden"
