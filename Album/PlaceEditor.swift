@@ -454,7 +454,7 @@ struct PlaceEditor: View {
         let isNew = !store.places.contains { $0.id == place.id }
         guard store.upsert(place, photoAutomation: automaticPhotoSuppressed ? .suppress : .automatic) else { return }
         if place.coordinate == nil {
-            Task { await store.refreshPlaceImage(id: place.id) }
+            Task { await store.refreshPlaceImage(id: place.id, automatic: true) }
         }
         // Erst nach einem erfolgreichen Persistieren darf die laufende Arbeit enden.
         endEditor(preservePendingPhoto: true)

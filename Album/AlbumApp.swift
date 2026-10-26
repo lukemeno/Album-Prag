@@ -153,7 +153,7 @@ import UIKit
                             store.drainShareQueue()
                         }
                         store.resumeAutomaticPhotoResolution()
-                        if !isUnitTestHost && !isIsolatedStoreTest { Task { await store.sync(); await store.refreshPlaceImages() } }
+                        if !isUnitTestHost && !isIsolatedStoreTest { Task { await store.sync(); await store.refreshPlaceImages(automatic: true) } }
                     } else if phase == .inactive || phase == .background {
                         store.pauseAutomaticPhotoResolution()
                     }
@@ -197,7 +197,7 @@ import UIKit
                         store.drainShareQueue()
                     }
                     store.resumeAutomaticPhotoResolution()
-                    if !isUnitTestHost && !isIsolatedStoreTest { await store.sync(); await store.refreshPlaceImages() }
+                    if !isUnitTestHost && !isIsolatedStoreTest { await store.sync(); await store.refreshPlaceImages(automatic: true) }
                 }
                 .alert("Album", isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) {
                     Button("OK") { store.error = nil }

@@ -976,7 +976,7 @@ private struct PlaceResolutionSnapshot: Equatable {
         return place.image == nil ? .idle : .ready
     }
 
-    func refreshPlaceImages(force: Bool = false) async {
+    func refreshPlaceImages(force: Bool = false, automatic: Bool = false) async {
         var attempted = 0
         let orderedPlaces = places.enumerated().sorted { left, right in
             let leftPriority = left.element.image == nil && Self.isMapProviderSource(left.element.sourceURL)
@@ -999,7 +999,7 @@ private struct PlaceResolutionSnapshot: Equatable {
                 if !force, !PlaceImageService.shouldSearch(for: place, force: false), !PlaceImageService.needsGallery(place) { continue }
             }
             attempted += 1
-            await refreshPlaceImage(id: place.id, force: force)
+            await refreshPlaceImage(id: place.id, force: force, automatic: automatic)
         }
     }
 
@@ -1225,7 +1225,7 @@ private struct PlaceResolutionSnapshot: Equatable {
               apply(candidate, to: place) else { return }
         placeResolutionSnapshots[placeID] = nil
         placeResolutionAttempts.remove(placeID)
-        await refreshPlaceImage(id: placeID, force: true)
+        await refreshPlaceImage(id: placeID, force: true, automatic: true)
     }
 
     private func contextAttemptKey(_ context: TripRegionContext) -> String {
@@ -1296,13 +1296,13 @@ private struct PlaceResolutionSnapshot: Equatable {
                   current.title == place.title,
                   current.address == place.address,
                   current.coordinate == nil else {
-                await refreshPlaceImages()
+                await refreshPlaceImages(automatic: true)
                 return
             }
             current.lat = coordinate.latitude; current.lng = coordinate.longitude
             _ = upsert(current)
         }
-        await refreshPlaceImages()
+        await refreshPlaceImages(automatic: true)
     }
 
     private func geocodeAddress(_ address: String) async -> CLLocationCoordinate2D? {

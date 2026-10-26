@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 import Supabase
 import MapKit
 import UIKit
@@ -158,8 +159,8 @@ enum PlaceImageService {
                 options: FunctionInvokeOptions(body: Request(
                     mode: mode == .automatic ? mode.rawValue : nil,
                     tripID: tripID,
-                    placeID: placeID,
-                    revision: revision,
+                    placeID: placeID ?? place.id,
+                    revision: revision ?? requestRevision(for: place, region: region),
                     manual: mode == .manual,
                     title: place.title,
                     latitude: coordinate.latitude,
@@ -186,11 +187,17 @@ enum PlaceImageService {
                                languageCode: String? = nil) throws -> Data {
         guard place.coordinate != nil else { throw CocoaError(.validationMissingMandatoryProperty) }
         let coordinate = place.coordinate!
-        return try JSONEncoder().encode(Request(mode: mode == .automatic ? mode.rawValue : nil, tripID: tripID, placeID: placeID,
-                                                revision: revision, manual: mode == .manual,
+        return try JSONEncoder().encode(Request(mode: mode == .automatic ? mode.rawValue : nil, tripID: tripID, placeID: placeID ?? place.id,
+                                                revision: revision ?? requestRevision(for: place, region: region), manual: mode == .manual,
                                                 title: place.title, latitude: coordinate.latitude,
                                                 longitude: coordinate.longitude, category: place.category,
                                                 address: place.address, region: region, languageCode: languageCode))
+    }
+
+    private static func requestRevision(for place: Place, region: String?) -> String {
+        let coordinate = place.coordinate.map { "\($0.latitude),\($0.longitude)" } ?? "none"
+        let raw = [place.id, place.title, place.address, place.category, coordinate, region ?? ""].joined(separator: "\u{1F}")
+        return SHA256.hash(data: Data(raw.utf8)).map { String(format: "%02x", $0) }.joined()
     }
 
     static func testStoreResponse(environment: [String: String]) throws -> PlaceImageSearchResult? {
