@@ -81,11 +81,13 @@ Ein kostenloses Personal Team reicht aus, weil die App keine iCloud-, App-Group-
 
 ## Prüfungen
 
+Ortsfotos werden nach dem Speichern einer Idee automatisch im Kontext der jeweiligen Reise ergänzt. Eigene Bilder und bewusst entfernte Fotos bleiben geschützt. Wikimedia und passende Website-Vorschauen benötigen keine neue kostenpflichtige Foto- oder KI-API; Serverlimits und dauerhafte Caches begrenzen Abrufe. Mehrdeutige Orte brauchen eine Standortbestätigung. Umsetzung, Release-Stand und tatsächliche Abnahme: [QA-AUTOMATISCHE-ORTSFOTOS.md](QA-AUTOMATISCHE-ORTSFOTOS.md).
+
 Hinweis zum Abgleich: Builds mit `CODE_SIGNING_ALLOWED=NO` dürfen den Schlüsselbund nicht benutzen. Die anonyme Supabase-Sitzung geht dann bei jedem Start verloren; Schreibzugriffe scheitern mit „new row violates row-level security policy“. Den Abgleich deshalb nur mit signierten Builds prüfen (Xcode ⌘R oder `xcodebuild` ohne diese Option). Als Unit-Test-Host gleicht die App nie ab.
 
 ```sh
 xcodebuild -project Album.xcodeproj -scheme Album -destination 'platform=iOS Simulator,name=iPhone 17 Pro' CODE_SIGNING_ALLOWED=NO test
-deno test --allow-env supabase/functions/_shared/album_test.ts supabase/functions/_shared/place_photo_test.ts supabase/functions/_shared/wikimedia_photos_test.ts supabase/functions/_shared/place_photo_cache_test.ts
+deno test --allow-env supabase/functions/_shared supabase/functions/place-photo_test.ts
 ```
 
 Vor der Reise auf zwei echten Geräten prüfen: Einladungslink öffnen, Ideen in beide Richtungen bearbeiten, offline ändern und später abgleichen sowie ein echtes PDF hochladen und auf dem zweiten Gerät öffnen.

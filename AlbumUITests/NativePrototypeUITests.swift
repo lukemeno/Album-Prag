@@ -36,6 +36,55 @@ final class NativePrototypeUITests: XCTestCase {
         add(attachment)
     }
 
+    func testNewIdeaLoadsPhotoAutomaticallyAndKeepsItAfterRelaunch() {
+        let app = XCUIApplication()
+        let live = ProcessInfo.processInfo.environment["ALBUM_LIVE_AUTO_PHOTO_UI_QA"] == "1"
+        let ideaTitle = live ? "Knedlín" : "Auto Photo Café"
+        let expectedCredit = live ? "Website-Vorschau" : "Automatisches Testfoto"
+        app.launchEnvironment["ALBUM_TEST_STORE"] = "slot-auto-photo-ui-\(UUID().uuidString)"
+        app.launchEnvironment["ALBUM_EMPTY_TEST_STORE"] = "1"
+        app.launchEnvironment[live ? "ALBUM_AUTO_PHOTO_LIVE_QA" : "ALBUM_AUTO_PHOTO_QA"] = "1"
+        app.launchEnvironment["ALBUM_MY_NAME"] = "QA"
+        app.launchArguments += ["-AppleLanguages", "(de)", "-AppleLocale", "de_DE"]
+        app.launch()
+        tap("native-trip-prag", in: app)
+        tap("native-tab-ideas", in: app)
+        tap("native-new-place", in: app)
+        let title = app.textFields["PlaceEditor-Title"]
+        XCTAssertTrue(title.waitForExistence(timeout: 8))
+        title.tap()
+        title.typeText(ideaTitle)
+        tap("PlaceEditor-Save", in: app)
+        let throwButton = app.buttons["Einwurf-Knopf"]
+        if throwButton.waitForExistence(timeout: 4) { throwButton.tap() }
+        XCTAssertTrue(app.buttons["native-new-place"].waitForExistence(timeout: 10))
+        if live {
+            let resolve = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "native-resolve-")).firstMatch
+            if resolve.waitForExistence(timeout: 8) {
+                resolve.tap()
+                let branch = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label CONTAINS[cd] %@", "native-resolution-candidate-", "Národní")).firstMatch
+                XCTAssertTrue(branch.waitForExistence(timeout: 8), app.debugDescription)
+                branch.tap()
+            }
+        }
+        let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label CONTAINS %@", "native-idea-", ideaTitle)).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 15), app.debugDescription)
+        let rowReady = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == true"), object: row)
+        XCTAssertEqual(XCTWaiter.wait(for: [rowReady], timeout: 12), .completed, app.debugDescription)
+        row.tap()
+        let credit = app.links.matching(NSPredicate(format: "label CONTAINS %@", expectedCredit)).firstMatch
+        XCTAssertTrue(credit.waitForExistence(timeout: 15), app.debugDescription)
+        capture(live ? "live-automatic-photo-after-save" : "automatic-photo-after-save")
+        app.terminate()
+        app.launch()
+        tap("native-trip-prag", in: app)
+        tap("native-tab-ideas", in: app)
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        row.tap()
+        XCTAssertTrue(credit.waitForExistence(timeout: 10), app.debugDescription)
+        capture(live ? "live-automatic-photo-after-relaunch" : "automatic-photo-after-relaunch")
+    }
+
     func testHomeAndTripTabs() {
         let app = launch()
         XCTAssertTrue(app.buttons["native-trip-prag"].waitForExistence(timeout: 10))

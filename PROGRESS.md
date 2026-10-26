@@ -485,3 +485,21 @@ Mac entsperrt. Root hat Stadtsuche Prag/Q1085, 13 reale Katalogorte, sichtbar ge
 - Neues App-Bundle auf iPhone18Pro installiert, ohne Containerlöschung. Kein Backend-Deploy, kein Schemaeingriff und kein neuer kostenpflichtiger Dienst für diese Änderung.
 
 - Visuelle Abnahme: identische reale Quellenbilder in isolierter Foto-Prüfung ohne geteilte Zugangsdaten gerendert. Knedlín zeigt das Knödel-Foto, Pasta Fresca die passende Innenansicht. Screenshot und öffentliche Quellen-Receipt: .qa-shots/place-photos-20261025/ideas-source-photos.png und source-receipt.json. Kein Web-/Maps-Thumbnail als Erfolgsbeleg verwendet.
+
+
+## Automatische Ortsfotos · Umsetzung gestartet 26.10.2026
+- Nutzer hat PLAN-AUTOMATISCHE-ORTSFOTOS.md zur Umsetzung freigegeben, Sol zur Prüfung und Luna zur Umsetzung. Ausgangscommit 1ee00bd; bestehende zwei andere Planentwürfe bleiben erhalten.
+- Luna-Client arbeitet isoliert in /tmp/album-auto-client-20261026, Luna-Backend in /tmp/album-auto-backend-20261026. Sol prüft Integrationsvertrag und spätere Diffs. Parent ergänzt gezielten UI-Ablauftest.
+- Live-Funktionen vorab read-only gesichert unter /tmp/album-auto-live-backup-20261026 (place-photo v9, enrichment/worker v5). Noch kein Deploy und keine Migration. Live-assistant_validation-Drift bei Veröffentlichung erhalten.
+- Nächste Schritte: Änderungen integrieren, Swift-/Backend-/SQL-Tests, automatischer Save→Foto-Ablauf mit Fixture und opt-in echten Quellen, dann geprüfte Veröffentlichung der zugehörigen Backendteile. Noch kein Fertig-/Testerfolg behauptet.
+
+
+## Automatische Ortsfotos · umgesetzt und geprüft 26.10.2026
+- Nutzer-Go umgesetzt: Sol prüfte, Luna implementierte in getrennten Worktrees, Root integrierte/testete und veröffentlichte die zugehörigen Backendteile. Keine kostenpflichtige Foto-/Vision-Quelle aktiviert. Details und ehrliche Grenzen in QA-AUTOMATISCHE-ORTSFOTOS.md.
+- Persistente per-Store-Queue nach zentralem Speichern, Import und Foreground/Sync; >5 Ideen, Retry/No-match, Unterdrückung nach Bildentfernung, Schutz eigener/gültiger Fotos, späte Antwort-/Identitäts-/Queue-Race-Guards. Automatik ruft ausdrücklich automatic_photo_v1; Ortssuche ist MapKit-POI-basiert und bei Unklarheit bestätigungspflichtig.
+- Finale iOS-Abnahme /tmp/album-auto-acceptance-20261026.xcresult: 258 Unit-Tests (253 bestanden,5 absichtlich übersprungen) plus1 echter UI-Ablauf bestanden. Reales Knedlín-Foto von knedlin.cz nach Standortbestätigung automatisch geladen und nach App-Neustart sichtbar; Screenshots visuell geprüft. Separater deterministischer UI-Fixture-Test ebenfalls bestanden. Keine echten Reise-Container gelöscht.
+- Finale Backend-Suite86/86 grün. Lokale echte SQL-Regression plus50 parallele Cache-Claims (1 Besitzer),50 Run-Claims (30 erlaubt/20 begrenzt), Semaphore und Rechteprüfung grün; wiederholbares Skript QA/photo-pipeline-sql-qa.py entfernt seine eigene Test-DB.
+- Produktivmigration20261026223140/place_photo_pipeline; finale Functions place-photo v13, enrichment v6, worker v6. JWT-Konfiguration und fremde Live-assistant_validation-Änderungen erhalten. Früher MISS-500 wurde im Live-Smoke gefunden, vorübergehend auf gesicherte Photo-Version zurückgestellt und mit echtem Handler-MISS-Test behoben. Später transientes Negativcache-/Public-Domain-Verhalten in Vier-Städte-Test behoben; gezielt nur vorhandenen leeren Q243-Auto-Cache entfernt, verifizierte Quellen erhalten.
+- Authentifizierter Tokio-MISS/HIT200 mit Bild200: 1 Suchlauf/4 Quellen-HTTPs, erneuter privater Cache-Hit ohne zusätzlichen Quellenaufruf. Reale Fotos zusätzlich für Paris, São Paulo und Prag belegt (Paris/Prag nach letztem Fix erneut geprüft). Keine lückenlose globale Bildqualität behauptet.
+- Alle neu angelegten markierten Foto-QA-Authnutzer samt privaten Cache-/Usage-Zeilen gezielt bereinigt. Schlusskontrolle2 Reisen/5 Mitglieder/5 Orte/0 Dokumente wie vorher,0 Foto-QA-Nutzer/0 private Foto-QA-Cachezeilen. Öffentliche echte Ortsmetadaten verbleiben als legitimer Produktcache. Kein Git-Push.
+- Offen vor öffentlicher App-Store-Freigabe: längerer repräsentativer Verbrauchs-/Qualitätspilot, öffentliche Wikimedia-Kontaktangabe, Vorschau-/Bildrechte und stabile Tarifidentität; Zwei-iPhone-Hardwareabnahme sowie iOS18 weiterhin nicht erfolgt. Die separate Reisebibliothek ist nicht Teil dieses Fotoauftrags.
