@@ -270,7 +270,7 @@ struct LegacyMigrationReceipt: Codable, Equatable {
         } catch {
             let backup = root.appendingPathComponent("library.corrupt-\(Int(Date().timeIntervalSince1970)).json")
             try? fileManager.moveItem(at: indexURL, to: backup)
-            error = "Der Bibliotheksindex war beschädigt und wurde neu aufgebaut."
+            self.error = "Der Bibliotheksindex war beschädigt und wurde neu aufgebaut."
         }
     }
 
@@ -317,6 +317,27 @@ struct LegacyMigrationReceipt: Codable, Equatable {
         }
 
         let id = previous?.id ?? UUID()
+        let target = tripURL(id)
+        // A crash can occur after the folder rename but before the receipt is
+        // committed. If that UUID is already indexed and the folder decodes,
+        // the indexed copy is authoritative: preserve user edits and only
+        // finish the receipt commit. Never compare it with the old legacy
+        // folder in this case.
+        if previous?.state == .copying,
+           let targetData = loadAlbum(at: target),
+           let index = entries.firstIndex(where: { $0.id == id }) {
+            entries[index].unavailableReason = nil
+            guard persistIndex() else { return }
+            let committed = LegacyMigrationReceipt(id: id, state: .committed,
+                                                   sourceFiles: previous?.sourceFiles ?? treeFiles(legacyRoot),
+                                                   sourceBytes: previous?.sourceBytes ?? treeBytes(legacyRoot),
+                                                   places: targetData.places.count,
+                                                   documents: targetData.documents.count,
+                                                   memories: targetData.tripMemories.count,
+                                                   albumID: targetData.albumID, committedAt: Date())
+            _ = writeReceipt(committed)
+            return
+        }
         let sourceSize = treeBytes(legacyRoot)
         if let capacity = availableCapacity(), capacity < Int64(Double(max(sourceSize, 0)) * 1.2) + 50_000_000 {
             error = "Nicht genügend Speicherplatz für die Reisekopie. Sie wird beim nächsten Start erneut versucht."
@@ -328,7 +349,6 @@ struct LegacyMigrationReceipt: Codable, Equatable {
                                              albumID: sourceData.albumID, committedAt: nil)
         guard writeReceipt(receipt) else { return }
         let staging = root.appendingPathComponent(".staging-\(id.uuidString)", isDirectory: true)
-        let target = tripURL(id)
         try? fileManager.removeItem(at: staging)
         do {
             if fileManager.fileExists(atPath: target.path),
@@ -357,7 +377,7 @@ struct LegacyMigrationReceipt: Codable, Equatable {
             _ = writeReceipt(committed)
         } catch {
             try? fileManager.removeItem(at: staging)
-            error = "Die Reise konnte noch nicht übernommen werden: \(error.localizedDescription)"
+            self.error = "Die Reise konnte noch nicht übernommen werden: \(error.localizedDescription)"
         }
     }
 
@@ -381,7 +401,7 @@ struct LegacyMigrationReceipt: Codable, Equatable {
             return id
         } catch {
             try? fileManager.removeItem(at: staging)
-            error = "Die neue Reise konnte nicht angelegt werden: \(error.localizedDescription)"
+            self.error = "Die neue Reise konnte nicht angelegt werden: \(error.localizedDescription)"
             return nil
         }
     }
@@ -411,7 +431,15 @@ struct LegacyMigrationReceipt: Codable, Equatable {
 
     private func ensureEntry(id: UUID, origin: TripLibraryOrigin, data: AlbumData) {
         let entry = makeEntry(id: id, origin: origin, data: data)
-        if let index = entries.firstIndex(where: { $0.id == id }) { entries[index] = entry } else { entries.append(entry) }
+        if let index = entries.firstIndex(where: { $0.id == id }) {
+            var refreshed = entry
+            refreshed.origin = entries[index].origin
+            refreshed.createdAt = entries[index].createdAt
+            refreshed.lastOpenedAt = entries[index].lastOpenedAt
+            entries[index] = refreshed
+        } else {
+            entries.append(entry)
+        }
     }
 
     private func ensureUnavailableEntry(id: UUID, albumID: String, reason: String) {
@@ -430,12 +458,12 @@ struct LegacyMigrationReceipt: Codable, Equatable {
             let index = TripLibraryIndex(entries: entries.sorted { $0.createdAt < $1.createdAt }, lastOpenedID: indexLastOpenedID)
             try JSONEncoder().encode(index).write(to: indexURL, options: .atomic)
             return true
-        } catch { error = "Der Bibliotheksindex konnte nicht gespeichert werden: \(error.localizedDescription)"; return false }
+        } catch { self.error = "Der Bibliotheksindex konnte nicht gespeichert werden: \(error.localizedDescription)"; return false }
     }
 
     private func writeReceipt(_ receipt: LegacyMigrationReceipt) -> Bool {
         do { try JSONEncoder().encode(receipt).write(to: receiptURL, options: .atomic); return true }
-        catch { error = "Der Migrationsbeleg konnte nicht gespeichert werden: \(error.localizedDescription)"; return false }
+        catch { self.error = "Der Migrationsbeleg konnte nicht gespeichert werden: \(error.localizedDescription)"; return false }
     }
 
     private func scanFolders() -> [TripLibraryEntry] {

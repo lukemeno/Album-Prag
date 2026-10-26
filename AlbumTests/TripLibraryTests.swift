@@ -111,7 +111,7 @@ final class TripLibraryTests: XCTestCase {
         XCTAssertEqual(backups.count, 1)
     }
 
-    func testStaleCopyingReceiptReplacesModifiedTargetAndPreservesIndexMetadata() throws {
+    func testIndexedCopyingReceiptCommitsModifiedTargetAndPreservesIndexMetadata() throws {
         let root = try temporaryRoot()
         let libraryRoot = root.appendingPathComponent("AlbumLibrary")
         let legacy = root.appendingPathComponent("Album")
@@ -123,6 +123,7 @@ final class TripLibraryTests: XCTestCase {
         try FileManager.default.copyItem(at: legacy, to: target)
         var modified = data; modified.places = [Place(id: "stale", title: "Stale", category: "Sehenswert")]
         try JSONEncoder().encode(modified).write(to: target.appendingPathComponent("album.json"), options: .atomic)
+        let editedBytes = try Data(contentsOf: target.appendingPathComponent("album.json"))
         let created = Date(timeIntervalSince1970: 123)
         let indexed = TripLibraryEntry(id: id, albumID: data.albumID, origin: .blank,
                                        title: "Curated title", createdAt: created)
@@ -137,8 +138,7 @@ final class TripLibraryTests: XCTestCase {
         let entry = try XCTUnwrap(library.entries.first(where: { $0.id == id }))
         XCTAssertEqual(entry.origin, .blank)
         XCTAssertEqual(entry.createdAt, created)
-        XCTAssertEqual(try Data(contentsOf: target.appendingPathComponent("album.json")),
-                       try Data(contentsOf: legacy.appendingPathComponent("album.json")))
+        XCTAssertEqual(try Data(contentsOf: target.appendingPathComponent("album.json")), editedBytes)
         let committed = try JSONDecoder().decode(LegacyMigrationReceipt.self,
                                                   from: Data(contentsOf: libraryRoot.appendingPathComponent("legacy-migration.json")))
         XCTAssertEqual(committed.state, .committed)
