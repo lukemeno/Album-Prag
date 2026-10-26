@@ -4,7 +4,7 @@ import UIKit
 /// The native Album shell. It keeps the existing store and support screens behind a small,
 /// predictable router so only one sheet can be active at a time.
 struct AlbumExperienceRoot: View {
-    @Environment(AlbumStore.self) private var store
+    @Environment(TripLibrary.self) private var library
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Namespace private var tripCardNamespace
@@ -37,28 +37,32 @@ struct AlbumExperienceRoot: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            if showingTrip {
-                NativeTripExperience(section: $section, sheet: $sheet,
-                                     namespace: tripCardNamespace,
-                                     onHome: { closeTrip() },
-                                     onAssistant: { prompt in openAssistant(prompt) },
-                                     onNativeShare: {
+            if let store = library.activeStore {
+                if showingTrip {
+                    NativeTripExperience(section: $section, sheet: $sheet,
+                                         namespace: tripCardNamespace,
+                                         onHome: { closeTrip() },
+                                         onAssistant: { prompt in openAssistant(prompt) },
+                                         onNativeShare: {
 #if DEBUG && targetEnvironment(simulator)
-                                         nativeShareSheet = true
+                                             nativeShareSheet = true
 #endif
-                                     },
-                                     onFanOpenChanged: { fanOpen = $0 })
-                    .environment(store)
-                    .transition(reduceMotion ? .opacity : .asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
-            } else {
-                NativeHomeView(namespace: tripCardNamespace) {
-                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.32)) { showingTrip = true }
+                                         },
+                                         onFanOpenChanged: { fanOpen = $0 })
+                        .environment(store)
+                        .transition(reduceMotion ? .opacity : .asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
+                } else {
+                    NativeHomeView(namespace: tripCardNamespace,
+                                   openTrip: { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.32)) { showingTrip = true } },
+                                   openLibrary: { _ = library.showLibrary() })
+                        .environment(store)
+                        .transition(reduceMotion ? .opacity : .move(edge: .leading).combined(with: .opacity))
                 }
-                .environment(store)
-                .transition(reduceMotion ? .opacity : .move(edge: .leading).combined(with: .opacity))
+            } else {
+                TripLibraryView().environment(library)
             }
 
-            if showingTrip {
+            if library.activeStore != nil && showingTrip {
                 NativeTripPillBar(selection: $section)
                     .padding(.horizontal, Stitch.Space.m)
                     .padding(.bottom, 10)
@@ -69,48 +73,65 @@ struct AlbumExperienceRoot: View {
         }
         .background(Stitch.paper.ignoresSafeArea())
         .sheet(item: $sheet) { route in
-            switch route {
-            case .add(let place): PlaceEditor(place: place)
-            case .detail(let id): PlaceDetail(placeID: id)
-            case .documents: TripDocumentsView()
-            case .inbox:
-                NavigationStack { InboxView(add: { sheet = .add(Place(title: "", author: store.me)) }) }
-            case .collection:
-                NavigationStack { CollectionHomeView(add: { sheet = .add(Place(title: "", author: store.me)) }) }
-            case .sharing: AlbumSettings()
-            case .name: NamePrompt()
-            case .extraction(let extraction): ExtractedTripSheet(extracted: extraction)
-            case .assistant:
-                if let assistantSession {
-                    AssistantView(session: assistantSession).environment(store).task {
-                        guard let prompt = assistantPrompt else { return }
-                        assistantPrompt = nil
-                        assistantSession.send(prompt)
+            if let store = library.activeStore {
+                Group {
+                    switch route {
+                    case .add(let place): PlaceEditor(place: place)
+                    case .detail(let id): PlaceDetail(placeID: id)
+                    case .documents: TripDocumentsView()
+                    case .inbox:
+                        NavigationStack { InboxView(add: { sheet = .add(Place(title: "", author: store.me)) }) }
+                    case .collection:
+                        NavigationStack { CollectionHomeView(add: { sheet = .add(Place(title: "", author: store.me)) }) }
+                    case .sharing: AlbumSettings()
+                    case .name: NamePrompt()
+                    case .extraction(let extraction): ExtractedTripSheet(extracted: extraction)
+                    case .assistant:
+                        if let assistantSession {
+                            AssistantView(session: assistantSession).task {
+                                guard let prompt = assistantPrompt else { return }
+                                assistantPrompt = nil
+                                assistantSession.send(prompt)
+                            }
+                        } else {
+                            ProgressView().task { self.assistantSession = AssistantSession(store: store) }
+                        }
+                    case .expenses: NativeExpensesView()
+                    case .memories: NativeMemoriesView()
+                    case .cameraMemories: NativeMemoriesView(startWithCamera: true)
                     }
-                } else {
-                    ProgressView().task { self.assistantSession = AssistantSession(store: store) }
                 }
-            case .expenses: NativeExpensesView().environment(store)
-            case .memories: NativeMemoriesView().environment(store)
-            case .cameraMemories: NativeMemoriesView(startWithCamera: true).environment(store)
+                .environment(store)
             }
         }
         .onAppear {
-            if store.myName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { sheet = .name }
-            if let extraction = store.pendingExtraction { sheet = .extraction(extraction) }
+            if library.activeStore == nil {
+                _ = library.restoreLastOpenedTrip()
+            }
+            if let store = library.activeStore {
+                if store.myName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { sheet = .name }
+                if let extraction = store.pendingExtraction { sheet = .extraction(extraction) }
+            }
             checkPasteboard()
         }
-        .onChange(of: scenePhase) { _, phase in if phase == .active { checkPasteboard() } }
-        .onChange(of: store.pendingExtraction) { _, extraction in
-            if let extraction { sheet = .extraction(extraction) }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { checkPasteboard() }
+            if phase == .background { library.refreshActiveEntry() }
+        }
+        .onChange(of: library.activeID) { _, _ in
+            // View-local assistant/discovery/sheet state must not leak across trips.
+            assistantSession = nil
+            assistantPrompt = nil
+            sheet = nil
+            showingTrip = false
         }
         .onChange(of: sheet?.id) { oldID, newID in
-            if oldID == "extraction", newID == nil { store.pendingExtraction = nil }
+            if oldID == "extraction", newID == nil { library.activeStore?.pendingExtraction = nil }
         }
 #if DEBUG && targetEnvironment(simulator)
         .sheet(isPresented: $nativeShareSheet) {
             NativeQAShareSheet(item: URL(string: "https://example.com/album-qa-share")!, onComplete: {
-                store.drainShareQueue()
+                library.activeStore?.drainShareQueue()
                 nativeShareSheet = false
             })
         }
@@ -126,15 +147,18 @@ struct AlbumExperienceRoot: View {
 
     private func closeTrip() {
         withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.28)) { showingTrip = false }
+        _ = library.showLibrary()
     }
 
     private func openAssistant(_ prompt: String? = nil) {
+        guard let store = library.activeStore else { return }
         if assistantSession == nil { assistantSession = AssistantSession(store: store) }
         assistantPrompt = prompt
         sheet = .assistant
     }
 
     private func pasteClipboard() {
+        guard let store = library.activeStore else { return }
         let board = UIPasteboard.general
         let raw = board.url?.absoluteString ?? board.string
         clipboardOffer = false

@@ -5,6 +5,7 @@ struct NativeHomeView: View {
     @Environment(AlbumStore.self) private var store
     let namespace: Namespace.ID
     let openTrip: () -> Void
+    let openLibrary: () -> Void
 
     private var heroAsset: PlaceImageAsset {
         store.franked.first(where: { $0.displayImage != nil })?.displayImage
@@ -27,10 +28,10 @@ struct NativeHomeView: View {
                     HStack {
                         Text("Album").font(Stitch.Face.wordmark()).foregroundStyle(Stitch.red)
                         Spacer()
-                        Button { openTrip() } label: { Image(systemName: "person.2") }
+                        Button(action: openLibrary) { Image(systemName: "square.grid.2x2") }
                             .buttonStyle(HeaderIconButton())
-                            .accessibilityLabel("Reisegruppe")
-                            .accessibilityHint("Öffnet die Reise")
+                            .accessibilityLabel("Alle Reisen")
+                            .accessibilityIdentifier("library-open")
                     }
                     .padding(.top, Stitch.Space.s)
 
