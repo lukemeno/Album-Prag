@@ -7,10 +7,22 @@ struct NativeHomeView: View {
     let openTrip: () -> Void
     let openLibrary: () -> Void
 
-    private var heroAsset: PlaceImageAsset {
+    private var heroAsset: PlaceImageAsset? {
         store.franked.first(where: { $0.displayImage != nil })?.displayImage
             ?? store.places.first(where: { $0.displayImage != nil })?.displayImage
-            ?? .bundled(name: "imgPhotoCharlesBridge")
+    }
+
+    private var tripCardID: String {
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["ALBUM_LEGACY_HOME_QA"] == "1" {
+            return "native-trip-prag"
+        }
+        #endif
+        let raw = store.tripName
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+        let slug = raw.unicodeScalars.filter { $0.isASCII && ($0.properties.isAlphabetic || $0.properties.isNumeric) }
+            .map(String.init).joined().lowercased()
+        return "native-trip-\(slug.isEmpty ? "trip" : slug)"
     }
 
     private var tripDateLabel: String {
@@ -65,7 +77,7 @@ struct NativeHomeView: View {
                         }
                         .buttonStyle(.plain)
                         .matchedGeometryEffect(id: "trip-card", in: namespace)
-                        .accessibilityIdentifier("native-trip-prag")
+                        .accessibilityIdentifier(tripCardID)
                         .accessibilityLabel("\(store.tripName), \(tripDateLabel)")
                     }
 

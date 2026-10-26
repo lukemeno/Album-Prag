@@ -46,6 +46,17 @@ import UIKit
                         library.refreshActiveEntry()
                     }
                 }
+                .onChange(of: library.activeID) { _, _ in
+                    guard let store = library.activeStore else { return }
+                    configureQA(store)
+                    store.resumeAutomaticPhotoResolution()
+                    if !isUnitTestHost && !isIsolatedStoreTest {
+                        Task {
+                            await store.sync()
+                            await store.refreshPlaceImages(automatic: true)
+                        }
+                    }
+                }
                 .onOpenURL { url in
                     if url.isFileURL && url.pathExtension.lowercased() == "pdf" {
                         do {
@@ -56,7 +67,7 @@ import UIKit
                                 let extracted = store.extraction(from: doc)
                                 if !extracted.isEmpty { store.pendingExtraction = extracted }
                             }
-                        } catch { store.error = error.localizedDescription }
+                        } catch { library.error = error.localizedDescription }
                     } else if InvitationLink.token(from: url) != nil {
                         Task {
                             do { _ = try await library.joinInvitation(url) }
@@ -89,9 +100,9 @@ import UIKit
                     store.resumeAutomaticPhotoResolution()
                     if !isUnitTestHost && !isIsolatedStoreTest { await store.sync(); await store.refreshPlaceImages(automatic: true) }
                 }
-                .alert("Album", isPresented: Binding(get: { library.error != nil }, set: { if !$0 { library.error = nil } })) {
-                    Button("OK") { library.error = nil }
-                } message: { Text(library.error ?? "") }
+                .alert("Album", isPresented: Binding(get: { presentedError != nil }, set: { if !$0 { clearPresentedError() } })) {
+                    Button("OK") { clearPresentedError() }
+                } message: { Text(presentedError ?? "") }
         }
     }
 
@@ -105,6 +116,15 @@ import UIKit
         guard fixtureFlag, let id = library.createBlankTrip(title: "QA-Reise", destination: "Prag") else { return }
         _ = library.open(id)
         #endif
+    }
+
+    private var presentedError: String? {
+        library.error ?? library.activeStore?.error
+    }
+
+    private func clearPresentedError() {
+        library.error = nil
+        library.activeStore?.error = nil
     }
 
     #if DEBUG

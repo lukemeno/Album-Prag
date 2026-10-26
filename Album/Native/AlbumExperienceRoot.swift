@@ -31,6 +31,14 @@ struct AlbumExperienceRoot: View {
         #endif
     }
 
+    private var explicitStartTab: Bool {
+        #if DEBUG
+        return ProcessInfo.processInfo.environment["ALBUM_START_TAB"] != nil
+        #else
+        return false
+        #endif
+    }
+
     init() {
         #if DEBUG
         if let raw = ProcessInfo.processInfo.environment["ALBUM_START_TAB"] {
@@ -128,7 +136,9 @@ struct AlbumExperienceRoot: View {
             // TripLibrary may restore the last album before this view mounts.
             // Keep the production entry point direct instead of showing a
             // redundant home screen in front of the active trip.
-            showingTrip = library.activeStore != nil && !legacyHomeFixture
+            if !explicitStartTab {
+                showingTrip = library.activeStore != nil && !legacyHomeFixture
+            }
             if let store = library.activeStore {
                 if store.myName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { sheet = .name }
                 if let extraction = store.pendingExtraction { sheet = .extraction(extraction) }
