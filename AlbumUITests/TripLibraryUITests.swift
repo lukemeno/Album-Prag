@@ -15,6 +15,7 @@ final class TripLibraryUITests: XCTestCase {
         app.launchEnvironment["ALBUM_TEST_STORE"] = slot
         app.launchEnvironment["ALBUM_EMPTY_TEST_STORE"] = "1"
         app.launchEnvironment["ALBUM_LIBRARY_QA"] = "1"
+        app.launchEnvironment["ALBUM_MY_NAME"] = "QA"
         app.launchArguments += ["-AppleLanguages", "(de)", "-AppleLocale", "de_DE"]
         app.launch()
         return app
@@ -67,5 +68,38 @@ final class TripLibraryUITests: XCTestCase {
         app.terminate()
         app.launch()
         XCTAssertTrue(app.buttons["native-tab-plan"].waitForExistence(timeout: 8), app.debugDescription)
+    }
+
+    func testTripIdeasRemainIsolatedWhenSwitchingAndRelaunching() {
+        let app = launch()
+        create("Paris", destination: "Paris", in: app)
+        tap("native-tab-ideas", in: app)
+        tap("native-new-place", in: app)
+        let title = app.textFields["PlaceEditor-Title"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5), app.debugDescription)
+        title.tap()
+        title.typeText("Nur in Paris")
+        tap("PlaceEditor-Save", in: app)
+        let throwButton = app.buttons["Einwurf-Knopf"]
+        if throwButton.waitForExistence(timeout: 4) { throwButton.tap() }
+        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Nur in Paris")).firstMatch.waitForExistence(timeout: 8), app.debugDescription)
+
+        tap("trip-back-library", in: app)
+        create("Berlin", destination: "Berlin", in: app)
+        tap("native-tab-ideas", in: app)
+        XCTAssertFalse(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Nur in Paris")).firstMatch.waitForExistence(timeout: 2))
+
+        tap("trip-back-library", in: app)
+        let paris = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label CONTAINS %@", "library-trip-", "Paris")).firstMatch
+        XCTAssertTrue(paris.waitForExistence(timeout: 8), app.debugDescription)
+        paris.tap()
+        tap("native-tab-ideas", in: app)
+        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Nur in Paris")).firstMatch.waitForExistence(timeout: 8), app.debugDescription)
+
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(app.buttons["native-tab-ideas"].waitForExistence(timeout: 8), app.debugDescription)
+        tap("native-tab-ideas", in: app)
+        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Nur in Paris")).firstMatch.waitForExistence(timeout: 8), app.debugDescription)
     }
 }
