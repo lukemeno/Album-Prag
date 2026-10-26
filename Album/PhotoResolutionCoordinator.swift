@@ -46,6 +46,7 @@ final class PhotoResolutionCoordinator {
     private var jobs: [PhotoResolutionQueueJob] = []
     private var worker: Task<Void, Never>?
     private var workerGeneration = 0
+    private var drainingForTesting = false
     private let leaseDuration: TimeInterval = 10 * 60
     private let retryDelays: [TimeInterval] = [60, 15 * 60, 6 * 60 * 60]
 
@@ -64,7 +65,7 @@ final class PhotoResolutionCoordinator {
         jobs.filter { $0.placeID == placeID }.max { $0.updatedAt < $1.updatedAt }
     }
 
-    func enqueue(place: Place, context: TripRegionContext, force: Bool = false) {
+    func enqueue(place: Place, context: TripRegionContext, force: Bool = false, startWorker: Bool = true) {
         guard !place.deleted, let store else { return }
         let fingerprint = Self.fingerprint(place: place, context: context, albumID: store.data.albumID)
         let id = Self.jobID(placeID: place.id, fingerprint: fingerprint)
@@ -79,7 +80,7 @@ final class PhotoResolutionCoordinator {
                                                 leaseUntil: nil, lastErrorCode: nil, updatedAt: now()))
         }
         save()
-        resume()
+        if startWorker && !drainingForTesting { resume() }
     }
 
     func suppress(place: Place, context: TripRegionContext) {
@@ -116,7 +117,9 @@ final class PhotoResolutionCoordinator {
     /// Test and lifecycle hook. It starts the same worker used by production;
     /// callers can await it only when they intentionally want a finite drain.
     func drainForTesting() async {
+        drainingForTesting = true
         cancel()
+        defer { drainingForTesting = false }
         await drain(generation: workerGeneration, stopWhenWaiting: true)
     }
 
@@ -131,11 +134,11 @@ final class PhotoResolutionCoordinator {
                 do { try await Task.sleep(for: .seconds(due.timeIntervalSince(now()))) } catch { return }
                 continue
             }
-            await process(index: index, generation: generation)
+            await process(index: index, generation: generation, stopWhenWaiting: stopWhenWaiting)
         }
     }
 
-    private func process(index: Int, generation: Int) async {
+    private func process(index: Int, generation: Int, stopWhenWaiting: Bool = false) async {
         guard let store, jobs.indices.contains(index) else { return }
         var job = jobs[index]
         guard let place = store.places.first(where: { $0.id == job.placeID }) else {
@@ -147,7 +150,7 @@ final class PhotoResolutionCoordinator {
         guard currentFingerprint == job.fingerprint else {
             job.state = .completed; job.lastErrorCode = "superseded"; job.updatedAt = now()
             jobs[index] = job; save()
-            enqueue(place: place, context: context)
+            enqueue(place: place, context: context, startWorker: !stopWhenWaiting)
             return
         }
         if PlaceImageService.isUserChosen(place.image) {

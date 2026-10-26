@@ -443,7 +443,10 @@ final class TripLibraryTests: XCTestCase {
                                shareInbox: ShareInbox(root: root.appendingPathComponent("share")),
                                publishesShareContext: false)
         let place = Place(id: "paused-photo", title: "Museum", category: "Sehenswert", lat: 50.08, lng: 14.42)
-        XCTAssertTrue(store.upsert(place))
+        // Install directly so this focused callback test does not start the
+        // durable coordinator worker as a second resolver.
+        store.data.places = [place]
+        XCTAssertTrue(store.persist())
         let gate = PausedResultGate<PlaceImageSearchResult>()
         store.placeImageSearchResolver = { _, _ in await gate.wait() }
         let task = Task { await store.refreshPlaceImage(id: place.id, force: true, automatic: true) }

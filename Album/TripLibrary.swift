@@ -496,16 +496,25 @@ struct LegacyMigrationReceipt: Codable, Equatable {
         }
         guard var data = loadAlbum(at: folder) else { throw CocoaError(.fileReadCorruptFile) }
         let templates = Place.examples
+        var changed = false
         if data.collaboration != nil {
             for index in data.places.indices where templates.contains(data.places[index]) {
                 data.places[index].deleted = true
                 data.places[index].updatedAt = Date()
                 data.dirty.insert(data.places[index].id)
+                changed = true
             }
         } else {
+            let before = data.places.count
             data.places.removeAll { templates.contains($0) }
+            changed = before != data.places.count
         }
-        try JSONEncoder().encode(data).write(to: folder.appendingPathComponent("album.json"), options: .atomic)
+        // Do not re-encode an already edited target when cleanup has nothing
+        // to remove: preserving its bytes avoids turning a valid user copy
+        // into a formatting-only mutation during crash recovery.
+        if changed {
+            try JSONEncoder().encode(data).write(to: folder.appendingPathComponent("album.json"), options: .atomic)
+        }
         try Data(Self.pristineCleanupMarker.utf8).write(to: marker, options: .atomic)
         return data
     }
