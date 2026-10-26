@@ -102,6 +102,9 @@
 		FCA136FBC3036EBCCBE9AF4C /* PhotoStack.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88448A04E96CFF5D69BA1DA3 /* PhotoStack.swift */; };
 		FDA660D58136EC478A8E5C2F /* NativePrototypeUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 732792AA4B23EAD799FBA189 /* NativePrototypeUITests.swift */; };
 		C6A100000000000000000004 /* TripLibraryUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6A100000000000000000003 /* TripLibraryUITests.swift */; };
+		C6A100000000000000000006 /* TripLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6A100000000000000000005 /* TripLibrary.swift */; };
+		C6A100000000000000000008 /* TripLibraryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6A100000000000000000007 /* TripLibraryTests.swift */; };
+		C6A10000000000000000000A /* NightBuildAcceptanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6A100000000000000000009 /* NightBuildAcceptanceTests.swift */; };
 		8EBD13C41C5363E3AE9C3753 /* PlaceResolutionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3F3115183A4AEA3AA2249C2 /* PlaceResolutionTests.swift */; };
 		6CF51F4C171C343B8E7E27B0 /* PlaceImageServiceRegionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E9100E4BE1E772D69FD21C1 /* PlaceImageServiceRegionTests.swift */; };
 		D542DBDADC86EE2308C5FB00 /* DiscoveryModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF253C30E31E9ED19265CDD8 /* DiscoveryModels.swift */; };
@@ -197,6 +200,9 @@
 		71D1BC61700EDE79DFB9BFE6 /* SupabaseSwiftIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseSwiftIntegrationTests.swift; sourceTree = "<group>"; };
 		732792AA4B23EAD799FBA189 /* NativePrototypeUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativePrototypeUITests.swift; sourceTree = "<group>"; };
 		C6A100000000000000000003 /* TripLibraryUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripLibraryUITests.swift; sourceTree = "<group>"; };
+		C6A100000000000000000005 /* TripLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripLibrary.swift; sourceTree = "<group>"; };
+		C6A100000000000000000007 /* TripLibraryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripLibraryTests.swift; sourceTree = "<group>"; };
+		C6A100000000000000000009 /* NightBuildAcceptanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightBuildAcceptanceTests.swift; sourceTree = "<group>"; };
 		75B1CB672F272D7697D6AF8B /* TripMemoriesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripMemoriesView.swift; sourceTree = "<group>"; };
 		763051C072C9657DC7CBE9F2 /* AssistantActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantActions.swift; sourceTree = "<group>"; };
 		766EB39A908C29824F1B96BD /* CollectionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionStore.swift; sourceTree = "<group>"; };
@@ -346,6 +352,8 @@
 				F3F3115183A4AEA3AA2249C2 /* PlaceResolutionTests.swift */,
 				B6A100000000000000000004 /* PhotoResolutionCoordinatorTests.swift */,
 				59B8A29D9DFA3799069A7E19 /* TripMigrationTests.swift */,
+				C6A100000000000000000007 /* TripLibraryTests.swift */,
+				C6A100000000000000000009 /* NightBuildAcceptanceTests.swift */,
 			);
 			path = AlbumTests;
 			sourceTree = "<group>";
@@ -384,6 +392,7 @@
 				FF253C30E31E9ED19265CDD8 /* DiscoveryModels.swift */,
 				6AD109CB482B41F97FE8D478 /* Album.entitlements */,
 				C01719B12F0C4B781136BCDE /* AlbumApp.swift */,
+				C6A100000000000000000005 /* TripLibrary.swift */,
 				328C91DA0E5D75DF6C20603C /* AlbumRoot.swift */,
 				F288A095809BE84F03E8D0A2 /* AlbumSettings.swift */,
 				5AEC4D2DA5E025826995EB60 /* AlbumStore.swift */,
@@ -662,6 +671,7 @@
 				5FF288AF18CAB5FED0B579E7 /* AlbumApp.swift in Sources */,
 				C83B27037FDD3046220071A8 /* AlbumExperienceRoot.swift in Sources */,
 				C6A100000000000000000002 /* TripLibraryView.swift in Sources */,
+				C6A100000000000000000006 /* TripLibrary.swift in Sources */,
 				653E66A7D0EB83A16F7055EE /* AlbumExperienceViews.swift in Sources */,
 				2D6DB86157ACB391484154E7 /* AlbumRoot.swift in Sources */,
 				861C66CA273B9FCF131CC452 /* AlbumSettings.swift in Sources */,
@@ -731,6 +741,8 @@
 				B6A100000000000000000003 /* PhotoResolutionCoordinatorTests.swift in Sources */,
 				E5A3708C7A4698794D451138 /* DiscoveryTests.swift in Sources */,
 				09CB9B05BA79027EF71A640E /* TripMigrationTests.swift in Sources */,
+				C6A100000000000000000008 /* TripLibraryTests.swift in Sources */,
+				C6A10000000000000000000A /* NightBuildAcceptanceTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
