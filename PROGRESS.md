@@ -503,3 +503,22 @@ Mac entsperrt. Root hat Stadtsuche Prag/Q1085, 13 reale Katalogorte, sichtbar ge
 - Authentifizierter Tokio-MISS/HIT200 mit Bild200: 1 Suchlauf/4 Quellen-HTTPs, erneuter privater Cache-Hit ohne zusätzlichen Quellenaufruf. Reale Fotos zusätzlich für Paris, São Paulo und Prag belegt (Paris/Prag nach letztem Fix erneut geprüft). Keine lückenlose globale Bildqualität behauptet.
 - Alle neu angelegten markierten Foto-QA-Authnutzer samt privaten Cache-/Usage-Zeilen gezielt bereinigt. Schlusskontrolle2 Reisen/5 Mitglieder/5 Orte/0 Dokumente wie vorher,0 Foto-QA-Nutzer/0 private Foto-QA-Cachezeilen. Öffentliche echte Ortsmetadaten verbleiben als legitimer Produktcache. Kein Git-Push.
 - Offen vor öffentlicher App-Store-Freigabe: längerer repräsentativer Verbrauchs-/Qualitätspilot, öffentliche Wikimedia-Kontaktangabe, Vorschau-/Bildrechte und stabile Tarifidentität; Zwei-iPhone-Hardwareabnahme sowie iOS18 weiterhin nicht erfolgt. Die separate Reisebibliothek ist nicht Teil dieses Fotoauftrags.
+
+
+## Nachtauftrag neue Reisen / ohne Dummy-Daten · gestartet 26.10.2026
+- Expliziter Nutzerauftrag: autonom über Nacht bis zu selbst testbarer App, mehrere Luna-Agenten, Sol prüft. Akzeptanzmatrix und Ownership in NIGHT-BUILD.md. Bisheriger Starter-Prag-Entwurf wird durch leere Neuinstallation ersetzt; echte Altbestände geschützt.
+- Ausgangscommit314863c; zwei fremde unversionierte Planentwürfe unverändert erhalten. Domain-Luna /tmp/album-night-domain-20261026 und UI-Luna /tmp/album-night-ui-20261026 arbeiten isoliert. Root integriert und führt Builds/Tests aus, Sol prüft unabhängig.
+- Heartbeat album-ber-nacht-fertigstellen alle30min im aktuellen Chat als Fortsetzung angelegt; bei Erfolg pausieren, keine konkurrierenden Runden. Skills Iterate Until Verified/Diagnosing Bugs statt unpassendem OMC-Session-Debug-Wrapper. Noch keine Bibliotheks-Testabnahme.
+
+
+### Nacht-Checkpoint 27.10., 00:38
+- Reisebibliothek und getrennte Reiseordner implementiert, Hauptsuite277 Unit-Tests/7 Skips ohne Fehler plus5 UI-Flows grün. Echte geschützte Legacy-Kopie mit11 identischen Begleitdateien/30 geschützten Orten und reale automatische Foto-UI bestanden.
+- Sol-Code-GO d6a3889 nach lifecycle-/invite-/migration-Korrekturen. Letzte Test-Compilekorrektur0932ff9. Namens-Onboarding-Fehler vor Fix reproduziert; finaler Nachtest noch offen.
+- Release-Build läuft; danach finale Suite/visuelle Prüfung und Abschluss. Fortsetzungsdetails: NIGHT-BUILD.md.
+
+
+## Nachtauftrag abgeschlossen · 27.10.2026
+- Mehrere leere eigene Reisen, Create/Cancel/Wechsel/Neustart, verlustgeschützte Legacy-Migration, staged/deduplizierte Einladungen und per-Reise-Lifecycle integriert. Keine produktiven Starterorte, Fake-Hotels/-Termine oder festen PRAHA-Stempel. Tatsächliche bearbeitete/abgestimmte/eigene Daten geschützt.
+- Sol-Code-GO d6a3889 und ca57f90. Finale Unit-Suite /tmp/album-night-final-units-20261027.xcresult:285 Tests,278 bestanden/7 absichtlich übersprungen,0 Fehler. Finale Library-UI-Suite /tmp/album-night-ui-final-20261027.xcresult:3/3 grün;3 weitere Native-Kernabläufe im Integrationslauf ebenfalls grün. Finaler Release-Build /tmp/album-night-release-final-20261027.log erfolgreich.
+- Echte geschützte Kopie geprüft:11 Begleitdateien bytegleich,30 geschützte Orte erhalten. Originale12 Dateien unverändert. Reale automatische Foto-UI separat bestanden. Test-/Signierungs-/Gerätegrenzen und morgendliche Schritte in QA-REISEBIBLIOTHEK.md; vollständige Abnahmematrix NIGHT-BUILD.md.
+- Aktuelles Debug-Bundle auf bestehendem iPhone18Pro-Simulator installiert, ohne Containerlöschung oder Testschreiben in persönliches Album; Xcode Album/iPhone18Pro geöffnet. Benutzer kann mit⌘R starten. Eigene Luna-Worktrees sauber integriert/entfernt. Zwei bestehende fremde Planentwürfe unverändert, kein Push. Nacht-Heartbeat nach erfolgreichem Abschluss pausiert; eigener caffeinate-Prozess beendet.

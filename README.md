@@ -1,15 +1,18 @@
-# Album, unser Prag-Album
+# Album – gemeinsame Reisen
 
 **Hauptprojekt für die weitere iOS-Entwicklung.** Die Abgrenzung zum HTML-Prototyp und separaten W0-Gerüst steht in [PROJECT-MAP.md](PROJECT-MAP.md). Aktueller Prüfstand: [NATIVE-PORT.md](NATIVE-PORT.md).
 
-Native SwiftUI-App für die Reise nach Prag vom 4. bis 9. Oktober 2026. Daten bleiben offline auf jedem iPhone verfügbar und können über ein privates Supabase-Projekt zwischen zwei Geräten synchronisiert werden.
+Native SwiftUI-App mit einer Bibliothek eigener Reisen. Neuinstallationen und neu angelegte Reisen sind leer. Bestehende persönliche Alben werden übernommen. Daten bleiben offline auf jedem iPhone verfügbar und können je Reise über Supabase zwischen zwei Geräten synchronisiert werden.
 
 ## Lokal starten
 
 1. `Album.xcodeproj` in Xcode öffnen.
 2. Das Schema **Album** und einen iPhone-Simulator wählen.
 3. Mit `⌘R` starten.
-4. Links aus Instagram oder TikTok kopieren und in Album über **+** einfügen.
+4. In der Reisebibliothek **Neue Reise** wählen, Name und Ziel eingeben; Termine sind optional.
+5. Links aus Instagram oder TikTok kopieren und in der Reise über **+** einfügen. Über den Zurück-Pfeil zur Bibliothek wechseln und weitere Reisen anlegen.
+
+Jede Reise hat einen eigenen lokalen Ordner, eigene Ideen, Unterlagen, Fotos und Ausgaben. Ein Einladungslink öffnet eine zusätzliche passende Reise, statt das aktuelle Album zu überschreiben. Der bisherige Ordner `Application Support/Album` bleibt bei der Übernahme unverändert; aktive Daten liegen unter `Application Support/AlbumLibrary/Trips/<UUID>`.
 
 Das Projekt ist bereits mit dem Album-Supabase-Backend konfiguriert; für den normalen Start müssen keine Zugangsdaten eingegeben werden. Die App unterstützt Hoch- und Querformat sowie beide Drehrichtungen. Im Querformat wechselt das Ortsblatt auf die linke Seite. Karte, Ortssuche und TikTok-oEmbed benötigen Internet. Instagram wird nicht ausgelesen.
 

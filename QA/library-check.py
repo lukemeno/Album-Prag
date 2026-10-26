@@ -35,7 +35,7 @@ def check(source, target, baseline=None):
         assert key in copied_places, "a protected place is missing"
         for field in ("title", "note", "sourceURL", "image", "approvals", "passedBy", "visited"):
             assert place.get(field) == copied_places[key].get(field), "a protected place changed: " + field
-    resources = {rel: digest for rel, digest in before.items() if not rel.endswith(".json")}
+    resources = {rel: digest for rel, digest in before.items() if rel != "album.json"}
     for rel, digest in resources.items():
         path = target / rel
         assert path.is_file() and hashlib.sha256(path.read_bytes()).hexdigest() == digest, "an attachment changed"
