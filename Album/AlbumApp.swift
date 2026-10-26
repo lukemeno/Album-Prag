@@ -12,7 +12,7 @@ import UIKit
         // Ortsfotos bleiben zwischengespeichert, damit Karte und Liste auch mit schwachem Netz in Prag Bilder zeigen.
         URLCache.shared = URLCache(memoryCapacity: 20_000_000, diskCapacity: 100_000_000)
     }
-    @State private var library: TripLibrary = TripLibrary()
+    @State private var library: TripLibrary = AlbumApp.makeLibrary()
     @State private var invitation: InvitationRequest?
     @Environment(\.scenePhase) private var scenePhase
     /// Automatisierte und isolierte UI-Tests dürfen weder echte Daten synchronisieren noch Bilder nachladen.
@@ -116,10 +116,27 @@ import UIKit
         #if DEBUG
         let environment = ProcessInfo.processInfo.environment
         guard environment["ALBUM_TEST_STORE"] != nil else { return }
-        let fixtureFlag = ["ALBUM_GLOBAL_IMAGE_QA", "ALBUM_AUTO_PHOTO_QA", "ALBUM_AUTO_PHOTO_LIVE_QA", "ALBUM_LIVE_IMAGE_QA", "ALBUM_DISCOVERY_QA", "ALBUM_DISCOVERY_LIVE_QA", "ALBUM_LEGACY_HOME_QA", "ALBUM_DEMO_INVITE"].contains { environment[$0] == "1" }
-        guard fixtureFlag, let id = library.createBlankTrip(title: "QA-Reise", destination: "Prag") else { return }
+        // The library flow is the only isolated launch that intentionally
+        // starts without an active trip. All legacy QA slots still exercise
+        // the old single-trip shell, including ALBUM_START_TAB.
+        guard environment["ALBUM_LIBRARY_QA"] != "1",
+              let id = library.createBlankTrip(title: "QA-Reise", destination: "Prag") else { return }
         _ = library.open(id)
         #endif
+    }
+
+    private static func makeLibrary() -> TripLibrary {
+        #if DEBUG
+        let environment = ProcessInfo.processInfo.environment
+        if environment["XCTestConfigurationFilePath"] != nil,
+           environment["ALBUM_TEST_STORE"] == nil {
+            let sandbox = FileManager.default.temporaryDirectory
+                .appendingPathComponent("AlbumUnitLibrary-\(UUID().uuidString)", isDirectory: true)
+            let legacy = sandbox.appendingPathComponent("Legacy", isDirectory: true)
+            return TripLibrary(root: sandbox.appendingPathComponent("Library", isDirectory: true), legacyRoot: legacy)
+        }
+        #endif
+        return TripLibrary()
     }
 
     private var presentedError: String? {
@@ -147,7 +164,8 @@ import UIKit
         // older native-port UI tests only. It is never created in a normal
         // install or by a user-created blank trip.
         let hasSpecializedFixture = ["ALBUM_GLOBAL_IMAGE_QA", "ALBUM_AUTO_PHOTO_QA", "ALBUM_AUTO_PHOTO_LIVE_QA", "ALBUM_LIVE_IMAGE_QA", "ALBUM_DISCOVERY_QA", "ALBUM_DISCOVERY_LIVE_QA"].contains { environment[$0] == "1" }
-        if environment["ALBUM_LEGACY_HOME_QA"] == "1" && !hasSpecializedFixture && store.places.isEmpty {
+        let emptyPlacesFixture = environment["ALBUM_EMPTY_TEST_STORE"] == "1"
+        if environment["ALBUM_LIBRARY_QA"] != "1" && !emptyPlacesFixture && !hasSpecializedFixture && store.places.isEmpty {
             var trip = TripInfo.legacyPrague()
             trip.title = "Prag"
             _ = store.updateTrip(trip)

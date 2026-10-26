@@ -11,7 +11,6 @@ final class NativePrototypeUITests: XCTestCase {
         // Legacy card-first assertions are an explicit fixture; production
         // starts in the selected trip/library flow.
         app.launchEnvironment["ALBUM_LEGACY_HOME_QA"] = "1"
-        app.launchEnvironment["ALBUM_EMPTY_TEST_STORE"] = "1"
         if reduced { app.launchEnvironment["ALBUM_QA_REDUCE_MOTION"] = "1" }
         if globalImages {
             app.launchEnvironment["ALBUM_EMPTY_TEST_STORE"] = "1"
