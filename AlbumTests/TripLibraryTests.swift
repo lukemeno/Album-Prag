@@ -49,7 +49,7 @@ final class TripLibraryTests: XCTestCase {
         if let extraFile {
             let url = legacy.appendingPathComponent(extraFile)
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try Data("preserve-me", using: .utf8).write(to: url)
+            try Data("preserve-me".utf8).write(to: url)
         }
     }
 
@@ -106,7 +106,7 @@ final class TripLibraryTests: XCTestCase {
         let failing = TripLibrary(root: libraryRoot, legacyRoot: legacy,
                                   shareInbox: ShareInbox(root: root.appendingPathComponent("share")),
                                   copier: { source, destination in
-                                      if shouldFail { shouldFail = false; throw CocoaError(.fileWriteNoSpace) }
+                                      if shouldFail { shouldFail = false; throw CocoaError(.fileWriteOutOfSpace) }
                                       try FileManager.default.copyItem(at: source, to: destination)
                                   })
         XCTAssertTrue(failing.entries.isEmpty)
