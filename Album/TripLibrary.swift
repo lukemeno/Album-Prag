@@ -80,6 +80,7 @@ struct LegacyMigrationReceipt: Codable, Equatable {
 
     @ObservationIgnored private let availableCapacity: () -> Int64?
     @ObservationIgnored private let copier: (URL, URL) throws -> Void
+    @ObservationIgnored private let storeFactory: (URL, ShareInbox, Bool) -> AlbumStore
     @ObservationIgnored private let fileManager: FileManager
     @ObservationIgnored private var readOnlyIndex = false
     @ObservationIgnored private var indexLastOpenedID: UUID?
@@ -96,11 +97,14 @@ struct LegacyMigrationReceipt: Codable, Equatable {
                  .volumeAvailableCapacityForImportantUsage
          }, copier: @escaping (URL, URL) throws -> Void = { source, destination in
              try FileManager.default.copyItem(at: source, to: destination)
-         }) {
+         }, storeFactory: ((URL, ShareInbox, Bool) -> AlbumStore)? = nil) {
         self.fileManager = fileManager
         self.shareInbox = shareInbox
         self.availableCapacity = availableCapacity
         self.copier = copier
+        self.storeFactory = storeFactory ?? { path, inbox, publishesContext in
+            AlbumStore(root: path, shareInbox: inbox, publishesShareContext: publishesContext)
+        }
 
         #if DEBUG
         if root == nil, let slot = ProcessInfo.processInfo.environment["ALBUM_TEST_STORE"], !slot.isEmpty {
@@ -154,8 +158,7 @@ struct LegacyMigrationReceipt: Codable, Equatable {
         }
         // Build and validate the candidate first. A corrupt target must not
         // deactivate the currently usable trip.
-        let store = AlbumStore(root: tripURL(id), shareInbox: shareInbox,
-                               publishesShareContext: false)
+        let store = storeFactory(tripURL(id), shareInbox, false)
         guard !store.loadFailed else {
             markUnavailable(id, reason: store.error ?? "Die Reise konnte nicht geladen werden.")
             return false
@@ -230,8 +233,7 @@ struct LegacyMigrationReceipt: Codable, Equatable {
         let staging = root.appendingPathComponent(".staging-\(id.uuidString)", isDirectory: true)
         try fileManager.createDirectory(at: staging, withIntermediateDirectories: true)
         try writeBlankAlbum(to: staging)
-        let stagedStore = AlbumStore(root: staging, shareInbox: shareInbox,
-                                     publishesShareContext: false)
+        let stagedStore = storeFactory(staging, shareInbox, false)
         do {
             try await stagedStore.joinSharedTrip(url: url)
             guard let remoteID = stagedStore.data.collaboration?.tripID else { throw AlbumSyncError.missingTrip }
@@ -323,9 +325,14 @@ struct LegacyMigrationReceipt: Codable, Equatable {
         // the indexed copy is authoritative: preserve user edits and only
         // finish the receipt commit. Never compare it with the old legacy
         // folder in this case.
-        if previous?.state == .copying,
-           let targetData = loadAlbum(at: target),
-           let index = entries.firstIndex(where: { $0.id == id }) {
+        if previous?.state == .copying, let index = entries.firstIndex(where: { $0.id == id }) {
+            guard let targetData = loadAlbum(at: target),
+                  targetData.albumID == previous?.albumID,
+                  entries[index].albumID == targetData.albumID else {
+                entries[index].unavailableReason = "Die angefangene Migration ist beschädigt oder nicht verfügbar."
+                _ = persistIndex()
+                return
+            }
             entries[index].unavailableReason = nil
             guard persistIndex() else { return }
             let committed = LegacyMigrationReceipt(id: id, state: .committed,
@@ -377,6 +384,11 @@ struct LegacyMigrationReceipt: Codable, Equatable {
             _ = writeReceipt(committed)
         } catch {
             try? fileManager.removeItem(at: staging)
+            // The target was unindexed at the start of this copy path. Do not
+            // let a failed index commit expose it to the next folder scan.
+            try? fileManager.removeItem(at: target)
+            entries.removeAll { $0.id == id }
+            if indexLastOpenedID == id { indexLastOpenedID = nil }
             self.error = "Die Reise konnte noch nicht übernommen werden: \(error.localizedDescription)"
         }
     }
@@ -389,11 +401,11 @@ struct LegacyMigrationReceipt: Codable, Equatable {
         }
         let id = UUID()
         let staging = root.appendingPathComponent(".staging-\(id.uuidString)", isDirectory: true)
+        let target = tripURL(id)
         do {
             try fileManager.createDirectory(at: staging, withIntermediateDirectories: true)
             try writeBlankAlbum(to: staging, title: title, destination: destination,
                                 startDate: startDate, endDate: endDate, includeExamples: includeExamples)
-            let target = tripURL(id)
             try fileManager.moveItem(at: staging, to: target)
             let data = loadAlbum(at: target)!
             entries.append(makeEntry(id: id, origin: origin, data: data))
@@ -401,6 +413,7 @@ struct LegacyMigrationReceipt: Codable, Equatable {
             return id
         } catch {
             try? fileManager.removeItem(at: staging)
+            try? fileManager.removeItem(at: target)
             self.error = "Die neue Reise konnte nicht angelegt werden: \(error.localizedDescription)"
             return nil
         }

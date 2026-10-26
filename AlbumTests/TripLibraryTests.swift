@@ -14,6 +14,28 @@ final class TripLibraryTests: XCTestCase {
         func stopRealtime() async { stopped = true }
     }
 
+    @MainActor
+    private final class JoinService: AlbumSyncService {
+        final class Behavior {
+            let remoteID: UUID
+            var failNextJoin = false
+            init(remoteID: UUID) { self.remoteID = remoteID }
+        }
+        let behavior: Behavior
+        init(behavior: Behavior) { self.behavior = behavior }
+        func createTrip(store: AlbumStore) async throws -> CollaborationState { throw AlbumSyncError.missingConfiguration }
+        func joinTrip(token: String) async throws -> CollaborationState {
+            if behavior.failNextJoin {
+                behavior.failNextJoin = false
+                throw AlbumSyncError.invalidInvitation
+            }
+            return CollaborationState(tripID: behavior.remoteID, inviteToken: token)
+        }
+        func sync(store: AlbumStore) async throws {}
+        func startRealtime(onChange: @escaping @MainActor @Sendable () async -> Void) {}
+        func authenticatedUserID() async throws -> String { "test-user" }
+    }
+
     private func temporaryRoot(_ name: String = #function) throws -> URL {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("TripLibrary-\(name)-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -184,5 +206,37 @@ final class TripLibraryTests: XCTestCase {
         XCTAssertTrue(service.stopped)
         let didSync = await store.sync()
         XCTAssertFalse(didSync)
+    }
+
+    func testJoinInvitationUsesStagingAndDeduplicatesRemoteTrip() async throws {
+        let root = try temporaryRoot()
+        let remoteID = UUID()
+        let behavior = JoinService.Behavior(remoteID: remoteID)
+        let library = TripLibrary(root: root.appendingPathComponent("library"),
+                                  legacyRoot: root.appendingPathComponent("legacy"),
+                                  shareInbox: ShareInbox(root: root.appendingPathComponent("share")),
+                                  storeFactory: { path, inbox, publishes in
+                                      let store = AlbumStore(root: path, shareInbox: inbox, publishesShareContext: publishes)
+                                      store.syncService = JoinService(behavior: behavior)
+                                      return store
+                                  })
+        let invite = try XCTUnwrap(InvitationLink.make(token: String(repeating: "a", count: 32)))
+        let first = try await library.joinInvitation(invite)
+        XCTAssertEqual(library.entries.count, 1)
+        XCTAssertEqual(library.entries.first?.remoteTripID, remoteID)
+        XCTAssertEqual(library.activeID, first)
+        let contextBefore = library.shareInbox.loadContext()
+        behavior.failNextJoin = true
+        do {
+            _ = try await library.joinInvitation(invite)
+            XCTFail("Expected failed staged join")
+        } catch {}
+        XCTAssertEqual(library.activeID, first)
+        XCTAssertEqual(library.entries.count, 1)
+        XCTAssertEqual(library.shareInbox.loadContext(), contextBefore)
+        let second = try await library.joinInvitation(invite)
+        XCTAssertEqual(second, first)
+        XCTAssertEqual(library.entries.count, 1)
+        XCTAssertEqual(library.activeID, first)
     }
 }
