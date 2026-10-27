@@ -33,3 +33,8 @@ Simulatorprüfungen ersetzen keine Haptik-, Kamera-, VoiceOver- oder Zwei-iPhone
 - Alle Änderungen lokal committet, nichts gepusht. Zwei vor Beginn vorhandene unversionierte Planentwürfe bleiben unangetastet. Die beiden eigenen Luna-Worktrees sind nach vollständiger Integration entfernt.
 
 Bewusst übersprungene Tests benötigen ein echtes Booking-PDF, explizit aktivierte externe Fotoquellen oder signierte Live-Supabase-Sitzungen. Kein Erfolg für diese ausgelassenen Prüfungen behauptet. Die reale Foto-UI wurde im getrennten opt-in Lauf geprüft.
+
+
+## Ergänzung: echtes iPhone 15 Pro
+
+27.10.2026: Aktueller Geräte-Build erfolgreich signiert und ohne Deinstallation auf iPhone15Pro/iOS27.0.1 installiert. Bestehende Application-Support-Daten vorher lokal geschützt gesichert. Nach manueller Entwicklerfreigabe bestätigte der Nutzer den erfolgreichen Start; erneuter Start per devicectl erfolgreich. Die oben genannten umfassenderen Geräte-/Zwei-iPhone-Tests bleiben offen. Das verwendete kostenlose Entwicklungsprofil läuft am30.10.2026 ab und muss danach durch erneutes Signieren/Installieren aktualisiert werden.
