@@ -32,6 +32,29 @@ final class NativePrototypeUITests: XCTestCase {
         if button.exists { button.tap() }
     }
 
+
+    /// Scrollt (max. 6 Wischer) bis das Element sichtbar und tippbar ist.
+    @discardableResult
+    private func reveal(_ id: String, in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) -> XCUIElement {
+        let element = app.buttons[id]
+        XCTAssertTrue(element.waitForExistence(timeout: 10), "Fehlt: \(id)", file: file, line: line)
+        var tries = 0
+        while !element.isHittable && tries < 6 { app.swipeUp(); tries += 1 }
+        return element
+    }
+
+    /// Reise-Tab, dann zum Element der früheren Gruppe scrollen und tippen.
+    private func tapGroup(_ id: String, in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        tap("native-tab-plan", in: app, file: file, line: line)
+        reveal(id, in: app, file: file, line: line)
+        tap(id, in: app, file: file, line: line)
+    }
+
+    /// Ideen starten im Stapel; die Zeilenliste erscheint erst nach Tipp auf „Liste“.
+    private func showIdeaList(in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        tap("native-ideas-list", in: app, file: file, line: line)
+    }
+
     private func capture(_ name: String) {
         let attachment = XCTAttachment(screenshot: XCUIApplication().screenshot())
         attachment.name = "native-\(name)"
@@ -62,6 +85,7 @@ final class NativePrototypeUITests: XCTestCase {
         let throwButton = app.buttons["Einwurf-Knopf"]
         if throwButton.waitForExistence(timeout: 4) { throwButton.tap() }
         XCTAssertTrue(app.buttons["native-new-place"].waitForExistence(timeout: 10))
+        showIdeaList(in: app)
         if live {
             let resolve = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "native-resolve-")).firstMatch
             if resolve.waitForExistence(timeout: 8) {
@@ -83,6 +107,7 @@ final class NativePrototypeUITests: XCTestCase {
         app.launch()
         tap("native-trip-prag", in: app)
         tap("native-tab-ideas", in: app)
+        showIdeaList(in: app)
         XCTAssertTrue(row.waitForExistence(timeout: 10))
         row.tap()
         XCTAssertTrue(credit.waitForExistence(timeout: 10), app.debugDescription)
@@ -100,11 +125,12 @@ final class NativePrototypeUITests: XCTestCase {
         capture("ideas")
         tap("native-tab-map", in: app)
         capture("map")
-        tap("native-tab-group", in: app)
-        XCTAssertTrue(app.buttons["native-group-expenses"].waitForExistence(timeout: 5))
+        tap("native-tab-plan", in: app)
+        XCTAssertTrue(reveal("native-group-expenses", in: app).isHittable)
         XCTAssertTrue(app.buttons["native-group-documents"].exists)
         XCTAssertTrue(app.buttons["native-group-memories"].exists)
         capture("group")
+        reveal("native-group-documents", in: app)
         tap("native-group-documents", in: app)
         XCTAssertTrue(app.navigationBars["Unterlagen"].exists || app.staticTexts["Unterlagen"].waitForExistence(timeout: 5))
         capture("documents")
@@ -149,8 +175,7 @@ final class NativePrototypeUITests: XCTestCase {
     func testExpensePersistsAcrossRelaunch() {
         let app = launch()
         tap("native-trip-prag", in: app)
-        tap("native-tab-group", in: app)
-        tap("native-group-expenses", in: app)
+        tapGroup("native-group-expenses", in: app)
         tap("expenses-add", in: app)
         let title = app.textFields["expense-title"]
         XCTAssertTrue(title.waitForExistence(timeout: 5))
@@ -162,8 +187,7 @@ final class NativePrototypeUITests: XCTestCase {
         capture("expenses")
         app.terminate(); app.launch()
         tap("native-trip-prag", in: app)
-        tap("native-tab-group", in: app)
-        tap("native-group-expenses", in: app)
+        tapGroup("native-group-expenses", in: app)
         XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", "Testrechnung")).firstMatch.waitForExistence(timeout: 5))
     }
 
@@ -171,12 +195,14 @@ final class NativePrototypeUITests: XCTestCase {
         let app = launch()
         tap("native-trip-prag", in: app)
         tap("native-tab-ideas", in: app)
+        showIdeaList(in: app)
         tap("Mehr für Letná Park", in: app)
         tap("Für mich", in: app)
         XCTAssertTrue(app.buttons["native-idea-example-letna"].exists)
         tap("native-tab-plan", in: app)
         XCTAssertFalse(app.staticTexts["Letná Park"].exists)
         tap("native-tab-ideas", in: app)
+        showIdeaList(in: app)
         tap("Mehr für Letná Park", in: app)
         tap("Auf Tag legen", in: app)
         tap("native-day-2026-10-06", in: app)
@@ -192,8 +218,7 @@ final class NativePrototypeUITests: XCTestCase {
         let app = launch()
         func openExpenses() {
             tap("native-trip-prag", in: app)
-            tap("native-tab-group", in: app)
-            tap("native-group-expenses", in: app)
+            tapGroup("native-group-expenses", in: app)
         }
         func replace(_ field: XCUIElement, with value: String) {
             field.tap()
@@ -237,6 +262,7 @@ final class NativePrototypeUITests: XCTestCase {
         let app = launch(globalImages: true)
         tap("native-trip-prag", in: app)
         tap("native-tab-ideas", in: app)
+        showIdeaList(in: app)
         tap("native-refresh-images", in: app)
         XCTAssertTrue(app.buttons["native-resolve-global-cafe"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.staticTexts["native-image-status-global-ramen"].exists)
@@ -254,6 +280,7 @@ final class NativePrototypeUITests: XCTestCase {
         app.terminate(); app.launch()
         tap("native-trip-prag", in: app)
         tap("native-tab-ideas", in: app)
+        showIdeaList(in: app)
         XCTAssertTrue(app.buttons["native-idea-global-tokyo"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["native-resolve-global-cafe"].exists)
         capture("global-image-relaunch")
@@ -276,6 +303,7 @@ final class NativePrototypeUITests: XCTestCase {
         XCTAssertFalse(app.buttons["discovery-adopt-Q193369"].exists)
         capture("discovery-adopted")
         tap("discovery-close", in: app)
+        showIdeaList(in: app)
         XCTAssertTrue(app.buttons["native-idea-discovery-q193369"].waitForExistence(timeout: 5))
         app.terminate(); app.launch()
         tap("native-trip-prag", in: app)
@@ -289,8 +317,7 @@ final class NativePrototypeUITests: XCTestCase {
     func testMemoriesHasSeparateCameraAndLibraryActions() {
         let app = launch()
         tap("native-trip-prag", in: app)
-        tap("native-tab-group", in: app)
-        tap("native-group-memories", in: app)
+        tapGroup("native-group-memories", in: app)
         XCTAssertTrue(app.buttons["memories-camera"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["memories-library"].exists)
         capture("memories")

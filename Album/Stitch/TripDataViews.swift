@@ -7,7 +7,7 @@ struct FlightCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Stitch.Space.s) {
             HStack {
-                Text(flight.direction == .outbound ? "Hinflug" : "Rückflug").font(.footnote.weight(.bold)).foregroundStyle(Stitch.red)
+                Text(flight.direction == .outbound ? "Hinflug" : "Rückflug").font(.footnote.weight(.bold)).foregroundStyle(Stitch.action)
                 Spacer()
                 Text(flight.date).font(.footnote.weight(.semibold).monospacedDigit()).foregroundStyle(Stitch.inkSoft)
             }
@@ -17,7 +17,7 @@ struct FlightCard: View {
                     Text(flight.from).font(Stitch.Face.code(.subheadline))
                 }
                 Spacer()
-                Image(systemName: "airplane").font(.title3).foregroundStyle(Stitch.red)
+                Image(systemName: "airplane").font(.title3).foregroundStyle(Stitch.action)
                 Spacer()
                 VStack(alignment: .trailing, spacing: Stitch.Space.xxs) {
                     Text(flight.arrival).font(Stitch.Face.display(34, relativeTo: .largeTitle)).monospacedDigit()
@@ -61,7 +61,7 @@ struct HotelCard: View {
                 } label: {
                     Label(address, systemImage: "mappin.and.ellipse").font(.subheadline).multilineTextAlignment(.leading)
                 }
-                .foregroundStyle(Stitch.red)
+                .foregroundStyle(Stitch.action)
             }
             if details.checkIn != nil || details.checkOut != nil {
                 HStack(spacing: Stitch.Space.l) {

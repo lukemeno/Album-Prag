@@ -46,7 +46,7 @@ struct AlbumExperienceRoot: View {
             case "Reise", "Plan": _showingTrip = State(initialValue: true)
             case "Ideen": _showingTrip = State(initialValue: true); _section = State(initialValue: .ideas)
             case "Karte": _showingTrip = State(initialValue: true); _section = State(initialValue: .map)
-            case "Gruppe": _showingTrip = State(initialValue: true); _section = State(initialValue: .group)
+            case "Gruppe": _showingTrip = State(initialValue: true)
             default: break
             }
         }
@@ -82,8 +82,8 @@ struct AlbumExperienceRoot: View {
 
             if library.activeStore != nil && showingTrip {
                 NativeTripPillBar(selection: $section)
-                    .padding(.horizontal, Stitch.Space.m)
-                    .padding(.bottom, 10)
+                    .padding(.horizontal, Stitch.Space.page)
+                    .padding(.bottom, Stitch.Space.xs)
                     .accessibilityHidden(fanOpen)
                     .allowsHitTesting(!fanOpen)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -97,6 +97,7 @@ struct AlbumExperienceRoot: View {
                     switch route {
                     case .add(let place): PlaceEditor(place: place)
                     case .detail(let id): PlaceDetail(placeID: id)
+                    case .dayPlan: NativeDayPlanView()
                     case .documents: TripDocumentsView()
                     case .inbox:
                         NavigationStack { InboxView(add: { sheet = .add(Place(title: "", author: store.me)) }) }
@@ -235,22 +236,23 @@ struct AlbumExperienceRoot: View {
 }
 
 enum NativeTripSection: String, CaseIterable, Identifiable {
-    case plan = "Plan", ideas = "Ideen", map = "Karte", group = "Gruppe"
+    case plan = "Reise", ideas = "Ideen", map = "Karte"
     var id: String { rawValue }
     var accessibilityID: String {
-        switch self { case .plan: "native-tab-plan"; case .ideas: "native-tab-ideas"; case .map: "native-tab-map"; case .group: "native-tab-group" }
+        switch self { case .plan: "native-tab-plan"; case .ideas: "native-tab-ideas"; case .map: "native-tab-map" }
     }
     var icon: String {
-        switch self { case .plan: "calendar"; case .ideas: "lightbulb"; case .map: "map"; case .group: "person.2" }
+        switch self { case .plan: "suitcase"; case .ideas: "tray"; case .map: "map" }
     }
 }
 
 enum NativeSheet: Identifiable {
-    case add(Place), detail(String), documents, inbox, collection, sharing, name, extraction(ExtractedTrip), assistant, expenses, memories, cameraMemories
+    case add(Place), detail(String), dayPlan, documents, inbox, collection, sharing, name, extraction(ExtractedTrip), assistant, expenses, memories, cameraMemories
     var id: String {
         switch self {
         case .add(let place): "add-\(place.id)"
         case .detail(let id): "detail-\(id)"
+        case .dayPlan: "day-plan"
         case .documents: "documents"
         case .inbox: "inbox"
         case .collection: "collection"
@@ -270,20 +272,20 @@ private struct NativeClipboardNote: View {
     let onDismiss: () -> Void
     var body: some View {
         HStack(spacing: Stitch.Space.s) {
-            Image(systemName: "link").foregroundStyle(Stitch.red).frame(width: 36, height: 36).background(Stitch.paperDeep, in: Circle())
+            Image(systemName: "link").foregroundStyle(Stitch.action).frame(width: 36, height: 36).background(Stitch.paper, in: Circle())
             VStack(alignment: .leading, spacing: 2) {
                 Text("Link kopiert").font(.subheadline.weight(.semibold))
                 Text("Als Idee einwerfen?").font(.footnote).foregroundStyle(Stitch.inkSoft)
             }
             Spacer(minLength: 0)
-            Button("Einfügen", action: onPaste).buttonStyle(.borderedProminent).tint(Stitch.redFill)
+            Button("Einfügen", action: onPaste).buttonStyle(.borderedProminent).tint(Stitch.actionFill)
             Button("Schließen", systemImage: "xmark", action: onDismiss).labelStyle(.iconOnly).buttonStyle(.plain)
                 .frame(width: Stitch.Size.touch, height: Stitch.Size.touch)
                 .accessibilityLabel("Link-Hinweis schließen")
         }
         .padding(Stitch.Space.s)
         .background(Stitch.card, in: RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous).strokeBorder(Stitch.rule))
+        .overlay(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous).strokeBorder(Stitch.line))
         .stitchElevation(.floating)
         .padding(.horizontal, Stitch.Space.page)
     }

@@ -97,7 +97,7 @@ struct PhotoStack: View {
     private var counter: some View {
         Button { advance(-1) } label: {
             Text("\(front + 1) / \(photos.count)")
-                .font(.caption.weight(.semibold).monospacedDigit()).foregroundStyle(Stitch.onAccent)
+                .font(.caption.weight(.semibold).monospacedDigit()).foregroundStyle(Stitch.onAction)
                 .padding(.horizontal, Stitch.Space.s).padding(.vertical, Stitch.Space.xxs)
                 .background(Capsule().fill(.black.opacity(0.4)))
                 .frame(minWidth: Stitch.Size.touch, minHeight: Stitch.Size.touch)

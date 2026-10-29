@@ -86,7 +86,7 @@ struct PlaceEditor: View {
                         .padding(.horizontal, Stitch.Space.page).padding(.vertical, Stitch.Space.xs)
                         .background {
                             PaperBackground()
-                                .overlay(alignment: .top) { Stitch.rule.frame(height: 1) }
+                                .overlay(alignment: .top) { Stitch.line.frame(height: 1) }
                         }
                     }
                 }
@@ -192,7 +192,7 @@ struct PlaceEditor: View {
                 .accessibilityIdentifier("PlaceEditor-Source")
                 .keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
             if !place.sourceURL.isEmpty && LinkValidation.url(place.sourceURL) == nil {
-                Text("Der Link muss mit https:// beginnen.").font(.footnote).foregroundStyle(Stitch.red)
+                Text("Der Link muss mit https:// beginnen.").font(.footnote).foregroundStyle(Stitch.action)
             }
             if enriching {
                 Label { Text("Vorschau wird geladen …") } icon: { ProgressView() }.foregroundStyle(Stitch.inkSoft)
@@ -318,7 +318,7 @@ struct PlaceEditor: View {
     @ViewBuilder
     private var locationSearchAndImageControls: some View {
         locationSearchField
-        if let searchError { Text(searchError).font(.footnote).foregroundStyle(Stitch.red) }
+        if let searchError { Text(searchError).font(.footnote).foregroundStyle(Stitch.action) }
         ForEach(Array(results.enumerated()), id: \.offset) { _, item in locationResultRow(item) }
         if place.coordinate != nil { selectedLocationControls }
     }
@@ -340,7 +340,7 @@ struct PlaceEditor: View {
     @ViewBuilder
     private var selectedLocationControls: some View {
         Label(place.address.isEmpty ? "Ort gefunden" : place.address, systemImage: "checkmark.circle.fill")
-            .foregroundStyle(Stitch.red)
+            .foregroundStyle(Stitch.action)
         Button(imageSearching ? "Bilder werden gesucht …" : "Bild wählen") { beginImageSearch(force: true) }
             .disabled(imageSearching)
         photoPickerControl

@@ -115,7 +115,7 @@ struct AlbumPhoto: View {
     }
     var empty: some View {
         ZStack {
-            Stitch.paperDeep
+            Stitch.paper
             Image(systemName: "photo").font(.title2).foregroundStyle(Stitch.inkSoft.opacity(0.7))
                 .accessibilityHidden(true)
         }

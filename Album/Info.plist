@@ -48,10 +48,10 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>1</string>
-	<key>NSCameraUsageDescription</key>
-	<string>Album darf die Kamera verwenden, um eigene Reiseerinnerungen zu speichern.</string>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Album darf die Kamera verwenden, um eigene Reiseerinnerungen zu speichern.</string>
 	<key>SupabaseAnonKey</key>
 	<string>$(SUPABASE_ANON_KEY)</string>
 	<key>SupabaseURL</key>
@@ -62,6 +62,7 @@
 		<string>InstrumentSerif-Regular.ttf</string>
 		<string>Inter-Variable.ttf</string>
 		<string>Lora-Variable.ttf</string>
+		<string>Caveat-Variable.ttf</string>
 	</array>
 	<key>UIFileSharingEnabled</key>
 	<false/>

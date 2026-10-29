@@ -42,7 +42,7 @@ struct AlbumSettings: View {
                                     catch { localError = error.localizedDescription }
                                 }
                             } label: {
-                                if preparing { ProgressView().tint(Stitch.onAccent) } else { Label("Einladung erstellen", systemImage: "link") }
+                                if preparing { ProgressView().tint(Stitch.onAction) } else { Label("Einladung erstellen", systemImage: "link") }
                             }
                             .buttonStyle(StitchButton(primary: true)).disabled(preparing || store.syncing)
                         }

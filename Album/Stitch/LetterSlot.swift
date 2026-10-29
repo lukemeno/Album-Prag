@@ -71,12 +71,12 @@ struct SlotScene<Card: View, Receipt: View>: View {
                     VStack(spacing: Stitch.Space.xs) {
                         ZStack(alignment: .top) {
                             Capsule().fill(Stitch.ink.opacity(0.78)).frame(width: 220, height: 14)
-                                .overlay(Capsule().strokeBorder(Stitch.paperDeep, lineWidth: 3))
-                                .overlay(SeamRing(closed: seam).fill(Stitch.red).padding(-6))
+                                .overlay(Capsule().strokeBorder(Stitch.paper, lineWidth: 3))
+                                .overlay(SeamRing(closed: seam).fill(Stitch.action).padding(-6))
                             // Klappe
-                            RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous).fill(Stitch.redFill)
+                            RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous).fill(Stitch.actionFill)
                                 .frame(width: 236, height: 30)
-                                .overlay(Text(labels.flap).font(.footnote.weight(.bold)).foregroundStyle(Stitch.onAccent))
+                                .overlay(Text(labels.flap).font(.footnote.weight(.bold)).foregroundStyle(Stitch.onAction))
                                 .rotation3DEffect(.degrees(flapClosed ? 0 : -70 * min(progress / 0.3, 1)), axis: (x: 1, y: 0, z: 0), anchor: .top, perspective: 0.6)
                                 .offset(y: -10)
                         }
@@ -116,7 +116,7 @@ struct SlotScene<Card: View, Receipt: View>: View {
             VStack(spacing: Stitch.Space.s) {
                 if let failure {
                     Label(failure, systemImage: "exclamationmark.circle")
-                        .font(.footnote).foregroundStyle(Stitch.red).multilineTextAlignment(.center)
+                        .font(.footnote).foregroundStyle(Stitch.action).multilineTextAlignment(.center)
                         .transition(.opacity)
                         .accessibilityIdentifier("Einlass-Fehler")
                 }

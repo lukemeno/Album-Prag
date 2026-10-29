@@ -20,7 +20,7 @@ import UIKit
     private let isIsolatedStoreTest = ProcessInfo.processInfo.environment["ALBUM_TEST_STORE"] != nil
     var body: some Scene {
         WindowGroup {
-            AlbumExperienceRoot().environment(library).tint(Stitch.redFill)
+            AlbumExperienceRoot().environment(library).tint(Stitch.action)
                 #if DEBUG
                 .transformEnvironment(\._accessibilityReduceMotion) { value in
                     let isolatedStore = ProcessInfo.processInfo.environment["ALBUM_TEST_STORE"] != nil

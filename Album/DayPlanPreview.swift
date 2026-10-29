@@ -33,7 +33,7 @@ struct DayPlanPreview: View {
                                     VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
                                         Text(stop.place.title).font(.body.weight(.semibold)).foregroundStyle(Stitch.ink)
                                         Text(stop.note.map { "\(stop.slot) · \($0)" } ?? stop.slot)
-                                            .font(.footnote).foregroundStyle(stop.note == nil ? Stitch.inkSoft : Stitch.red)
+                                            .font(.footnote).foregroundStyle(stop.note == nil ? Stitch.inkSoft : Stitch.action)
                                     }
                                 }
                                 .accessibilityElement(children: .combine)

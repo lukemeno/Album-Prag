@@ -38,7 +38,7 @@ struct FlightTicket: View {
             HStack(spacing: Stitch.Space.s) {
                 Image(systemName: "airplane").font(.body.weight(.semibold)).foregroundStyle(Stitch.ink)
                     .rotationEffect(.degrees(leg.direction == .outbound ? -30 : 30))
-                    .frame(width: 36, height: 36).background(Stitch.Mat.sky, in: Circle())
+                    .frame(width: 36, height: 36).background(Stitch.Stamp.sky, in: Circle())
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(leg.from) → \(leg.to)").font(Stitch.Face.code(.headline)).foregroundStyle(Stitch.ink)
                     Text("\(direction) · \(shortDate) · \(leg.departure)").font(.footnote.monospacedDigit()).foregroundStyle(Stitch.inkSoft)
@@ -48,7 +48,7 @@ struct FlightTicket: View {
             .padding(Stitch.Space.s)
             Text(leg.number).font(Stitch.Face.ticket).foregroundStyle(Stitch.ink)
                 .frame(width: stubWidth).frame(maxHeight: .infinity)
-                .background(Stitch.paperDeep)
+                .background(Stitch.paper)
         }
         .frame(minHeight: 68)
     }
@@ -62,14 +62,14 @@ struct FlightTicket: View {
     private var pass: some View {
         VStack(alignment: .leading, spacing: Stitch.Space.m) {
             HStack {
-                Text(direction).font(.footnote.weight(.semibold)).foregroundStyle(Stitch.red)
+                Text(direction).font(.footnote.weight(.semibold)).foregroundStyle(Stitch.action)
                 Spacer()
                 Text(leg.date).font(Stitch.Face.ticket).foregroundStyle(Stitch.inkSoft)
             }
             HStack(alignment: .firstTextBaseline) {
                 time(leg.departure, leg.from, .leading)
                 Spacer()
-                Image(systemName: "airplane").font(.title3).foregroundStyle(Stitch.red)
+                Image(systemName: "airplane").font(.title3).foregroundStyle(Stitch.action)
                 Spacer()
                 time(leg.arrival, leg.to, .trailing)
             }

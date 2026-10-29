@@ -78,7 +78,7 @@ struct SyncIsland: View {
             .frame(width: expanded ? wide : pulseWidth)
             .frame(minHeight: expanded ? Stitch.Size.touch : pulseHeight)
             .background(Stitch.card, in: Capsule())
-            .overlay(Capsule().strokeBorder(Stitch.rule, lineWidth: expanded ? 0 : 1))
+            .overlay(Capsule().strokeBorder(Stitch.line, lineWidth: expanded ? 0 : 1))
             .stitchElevation(expanded ? .floating : .pinned)
         }
         .buttonStyle(.plain)
@@ -113,7 +113,7 @@ struct SyncIsland: View {
         TimelineView(.animation(paused: reduceMotion || !showsPulse)) { context in
             let t = context.date.timeIntervalSinceReferenceDate
             HStack(spacing: Stitch.Space.xs) {
-                Circle().fill(Stitch.red).frame(width: 7, height: 7)
+                Circle().fill(Stitch.action).frame(width: 7, height: 7)
                 Text("Abgleich").font(.footnote).foregroundStyle(Stitch.inkSoft).accessibilityHidden(true)
             }
             .opacity(reduceMotion ? 1 : 0.65 + 0.35 * sin(t * 2.6))

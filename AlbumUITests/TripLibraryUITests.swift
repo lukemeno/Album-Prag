@@ -27,6 +27,13 @@ final class TripLibraryUITests: XCTestCase {
         element.tap()
     }
 
+    /// Ideen starten im Stapel; die Liste gibt es erst nach Tipp auf „Liste“.
+    /// Bei leerem Ideen-Bestand (Leerzustand) existiert der Umschalter nicht.
+    private func showIdeaListIfAvailable(in app: XCUIApplication) {
+        let list = app.buttons["native-ideas-list"]
+        if list.waitForExistence(timeout: 3) { list.tap() }
+    }
+
     private func capture(_ name: String, from app: XCUIApplication) {
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "trip-library-\(name)"
@@ -93,12 +100,14 @@ final class TripLibraryUITests: XCTestCase {
         let throwButton = app.buttons["Einwurf-Knopf"]
         if throwButton.waitForExistence(timeout: 4) { throwButton.tap() }
         XCTAssertTrue(app.buttons["native-new-place"].waitForExistence(timeout: 8), app.debugDescription)
+        showIdeaListIfAvailable(in: app)
         XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Nur in Paris")).firstMatch.waitForExistence(timeout: 8), app.debugDescription)
         capture("paris-idea-retained", from: app)
 
         tap("trip-back-library", in: app)
         create("Berlin", destination: "Berlin", in: app)
         tap("native-tab-ideas", in: app)
+        showIdeaListIfAvailable(in: app)
         XCTAssertFalse(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Nur in Paris")).firstMatch.waitForExistence(timeout: 2))
 
         tap("trip-back-library", in: app)
@@ -106,12 +115,14 @@ final class TripLibraryUITests: XCTestCase {
         XCTAssertTrue(paris.waitForExistence(timeout: 8), app.debugDescription)
         paris.tap()
         tap("native-tab-ideas", in: app)
+        showIdeaListIfAvailable(in: app)
         XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Nur in Paris")).firstMatch.waitForExistence(timeout: 8), app.debugDescription)
 
         app.terminate()
         app.launch()
         XCTAssertTrue(app.buttons["native-tab-ideas"].waitForExistence(timeout: 8), app.debugDescription)
         tap("native-tab-ideas", in: app)
+        showIdeaListIfAvailable(in: app)
         XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Nur in Paris")).firstMatch.waitForExistence(timeout: 8), app.debugDescription)
     }
 

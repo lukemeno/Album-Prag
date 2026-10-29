@@ -1,38 +1,53 @@
 import SwiftUI
 import UIKit
 
-/// Welt „Briefmarke“: ruhiges Papier, Tinte, Poststempel. Jeder Ort ist eine Marke mit Pastellrand je Kategorie.
-/// Quelle der Werte: Figma „Album Foundations“ (Datei BvFJ4PzwQXAxhPlrEw73rB). Der Name `Stitch` bleibt aus Gründen
-/// der Verträglichkeit; gestickt wird nichts mehr.
+/// Welt „Briefmarke“: warmes Papier, Tinte, roter Poststempel. Jeder Ort ist eine Marke mit Pastellrand je Kategorie.
+/// Quelle der Werte: Figma „Briefmarke“. Der Name `Stitch` bleibt aus Gründen der Verträglichkeit; gestickt wird nichts mehr.
 enum Stitch {
-    // MARK: Farben (Hell / Dunkel)
+    // MARK: Farben (Hell / Nacht)
 
-    static let paper = dynamic(light: (255, 255, 255), dark: (25, 37, 33))
-    static let paperDeep = dynamic(light: (245, 247, 243), dark: (38, 55, 48))
-    /// Canvas für Karten und Felder; die App-Fläche bleibt weiß.
-    static let card = dynamic(light: (245, 247, 243), dark: (31, 48, 41))
-    static let rule = dynamic(light: (226, 231, 223), dark: (64, 82, 72))
-    static let ink = dynamic(light: (18, 48, 42), dark: (235, 242, 237))
-    static let inkSoft = dynamic(light: (92, 104, 98), dark: (174, 190, 181))
-    /// Poststempel als Schrift und Linie. Auf Papier 4,7:1, auf Karte 5,1:1.
-    static let red = dynamic(light: (22, 75, 60), dark: (122, 190, 158))
-    /// Poststempel als Fläche, helle Schrift darauf mindestens 5,2:1.
-    static let redFill = dynamic(light: (22, 75, 60), dark: (27, 93, 72))
-    /// Zweite Tinte: Besucht, Hinweise, zweite Route.
-    static let teal = dynamic(light: (31, 90, 73), dark: (126, 187, 157))
-    /// Nur Zierde (Stempelring, Sterne), nie Schrift.
-    static let gold = dynamic(light: (123, 142, 119), dark: (176, 205, 185))
-    static let onAccent = Color.white
+    /// App-Fläche: das warme Papier, auf dem die Marken liegen.
+    static let paper = dynamic(light: (245, 242, 236), dark: (28, 27, 31))
+    /// Karten und Felder: weißes Markenpapier auf der App-Fläche.
+    static let card = dynamic(light: (255, 255, 255), dark: (42, 40, 48))
+    /// Feine Linien und Perforation.
+    static let line = dynamic(light: (230, 224, 214), dark: (58, 56, 66))
+    /// Tinte: Haupttext.
+    static let ink = dynamic(light: (28, 26, 23), dark: (242, 238, 230))
+    /// Zweite Tinte: Nebentext, Hinweise.
+    static let inkSoft = dynamic(light: (107, 100, 90), dark: (181, 174, 163))
+    /// Auswahlfläche (gewählter Tag, gewählter Ort): Himmelblau, im Dunkeln ein gedämpftes Blau.
+    static let selection = dynamic(light: (207, 224, 245), dark: (52, 62, 84))
+    /// Poststempel-Rot als Schrift, Symbol und Linie.
+    static let action = dynamic(light: (184, 42, 36), dark: (245, 122, 108))
+    /// Poststempel-Rot als Fläche; Schrift darauf ist `onAction`.
+    static let actionFill = dynamic(light: (184, 42, 36), dark: (178, 48, 40))
+    /// Schrift und Symbol auf `actionFill`, in beiden Modi weiß.
+    static let onAction = Color.white
     /// Hintergrund hinter Vollbildfotos, in beiden Modi dunkel.
     static let scrim = Color(red: 20 / 255, green: 18 / 255, blue: 16 / 255)
 
-    /// Pastellränder der Marken, fest je Kategorie. Nie für Schrift.
-    enum Mat {
-        static let rose = dynamic(light: (240, 206, 198), dark: (94, 62, 57))
-        static let sky = dynamic(light: (203, 221, 235), dark: (52, 71, 88))
-        static let butter = dynamic(light: (242, 227, 178), dark: (88, 78, 47))
-        static let mint = dynamic(light: (207, 227, 209), dark: (50, 73, 58))
-        static let lilac = dynamic(light: (221, 211, 235), dark: (67, 59, 86))
+    /// Pastellränder der Marken, fest je Kategorie, in beiden Modi gleich. Nie für Schrift.
+    enum Stamp {
+        /// Essen & Trinken
+        static let rose = rgb(246, 201, 207)
+        /// Sehenswert
+        static let sky = rgb(207, 224, 245)
+        /// Aussicht
+        static let butter = rgb(247, 227, 166)
+        /// Shopping
+        static let mint = rgb(205, 235, 217)
+        /// Unterkunft
+        static let lilac = rgb(227, 213, 242)
+        /// Zettel
+        static let note = rgb(251, 231, 161)
+        /// Schrift und Symbole auf Markenfarben: feste Tinte, in beiden Modi dunkel.
+        static let ink = rgb(28, 26, 23)
+        static let inkSoft = rgb(107, 100, 90)
+    }
+
+    fileprivate static func rgb(_ r: Int, _ g: Int, _ b: Int) -> Color {
+        Color(red: Double(r) / 255, green: Double(g) / 255, blue: Double(b) / 255)
     }
 
     static func dynamic(light: (Int, Int, Int), dark: (Int, Int, Int)) -> Color {
@@ -44,23 +59,34 @@ enum Stitch {
 
     // MARK: Schrift
 
-    /// System sans für Überschriften und Lesetext; der Wordmark bleibt separat serif.
-    /// Alle wachsen mit Dynamic Type.
+    /// Nur SF (System), alles wächst mit Dynamic Type. `size` ist die Grundgröße, `style` die Skalierungsbasis.
     enum Face {
-        static func display(_ size: CGFloat = 34, relativeTo style: Font.TextStyle = .largeTitle) -> Font {
-            .custom("Inter-Regular", size: size, relativeTo: style).weight(.semibold)
+        private static func scaled(_ size: CGFloat, _ weight: UIFont.Weight, _ style: Font.TextStyle) -> Font {
+            Font(UIFontMetrics(forTextStyle: style.uiStyle).scaledFont(for: .systemFont(ofSize: size, weight: weight)))
         }
-        static func title(_ size: CGFloat = 22, relativeTo style: Font.TextStyle = .title2) -> Font {
-            .custom("Inter-Regular", size: size, relativeTo: style).weight(.semibold)
+
+        /// Hero-Titel, 34 bold.
+        static func display(_ size: CGFloat = 34, relativeTo style: Font.TextStyle = .largeTitle) -> Font { scaled(size, .bold, style) }
+        /// Seitentitel, 28 bold.
+        static func title(_ size: CGFloat = 28, relativeTo style: Font.TextStyle = .title) -> Font { scaled(size, .bold, style) }
+        /// Abschnittstitel, 20 semibold.
+        static let section = Font.title3.weight(.semibold)
+        static let headline = Font.headline
+        static let body = Font.body
+        static let subheadline = Font.subheadline
+        static let footnote = Font.footnote
+        static let caption = Font.caption.weight(.medium)
+        /// Ortsname auf Marke und Karte.
+        static func place(_ size: CGFloat = 22, relativeTo style: Font.TextStyle = .title2) -> Font { scaled(size, .semibold, style) }
+        static func wordmark(_ size: CGFloat = 28, relativeTo style: Font.TextStyle = .title) -> Font { scaled(size, .bold, style) }
+        /// Handschriftlicher Zettel, Caveat 24. Solange die Schrift fehlt (Datei nicht im Bundle), fällt sie auf SF kursiv zurück.
+        static var note: Font {
+            if UIFont(name: "Caveat-Regular", size: 24) != nil { return .custom("Caveat-Regular", size: 24, relativeTo: .title3) }
+            return .system(.title3).italic()
         }
-        static func place(_ size: CGFloat = 22, relativeTo style: Font.TextStyle = .title2) -> Font {
-            .custom("Inter-Regular", size: size, relativeTo: style).weight(.medium)
-        }
-        static func wordmark(_ size: CGFloat = 28, relativeTo style: Font.TextStyle = .title) -> Font {
-            .custom("Lora-Regular", size: size, relativeTo: style)
-        }
-        static let ticket = Font.system(.footnote, design: .monospaced).weight(.medium)
-        static func code(_ style: Font.TextStyle) -> Font { Font.system(style, design: .monospaced).weight(.medium) }
+        /// Ziffern in fester Breite: Buchungsnummer, Gate, Uhrzeit.
+        static let ticket = Font.system(.footnote).weight(.medium).monospacedDigit()
+        static func code(_ style: Font.TextStyle) -> Font { Font.system(style).weight(.medium).monospacedDigit() }
     }
 
     // MARK: Maße
@@ -74,23 +100,27 @@ enum Stitch {
         static let l: CGFloat = 24
         static let xl: CGFloat = 32
         static let xxl: CGFloat = 48
-        static let page: CGFloat = 20
+        static let page: CGFloat = 16
     }
 
     /// Eckenradien, immer mit kontinuierlicher Kurve. Marken haben fast keine Ecke.
     enum Radius {
-        static let stamp: CGFloat = 4
-        static let thumb: CGFloat = 10
-        static let card: CGFloat = 18
-        static let floating: CGFloat = 26
+        static let photo: CGFloat = 4
+        static let small: CGFloat = 16
+        static let card: CGFloat = 24
+        static let floating: CGFloat = 32
+        /// Alte Namen der Aufrufer; zeigen auf `photo` und `small`.
+        static let stamp: CGFloat = photo
+        static let thumb: CGFloat = small
     }
 
-    /// Drei Höhen: flach, aufgeklebt (Marke auf Papier), schwebend (über der Karte).
+    /// Vier Höhen: flach, aufgeklebt (Karte auf Papier), Objekt (Marke, Ticket) und schwebend (über der Karte).
+    /// Werte aus Figma (Unschärfe als CSS-Blur); der SwiftUI-Radius ist die halbe Unschärfe.
     enum Elevation {
-        case flat, pinned, floating
-        var opacity: Double { switch self { case .flat: 0; case .pinned: 0.10; case .floating: 0.16 } }
-        var radius: CGFloat { switch self { case .flat: 0; case .pinned: 6; case .floating: 18 } }
-        var y: CGFloat { switch self { case .flat: 0; case .pinned: 3; case .floating: 8 } }
+        case flat, pinned, object, floating
+        var opacity: Double { switch self { case .flat: 0; case .pinned: 0.08; case .object: 0.14; case .floating: 0.16 } }
+        var radius: CGFloat { switch self { case .flat: 0; case .pinned: 4; case .object: 5; case .floating: 12 } }
+        var y: CGFloat { switch self { case .flat: 0; case .pinned: 2; case .object: 4; case .floating: 10 } }
     }
 
     /// Feste Größen: Tippfläche nach Apple, Hauptknopf, Vorschaubild.
@@ -108,8 +138,27 @@ enum Stitch {
         static let reducedFade = Animation.easeInOut(duration: 0.2)
     }
 
-    /// Warme Schattenfarbe statt Schwarz, damit Marken auf Papier liegen statt zu schweben.
-    static let shadow = Color(red: 0.24, green: 0.17, blue: 0.10)
+    /// Schattenfarbe: Tinte, in beiden Modi gleich.
+    static let shadow = rgb(28, 26, 23)
+}
+
+private extension Font.TextStyle {
+    var uiStyle: UIFont.TextStyle {
+        switch self {
+        case .largeTitle: .largeTitle
+        case .title: .title1
+        case .title2: .title2
+        case .title3: .title3
+        case .headline: .headline
+        case .subheadline: .subheadline
+        case .body: .body
+        case .callout: .callout
+        case .footnote: .footnote
+        case .caption: .caption1
+        case .caption2: .caption2
+        @unknown default: .body
+        }
+    }
 }
 
 // MARK: Flächen
@@ -119,12 +168,10 @@ struct PaperBackground: View {
 }
 
 extension View {
-    /// Einheitliche Karte: Markenweiß, Radius 18, feine Kontur; wahlweise mit Schatten.
-    func stitchCard(_ elevation: Stitch.Elevation = .flat, padding: CGFloat = Stitch.Space.m) -> some View {
+    /// Einheitliche Karte: Markenweiß, Radius 24, Kartenschatten, keine Kontur.
+    func stitchCard(_ elevation: Stitch.Elevation = .pinned, padding: CGFloat = Stitch.Space.m) -> some View {
         self.padding(padding)
             .background(Stitch.card, in: RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous)
-                .strokeBorder(Stitch.rule, lineWidth: elevation == .flat ? 1 : 0))
             .stitchElevation(elevation)
     }
 
@@ -135,7 +182,7 @@ extension View {
 
 /// Gepunktete Trennlinie (Perforation), überall gleich.
 struct PerforationLine: View {
-    var color = Stitch.rule
+    var color = Stitch.line
     var body: some View {
         Canvas { context, size in
             var x: CGFloat = 2
@@ -176,7 +223,7 @@ struct StampShape: Shape {
 
 /// Ein Foto als Briefmarke: gezähntes Markenweiß, darin der Pastellrand der Kategorie, darin das Bild.
 struct StampFrame<Content: View>: View {
-    var mat: Color = Stitch.paperDeep
+    var mat: Color = Stitch.paper
     var inset: CGFloat = 7
     var matWidth: CGFloat = 4
     var elevation: Stitch.Elevation = .pinned
@@ -215,7 +262,7 @@ struct TicketShape: Shape {
 struct Postmark: View {
     var top = "ALBUM"
     var bottom: String
-    var color = Stitch.red
+    var color = Stitch.action
     var size: CGFloat = 76
     var body: some View {
         ZStack {
@@ -240,12 +287,12 @@ extension Place {
     /// Pastellrand der Marke.
     var mat: Color {
         switch category {
-        case "Essen & Trinken": Stitch.Mat.rose
-        case "Sehenswert": Stitch.Mat.sky
-        case "Aussicht": Stitch.Mat.butter
-        case "Unterkunft": Stitch.Mat.lilac
-        case "Shopping": Stitch.Mat.mint
-        default: Stitch.paperDeep
+        case "Essen & Trinken": Stitch.Stamp.rose
+        case "Sehenswert": Stitch.Stamp.sky
+        case "Aussicht": Stitch.Stamp.butter
+        case "Unterkunft": Stitch.Stamp.lilac
+        case "Shopping": Stitch.Stamp.mint
+        default: Stitch.paper
         }
     }
 
@@ -263,30 +310,30 @@ extension Place {
 
 // MARK: Knöpfe
 
-/// Hauptknopf als Pille (Poststempel), Nebenknopf als helle Pille mit Kontur.
+/// Hauptknopf als rote Pille (Poststempel), Nebenknopf als weiße Pille mit Linie.
 struct StitchButton: ButtonStyle {
     var primary = false
     @Environment(\.isEnabled) private var enabled
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.subheadline.weight(.semibold))
+            .font(Stitch.Face.subheadline.weight(.semibold))
             .labelStyle(.titleAndIcon)
             .multilineTextAlignment(.center)
             .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, Stitch.Space.m)
             .padding(.vertical, Stitch.Space.s)
             .frame(maxWidth: .infinity, minHeight: Stitch.Size.button, alignment: .center)
-            .foregroundStyle(primary ? Stitch.onAccent : Stitch.ink)
-            .background(primary ? Stitch.redFill : Stitch.card, in: Capsule())
-            .overlay(Capsule().strokeBorder(Stitch.rule, lineWidth: primary ? 0 : 1))
+            .foregroundStyle(primary ? Stitch.onAction : Stitch.ink)
+            .background(primary ? Stitch.actionFill : Stitch.card, in: Capsule())
+            .overlay(Capsule().strokeBorder(Stitch.line, lineWidth: primary ? 0 : 1))
             .opacity(enabled ? 1 : 0.45)
             .scaleEffect(!reduceMotion && configuration.isPressed ? 0.97 : 1)
             .animation(reduceMotion ? nil : Stitch.Motion.press, value: configuration.isPressed)
     }
 }
 
-/// Runder Knopf nur mit Symbol, 44 × 44.
+/// Weißer runder Knopf nur mit Symbol, 44 × 44, mit Kartenschatten.
 struct HeaderIconButton: ButtonStyle {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     func makeBody(configuration: Configuration) -> some View {
@@ -294,7 +341,7 @@ struct HeaderIconButton: ButtonStyle {
             .font(.body.weight(.semibold)).foregroundStyle(Stitch.ink)
             .frame(width: Stitch.Size.touch, height: Stitch.Size.touch)
             .background(Stitch.card, in: Circle())
-            .overlay(Circle().strokeBorder(Stitch.rule, lineWidth: 1))
+            .stitchElevation(.pinned)
             .scaleEffect(!reduceMotion && configuration.isPressed ? 0.94 : 1)
             .animation(reduceMotion ? nil : Stitch.Motion.press, value: configuration.isPressed)
     }
@@ -302,10 +349,10 @@ struct HeaderIconButton: ButtonStyle {
 
 /// Stille Textaktion in Poststempel-Rot, 44 hoch.
 struct TextActionButton: ButtonStyle {
-    var tint = Stitch.red
+    var tint = Stitch.action
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.subheadline.weight(.semibold)).foregroundStyle(tint)
+            .font(Stitch.Face.subheadline.weight(.semibold)).foregroundStyle(tint)
             .multilineTextAlignment(.center)
             .fixedSize(horizontal: false, vertical: true)
             .frame(minWidth: Stitch.Size.touch, minHeight: Stitch.Size.touch, alignment: .center)
@@ -314,13 +361,13 @@ struct TextActionButton: ButtonStyle {
     }
 }
 
-/// Abschnittsüberschrift: Fraunces links, optional eine Zahl oder Aktion rechts.
+/// Abschnittsüberschrift: Tinte links, optional eine Zahl oder Aktion rechts.
 struct SectionTitle<Trailing: View>: View {
     let title: String
     @ViewBuilder var trailing: Trailing
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
-            Text(title).font(Stitch.Face.title(22, relativeTo: .title3)).foregroundStyle(Stitch.ink)
+            Text(title).font(Stitch.Face.section).foregroundStyle(Stitch.ink)
                 .accessibilityAddTraits(.isHeader)
             Spacer(minLength: Stitch.Space.s)
             trailing

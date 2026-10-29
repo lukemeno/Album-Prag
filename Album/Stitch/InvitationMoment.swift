@@ -76,9 +76,9 @@ struct InvitationMoment: View {
 struct InvitationTicket: View {
     var sender: String?
     var body: some View {
-        StampFrame(mat: Stitch.Mat.sky, inset: 9, matWidth: 5, elevation: .floating) {
+        StampFrame(mat: Stitch.Stamp.sky, inset: 9, matWidth: 5, elevation: .floating) {
             VStack(alignment: .leading, spacing: Stitch.Space.s) {
-                Image(systemName: "airplane").font(.body.weight(.semibold)).foregroundStyle(Stitch.red)
+                Image(systemName: "airplane").font(.body.weight(.semibold)).foregroundStyle(Stitch.action)
                 Text("Eure Reise").font(Stitch.Face.display(44, relativeTo: .largeTitle)).foregroundStyle(Stitch.ink)
                 PerforationLine()
                 VStack(alignment: .leading, spacing: Stitch.Space.xxs) {

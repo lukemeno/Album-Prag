@@ -55,7 +55,7 @@ private struct CollectionRow: View {
                 Text("Von \(post.authorName) · \(post.createdAt.formatted(date: .abbreviated, time: .omitted))")
                     .font(.caption).foregroundStyle(Stitch.inkSoft)
                 let count = store.collectionHeartCount(for: post.id)
-                if count > 0 { Label("\(count)", systemImage: "heart.fill").font(.caption).foregroundStyle(Stitch.red) }
+                if count > 0 { Label("\(count)", systemImage: "heart.fill").font(.caption).foregroundStyle(Stitch.action) }
             }
             Spacer(minLength: 0)
         }
@@ -78,7 +78,7 @@ struct CollectionComposer: View {
                     TextField("https://…", text: $url).keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled().accessibilityIdentifier("Collection-URL")
                     TextField("Nachricht", text: $text, axis: .vertical).lineLimit(3...8).accessibilityIdentifier("Collection-Message")
                 }
-                if let error { Text(error).foregroundStyle(Stitch.red).font(.footnote) }
+                if let error { Text(error).foregroundStyle(Stitch.action).font(.footnote) }
             }
             .scrollContentBackground(.hidden).background(PaperBackground())
             .navigationTitle("Sammeln")
@@ -132,12 +132,12 @@ struct CollectionDetailView: View {
                         Text(caption).font(.body).foregroundStyle(Stitch.ink).lineLimit(captionExpanded ? nil : 6)
                         if caption.count > 420 {
                             Button(captionExpanded ? "Weniger anzeigen" : "Mehr anzeigen") { captionExpanded.toggle() }
-                                .font(.footnote.weight(.medium)).foregroundStyle(Stitch.red)
+                                .font(.footnote.weight(.medium)).foregroundStyle(Stitch.action)
                         }
                     }
                     if livePost.url != nil {
                         Button(refreshingPreview ? "Vorschau wird geladen …" : "Vorschau aktualisieren") { refreshPreview() }
-                            .font(.footnote.weight(.medium)).foregroundStyle(Stitch.red).disabled(refreshingPreview)
+                            .font(.footnote.weight(.medium)).foregroundStyle(Stitch.action).disabled(refreshingPreview)
                             .accessibilityIdentifier("Collection-Refresh-Preview")
                     }
                     if let text = livePost.text, !text.isEmpty { Text(text).font(.body).foregroundStyle(Stitch.inkSoft) }
@@ -177,7 +177,7 @@ struct CollectionDetailView: View {
                         }
                         HStack { TextField("Kommentar", text: $comment).accessibilityIdentifier("Collection-Comment"); Button("Senden") { addComment() }.accessibilityIdentifier("Collection-Comment-Send").disabled(comment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) }
                     }
-                    if let error { Text(error).foregroundStyle(Stitch.red).font(.footnote) }
+                    if let error { Text(error).foregroundStyle(Stitch.action).font(.footnote) }
                 }
                 .padding(Stitch.Space.page)
             }
@@ -224,7 +224,7 @@ struct CollectionDetailView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(suggestion.name).font(.body.weight(.medium)).foregroundStyle(Stitch.ink)
                         if !suggestion.address.isEmpty { Text(suggestion.address).font(.caption).foregroundStyle(Stitch.inkSoft) }
-                        Text("Als Ort speichern").font(.caption.weight(.semibold)).foregroundStyle(Stitch.red)
+                        Text("Als Ort speichern").font(.caption.weight(.semibold)).foregroundStyle(Stitch.action)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, Stitch.Space.xxs)

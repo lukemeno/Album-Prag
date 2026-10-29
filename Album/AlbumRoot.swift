@@ -68,7 +68,7 @@ struct AlbumRoot: View {
             NavigationStack { TripMapView().albumToolbar(add: add) }
                 .tabItem { Label("Karte", systemImage: "map") }.tag(AlbumTab.karte)
         }
-        .tint(Stitch.red)
+        .tint(Stitch.action)
         #if DEBUG
         .accessibilityIdentifier(qaReduceMotionObserved ? "qa-reduce-motion-root" : "album-root")
         #endif
@@ -94,7 +94,7 @@ struct AlbumRoot: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, Stitch.Space.m)
                         .frame(minHeight: Stitch.Size.touch)
-                        .background(Stitch.redFill, in: Capsule())
+                        .background(Stitch.actionFill, in: Capsule())
                         .stitchElevation(.floating)
                 }
                 .buttonStyle(.plain)
@@ -242,9 +242,9 @@ struct StitchTextField: View {
                 GeometryReader { box in
                     let x = min(reduceMotion ? textWidth : carriage, box.size.width)
                     ZStack(alignment: .leading) {
-                        Rectangle().fill(focused.wrappedValue ? Stitch.ink.opacity(0.35) : Stitch.rule).frame(height: 1)
+                        Rectangle().fill(focused.wrappedValue ? Stitch.ink.opacity(0.35) : Stitch.line).frame(height: 1)
                         if !reduceMotion && focused.wrappedValue {
-                            Capsule().fill(Stitch.red).frame(width: 14, height: 5)
+                            Capsule().fill(Stitch.action).frame(width: 14, height: 5)
                                 .offset(x: max(0, x - 2))
                         }
                     }
@@ -283,8 +283,8 @@ struct ClipboardNote: View {
 
     var body: some View {
         HStack(spacing: Stitch.Space.s) {
-            Image(systemName: "link").font(.body.weight(.semibold)).foregroundStyle(Stitch.red)
-                .frame(width: 36, height: 36).background(Stitch.paperDeep, in: Circle())
+            Image(systemName: "link").font(.body.weight(.semibold)).foregroundStyle(Stitch.action)
+                .frame(width: 36, height: 36).background(Stitch.paper, in: Circle())
             VStack(alignment: .leading, spacing: 2) {
                 Text("Link kopiert").font(.subheadline.weight(.semibold)).foregroundStyle(Stitch.ink)
                 Text("Als Idee einwerfen?").font(.footnote).foregroundStyle(Stitch.inkSoft)
@@ -296,11 +296,11 @@ struct ClipboardNote: View {
             }
             .buttonBorderShape(.capsule)
             .labelStyle(.titleOnly)
-            .tint(Stitch.redFill)
+            .tint(Stitch.actionFill)
         }
         .padding(.leading, Stitch.Space.s).padding(.trailing, Stitch.Space.s).padding(.vertical, Stitch.Space.s)
         .background(Stitch.card, in: RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous).strokeBorder(Stitch.rule, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous).strokeBorder(Stitch.line, lineWidth: 1))
         .stitchElevation(.floating)
         .padding(.horizontal, Stitch.Space.page)
         .scaleEffect(reduceMotion || appeared ? 1 : 0.96, anchor: .top)

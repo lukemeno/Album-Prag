@@ -119,9 +119,9 @@ struct ReiseView: View {
             HStack(spacing: Stitch.Space.m) {
                 Image(systemName: "photo.stack")
                     .font(.title2.weight(.medium))
-                    .foregroundStyle(Stitch.red)
+                    .foregroundStyle(Stitch.action)
                     .frame(width: 48, height: 48)
-                    .background(Stitch.paperDeep, in: RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
+                    .background(Stitch.paper, in: RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
                 VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
                     Text("Erinnerungen ansehen")
                         .font(.headline).foregroundStyle(Stitch.ink)
@@ -233,7 +233,7 @@ struct ReiseView: View {
                 TicketRow(symbol: "bed.double", title: hotel?.name ?? store.data.trip.hotel,
                           detail: [hotel?.checkIn.map { "Check-in ab \($0)" }, hotel?.checkOut.map { "Check-out bis \($0)" }]
                             .compactMap { $0 }.joined(separator: " · ").nilIfEmpty ?? "Unterkunft",
-                          stub: store.data.trip.bookingNumber, mat: Stitch.Mat.lilac)
+                          stub: store.data.trip.bookingNumber, mat: Stitch.Stamp.lilac)
             }
             .buttonStyle(.plain)
         }
@@ -242,9 +242,9 @@ struct ReiseView: View {
     private var ideasWaiting: some View {
         Button(action: openIdeas) {
             HStack(spacing: Stitch.Space.s) {
-                Image(systemName: "tray.full").font(.title3).foregroundStyle(Stitch.red)
+                Image(systemName: "tray.full").font(.title3).foregroundStyle(Stitch.action)
                     .frame(width: Stitch.Size.thumb, height: Stitch.Size.thumb)
-                    .background(Stitch.paperDeep, in: RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
+                    .background(Stitch.paper, in: RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(store.inbox.count == 1 ? "1 Idee wartet" : "\(store.inbox.count) Ideen warten").font(.headline).foregroundStyle(Stitch.ink)
                     Text("Ja, Nein oder Offen").font(.subheadline).foregroundStyle(Stitch.inkSoft)
@@ -367,11 +367,11 @@ private struct DayStrip: View {
             .fixedSize(horizontal: true, vertical: true)
             .frame(maxWidth: .infinity, minHeight: 112, alignment: .leading)
             .padding(Stitch.Space.m)
-            .background(selectedDay ? Stitch.card : Stitch.paperDeep,
+            .background(selectedDay ? Stitch.card : Stitch.paper,
                         in: RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous)
-                    .strokeBorder(day == today ? Stitch.red : Stitch.rule, lineWidth: day == today ? 2 : 1)
+                    .strokeBorder(day == today ? Stitch.action : Stitch.line, lineWidth: day == today ? 2 : 1)
             }
         }
         .buttonStyle(.plain)
@@ -390,14 +390,14 @@ private struct DayStrip: View {
                     AlbumPhoto(asset: asset, root: store.root, thumbnailWidth: 640)
                     LinearGradient(colors: [.clear, Stitch.scrim.opacity(0.55)], startPoint: .center, endPoint: .bottom)
                 } else {
-                    (open ? Stitch.card : Stitch.paperDeep)
+                    (open ? Stitch.card : Stitch.paper)
                 }
                 if open {
                     VStack(alignment: .leading, spacing: 0) {
                         Text(calendar.weekday(day, style: .wide)).font(.footnote.weight(.semibold))
                         Text(calendar.shortDate(day)).font(Stitch.Face.place(34, relativeTo: .title)).lineLimit(1).minimumScaleFactor(0.7)
                     }
-                    .foregroundStyle(asset != nil ? Stitch.onAccent : Stitch.ink)
+                    .foregroundStyle(asset != nil ? Stitch.onAction : Stitch.ink)
                     .padding(Stitch.Space.s)
                     .transition(.opacity)
                 } else {
@@ -409,7 +409,7 @@ private struct DayStrip: View {
                             .rotationEffect(.degrees(-90))
                             .frame(width: 16, height: 30)
                         if count > 0 {
-                            Circle().fill(Stitch.red).frame(width: 5, height: 5).accessibilityHidden(true)
+                            Circle().fill(Stitch.action).frame(width: 5, height: 5).accessibilityHidden(true)
                         }
                     }
                 }
@@ -418,7 +418,7 @@ private struct DayStrip: View {
             .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous)
-                    .strokeBorder(day == today ? Stitch.red : Stitch.rule, lineWidth: day == today ? 2 : 1)
+                    .strokeBorder(day == today ? Stitch.action : Stitch.line, lineWidth: day == today ? 2 : 1)
             }
             .contentShape(Rectangle())
         }
@@ -443,7 +443,7 @@ private struct NextStop: View {
                         AlbumPhoto(asset: stop.place.displayImage, root: root, thumbnailWidth: 400).frame(width: 96, height: 112)
                     }
                     VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
-                        Text("Als Nächstes").font(.footnote.weight(.semibold)).foregroundStyle(Stitch.red)
+                        Text("Als Nächstes").font(.footnote.weight(.semibold)).foregroundStyle(Stitch.action)
                         Text(stop.place.title).font(Stitch.Face.place(28, relativeTo: .title)).foregroundStyle(Stitch.ink)
                             .lineLimit(3).multilineTextAlignment(.leading)
                         Text([stop.place.category, stop.slot].filter { !$0.isEmpty }.joined(separator: " · "))
@@ -481,7 +481,7 @@ private struct StopRow: View {
                     Text(place.title).font(Stitch.Face.place(21, relativeTo: .headline)).foregroundStyle(place.visited ? Stitch.inkSoft : Stitch.ink)
                             .strikethrough(place.visited, color: Stitch.inkSoft)
                             .lineLimit(2).multilineTextAlignment(.leading)
-                        Text(meta).font(.footnote).foregroundStyle(stop.note == nil ? Stitch.inkSoft : Stitch.red)
+                        Text(meta).font(.footnote).foregroundStyle(stop.note == nil ? Stitch.inkSoft : Stitch.action)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer(minLength: 0)
@@ -513,7 +513,7 @@ struct TicketRow: View {
     let title: String
     let detail: String
     var stub: String?
-    var mat: Color = Stitch.paperDeep
+    var mat: Color = Stitch.paper
     @ScaledMetric(relativeTo: .footnote) private var stubWidth: CGFloat = 84
     var body: some View {
         HStack(spacing: 0) {
@@ -535,7 +535,7 @@ struct TicketRow: View {
                     .minimumScaleFactor(dynamicTypeSize.isAccessibilitySize ? 1 : 0.7)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(width: stubWidth).frame(maxHeight: .infinity)
-                    .background(Stitch.paperDeep)
+                    .background(Stitch.paper)
             }
         }
         .frame(minHeight: 68)
@@ -544,7 +544,7 @@ struct TicketRow: View {
         .overlay(alignment: .trailing) {
             if stub != nil {
                 Rectangle().fill(.clear).frame(width: 1)
-                    .overlay(Line().stroke(Stitch.rule, style: StrokeStyle(lineWidth: 1, dash: [3, 3])))
+                    .overlay(Line().stroke(Stitch.line, style: StrokeStyle(lineWidth: 1, dash: [3, 3])))
                     .padding(.vertical, Stitch.Space.s).offset(x: -stubWidth)
             }
         }

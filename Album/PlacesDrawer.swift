@@ -34,10 +34,10 @@ enum DrawerDetentResolver {
 
 private enum DrawerDragAxis: Equatable { case horizontal, vertical }
 
-// Local drawer text colors remain readable on the deeper paper surface.
+// Texte im Blatt: Markenfarben, auf Karte und Papier lesbar.
 private enum DrawerAccessibilityColors {
-    static let accent = Stitch.dynamic(light: (160, 50, 34), dark: (236, 134, 114))
-    static let secondary = Stitch.dynamic(light: (84, 77, 70), dark: (181, 172, 160))
+    static let accent = Stitch.action
+    static let secondary = Stitch.inkSoft
 }
 
 /// Ein Blatt Papier über der Karte: alle beschlossenen Orte nach Tagen, mit Fotos, Route und Tag.
@@ -49,6 +49,8 @@ struct PlacesDrawer: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Binding var detent: DrawerDetent
     @Binding var filter: MapFilter
+    /// Suchtext aus der Kartenleiste; leer zeigt alles.
+    var query = ""
     @Binding var selectedID: String?
     @Binding var selectionRequest: Int
     /// Eingerasteter Blattrand, damit die Karte zwischen Rastpunkten stabil bleibt.
@@ -99,11 +101,11 @@ struct PlacesDrawer: View {
         .clipped()
         .background(alignment: .topLeading) {
             if detent != .hidden {
-                // Das Papier reicht unter Tab-Leiste oder an die linke Bildschirmkante.
-                PaperBackground()
+                // Karte (Halb) oder Papier (Liste voll); reicht unter die Tab-Leiste oder an die linke Bildschirmkante.
+                Rectangle().fill(listOnPaper ? Stitch.paper : Stitch.card)
                     .matchedGeometryEffect(id: "places-drawer-surface", in: namespace, isSource: detent != .hidden)
                     .clipShape(surfaceShape)
-                    .stitchElevation(.floating)
+                    .stitchElevation(listOnPaper ? .flat : .floating)
                     .ignoresSafeArea(edges: isLandscape ? .leading : .bottom)
             }
         }
@@ -149,12 +151,15 @@ struct PlacesDrawer: View {
         max(max(extent(for: detent), currentExtent), extent(for: .collapsed))
     }
 
+    /// Voll aufgezogen liegt die Liste direkt auf dem Papier (Figma 06); sonst ist das Blatt eine weiße Karte (Figma 05).
+    private var listOnPaper: Bool { detent == .full && !isLandscape }
+
     private var surfaceShape: UnevenRoundedRectangle {
         UnevenRoundedRectangle(
-            topLeadingRadius: isLandscape ? 0 : Stitch.Radius.floating,
+            topLeadingRadius: isLandscape ? 0 : Stitch.Radius.card,
             bottomLeadingRadius: 0,
-            bottomTrailingRadius: isLandscape ? Stitch.Radius.floating : 0,
-            topTrailingRadius: Stitch.Radius.floating,
+            bottomTrailingRadius: isLandscape ? Stitch.Radius.card : 0,
+            topTrailingRadius: Stitch.Radius.card,
             style: .continuous
         )
     }
@@ -257,7 +262,6 @@ struct PlacesDrawer: View {
                 }
                 .padding(.horizontal, Stitch.Space.page)
             }
-            if !planned.isEmpty && !editing && (!isLandscape || detent != .collapsed) { filterChips }
         }
         .padding(.bottom, Stitch.Space.s)
     }
@@ -302,7 +306,7 @@ struct PlacesDrawer: View {
     private var headerIdentity: some View {
         VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
             Text(title)
-                .font(Stitch.Face.title(24, relativeTo: .title3))
+                .font(Stitch.Face.section)
                 .foregroundStyle(Stitch.ink)
                 .fixedSize(horizontal: false, vertical: true)
                 .matchedGeometryEffect(id: "places-drawer-title", in: namespace, isSource: detent != .hidden)
@@ -398,32 +402,6 @@ struct PlacesDrawer: View {
         }
     }
 
-    private var filterChips: some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: Stitch.Space.xs) {
-                ForEach(MapFilter.allCases) { item in
-                    Button { withAnimation(reduceMotion ? nil : .snappy) { filter = item } } label: {
-                        HStack(spacing: Stitch.Space.xs) {
-                            if let symbol = item.symbol {
-                                Image(systemName: symbol).font(.footnote.weight(.semibold))
-                            }
-                            Text(item.title).font(.subheadline.weight(.semibold))
-                        }
-                        .padding(.horizontal, Stitch.Space.m).frame(minHeight: Stitch.Size.touch)
-                        .foregroundStyle(filter == item ? Stitch.paper : Stitch.ink)
-                        .background(filter == item ? Stitch.ink : Stitch.card, in: Capsule())
-                        .overlay(Capsule().strokeBorder(Stitch.rule, lineWidth: filter == item ? 0 : 1))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(filter == item ? .isSelected : [])
-                }
-            }
-            .scrollTargetLayout()
-            .padding(.horizontal, Stitch.Space.page)
-        }
-        .scrollIndicators(.hidden)
-    }
-
     // MARK: Liste
 
     private struct Section: Identifiable {
@@ -448,7 +426,12 @@ struct PlacesDrawer: View {
         }
     }
 
-    private var visiblePlaces: [Place] { store.franked.filter { filter.matches($0.category) } }
+    private func matchesQuery(_ place: Place) -> Bool {
+        let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        return text.isEmpty || place.title.localizedCaseInsensitiveContains(text) || place.category.localizedCaseInsensitiveContains(text)
+    }
+
+    private var visiblePlaces: [Place] { store.franked.filter { filter.matches($0.category) && matchesQuery($0) } }
 
     private var sections: [Section] {
         let calendar = store.tripCalendar
@@ -461,9 +444,9 @@ struct PlacesDrawer: View {
         }
         for day in calendar.days {
             // Zeiten aus dem ganzen Tag rechnen, erst dann filtern: Ein Filter verschiebt keine Uhrzeiten.
-            let stops = store.stops(for: day).filter { filter.matches($0.place.category) }
+            let stops = store.stops(for: day).filter { filter.matches($0.place.category) && matchesQuery($0.place) }
             // Mit Filter nur Tage mit Treffern; ohne Filter alle Reisetage, damit freie Tage sichtbar sind.
-            guard !stops.isEmpty || filter == .all else { continue }
+            guard !stops.isEmpty || (filter == .all && query.isEmpty) else { continue }
             result.append(Section(id: "section-day-\(day.rawValue)", title: calendar.dayTitle(day), isToday: day == today, stops: stops))
         }
         let outside = visiblePlaces.filter { $0.plannedDate.map { !calendar.contains($0) } == true && $0.category != "Unterkunft" }
@@ -509,7 +492,6 @@ struct PlacesDrawer: View {
                     if includesHeader {
                         headerIdentity
                             .padding(.bottom, Stitch.Space.s)
-                        if !planned.isEmpty && !editing { filterChips }
                     }
                     ForEach(listItems) { item in
                         switch item {
@@ -520,10 +502,16 @@ struct PlacesDrawer: View {
                             Text("Noch frei").font(.subheadline).foregroundStyle(Stitch.inkSoft)
                                 .padding(.top, Stitch.Space.s)
                         case .place(let stop):
-                            PlaceRow(stop: stop, root: store.root, selected: selectedID == stop.id,
+                            PlaceRow(stop: stop, root: store.root, selected: selectedID == stop.id, onPaper: listOnPaper,
                                      onShow: { onShow(stop.place) }, onDetails: { onDetails(stop.place) })
                                 .padding(.top, Stitch.Space.s)
                         }
+                    }
+                    if listOnPaper {
+                        Button { move(to: .half) } label: { Label("Karte wieder anzeigen", systemImage: "map") }
+                            .buttonStyle(StitchButton())
+                            .padding(.top, Stitch.Space.xl)
+                            .accessibilityIdentifier("map-show-map")
                     }
                 }
                 .scrollTargetLayout()
@@ -614,8 +602,8 @@ struct PlacesDrawer: View {
 
     private func sectionHeader(_ section: Section) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: Stitch.Space.xs) {
-            if section.isToday { Text("Heute").font(Stitch.Face.title(19, relativeTo: .headline)).foregroundStyle(DrawerAccessibilityColors.accent) }
-            Text(section.title).font(Stitch.Face.title(19, relativeTo: .headline)).foregroundStyle(Stitch.ink)
+            if section.isToday { Text("Heute").font(Stitch.Face.section).foregroundStyle(DrawerAccessibilityColors.accent) }
+            Text(section.title).font(Stitch.Face.section).foregroundStyle(Stitch.ink)
             Spacer(minLength: 0)
             if !section.stops.isEmpty {
                 Text(section.stops.count == 1 ? "1 Ort" : "\(section.stops.count) Orte")
@@ -677,6 +665,8 @@ private struct PlaceRow: View {
     let stop: PlanStop
     let root: URL
     let selected: Bool
+    /// Liegt die Zeile auf dem Papier (Liste voll), ist sie eine weiße Karte; auf der weißen Karte liegt sie auf Papier.
+    var onPaper = false
     var onShow: () -> Void
     var onDetails: () -> Void
     private var place: Place { stop.place }
@@ -694,7 +684,7 @@ private struct PlaceRow: View {
                                 Text(place.title).font(Stitch.Face.place(21, relativeTo: .headline)).foregroundStyle(Stitch.ink)
                                     .multilineTextAlignment(.leading).lineLimit(2)
                                 if place.visited {
-                                    Image(systemName: "checkmark.seal.fill").foregroundStyle(Stitch.teal).accessibilityLabel("Besucht")
+                                    Image(systemName: "checkmark.seal.fill").foregroundStyle(Stitch.inkSoft).accessibilityLabel("Besucht")
                                 }
                             }
                             Text(meta).font(.footnote).foregroundStyle(stop.note == nil ? DrawerAccessibilityColors.secondary : DrawerAccessibilityColors.accent)
@@ -727,12 +717,9 @@ private struct PlaceRow: View {
             .padding(.leading, 56 + Stitch.Space.s)
         }
         .padding(Stitch.Space.s)
-        .background(Stitch.card, in: RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous)
-                .strokeBorder(selected ? DrawerAccessibilityColors.accent : Stitch.rule, lineWidth: selected ? 2 : 1)
-                .allowsHitTesting(false)
-        }
+        .background(selected ? Stitch.selection : (onPaper ? Stitch.card : Stitch.paper),
+                    in: RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
+        .stitchElevation(onPaper && !selected ? .pinned : .flat)
         .accessibilityElement(children: .contain)
         .accessibilityAddTraits(selected ? .isSelected : [])
     }

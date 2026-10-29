@@ -270,7 +270,7 @@ struct InboxView: View {
         .background(Stitch.card, in: RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous)
-                .strokeBorder(Stitch.rule, lineWidth: 1).allowsHitTesting(false)
+                .strokeBorder(Stitch.line, lineWidth: 1).allowsHitTesting(false)
         }
     }
 
@@ -474,7 +474,7 @@ private struct MagnetHearts: View {
         .accessibilityHidden(true)
     }
     private func half(leading: Bool) -> some View {
-        Image(systemName: "heart.fill").font(.system(size: 96)).foregroundStyle(leading ? Stitch.red : Stitch.teal)
+        Image(systemName: "heart.fill").font(.system(size: 96)).foregroundStyle(leading ? Stitch.action : Stitch.inkSoft)
             .mask(alignment: leading ? .leading : .trailing) {
                 Rectangle().frame(width: 53)
             }
@@ -489,12 +489,12 @@ private struct DecisionHint: View {
     var body: some View {
         if let direction {
             let armed = progress >= 1
-            let ink = direction == .frank ? Stitch.redFill : direction == .shelve ? Stitch.ink : Stitch.teal
+            let ink = direction == .frank ? Stitch.actionFill : direction == .shelve ? Stitch.ink : Stitch.inkSoft
             let word = direction == .frank ? "Ja" : direction == .shelve ? "Nein" : "Offen"
             Text(word + (armed ? "" : "?"))
                 .font(Stitch.Face.title(24, relativeTo: .title2))
                 .contentTransition(.interpolate)
-                .foregroundStyle(armed ? Stitch.onAccent : ink)
+                .foregroundStyle(armed ? Stitch.onAction : ink)
                 .padding(.horizontal, Stitch.Space.m).padding(.vertical, Stitch.Space.xs)
                 .background {
                     // Stempelfarbe füllt die Pille mit dem Weg; an der Schwelle ist sie voll.
@@ -664,7 +664,7 @@ struct PhotoViewer: View {
                     Spacer()
                     if case .external(let image) = asset {
                         Text("Foto: \(image.credit)\(image.licenseName.map { " · \($0)" } ?? "")")
-                            .font(.caption).foregroundStyle(Stitch.onAccent.opacity(0.85)).multilineTextAlignment(.center)
+                            .font(.caption).foregroundStyle(Stitch.onAction.opacity(0.85)).multilineTextAlignment(.center)
                     }
                 }
                 .safeAreaPadding()

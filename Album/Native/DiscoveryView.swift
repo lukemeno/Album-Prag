@@ -152,7 +152,7 @@ struct NativeDiscoveryView: View {
             Text(item.name).font(.headline).accessibilityIdentifier("discovery-item-\(item.qid)")
             if let description = item.description, !description.isEmpty { Text(description).font(.subheadline).foregroundStyle(Stitch.inkSoft) }
             Text(item.interests.filter(session.interests.contains).map(\.title).joined(separator: " · "))
-                .font(.caption.weight(.medium)).foregroundStyle(Stitch.red)
+                .font(.caption.weight(.medium)).foregroundStyle(Stitch.action)
             Text("Etwa \(item.distanceMeters) m vom Stadtzentrum").font(.caption).foregroundStyle(Stitch.inkSoft)
             if let image = item.image {
                 AsyncImage(url: image.imageURL) { phase in

@@ -25,18 +25,18 @@ struct VisitedTrack: View {
             ZStack(alignment: .leading) {
                 shape.fill(Stitch.card)
                 // Stempelfarbe füllt die Spur bis unter den Knopf.
-                shape.fill(Stitch.redFill).frame(width: inset + knob + travel * p).opacity(p > 0 ? 1 : 0)
+                shape.fill(Stitch.actionFill).frame(width: inset + knob + travel * p).opacity(p > 0 ? 1 : 0)
                 label(p: p)
                     .frame(maxWidth: .infinity)
                     .padding(.horizontal, knob + Stitch.Space.m)
                 Circle().fill(Stitch.card)
                     .frame(width: knob, height: knob)
-                    .overlay(Image(systemName: visited ? "checkmark" : "chevron.right.2").font(.body.weight(.bold)).foregroundStyle(Stitch.red))
+                    .overlay(Image(systemName: visited ? "checkmark" : "chevron.right.2").font(.body.weight(.bold)).foregroundStyle(Stitch.action))
                     .stitchElevation(.pinned)
                     .offset(x: inset + travel * p)
             }
             .clipShape(shape)
-            .overlay(shape.strokeBorder(Stitch.rule, lineWidth: 1))
+            .overlay(shape.strokeBorder(Stitch.line, lineWidth: 1))
             .contentShape(shape)
             .gesture(reduceMotion || visited ? nil : drag(travel: travel))
             .onTapGesture { fill(travel: travel) }
@@ -58,7 +58,7 @@ struct VisitedTrack: View {
             Text(visited ? "Besucht" : armed ? "Loslassen" : "Als besucht markieren")
         }
         .font(.subheadline.weight(.semibold)).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
-        .foregroundStyle(p > 0.5 ? Stitch.onAccent : Stitch.red)
+        .foregroundStyle(p > 0.5 ? Stitch.onAction : Stitch.action)
         .contentTransition(.opacity)
         .animation(.easeInOut(duration: 0.18), value: armed)
     }
@@ -94,8 +94,8 @@ struct VisitedTrack: View {
 /// Poststempel „BESUCHT“, der auf dem Foto landet, wenn der Ort besucht ist.
 struct VisitedStamp: View {
     var body: some View {
-        Postmark(top: "ALBUM", bottom: "BESUCHT", color: Stitch.onAccent, size: 84)
-            .background(Stitch.redFill.opacity(0.88), in: Circle())
+        Postmark(top: "ALBUM", bottom: "BESUCHT", color: Stitch.onAction, size: 84)
+            .background(Stitch.actionFill.opacity(0.88), in: Circle())
             .allowsHitTesting(false)
     }
 }

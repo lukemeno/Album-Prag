@@ -22,14 +22,14 @@ struct TripDocumentsView: View {
                         } else {
                             Button { importing = true } label: {
                                 HStack(spacing: Stitch.Space.s) {
-                                    Image(systemName: "airplane").font(.title3).foregroundStyle(Stitch.red)
+                                    Image(systemName: "airplane").font(.title3).foregroundStyle(Stitch.action)
                                     VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
                                         Text("Noch keine Flüge").font(.headline).foregroundStyle(Stitch.ink)
                                         Text("Füg deine Buchungsbestätigung als PDF hinzu, dann steht alles hier.")
                                             .font(.footnote).foregroundStyle(Stitch.inkSoft)
                                     }
                                     Spacer(minLength: 0)
-                                    Image(systemName: "plus").font(.body.weight(.semibold)).foregroundStyle(Stitch.red)
+                                    Image(systemName: "plus").font(.body.weight(.semibold)).foregroundStyle(Stitch.action)
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .stitchCard()
@@ -70,7 +70,7 @@ struct TripDocumentsView: View {
                                 Button { selected = doc } label: {
                                     HStack(spacing: Stitch.Space.s) {
                                         Image(systemName: "doc.text").foregroundStyle(Stitch.ink)
-                                            .frame(width: 36, height: 36).background(Stitch.paperDeep, in: Circle())
+                                            .frame(width: 36, height: 36).background(Stitch.paper, in: Circle())
                                         Text(doc.name).font(.body).foregroundStyle(Stitch.ink).multilineTextAlignment(.leading)
                                         Spacer(minLength: 0)
                                         Image(systemName: "chevron.right").font(.footnote.weight(.bold)).foregroundStyle(Stitch.inkSoft)

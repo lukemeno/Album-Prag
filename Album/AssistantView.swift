@@ -109,7 +109,7 @@ struct AssistantView: View {
     private func suggestion(_ text: String) -> some View {
         Button(text) { draft = text; send() }
             .buttonStyle(.bordered)
-            .tint(Stitch.red)
+            .tint(Stitch.action)
             .accessibilityIdentifier("assistant-suggestion-\(text.replacingOccurrences(of: " ", with: "-"))")
     }
 
@@ -121,8 +121,8 @@ struct AssistantView: View {
                 .textSelection(.enabled)
                 .padding(.horizontal, Stitch.Space.m)
                 .padding(.vertical, Stitch.Space.s)
-                .background(message.role == "user" ? Stitch.redFill : Stitch.card, in: RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
-                .overlay { if message.role != "user" { RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous).strokeBorder(Stitch.rule) } }
+                .background(message.role == "user" ? Stitch.actionFill : Stitch.card, in: RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
+                .overlay { if message.role != "user" { RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous).strokeBorder(Stitch.line) } }
                 .frame(maxWidth: .infinity, alignment: message.role == "user" ? .trailing : .leading)
             if let reply = message.reply, message.role == "assistant" { replyCards(reply, messageID: message.id) }
         }
@@ -165,7 +165,7 @@ struct AssistantView: View {
                 if let status = savedIdeaCounts[messageID] {
                     Text(status)
                         .font(.caption)
-                        .foregroundStyle(status.hasPrefix("Speichern fehlgeschlagen") ? Stitch.red : Stitch.inkSoft)
+                        .foregroundStyle(status.hasPrefix("Speichern fehlgeschlagen") ? Stitch.action : Stitch.inkSoft)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .accessibilityIdentifier("assistant-save-ideas-status-\(messageID)")
                 }
@@ -211,7 +211,7 @@ struct AssistantView: View {
             else if let url = source.url.flatMap(LinkValidation.url) { UIApplication.shared.open(url) }
         } label: {
             HStack(alignment: .top, spacing: Stitch.Space.s) {
-                Image(systemName: source.documentID != nil ? "doc.text" : "arrow.up.right.square").foregroundStyle(Stitch.red)
+                Image(systemName: source.documentID != nil ? "doc.text" : "arrow.up.right.square").foregroundStyle(Stitch.action)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(source.title).font(.subheadline.weight(.semibold)).foregroundStyle(Stitch.ink)
                     if let quote = source.quote, !quote.isEmpty { Text(quote).font(.footnote).foregroundStyle(Stitch.inkSoft).lineLimit(3) }
@@ -226,7 +226,7 @@ struct AssistantView: View {
 
     private func placeCard(_ place: AssistantPlace) -> some View {
         HStack(spacing: Stitch.Space.s) {
-            Image(systemName: "mappin.and.ellipse").foregroundStyle(Stitch.red)
+            Image(systemName: "mappin.and.ellipse").foregroundStyle(Stitch.action)
             VStack(alignment: .leading, spacing: 2) {
                 Text(place.title).font(.headline).foregroundStyle(Stitch.ink)
                 if !place.address.isEmpty { Text(place.address).font(.footnote).foregroundStyle(Stitch.inkSoft) }
@@ -249,7 +249,7 @@ struct AssistantView: View {
 
     private var loading: some View {
         HStack(spacing: Stitch.Space.s) {
-            ProgressView().tint(Stitch.red)
+            ProgressView().tint(Stitch.action)
             Text("Ich sehe kurz nach …").font(.subheadline).foregroundStyle(Stitch.inkSoft)
             Spacer()
             Button("Abbrechen") { session.cancel() }.buttonStyle(TextActionButton())
@@ -259,7 +259,7 @@ struct AssistantView: View {
 
     private func errorView(_ error: String) -> some View {
         HStack(alignment: .top, spacing: Stitch.Space.s) {
-            Image(systemName: "wifi.exclamationmark").foregroundStyle(Stitch.red)
+            Image(systemName: "wifi.exclamationmark").foregroundStyle(Stitch.action)
             VStack(alignment: .leading, spacing: Stitch.Space.xs) {
                 Text(error).font(.subheadline).foregroundStyle(Stitch.ink)
                 HStack(spacing: Stitch.Space.s) {
@@ -284,9 +284,9 @@ struct AssistantView: View {
                     .padding(.horizontal, Stitch.Space.s)
                     .padding(.vertical, Stitch.Space.xs)
                     .background(Stitch.card, in: RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
-                    .overlay { RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous).strokeBorder(Stitch.rule) }
+                    .overlay { RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous).strokeBorder(Stitch.line) }
                     .accessibilityIdentifier("assistant-input")
-                Button { send() } label: { Image(systemName: "arrow.up.circle.fill").font(.title).foregroundStyle(Stitch.red) }
+                Button { send() } label: { Image(systemName: "arrow.up.circle.fill").font(.title).foregroundStyle(Stitch.action) }
                     .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || session.isLoading)
                     .accessibilityLabel("Senden")
                     .accessibilityIdentifier("assistant-send")
@@ -323,7 +323,7 @@ struct AssistantView: View {
                     HStack {
                         Text(preference)
                         Spacer()
-                        Button("Löschen") { session.forget(preference) }.foregroundStyle(Stitch.red)
+                        Button("Löschen") { session.forget(preference) }.foregroundStyle(Stitch.action)
                     }
                 }
             }

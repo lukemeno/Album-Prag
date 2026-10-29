@@ -11,49 +11,48 @@ struct TripLibraryView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: Stitch.Space.l) {
-                    HStack {
-                        Text("Album").font(Stitch.Face.wordmark()).foregroundStyle(Stitch.red)
+                    HStack(alignment: .center, spacing: Stitch.Space.s) {
+                        Text("Album").font(Stitch.Face.wordmark()).foregroundStyle(Stitch.ink)
+                            .accessibilityAddTraits(.isHeader)
                         Spacer()
-                        Button("Neue Reise", systemImage: "plus") { showingCreate = true }
-                            .labelStyle(.iconOnly)
-                            .frame(width: Stitch.Size.touch, height: Stitch.Size.touch)
+                        Button { showingCreate = true } label: { Image(systemName: "plus") }
+                            .buttonStyle(HeaderIconButton())
+                            .accessibilityLabel("Neue Reise")
                             .accessibilityIdentifier("library-create-trip")
                     }
-                    .padding(.top, Stitch.Space.s)
-                    Text("Deine Reisen")
-                        .font(Stitch.Face.display(36, relativeTo: .largeTitle))
-                        .foregroundStyle(Stitch.ink)
-                        .accessibilityAddTraits(.isHeader)
-                    Text("Jede Reise bleibt ihr eigenes Album.")
-                        .font(.body)
-                        .foregroundStyle(Stitch.inkSoft)
+                    .padding(.top, Stitch.Space.xs)
+
+                    VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
+                        Text("Deine Reisen")
+                            .font(Stitch.Face.display())
+                            .foregroundStyle(Stitch.ink)
+                            .accessibilityAddTraits(.isHeader)
+                        Text(library.entries.isEmpty ? "Jede Reise bleibt ihr eigenes Album." : countLine)
+                            .font(Stitch.Face.subheadline)
+                            .foregroundStyle(Stitch.inkSoft)
+                            .monospacedDigit()
+                    }
 
                     if let error = library.error {
-                        Label(error, systemImage: "exclamationmark.circle")
-                            .font(.footnote)
-                            .foregroundStyle(Stitch.red)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .padding(Stitch.Space.s)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Stitch.redFill, in: RoundedRectangle(cornerRadius: Stitch.Radius.thumb))
+                        HStack(alignment: .top, spacing: Stitch.Space.s) {
+                            Image(systemName: "exclamationmark.circle").foregroundStyle(Stitch.action)
+                            Text(error)
+                                .font(Stitch.Face.footnote)
+                                .foregroundStyle(Stitch.ink)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .stitchCard(.pinned, padding: Stitch.Space.s)
                     }
 
                     if library.entries.isEmpty {
-                        VStack(alignment: .leading, spacing: Stitch.Space.s) {
-                            Label("Noch keine Reise", systemImage: "book.closed")
-                                .font(.headline)
-                                .foregroundStyle(Stitch.ink)
-                            Text("Erstelle deine erste Reise oder öffne eine Einladung.")
-                                .font(.body)
-                                .foregroundStyle(Stitch.inkSoft)
-                                .fixedSize(horizontal: false, vertical: true)
+                        VStack(alignment: .leading, spacing: Stitch.Space.m) {
+                            EmptyStateCard(symbol: "book.closed", title: "Noch keine Reise",
+                                           message: "Erstelle deine erste Reise oder öffne eine Einladung.")
                             Button("Reise erstellen", systemImage: "plus") { showingCreate = true }
                                 .buttonStyle(StitchButton(primary: true))
                                 .accessibilityIdentifier("library-create-trip-empty")
-                                .frame(minHeight: Stitch.Size.touch)
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.vertical, Stitch.Space.xl)
                     } else {
                         LazyVStack(spacing: Stitch.Space.s) {
                             ForEach(library.entries) { entry in
@@ -83,33 +82,46 @@ struct TripLibraryView: View {
         // second store merely to redraw this cache view.
     }
 
+    private var countLine: String {
+        library.entries.count == 1 ? "1 Reise" : "\(library.entries.count) Reisen"
+    }
+
+    /// Pastellrand der Marke je Reise: stabil aus der Kennung, damit eine Reise ihre Farbe behält.
+    private func mat(for entry: TripLibraryEntry) -> Color {
+        let colors = [Stitch.Stamp.sky, Stitch.Stamp.rose, Stitch.Stamp.butter, Stitch.Stamp.mint, Stitch.Stamp.lilac]
+        let sum = entry.id.uuidString.unicodeScalars.reduce(0) { ($0 &+ Int($1.value)) % 997 }
+        return colors[sum % colors.count]
+    }
+
     private func tripCard(_ entry: TripLibraryEntry) -> some View {
         Button {
             _ = library.open(entry.id)
         } label: {
             HStack(spacing: Stitch.Space.m) {
-                RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous)
-                    .fill(Stitch.paperDeep.gradient)
-                    .overlay(Image(systemName: "map").font(.system(size: 28, weight: .light)).foregroundStyle(Stitch.inkSoft.opacity(0.65)))
-                    .frame(width: 84, height: 92)
-                    .accessibilityHidden(true)
+                StampFrame(mat: mat(for: entry), inset: 5, matWidth: 3, elevation: .flat) {
+                    Image(systemName: "map")
+                        .font(.title2.weight(.regular))
+                        .foregroundStyle(Stitch.ink)
+                        .frame(width: 52, height: 64)
+                }
+                .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
                     Text(entry.destination?.nilIfEmpty ?? entry.title)
-                        .font(Stitch.Face.place(24, relativeTo: .title2))
+                        .font(Stitch.Face.place(22, relativeTo: .title2))
                         .foregroundStyle(Stitch.ink)
                         .lineLimit(2)
+                        .multilineTextAlignment(.leading)
                     if let destination = entry.destination?.nilIfEmpty,
                        destination.localizedCaseInsensitiveCompare(entry.title) != .orderedSame {
-                        Text(entry.title).font(.subheadline.weight(.medium)).foregroundStyle(Stitch.inkSoft).lineLimit(2)
+                        Text(entry.title).font(Stitch.Face.subheadline).foregroundStyle(Stitch.inkSoft).lineLimit(2)
                     }
-                    Text(period(entry)).font(.footnote).foregroundStyle(Stitch.inkSoft)
+                    Text(period(entry)).font(Stitch.Face.footnote).foregroundStyle(Stitch.inkSoft).monospacedDigit()
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(Stitch.inkSoft)
+                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(Stitch.ink)
             }
-            .padding(Stitch.Space.s)
-            .background(Stitch.card, in: RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: Stitch.Radius.card).strokeBorder(Stitch.rule))
+            .frame(minHeight: Stitch.Size.touch)
+            .stitchCard(.pinned, padding: Stitch.Space.s)
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("library-trip-\(entry.id.uuidString)")
@@ -150,7 +162,7 @@ struct TripCreateView: View {
                         DatePicker("Bis", selection: $endDate, in: startDate..., displayedComponents: .date)
                     }
                 }
-                if let saveError { Text(saveError).foregroundStyle(Stitch.red) }
+                if let saveError { Text(saveError).foregroundStyle(Stitch.action) }
             }
             .navigationTitle("Neue Reise")
             .toolbar {

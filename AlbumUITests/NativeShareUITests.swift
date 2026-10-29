@@ -37,8 +37,11 @@ final class NativeShareUITests: XCTestCase {
         func openCollection() {
             XCTAssertTrue(app.tabBars.buttons["Ideen"].waitForExistence(timeout: 8))
             app.tabBars.buttons["Ideen"].tap()
-            XCTAssertTrue(app.buttons["Sammlung"].waitForExistence(timeout: 8))
-            app.buttons["Sammlung"].tap()
+            let collection = app.buttons["native-ideas-collection"]
+            XCTAssertTrue(collection.waitForExistence(timeout: 8))
+            var tries = 0
+            while !collection.isHittable && tries < 6 { app.swipeUp(); tries += 1 }
+            collection.tap()
             XCTAssertTrue(app.navigationBars["Sammlung"].waitForExistence(timeout: 8))
         }
 

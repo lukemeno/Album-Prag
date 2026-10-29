@@ -63,7 +63,7 @@ struct TripMemoriesView: View {
                         .padding(.vertical, Stitch.Space.xs)
                         .background {
                             PaperBackground()
-                                .overlay(alignment: .top) { Stitch.rule.frame(height: 1) }
+                                .overlay(alignment: .top) { Stitch.line.frame(height: 1) }
                         }
                 }
             }
@@ -99,7 +99,7 @@ struct TripMemoriesView: View {
     private var emptyState: some View {
         VStack(alignment: .leading, spacing: Stitch.Space.s) {
             Image(systemName: "mappin.and.ellipse")
-                .font(.title2).foregroundStyle(Stitch.red)
+                .font(.title2).foregroundStyle(Stitch.action)
                 .accessibilityHidden(true)
             Text("Noch keine besuchten Orte")
                 .font(.headline).foregroundStyle(Stitch.ink)
@@ -142,9 +142,9 @@ struct TripMemoriesView: View {
                 Button { selectedPlace = place } label: {
                     HStack(spacing: Stitch.Space.m) {
                         Image(systemName: place.symbol)
-                            .font(.title2).foregroundStyle(Stitch.red)
+                            .font(.title2).foregroundStyle(Stitch.action)
                             .frame(width: 52, height: 60)
-                            .background(Stitch.paperDeep, in: RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
+                            .background(Stitch.paper, in: RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
                         VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
                             Text(place.title).font(Stitch.Face.place(24, relativeTo: .title3)).foregroundStyle(Stitch.ink)
                             Text("Foto ergänzen").font(.subheadline).foregroundStyle(Stitch.inkSoft)
@@ -164,8 +164,8 @@ struct TripMemoriesView: View {
                 HStack(spacing: Stitch.Space.xs) {
                     Text(place.category).font(.footnote).foregroundStyle(Stitch.inkSoft)
                     Spacer(minLength: 0)
-                    Text("Ort ansehen").font(.subheadline.weight(.semibold)).foregroundStyle(Stitch.red)
-                    Image(systemName: "arrow.up.right").font(.footnote.weight(.semibold)).foregroundStyle(Stitch.red)
+                    Text("Ort ansehen").font(.subheadline.weight(.semibold)).foregroundStyle(Stitch.action)
+                    Image(systemName: "arrow.up.right").font(.footnote.weight(.semibold)).foregroundStyle(Stitch.action)
                         .accessibilityHidden(true)
                 }
                 .frame(minHeight: Stitch.Size.touch)

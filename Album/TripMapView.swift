@@ -13,6 +13,7 @@ struct TripMapView: View {
     @State private var clusterSelection: MapPinGroup?
     @State private var lastTappedClusterID: String?
     @State private var filter = MapFilter.all
+    @State private var query = ""
     @State private var detent = DrawerDetent.half
     @State private var coveredHeight: CGFloat = 0
     @State private var coveredWidth: CGFloat = 0
@@ -22,7 +23,12 @@ struct TripMapView: View {
     /// Orte, die schon einmal auf der Karte gelandet sind. Nur neue fallen als Stecknadel.
     @AppStorage("album.landedPins") private var landedRaw = ""
 
-    var visible: [Place] { store.franked.filter { $0.coordinate != nil && filter.matches($0.category) } }
+    var visible: [Place] { store.franked.filter { $0.coordinate != nil && filter.matches($0.category) && matchesQuery($0) } }
+
+    private func matchesQuery(_ place: Place) -> Bool {
+        let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        return text.isEmpty || place.title.localizedCaseInsensitiveContains(text) || place.category.localizedCaseInsensitiveContains(text)
+    }
     private var selectedDay: TripDay? { visible.first { $0.id == selectedID }?.plannedDate }
 
     /// Orte eines Tages, verbunden in geplanter Reihenfolge.
@@ -39,11 +45,18 @@ struct TripMapView: View {
                     // Das Kartenfenster folgt dem eingerasteten Blattrand; im Querformat bleibt rechts Kartenfläche frei.
                     .safeAreaPadding(.bottom, isLandscape ? 0 : min(coveredHeight, geo.size.height * 0.5))
                     .safeAreaPadding(.leading, isLandscape ? min(coveredWidth, geo.size.width * 0.5) : 0)
+                    .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
+                    .padding(.top, Stitch.Size.button + Stitch.Space.s + Stitch.Space.xs)
+                    .padding(.horizontal, Stitch.Space.page)
                     .accessibilityHidden(detent == .full && !isLandscape)
-                PlacesDrawer(detent: $detent, filter: $filter, selectedID: $selectedID, selectionRequest: $selectionRequest,
+                searchBar
+                    .padding(.leading, isLandscape ? min(coveredWidth, geo.size.width * 0.5) : 0)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                PlacesDrawer(detent: $detent, filter: $filter, query: query, selectedID: $selectedID, selectionRequest: $selectionRequest,
                              coveredHeight: $coveredHeight, coveredWidth: $coveredWidth, namespace: drawerMorph,
                              isLandscape: isLandscape, availableHeight: geo.size.height, availableWidth: geo.size.width,
                              onShow: show, onDetails: { detail = $0 })
+                    .padding(.horizontal, isLandscape || detent == .full ? 0 : Stitch.Space.page)
                 if detent == .hidden {
                     Button {
                         withAnimation(reduceMotion ? nil : Stitch.Motion.panel) {
@@ -61,7 +74,7 @@ struct TripMapView: View {
                         .padding(.horizontal, Stitch.Space.m)
                         .frame(minHeight: Stitch.Size.touch)
                         .background {
-                            PaperBackground()
+                            Rectangle().fill(Stitch.card)
                                 .matchedGeometryEffect(id: "places-drawer-surface", in: drawerMorph, isSource: true)
                                 .clipShape(Capsule())
                         }
@@ -71,7 +84,7 @@ struct TripMapView: View {
                     .accessibilityLabel(drawerTitle)
                     .accessibilityHint("Öffnet die Ortsliste")
                     .accessibilityIdentifier("map-drawer-reopen")
-                    .padding(.bottom, isLandscape ? 0 : Stitch.Space.s)
+                    .padding(.bottom, isLandscape ? 0 : Stitch.Size.button + Stitch.Space.xxl + Stitch.Space.xs)
                     .padding(.top, isLandscape ? Stitch.Space.s : 0)
                     .padding(.leading, isLandscape ? Stitch.Space.s : 0)
                     .transition(.opacity)
@@ -106,8 +119,40 @@ struct TripMapView: View {
         .onChange(of: store.tripRegionContext) { _, _ in resetCameraForTripChange() }
     }
 
+    /// Suchfeld und Filter über der Karte (Figma 05): Tippen filtert Karte und Liste nach Name oder Art.
+    private var searchBar: some View {
+        HStack(spacing: Stitch.Space.xs) {
+            Image(systemName: "magnifyingglass").font(.body.weight(.semibold)).foregroundStyle(Stitch.ink)
+                .accessibilityHidden(true)
+            TextField("\(store.tripName) durchsuchen", text: $query)
+                .font(Stitch.Face.body).foregroundStyle(Stitch.ink)
+                .submitLabel(.search)
+                .accessibilityIdentifier("map-search")
+            Menu {
+                Picker("Filter", selection: $filter) {
+                    ForEach(MapFilter.allCases) { item in
+                        if let symbol = item.symbol { Label(item.title, systemImage: symbol).tag(item) } else { Text(item.title).tag(item) }
+                    }
+                }
+            } label: {
+                Image(systemName: filter == .all ? "slider.horizontal.3" : "line.3.horizontal.decrease.circle.fill")
+                    .font(.body.weight(.semibold)).foregroundStyle(Stitch.ink)
+                    .frame(width: Stitch.Size.touch, height: Stitch.Size.touch)
+            }
+            .accessibilityLabel(filter == .all ? "Filter" : "Filter: \(filter.title)")
+            .accessibilityIdentifier("map-filter")
+        }
+        .padding(.leading, Stitch.Space.m)
+        .padding(.trailing, Stitch.Space.xxs)
+        .frame(minHeight: Stitch.Size.button)
+        .background(Stitch.card, in: Capsule())
+        .overlay(Capsule().strokeBorder(Stitch.line))
+        .padding(.horizontal, Stitch.Space.page)
+        .padding(.top, Stitch.Space.xs)
+    }
+
     private var drawerTitle: String {
-        let count = store.franked.filter { filter.matches($0.category) }.count
+        let count = store.franked.filter { filter.matches($0.category) && matchesQuery($0) }.count
         return count == 1 ? "1 Ort" : "\(count) Orte"
     }
 
@@ -117,7 +162,7 @@ struct TripMapView: View {
                 ForEach(dayThreads, id: \.day) { thread in
                     let isSelectedDay = selectedDay == thread.day
                     MapPolyline(coordinates: thread.coordinates)
-                        .stroke(isSelectedDay ? Stitch.red : Stitch.teal.opacity(0.28),
+                        .stroke(isSelectedDay ? Stitch.action : Stitch.inkSoft.opacity(0.28),
                                 style: StrokeStyle(lineWidth: isSelectedDay ? 2.5 : 1.5,
                                                    lineCap: .round, lineJoin: .round,
                                                    dash: isSelectedDay ? [] : [3, 5]))
@@ -412,7 +457,7 @@ struct StampPin: View {
                         }
                     }
             }
-            Circle().fill(Stitch.red).frame(width: 7, height: 7)
+            Circle().fill(Stitch.action).frame(width: 7, height: 7)
                 .overlay(Circle().strokeBorder(Stitch.card, lineWidth: 1.5))
         }
         .background(alignment: .bottom) {
@@ -527,7 +572,7 @@ struct StampClusterPin: View {
                 .allowsTightening(true)
                 .padding(.horizontal, badgePadding)
                 .frame(minWidth: badgeMinSize, minHeight: badgeMinSize)
-                .background(Circle().fill(Stitch.red))
+                .background(Circle().fill(Stitch.action))
                 .overlay(Circle().strokeBorder(Stitch.card, lineWidth: 1.5))
                 .offset(x: 5, y: -3)
                 .accessibilityHidden(true)

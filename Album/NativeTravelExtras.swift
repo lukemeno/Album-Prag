@@ -101,7 +101,7 @@ public struct NativeExpensesView: View {
             } else {
                 let mine = balances[store.me, default: 0]
                 Text(balanceText(mine))
-                    .font(.title3.weight(.semibold)).foregroundStyle(mine == 0 ? Stitch.ink : Stitch.red)
+                    .font(.title3.weight(.semibold)).foregroundStyle(mine == 0 ? Stitch.ink : Stitch.action)
                 Text("Gesamt \(money(expenses.reduce(0) { $0 + $1.amountCents })) · \(expenses.count) \(expenses.count == 1 ? "Ausgabe" : "Ausgaben")")
                     .font(.subheadline).foregroundStyle(Stitch.inkSoft)
             }
@@ -119,7 +119,7 @@ public struct NativeExpensesView: View {
     private var emptyState: some View {
         VStack(alignment: .leading, spacing: Stitch.Space.s) {
             Image(systemName: "wallet.bifold")
-                .font(.title2).foregroundStyle(Stitch.red).accessibilityHidden(true)
+                .font(.title2).foregroundStyle(Stitch.action).accessibilityHidden(true)
             Text("Noch keine Ausgaben")
                 .font(.headline).foregroundStyle(Stitch.ink)
             Text("Tragt die erste Ausgabe ein, sobald ihr unterwegs etwas gemeinsam bezahlt habt.")
@@ -141,9 +141,9 @@ public struct NativeExpensesView: View {
             ForEach(expenses) { expense in
                 HStack(spacing: Stitch.Space.m) {
                     Image(systemName: "fork.knife")
-                        .font(.title3).foregroundStyle(Stitch.red)
+                        .font(.title3).foregroundStyle(Stitch.action)
                         .frame(width: 44, height: 44)
-                        .background(Stitch.paperDeep, in: Circle())
+                        .background(Stitch.paper, in: Circle())
                     VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
                         Text(expense.title).font(.body.weight(.semibold)).foregroundStyle(Stitch.ink)
                         Text("\(expense.payer) bezahlt · \(expense.participants.count) Beteiligte")
@@ -303,7 +303,7 @@ private struct NativeExpenseEditor: View {
                         .accessibilityIdentifier("expense-add-person")
                     }
                 }
-                if let error { Text(error).font(.footnote).foregroundStyle(Stitch.red) }
+                if let error { Text(error).font(.footnote).foregroundStyle(Stitch.action) }
             }
             .scrollContentBackground(.hidden).background(PaperBackground())
             .navigationTitle(initialExpense == nil ? "Ausgabe hinzufügen" : "Ausgabe bearbeiten")
@@ -354,7 +354,7 @@ private struct NativeSettlementView: View {
                     .frame(minHeight: Stitch.Size.touch)
                     .stitchCard(padding: Stitch.Space.s)
                 }
-                if let error { Text(error).font(.footnote).foregroundStyle(Stitch.red) }
+                if let error { Text(error).font(.footnote).foregroundStyle(Stitch.action) }
                 Spacer()
             }
             .padding(Stitch.Space.page)
@@ -424,7 +424,7 @@ public struct NativeMemoriesView: View {
                 Button { openCamera() } label: {
                     Image(systemName: "camera.fill").font(.title2.weight(.semibold)).frame(width: 72, height: 72)
                 }
-                .buttonStyle(.plain).foregroundStyle(Stitch.onAccent).background(Stitch.redFill, in: Circle())
+                .buttonStyle(.plain).foregroundStyle(Stitch.onAction).background(Stitch.actionFill, in: Circle())
                 .frame(width: 72, height: 72).contentShape(Circle())
                 .accessibilityLabel("Mit Kamera fotografieren")
                 .accessibilityIdentifier("memories-camera")
@@ -494,7 +494,7 @@ public struct NativeMemoriesView: View {
 
     private var emptyState: some View {
         VStack(alignment: .leading, spacing: Stitch.Space.s) {
-            Image(systemName: "photo.on.rectangle.angled").font(.title2).foregroundStyle(Stitch.red)
+            Image(systemName: "photo.on.rectangle.angled").font(.title2).foregroundStyle(Stitch.action)
             Text("Noch keine Erinnerungen").font(.headline).foregroundStyle(Stitch.ink)
             Text("Teile Fotos mit eurer Reisegruppe. Du kannst sie später freiwillig mit einem Ort verknüpfen.")
                 .font(.subheadline).foregroundStyle(Stitch.inkSoft).fixedSize(horizontal: false, vertical: true)
@@ -533,7 +533,7 @@ public struct NativeMemoriesView: View {
                     if let image = UIImage(contentsOfFile: imageURL.path) {
                         Image(uiImage: image).resizable().scaledToFill()
                     } else {
-                        ZStack { Stitch.paperDeep; Image(systemName: "photo").foregroundStyle(Stitch.inkSoft) }
+                        ZStack { Stitch.paper; Image(systemName: "photo").foregroundStyle(Stitch.inkSoft) }
                     }
                 }
                 .frame(height: 150).frame(maxWidth: .infinity).clipped()

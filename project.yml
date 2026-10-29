@@ -41,7 +41,7 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        UIAppFonts: [Fraunces-SemiBold.ttf, InstrumentSerif-Regular.ttf, Inter-Variable.ttf, Lora-Variable.ttf]
+        UIAppFonts: [Fraunces-SemiBold.ttf, InstrumentSerif-Regular.ttf, Inter-Variable.ttf, Lora-Variable.ttf, Caveat-Variable.ttf]
         NSCameraUsageDescription: Album darf die Kamera verwenden, um eigene Reiseerinnerungen zu speichern.
         UIFileSharingEnabled: false
         LSSupportsOpeningDocumentsInPlace: true
