@@ -167,6 +167,8 @@ import UIKit
     #if DEBUG
     private func configureQA(_ store: AlbumStore) {
         let environment = ProcessInfo.processInfo.environment
+        // Debug builds are also installed on real devices; QA fixtures may only touch an isolated test store.
+        guard environment["ALBUM_TEST_STORE"] != nil else { return }
         let root = store.root
         // The card-first shell is an explicit compatibility fixture for the
         // older native-port UI tests only. It is never created in a normal
