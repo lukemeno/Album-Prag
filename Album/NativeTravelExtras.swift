@@ -221,6 +221,12 @@ private struct NativeExpenseEditor: View {
     @State private var newParticipant = ""
     @State private var addedParticipants: [String] = []
     @State private var error: String?
+    @State private var confirmDiscard = false
+
+    private var hasChanges: Bool {
+        if initialExpense != nil { return false }
+        return !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !amount.isEmpty || !addedParticipants.isEmpty
+    }
 
     init(expense: TravelExpense? = nil, participants: [String], onSave: @escaping (TravelExpense) -> Bool) {
         initialExpense = expense
@@ -309,13 +315,17 @@ private struct NativeExpenseEditor: View {
             .navigationTitle(initialExpense == nil ? "Ausgabe hinzufügen" : "Ausgabe bearbeiten")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Abbrechen") { if hasChanges { confirmDiscard = true } else { dismiss() } }
+                        .accessibilityIdentifier("expense-cancel")
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(initialExpense == nil ? "Hinzufügen" : "Speichern") { save() }
                         .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || amount.isEmpty || selected.isEmpty)
                         .accessibilityIdentifier("expense-save")
                 }
             }
+            .discardGuard(hasChanges: hasChanges, isPresented: $confirmDiscard) { dismiss() }
         }
         .presentationDetents([.medium, .large])
     }
@@ -394,6 +404,7 @@ public struct NativeMemoriesView: View {
     @State private var linkingPhoto: TripMemoryPhoto?
     @State private var error: String?
     @State private var didStartCamera = false
+    @State private var photoToDelete: TripMemoryPhoto?
 
     public init(startWithCamera: Bool = false) { self.startWithCamera = startWithCamera }
 
@@ -436,6 +447,21 @@ public struct NativeMemoriesView: View {
                     if let imageData { save(data: imageData) }
                 } onCancel: { cameraPresented = false }
             }
+            .deleteConfirmation(
+                isPresented: Binding(get: { photoToDelete != nil }, set: { if !$0 { photoToDelete = nil } }),
+                name: photoToDelete.flatMap { photo in photo.placeID.flatMap { id in store.places.first(where: { $0.id == id })?.title } } ?? "Erinnerungsfoto",
+                message: "Das Foto verschwindet auch auf den anderen iPhones.",
+                onDelete: {
+                    if let photo = photoToDelete { store.deleteTripMemory(id: photo.id) }
+                    photoToDelete = nil
+                },
+                preview: {
+                    if let photo = photoToDelete, let image = UIImage(contentsOfFile: store.tripMemoryURL(for: photo, thumbnail: true).path) {
+                        Image(uiImage: image).resizable().scaledToFill()
+                            .frame(height: 220).frame(maxWidth: .infinity).clipped()
+                            .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
+                    }
+                })
             .photosPicker(isPresented: $photoPickerPresented, selection: $photoItem, matching: .images)
             .onChange(of: photoItem) { _, item in
                 guard let item else { return }
@@ -552,7 +578,7 @@ public struct NativeMemoriesView: View {
                 if photo.placeID != nil {
                     Button("Ortsverknüpfung entfernen", systemImage: "link.badge.minus") { setPlace(nil, for: photo) }
                 }
-                Button("Foto löschen", systemImage: "trash", role: .destructive) { store.deleteTripMemory(id: photo.id) }
+                Button("Foto löschen", systemImage: "trash", role: .destructive) { photoToDelete = photo }
             }
         }
         .accessibilityLabel(photo.placeID == nil ? "Reisefoto ohne Ortszuordnung, vergrößern" : "Reisefoto mit Ort, vergrößern")

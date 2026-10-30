@@ -94,6 +94,26 @@ struct NativeHomeView: View {
     }
 }
 
+/// Merkt sich in dieser Sitzung neu gespeicherte Ideen: Reihenfolge (neueste zuerst), „Neu“-Marke und die kurze Bestätigung.
+@Observable
+final class NewIdeaTracker {
+    private(set) var order: [String] = []
+    var toastVisible = false
+    private var hideTask: Task<Void, Never>?
+
+    func added(_ id: String) {
+        order.removeAll { $0 == id }
+        order.insert(id, at: 0)
+        toastVisible = true
+        hideTask?.cancel()
+        hideTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled else { return }
+            self?.toastVisible = false
+        }
+    }
+}
+
 struct NativeTripExperience: View {
     @Environment(AlbumStore.self) private var store
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -114,30 +134,37 @@ struct NativeTripExperience: View {
         return "\(store.tripName) · \(calendar.weekday(day)), \(calendar.shortDate(day)) · \(count == 1 ? "1 Ort" : "\(count) Orte")"
     }
 
+    private func tabHeader(_ tab: NativeTripSection) -> some View {
+        TabHeader(title: tab == .plan ? "Album" : tab.rawValue,
+                  onBack: onHome,
+                  onAdd: { sheet = .add(Place(title: "", author: store.me)) }) {
+            if tab == .ideas {
+                Menu {
+                    Button("Entscheiden", systemImage: "hand.tap") { sheet = .inbox }
+                    Button("Sammlung", systemImage: "tray.full") { sheet = .collection }
+                } label: { HeaderIconLabel(symbol: "ellipsis") }
+                    .accessibilityLabel("Ideenbereiche")
+            }
+        }
+    }
+
     var body: some View {
-        ZStack {
-            Group {
-                switch section {
-                case .plan: NativeTripView(sheet: $sheet, onAssistant: onAssistant, onNativeShare: onNativeShare)
-                case .ideas: NativeIdeasView(sheet: $sheet)
-                case .map: TripMapView().ignoresSafeArea(edges: .bottom)
-                }
-            }
-            .accessibilityHidden(fanOpen)
+        // TabView hält jeden Tab nach dem ersten Besuch am Leben (Scrollstand, Filter, Kartenausschnitt) und nimmt
+        // die versteckten Tabs aus der Bedienhilfe-Hierarchie. Die eigene Leiste (NativeTripPillBar) ersetzt die System-Leiste.
+        // Der Kopf hängt an jedem Tab selbst, weil TabView die Kopf-Einrückung nicht an die Tabs weitergibt.
+        // Der Kopf hängt an jedem Tab selbst: TabView gibt die Kopf-Einrückung nicht an seine Tabs weiter.
+        TabView(selection: $section) {
+            NativeTripView(sheet: $sheet, onAssistant: onAssistant, onNativeShare: onNativeShare)
+                .safeAreaInset(edge: .top, spacing: 0) { tabHeader(.plan) }
+                .tag(NativeTripSection.plan)
+            NativeIdeasView(sheet: $sheet, header: { tabHeader(.ideas) })
+                .tag(NativeTripSection.ideas)
+            TripMapView().ignoresSafeArea(edges: .bottom)
+                .safeAreaInset(edge: .top, spacing: 0) { tabHeader(.map) }
+                .tag(NativeTripSection.map)
         }
-        .safeAreaInset(edge: .top, spacing: 0) {
-            TabHeader(title: section == .plan ? "Album" : section.rawValue,
-                      onBack: onHome,
-                      onAdd: { sheet = .add(Place(title: "", author: store.me)) }) {
-                if section == .ideas {
-                    Menu {
-                        Button("Entscheiden", systemImage: "hand.tap") { sheet = .inbox }
-                        Button("Sammlung", systemImage: "tray.full") { sheet = .collection }
-                    } label: { HeaderIconLabel(symbol: "ellipsis") }
-                        .accessibilityLabel("Ideenbereiche")
-                }
-            }
-        }
+        .toolbar(.hidden, for: .tabBar)
+        .accessibilityHidden(fanOpen)
         .background(Stitch.paper.ignoresSafeArea())
         .overlay {
             ZStack {
@@ -696,7 +723,9 @@ struct NativeTimelineRow: View {
 
 private enum IdeasMode: Int { case stack, list }
 
-struct NativeIdeasView: View {
+struct NativeIdeasView<Header: View>: View {
+    /// Tab-Kopf; er und der Umschalter sind die feste Einrückung über der Liste.
+    @ViewBuilder var header: Header
     @Environment(AlbumStore.self) private var store
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var sheet: NativeSheet?
@@ -705,6 +734,7 @@ struct NativeIdeasView: View {
     @State private var skipped = Set<String>()
     @State private var imageRefreshTask: Task<Void, Never>?
     @State private var discoveryPresented = false
+    @Environment(NewIdeaTracker.self) private var newIdeas: NewIdeaTracker?
     private let categories = ["Alle", "Essen & Trinken", "Sehenswert", "Aussicht", "Shopping", "Idee"]
 
     private var ideas: [Place] {
@@ -719,6 +749,14 @@ struct NativeIdeasView: View {
             .filter { category == "Alle" || $0.category == category }
     }
 
+    /// Anzeige: in dieser Sitzung neu gespeicherte Ideen zuerst (neueste oben), danach die Reihenfolge des Stores.
+    private var listIdeas: [Place] {
+        let fresh = newIdeas?.order ?? []
+        guard !fresh.isEmpty else { return ideas }
+        let head = fresh.compactMap { id in ideas.first { $0.id == id } }
+        return head + ideas.filter { !fresh.contains($0.id) }
+    }
+
     /// Noch nicht entschieden und in dieser Runde nicht auf „Offen“ gelegt.
     private var stack: [Place] { store.inbox.filter { !skipped.contains($0.id) } }
 
@@ -731,26 +769,50 @@ struct NativeIdeasView: View {
         }
     }
 
+    private var showsSwitcher: Bool { !(ideas.isEmpty && store.inbox.isEmpty && category == "Alle") }
+
+    init(sheet: Binding<NativeSheet?>, @ViewBuilder header: () -> Header) {
+        _sheet = sheet
+        self.header = header()
+    }
+
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: Stitch.Space.m) {
-                if ideas.isEmpty && store.inbox.isEmpty && category == "Alle" {
-                    emptyState
-                } else {
-                    Text(subtitle).font(Stitch.Face.subheadline).foregroundStyle(Stitch.inkSoft).monospacedDigit()
-                    SegmentPair(titles: ["Stapel", "Liste"],
-                                identifiers: ["native-ideas-stack", "native-ideas-list"],
-                                selection: Binding(get: { mode.rawValue }, set: { mode = IdeasMode(rawValue: $0) ?? .stack }))
-                    switch mode {
-                    case .stack: stackContent
-                    case .list: listContent
+            // Der Kopf scrollt mit der Liste weg; Untertitel und Umschalter bleiben oben stehen. So wechselt Stapel/Liste
+            // ohne Scrollen, und die Liste behält ihre Position (Beta-Test 4).
+            LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+                header
+                if showsSwitcher {
+                    Section {
+                        VStack(alignment: .leading, spacing: Stitch.Space.m) {
+                            switch mode {
+                            case .stack: stackContent
+                            case .list: listContent
+                            }
+                            actionRows
+                        }
+                        .padding(.horizontal, Stitch.Space.page)
+                        .padding(.bottom, 128)
+                    } header: {
+                        VStack(alignment: .leading, spacing: Stitch.Space.m) {
+                            Text(subtitle).font(Stitch.Face.subheadline).foregroundStyle(Stitch.inkSoft).monospacedDigit()
+                            SegmentPair(titles: ["Stapel", "Liste"],
+                                        identifiers: ["native-ideas-stack", "native-ideas-list"],
+                                        selection: Binding(get: { mode.rawValue }, set: { mode = IdeasMode(rawValue: $0) ?? .stack }))
+                        }
+                        .padding(.horizontal, Stitch.Space.page)
+                        .padding(.top, Stitch.Space.xs)
+                        .padding(.bottom, Stitch.Space.s)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Stitch.paper)
                     }
-                    actionRows
+                } else {
+                    emptyState
+                        .padding(.horizontal, Stitch.Space.page)
+                        .padding(.top, Stitch.Space.xs)
+                        .padding(.bottom, 128)
                 }
             }
-            .padding(.horizontal, Stitch.Space.page)
-            .padding(.top, Stitch.Space.xs)
-            .padding(.bottom, 128)
         }
         .scrollIndicators(.hidden)
         .background(Stitch.paper.ignoresSafeArea())
@@ -823,7 +885,7 @@ struct NativeIdeasView: View {
                            message: "Wähle eine andere Kategorie oder wirf eine neue Idee ein.")
         } else {
             LazyVStack(spacing: Stitch.Space.s) {
-                ForEach(ideas) { place in NativeIdeaRow(place: place, root: store.root, store: store, sheet: $sheet) }
+                ForEach(listIdeas) { place in NativeIdeaRow(place: place, root: store.root, store: store, sheet: $sheet) }
             }
         }
     }
@@ -856,6 +918,7 @@ private struct NativeIdeaStackCard: View {
     let store: AlbumStore
     @Binding var sheet: NativeSheet?
     @State private var addingDay = false
+    @State private var confirmDelete = false
 
     private var byline: String {
         let from = place.author.localizedCaseInsensitiveCompare("Wir") == .orderedSame ? nil : "von \(place.author)"
@@ -894,16 +957,34 @@ private struct NativeIdeaStackCard: View {
                 Button("Auf Tag legen", systemImage: "calendar") { addingDay = true }
                 Button("Bearbeiten", systemImage: "pencil") { sheet = .add(place) }
                 Button("Ausblenden", systemImage: "eye.slash") { store.deferPlace(place) }
-                Button("Löschen", systemImage: "trash", role: .destructive) { var copy = place; copy.deleted = true; _ = store.upsert(copy) }
+                Button("Löschen", systemImage: "trash", role: .destructive) { confirmDelete = true }
             } label: { HeaderIconLabel(symbol: "ellipsis") }
                 .padding(Stitch.Space.s)
                 .accessibilityLabel("Mehr für \(place.title)")
         }
         .stitchElevation(.pinned)
         .sheet(isPresented: $addingDay) {
-            NativeDayPicker(place: place, store: store) { addingDay = false }
-                .presentationDetents([.medium])
+            DayChoiceSheet(place: place, store: store) { addingDay = false }
         }
+        .modifier(IdeaDeleteConfirmation(place: place, store: store, isPresented: $confirmDelete))
+    }
+}
+
+/// „Löschen“ im Ideen-Menü fragt nach (Figma 36). „Behalten“ lässt die Idee unverändert.
+private struct IdeaDeleteConfirmation: ViewModifier {
+    let place: Place
+    let store: AlbumStore
+    @Binding var isPresented: Bool
+    func body(content: Content) -> some View {
+        content.deleteConfirmation(
+            isPresented: $isPresented, name: place.title,
+            message: "Die Idee verschwindet auch auf dem anderen iPhone.",
+            onDelete: { var copy = place; copy.deleted = true; _ = store.upsert(copy) },
+            preview: {
+                AlbumPhoto(asset: place.displayImage, root: store.root, thumbnailWidth: 800)
+                    .frame(height: 220).frame(maxWidth: .infinity).background(place.mat)
+                    .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
+            })
     }
 }
 
@@ -916,6 +997,8 @@ private struct NativeIdeaRow: View {
     @State private var addingDay = false
     @State private var resolutionCandidates: [PlaceResolutionCandidate]?
     @State private var imageTask: Task<Void, Never>?
+    @State private var confirmDelete = false
+    @Environment(NewIdeaTracker.self) private var newIdeas: NewIdeaTracker?
     var body: some View {
         VStack(alignment: .leading, spacing: Stitch.Space.xs) {
             Button { sheet = .detail(place.id) } label: {
@@ -935,7 +1018,7 @@ private struct NativeIdeaRow: View {
                         Button("Auf Tag legen", systemImage: "calendar") { addingDay = true }
                         Button("Bearbeiten", systemImage: "pencil") { sheet = .add(place) }
                         Button("Ausblenden", systemImage: "eye.slash") { store.deferPlace(place) }
-                        Button("Löschen", systemImage: "trash", role: .destructive) { var copy = place; copy.deleted = true; _ = store.upsert(copy) }
+                        Button("Löschen", systemImage: "trash", role: .destructive) { confirmDelete = true }
                     } label: {
                         Image(systemName: "ellipsis").font(.body.weight(.semibold)).foregroundStyle(Stitch.ink).frame(width: Stitch.Size.touch, height: Stitch.Size.touch)
                     }
@@ -962,9 +1045,14 @@ private struct NativeIdeaRow: View {
                 }
         }
         .sheet(isPresented: $addingDay) {
-            NativeDayPicker(place: place, store: store) { addingDay = false }
-                .presentationDetents([.medium])
+            DayChoiceSheet(place: place, store: store) { addingDay = false }
         }
+        .overlay(alignment: .topLeading) {
+            if newIdeas?.order.contains(place.id) == true {
+                NewBadge().padding(Stitch.Space.xs)
+            }
+        }
+        .modifier(IdeaDeleteConfirmation(place: place, store: store, isPresented: $confirmDelete))
         .onDisappear { imageTask?.cancel() }
     }
 
@@ -1073,22 +1161,57 @@ private struct NativeIdeaRow: View {
     }
 }
 
-private struct NativeDayPicker: View {
+/// Tag wählen (Figma 17): Name des Ortes, Frage, Karte mit den Reisetagen (Häkchen am gewählten), „Noch offen lassen“.
+/// Ein Tipp auf einen Tag übernimmt ihn sofort und schließt das Blatt.
+struct DayChoiceSheet: View {
     let place: Place
     let store: AlbumStore
     let close: () -> Void
     var body: some View {
-        NavigationStack {
-            List(store.tripCalendar.days) { day in
-                Button(store.tripCalendar.dayTitle(day)) {
-                    store.assign(place, toDate: day)
-                    close()
+        VStack(spacing: 0) {
+            PlaceSheetHeader(title: "Tag auswählen", onBack: close, onClose: close)
+            ScrollView {
+                VStack(alignment: .leading, spacing: Stitch.Space.m) {
+                    VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
+                        Text(place.title).font(Stitch.Face.title()).foregroundStyle(Stitch.ink)
+                        Text("Wann möchtet ihr hier vorbeischauen?").font(Stitch.Face.subheadline).foregroundStyle(Stitch.inkSoft)
+                    }
+                    VStack(spacing: 0) {
+                        ForEach(store.tripCalendar.days) { day in
+                            Button {
+                                store.assign(place, toDate: day)
+                                close()
+                            } label: {
+                                HStack(spacing: Stitch.Space.s) {
+                                    Image(systemName: place.plannedDate == day ? "checkmark" : "calendar")
+                                        .font(.body.weight(.semibold)).foregroundStyle(Stitch.ink)
+                                        .frame(width: 24)
+                                    Text(store.tripCalendar.dayTitle(day)).font(Stitch.Face.body).foregroundStyle(Stitch.ink)
+                                    Spacer(minLength: 0)
+                                }
+                                .frame(maxWidth: .infinity, minHeight: Stitch.Size.touch, alignment: .leading)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(store.tripCalendar.dayTitle(day))
+                            .accessibilityAddTraits(place.plannedDate == day ? .isSelected : [])
+                            .accessibilityIdentifier("native-day-\(day.rawValue)")
+                        }
+                    }
+                    .stitchCard(.pinned, padding: Stitch.Space.m)
+                    Button("Noch offen lassen") {
+                        if place.franked { store.assign(place, toDate: nil) }
+                        close()
+                    }
+                    .buttonStyle(StitchButton())
+                    .accessibilityIdentifier("native-day-open")
                 }
-                .accessibilityIdentifier("native-day-\(day.rawValue)")
+                .padding(.horizontal, Stitch.Space.page).padding(.bottom, Stitch.Space.xl)
             }
-            .navigationTitle("Tag wählen")
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Schließen", action: close) } }
+            .scrollIndicators(.hidden)
         }
+        .background(PaperBackground())
+        .presentationDetents([.medium, .large])
     }
 }
 

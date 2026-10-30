@@ -20,6 +20,7 @@ struct AlbumExperienceRoot: View {
     @State private var clipboardOffer = false
     @State private var offeredChangeCount = -1
     @State private var fanRequest = 0
+    @State private var newIdeas = NewIdeaTracker()
 
     /// The former card-first shell is retained only for explicit native-port
     /// fixtures. Normal library launches open the selected trip directly.
@@ -90,6 +91,7 @@ struct AlbumExperienceRoot: View {
             }
         }
         .background(Stitch.paper.ignoresSafeArea())
+        .environment(newIdeas)
         .id(library.activeID)
         .sheet(item: $sheet) { route in
             if let store = library.activeStore {
@@ -128,6 +130,7 @@ struct AlbumExperienceRoot: View {
                     }
                 }
                 .environment(store)
+                .environment(newIdeas)
             }
         }
         .onAppear {
@@ -181,6 +184,15 @@ struct AlbumExperienceRoot: View {
             })
         }
 #endif
+        .overlay(alignment: .top) {
+            if newIdeas.toastVisible {
+                ConfirmationToast(text: "Idee hinzugefügt")
+                    .padding(.top, Stitch.Space.s)
+                    .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
+                    .allowsHitTesting(false)
+            }
+        }
+        .animation(reduceMotion ? nil : Stitch.Motion.panel, value: newIdeas.toastVisible)
         .overlay(alignment: .top) {
             if clipboardOffer {
                 NativeClipboardNote(onPaste: pasteClipboard, onDismiss: { clipboardOffer = false })

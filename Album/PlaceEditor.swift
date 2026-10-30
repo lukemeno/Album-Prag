@@ -7,6 +7,8 @@ struct PlaceEditor: View {
     @Environment(AlbumStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(NewIdeaTracker.self) private var newIdeas: NewIdeaTracker?
+    @State private var savedNewID: String?
     @State var place: Place
     var autoSourceEnrichment = true
     var onSaved: ((Place) -> Void)?
@@ -36,63 +38,88 @@ struct PlaceEditor: View {
     @State private var pendingPhotoID: String?
     @State private var posting = false
     @State private var confirmDelete = false
+    @State private var confirmDiscard = false
+    /// Stand beim Öffnen. Unterscheidet sich der aktuelle Stand davon, fragt Abbrechen und Wegwischen nach.
+    @State private var baseline: Place?
+    @State private var baselineQuery: String?
     @State private var editorFinished = false
     @State private var automaticPhotoSuppressed = false
     /// Schon gespeichert? Dann gibt es Zurücklegen und Löschen.
     private var exists: Bool { store.places.contains { $0.id == place.id } }
     private var editorTitle: String { exists ? "Bearbeiten" : "Neue Idee" }
     let categories = ["Idee", "Sehenswert", "Essen & Trinken", "Aussicht", "Unterkunft", "Shopping"]
+    private var hasChanges: Bool {
+        guard !editorFinished, !posting, let baseline, let baselineQuery else { return false }
+        return place != baseline || query != baselineQuery
+    }
     var valid: Bool {
         !place.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && (place.sourceURL.isEmpty || LinkValidation.url(place.sourceURL) != nil)
     }
     var body: some View {
         NavigationStack {
-            Form {
-                editorFormContent
+            ScrollView {
+                VStack(spacing: Stitch.Space.m) { editorFormContent }
+                    .padding(.horizontal, Stitch.Space.page)
+                    .padding(.top, Stitch.Space.xs)
+                    .padding(.bottom, Stitch.Space.l)
             }
+            .scrollDismissesKeyboard(.interactively)
             .accessibilityIdentifier("PlaceEditor-Form")
-            .scrollContentBackground(.hidden).background(PaperBackground())
-                .confirmationDialog("Diesen Ort löschen?", isPresented: $confirmDelete, titleVisibility: .visible) {
-                    Button("Löschen", role: .destructive) {
-                        place.deleted = true
-                        guard store.upsert(place) else { return }
-                        endEditor(preservePendingPhoto: false)
-                        dismiss()
-                    }
-                } message: { Text("Er verschwindet auch auf dem anderen iPhone.") }
+            .background(PaperBackground())
+                .deleteConfirmation(isPresented: $confirmDelete, name: place.title.isEmpty ? "Ort" : place.title,
+                                    message: "Er verschwindet auch auf dem anderen iPhone.",
+                                    onDelete: {
+                    place.deleted = true
+                    guard store.upsert(place) else { return }
+                    endEditor(preservePendingPhoto: false)
+                    dismiss()
+                }, preview: {
+                    AlbumPhoto(asset: place.displayImage, root: store.root, thumbnailWidth: 800)
+                        .frame(height: 220).frame(maxWidth: .infinity).background(place.mat)
+                        .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
+                })
+                .discardGuard(hasChanges: hasChanges, isPresented: $confirmDiscard) { discard() }
                 .navigationTitle(dynamicTypeSize.isAccessibilitySize ? "" : editorTitle)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     if !dynamicTypeSize.isAccessibilitySize {
-                        ToolbarItem(placement: .cancellationAction) { Button("Abbrechen", action: cancel).font(.body).accessibilityIdentifier("PlaceEditor-Cancel") }
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button(action: cancel) { Image(systemName: "chevron.left") }
+                                .buttonStyle(HeaderIconButton())
+                                .accessibilityLabel("Abbrechen")
+                                .accessibilityIdentifier("PlaceEditor-Cancel")
+                        }
                         ToolbarItem(placement: .confirmationAction) {
-                            Button("Speichern", action: save).font(.body).accessibilityIdentifier("PlaceEditor-Save").disabled(!valid || posting)
+                            Button(action: cancel) { Image(systemName: "xmark") }
+                                .buttonStyle(HeaderIconButton())
+                                .accessibilityLabel("Schließen")
+                                .accessibilityIdentifier("PlaceEditor-Close")
                         }
                     }
                 }
+                .toolbarBackground(Stitch.paper, for: .navigationBar)
                 .safeAreaInset(edge: .bottom, spacing: 0) {
-                    if dynamicTypeSize.isAccessibilitySize {
-                        VStack(spacing: Stitch.Space.s) {
+                    VStack(spacing: Stitch.Space.s) {
+                        if dynamicTypeSize.isAccessibilitySize {
                             Button("Abbrechen", action: cancel)
                                 .buttonStyle(StitchButton())
                                 .accessibilityIdentifier("PlaceEditor-Cancel")
                                 .frame(maxWidth: .infinity)
-                            Button("Speichern", action: save)
-                                .buttonStyle(StitchButton(primary: true))
-                                .accessibilityIdentifier("PlaceEditor-Save")
-                                .disabled(!valid || posting)
-                                .frame(maxWidth: .infinity)
                         }
-                        .padding(.horizontal, Stitch.Space.page).padding(.vertical, Stitch.Space.xs)
-                        .background {
-                            PaperBackground()
-                                .overlay(alignment: .top) { Stitch.line.frame(height: 1) }
-                        }
+                        Button(exists ? "Änderungen speichern" : "Idee speichern", action: save)
+                            .buttonStyle(InkPillButton())
+                            .accessibilityLabel("Speichern")
+                            .accessibilityIdentifier("PlaceEditor-Save")
+                            .disabled(!valid || posting)
+                            .frame(maxWidth: .infinity)
                     }
+                    .padding(.horizontal, Stitch.Space.page).padding(.vertical, Stitch.Space.xs)
+                    .background { PaperBackground() }
                 }
                 .onAppear {
                     editorFinished = false
                     query = place.title == "Neue Reiseidee" ? "" : place.title
+                    if baseline == nil { baseline = place; baselineQuery = query }
                 }
                 .sheet(item: $imageChoices) { choices in
                     PlaceImagePicker(choices: choices, root: store.root) { selected in
@@ -122,6 +149,7 @@ struct PlaceEditor: View {
                 .onDisappear {
                     // Das Öffnen eines Kind-Pickers darf den Draft nicht aufräumen.
                     guard !imageChoicesPresented else { return }
+                    if let id = savedNewID { newIdeas?.added(id); savedNewID = nil }
                     finishEditorIfNeeded()
                 }
                 .onChange(of: photoItem) { _, item in
@@ -134,14 +162,12 @@ struct PlaceEditor: View {
     @ViewBuilder
     private var editorFormContent: some View {
         if dynamicTypeSize.isAccessibilitySize {
-            Section {
-                Text(editorTitle)
-                    .font(Stitch.Face.title(30, relativeTo: .largeTitle))
-                    .foregroundStyle(Stitch.ink)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityAddTraits(.isHeader)
-            }
-            .listRowBackground(Color.clear)
+            Text(editorTitle)
+                .font(Stitch.Face.title(30, relativeTo: .largeTitle))
+                .foregroundStyle(Stitch.ink)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityAddTraits(.isHeader)
         }
         ideaSection
         locationSection
@@ -149,20 +175,28 @@ struct PlaceEditor: View {
         if exists { managementSection }
     }
 
+    /// Karte mit weißem Grund, Radius 24 und den Feldern darin (Figma 13, 14).
+    private func editorCard<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: Stitch.Space.s, content: content)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .stitchCard(.pinned, padding: Stitch.Space.m)
+    }
+
     private var ideaSection: some View {
-        Section {
-            TextField("Name der Idee", text: $place.title)
-                .font(.body).frame(minHeight: Stitch.Size.touch)
-                .accessibilityLabel("Name der Idee")
-                .accessibilityIdentifier("PlaceEditor-Title")
-                .onChange(of: place.title) { _, title in
-                    if suppressTitleSuggestionFor == title {
-                        suppressTitleSuggestionFor = nil
-                    } else {
-                        suppressTitleSuggestionFor = nil
-                        scheduleIdeaSuggestions(for: title)
+        editorCard {
+            LabeledFieldBox(label: "Name der Idee") {
+                TextField("Name der Idee", text: $place.title)
+                    .accessibilityLabel("Name der Idee")
+                    .accessibilityIdentifier("PlaceEditor-Title")
+                    .onChange(of: place.title) { _, title in
+                        if suppressTitleSuggestionFor == title {
+                            suppressTitleSuggestionFor = nil
+                        } else {
+                            suppressTitleSuggestionFor = nil
+                            scheduleIdeaSuggestions(for: title)
+                        }
                     }
-                }
+            }
             if place.title.trimmingCharacters(in: .whitespacesAndNewlines).count >= 2 {
                 VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
                     if suggestingIdeas {
@@ -180,33 +214,38 @@ struct PlaceEditor: View {
                     }
                     if !searchingEverywhere, store.tripRegionContext(for: place).name != nil {
                         Button("Auch andere Städte durchsuchen") { searchIdeaSuggestions(for: place.title, everywhere: true) }
-                            .font(.footnote)
+                            .buttonStyle(TextActionButton())
                             .accessibilityIdentifier("PlaceEditor-SearchEverywhere")
                     }
                 }
-                .padding(.vertical, Stitch.Space.xxs)
+                .padding(.horizontal, Stitch.Space.xxs)
             }
-            TextField("Link zur Idee", text: $place.sourceURL)
-                .font(.body).frame(minHeight: Stitch.Size.touch)
-                .accessibilityLabel("Link von TikTok oder Instagram")
-                .accessibilityIdentifier("PlaceEditor-Source")
-                .keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
+            LabeledFieldBox(label: "Link zur Idee") {
+                TextField("https://…", text: $place.sourceURL)
+                    .accessibilityLabel("Link von TikTok oder Instagram")
+                    .accessibilityIdentifier("PlaceEditor-Source")
+                    .keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
+            }
             if !place.sourceURL.isEmpty && LinkValidation.url(place.sourceURL) == nil {
-                Text("Der Link muss mit https:// beginnen.").font(.footnote).foregroundStyle(Stitch.action)
+                Text("Das ist noch kein gültiger Link, zum Beispiel www.prague.eu.")
+                    .font(.footnote).foregroundStyle(Stitch.action)
             }
             if enriching {
-                Label { Text("Vorschau wird geladen …") } icon: { ProgressView() }.foregroundStyle(Stitch.inkSoft)
+                Label { Text("Vorschau wird geladen …") } icon: { ProgressView() }
+                    .font(.footnote).foregroundStyle(Stitch.inkSoft)
             }
-            Picker("Kategorie", selection: $place.category) { ForEach(categories, id: \.self) { Text($0) } }
-            TextField("Warum da hin?", text: $place.note, axis: .vertical)
-                .font(.body).lineLimit(3...6)
-                .accessibilityLabel("Warum möchtet ihr dorthin?")
-        } header: {
-            Text("Idee").foregroundStyle(Stitch.ink)
+            LabeledFieldBox(label: "Kategorie") {
+                Picker("Kategorie", selection: $place.category) { ForEach(categories, id: \.self) { Text($0) } }
+                    .pickerStyle(.menu).labelsHidden().tint(Stitch.ink)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            LabeledFieldBox(label: place.franked || exists ? "Warum da hin?" : "Warum da hin?") {
+                TextField("Was möchtet ihr dort erleben?", text: $place.note, axis: .vertical)
+                    .lineLimit(1...6)
+                    .accessibilityLabel("Warum möchtet ihr dorthin?")
+            }
         }
-        .listRowBackground(Stitch.card)
     }
-
 
     private func ideaSuggestionRow(_ item: MKMapItem) -> some View {
         Button {
@@ -240,7 +279,7 @@ struct PlaceEditor: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .padding(.vertical, Stitch.Space.xxs)
+        .frame(minHeight: Stitch.Size.touch)
         .accessibilityIdentifier("PlaceEditor-IdeaSuggestion")
     }
 
@@ -311,37 +350,54 @@ struct PlaceEditor: View {
     }
 
     private var locationSection: some View {
-        Section { locationSearchAndImageControls } header: { Text("Ort").foregroundStyle(Stitch.ink) }
-            .listRowBackground(Stitch.card)
+        editorCard { locationSearchAndImageControls }
     }
 
     @ViewBuilder
     private var locationSearchAndImageControls: some View {
         locationSearchField
         if let searchError { Text(searchError).font(.footnote).foregroundStyle(Stitch.action) }
-        ForEach(Array(results.enumerated()), id: \.offset) { _, item in locationResultRow(item) }
+        if !results.isEmpty {
+            Text("Treffer").font(Stitch.Face.section).foregroundStyle(Stitch.ink).padding(.top, Stitch.Space.xxs)
+            ForEach(Array(results.enumerated()), id: \.offset) { _, item in locationResultRow(item) }
+        }
         if place.coordinate != nil { selectedLocationControls }
     }
 
     private var locationSearchField: some View {
-        HStack {
-            TextField("Ort oder Adresse", text: queryBinding)
-                .font(.body).frame(minHeight: Stitch.Size.touch)
-                .accessibilityLabel("Ort oder Adresse suchen")
-                .submitLabel(.search).onSubmit { search() }
-            Button(action: search) {
-                if searching { ProgressView() } else { Image(systemName: "magnifyingglass") }
+        VStack(spacing: Stitch.Space.xs) {
+            LabeledFieldBox(label: "Ort oder Adresse") {
+                TextField("Ort oder Adresse", text: queryBinding)
+                    .accessibilityLabel("Ort oder Adresse suchen")
+                    .submitLabel(.search).onSubmit { search() }
             }
+            Button(action: search) {
+                if searching { ProgressView() } else { Text("Ort suchen") }
+            }
+            .buttonStyle(StitchButton())
             .disabled(query.trimmingCharacters(in: .whitespaces).isEmpty || searching)
             .accessibilityLabel("Ort suchen")
         }
     }
 
+    /// Gewählter Ort als Zeile mit Vorschaubild und Adresse, darunter „Bild wählen“ (Figma 14).
     @ViewBuilder
     private var selectedLocationControls: some View {
-        Label(place.address.isEmpty ? "Ort gefunden" : place.address, systemImage: "checkmark.circle.fill")
-            .foregroundStyle(Stitch.action)
+        HStack(spacing: Stitch.Space.s) {
+            AlbumPhoto(asset: place.displayImage, root: store.root, thumbnailWidth: 200)
+                .frame(width: 66, height: 66).background(place.mat)
+                .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.small, style: .continuous))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(place.title).font(Stitch.Face.headline).foregroundStyle(Stitch.ink).lineLimit(2)
+                Label(place.address.isEmpty ? "Ort gefunden" : place.address, systemImage: "checkmark.circle.fill")
+                    .font(Stitch.Face.footnote).foregroundStyle(Stitch.inkSoft)
+            }
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .combine)
         Button(imageSearching ? "Bilder werden gesucht …" : "Bild wählen") { beginImageSearch(force: true) }
+            .buttonStyle(StitchButton())
             .disabled(imageSearching)
         photoPickerControl
         if place.image != nil { selectedImageView }
@@ -353,13 +409,16 @@ struct PlaceEditor: View {
         } label: {
             Label("Eigenes Foto wählen", systemImage: "photo.on.rectangle")
         }
+        .buttonStyle(StitchButton())
         .photosPicker(isPresented: $photoPickerPresented, selection: $photoItem, matching: .images)
     }
 
     @ViewBuilder
     private var selectedImageView: some View {
         AlbumPhoto(asset: place.image, root: store.root, thumbnailWidth: 500)
-            .frame(height: 160).clipped().accessibilityLabel("Gewähltes Bild")
+            .frame(height: 160).frame(maxWidth: .infinity)
+            .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.small, style: .continuous))
+            .accessibilityLabel("Gewähltes Bild")
         if let credit = place.image?.credit {
             let license: String? = if case .external(let image) = place.image { image.licenseName } else { nil }
             Text("Foto: \(credit)\(license.map { " · \($0)" } ?? "")")
@@ -370,25 +429,31 @@ struct PlaceEditor: View {
             place.gallery = []
             automaticPhotoSuppressed = true
         }
+        .buttonStyle(TextActionButton())
     }
 
     private var planningSection: some View {
-        Section("Planung") {
-            Toggle("Schon besucht", isOn: $place.visited)
+        editorCard {
+            Text("Planung").font(Stitch.Face.section).foregroundStyle(Stitch.ink)
+            Toggle("Schon besucht", isOn: $place.visited).tint(Stitch.ink)
+                .frame(minHeight: Stitch.Size.touch)
             let calendar = store.tripCalendar
             if place.plannedDate == nil, let legacyDay = place.day {
                 Text("Alter Reisetag \(legacyDay) ließ sich keinem Datum zuordnen. Bitte neu wählen.")
                     .font(.footnote).foregroundStyle(Stitch.inkSoft)
             }
-            Picker("Tag", selection: plannedDateBinding) {
-                Text("Noch offen").tag(nil as TripDay?)
-                if let date = place.plannedDate, !calendar.contains(date) {
-                    Text("\(calendar.dayTitle(date)) · außerhalb des Zeitraums").tag(Optional(date))
+            LabeledFieldBox(label: "Tag") {
+                Picker("Tag", selection: plannedDateBinding) {
+                    Text("Noch offen").tag(nil as TripDay?)
+                    if let date = place.plannedDate, !calendar.contains(date) {
+                        Text("\(calendar.dayTitle(date)) · außerhalb des Zeitraums").tag(Optional(date))
+                    }
+                    ForEach(calendar.days) { Text(calendar.dayTitle($0)).tag(Optional($0)) }
                 }
-                ForEach(calendar.days) { Text(calendar.dayTitle($0)).tag(Optional($0)) }
+                .pickerStyle(.menu).labelsHidden().tint(Stitch.ink)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .listRowBackground(Stitch.card)
     }
 
     private var plannedDateBinding: Binding<TripDay?> {
@@ -404,7 +469,7 @@ struct PlaceEditor: View {
     }
 
     private var managementSection: some View {
-        Section {
+        VStack(spacing: Stitch.Space.xs) {
             if place.franked {
                 Button("Zurück zu den Ideen") {
                     place.franked = false; place.deferred = false
@@ -413,18 +478,21 @@ struct PlaceEditor: View {
                     endEditor(preservePendingPhoto: true)
                     dismiss()
                 }
+                .buttonStyle(StitchButton())
+                Text("Zurück zu den Ideen nimmt den Ort aus dem Plan; eure bisherigen Stimmen bleiben erhalten.")
+                    .font(.footnote).foregroundStyle(Stitch.inkSoft)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
             Button("Ort löschen", role: .destructive) { confirmDelete = true }
-        } footer: {
-            Text(place.franked ? "Zurück zu den Ideen nimmt den Ort aus dem Plan; eure bisherigen Stimmen bleiben erhalten." : "")
+                .buttonStyle(TextActionButton())
         }
-        .listRowBackground(Stitch.card)
     }
 
     private var imageChoicesPresented: Bool { imageChoices != nil || photoPickerPresented }
 
     @ViewBuilder
     private func locationResultRow(_ item: MKMapItem) -> some View {
+        let selected = place.coordinate.map { PlaceImageService.locationMoved(from: $0, to: item.placemark.coordinate) == false } ?? false
         Button {
             let oldCoordinate = place.coordinate
             let newCoordinate = item.placemark.coordinate
@@ -441,16 +509,25 @@ struct PlaceEditor: View {
             results = []
             beginImageSearch(force: false)
         } label: {
-            VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
-                Text(item.name ?? "Ort")
-                Text(item.placemark.title ?? "")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            HStack(spacing: Stitch.Space.s) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.name ?? "Ort").font(Stitch.Face.headline).foregroundStyle(Stitch.ink)
+                    Text(item.placemark.title ?? "").font(Stitch.Face.footnote).foregroundStyle(Stitch.inkSoft)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(Stitch.ink)
             }
+            .padding(Stitch.Space.s)
+            .frame(maxWidth: .infinity, minHeight: Stitch.Size.touch, alignment: .leading)
+            .background(selected ? Stitch.Stamp.sky : Stitch.paper, in: RoundedRectangle(cornerRadius: Stitch.Radius.small, style: .continuous))
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
     }
 
     private func save() {
+        // Eingefügten Text oder Link ohne Schema zur sauberen https-Adresse machen.
+        if let link = LinkValidation.url(place.sourceURL) { place.sourceURL = link.absoluteString }
         let isNew = !store.places.contains { $0.id == place.id }
         guard store.upsert(place, photoAutomation: automaticPhotoSuppressed ? .suppress : .automatic) else { return }
         if place.coordinate == nil {
@@ -459,6 +536,7 @@ struct PlaceEditor: View {
         // Erst nach einem erfolgreichen Persistieren darf die laufende Arbeit enden.
         endEditor(preservePendingPhoto: true)
         onSaved?(place)
+        if isNew { savedNewID = place.id }
         // Neue Ideen werden sichtbar eingeworfen; gespeichert ist schon vorher.
         if isNew { withAnimation(.easeOut(duration: 0.2)) { posting = true } } else { dismiss() }
     }
@@ -744,6 +822,10 @@ struct PlaceEditor: View {
     }
 
     func cancel() {
+        if hasChanges { confirmDiscard = true } else { discard() }
+    }
+
+    private func discard() {
         endEditor(preservePendingPhoto: false)
         dismiss()
     }
@@ -1177,43 +1259,47 @@ private struct PlaceImagePicker: View {
     let streetView: () -> Void
     @Environment(\.dismiss) private var dismiss
 
+    /// Bild wählen (Figma 16): Hinweis, Raster der Fotos mit Bildnachweis, Apple-Karten-Vorschau als Ausweg.
+    /// Ein Tipp auf ein Foto übernimmt es sofort.
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: Stitch.Space.l) {
+                VStack(alignment: .leading, spacing: Stitch.Space.m) {
                     Text("Prüfe, ob das Foto wirklich \(choices.place.title) zeigt.")
-                        .font(.subheadline).foregroundStyle(Stitch.inkSoft)
-                        .multilineTextAlignment(.center)
+                        .font(Stitch.Face.subheadline).foregroundStyle(Stitch.inkSoft)
                     if choices.images.isEmpty {
-                        Text("Kein Ortsfoto gefunden").font(.headline).foregroundStyle(Stitch.ink)
+                        Text("Kein Ortsfoto gefunden").font(Stitch.Face.headline).foregroundStyle(Stitch.ink)
                     }
-                    ForEach(Array(choices.images.enumerated()), id: \.offset) { index, image in
-                        VStack(spacing: Stitch.Space.xs) {
-                            Button { select(image) } label: {
-                                VStack(spacing: Stitch.Space.s) {
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: Stitch.Space.s, alignment: .top),
+                                        GridItem(.flexible(), spacing: Stitch.Space.s, alignment: .top)],
+                              alignment: .leading, spacing: Stitch.Space.s) {
+                        ForEach(Array(choices.images.enumerated()), id: \.offset) { index, image in
+                            VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
+                                Button { select(image) } label: {
                                     AlbumPhoto(asset: image.asset(for: choices.place), root: root, thumbnailWidth: 500)
-                                        .frame(height: 180).clipped()
-                                        .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.thumb))
-                                    Text(image.caption ?? "Ortsfoto").font(.subheadline.weight(.semibold))
-                                    if image.confidence != .verified {
-                                        Text("Ortszuordnung bitte prüfen").font(.footnote).foregroundStyle(Stitch.inkSoft)
+                                        .frame(height: 200).frame(maxWidth: .infinity)
+                                        .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.small, style: .continuous))
+                                        .contentShape(RoundedRectangle(cornerRadius: Stitch.Radius.small, style: .continuous))
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel(image.caption ?? "Ortsfoto")
+                                .accessibilityIdentifier("place-image-choice-\(index)")
+                                if image.confidence != .verified {
+                                    Text("Ortszuordnung bitte prüfen").font(Stitch.Face.footnote).foregroundStyle(Stitch.inkSoft)
+                                }
+                                Text(image.credit).font(.caption2).foregroundStyle(Stitch.inkSoft).lineLimit(2)
+                                HStack(spacing: Stitch.Space.xs) {
+                                    Link("Quelle", destination: image.sourceURL)
+                                    if let licenseName = image.licenseName {
+                                        Link("Lizenz · \(licenseName)", destination: image.licenseURL ?? image.sourceURL)
                                     }
                                 }
-                                .multilineTextAlignment(.center).frame(maxWidth: .infinity)
-                                .foregroundStyle(Stitch.ink)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityIdentifier("place-image-choice-\(index)")
-                            Text(image.credit).font(.footnote).foregroundStyle(Stitch.inkSoft)
-                            Link("Quelle ansehen", destination: image.sourceURL)
-                                .font(.footnote).frame(minHeight: Stitch.Size.touch)
-                            if let licenseName = image.licenseName {
-                                Link("Lizenz · \(licenseName)", destination: image.licenseURL ?? image.sourceURL)
-                                    .font(.footnote).frame(minHeight: Stitch.Size.touch)
+                                .font(.caption2).frame(minHeight: Stitch.Size.touch, alignment: .leading)
                             }
                         }
-                        .stitchCard(padding: Stitch.Space.m)
                     }
+                    Text("Fotoquelle und Lizenz bleiben am Bild erhalten.")
+                        .font(Stitch.Face.footnote).foregroundStyle(Stitch.inkSoft)
                     Button(action: streetView) { Label("Apple-Karten-Vorschau", systemImage: "binoculars") }
                         .buttonStyle(StitchButton())
                 }
@@ -1221,7 +1307,13 @@ private struct PlaceImagePicker: View {
             }
             .background(PaperBackground())
             .navigationTitle("Bild wählen").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } } }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button { dismiss() } label: { Image(systemName: "xmark") }
+                        .buttonStyle(HeaderIconButton())
+                        .accessibilityLabel("Abbrechen")
+                }
+            }
         }
     }
 }

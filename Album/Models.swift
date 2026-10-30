@@ -753,16 +753,38 @@ enum InvitationLink {
 }
 
 enum LinkValidation {
+    /// Gültiger Link aus Eingabe. Ohne Schema wird https:// ergänzt („www.prague.eu“, „prague.eu/x“);
+    /// steckt der Link in einem Satz, gilt der erste Link darin.
     static func url(_ text: String) -> URL? {
-        guard let url = URL(string: text.trimmingCharacters(in: .whitespacesAndNewlines)),
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        if trimmed.contains(where: { $0.isWhitespace }) { return firstURL(in: trimmed) }
+        if trimmed.contains("://") { return strict(trimmed) }
+        // „mailto:…“, „javascript:…“ und ähnliche Schemas bleiben draußen.
+        let beforePath = trimmed.prefix { $0 != "/" }
+        guard !beforePath.contains(":"), !beforePath.contains("@") else { return nil }
+        let candidate = strict("https://" + trimmed)
+        guard let host = candidate?.host, host.contains("."),
+              let tld = host.split(separator: ".").last, tld.count >= 2,
+              tld.allSatisfy({ $0.isLetter }) else { return nil }
+        return candidate
+    }
+
+    private static func strict(_ text: String) -> URL? {
+        guard let url = URL(string: text),
               ["https", "http"].contains(url.scheme?.lowercased() ?? ""),
               let host = url.host, !host.isEmpty else { return nil }
         return url
     }
+
     static func firstURL(in text: String) -> URL? {
-        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue),
-              let match = detector.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
-              let url = match.url else { return nil }
-        return self.url(url.absoluteString)
+        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else { return nil }
+        let range = NSRange(text.startIndex..., in: text)
+        for match in detector.matches(in: text, range: range) {
+            guard let matched = Range(match.range, in: text) else { continue }
+            let literal = String(text[matched])
+            if let found = url(literal) { return found }
+        }
+        return nil
     }
 }

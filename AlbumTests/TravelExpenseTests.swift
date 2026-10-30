@@ -63,7 +63,7 @@ final class TravelExpenseTests: XCTestCase {
         XCTAssertNil(GermanMoneyParser.parseMinorUnits("1.23,4"))
         XCTAssertNil(GermanMoneyParser.parseMinorUnits("1234.567"))
         XCTAssertNil(GermanMoneyParser.parseMinorUnits("12,345"))
-        XCTAssertNil(GermanMoneyParser.parseMinorUnits("10.00"))
+        XCTAssertEqual(GermanMoneyParser.parseMinorUnits("10.00"), 1_000) // Beta-Test 1: Punkt mit 2 Stellen ist Dezimaltrenner
         XCTAssertNil(GermanMoneyParser.parseMinorUnits("0"))
         XCTAssertEqual(GermanMoneyParser.parseMinorUnits("999.999,99"), 99_999_999)
         XCTAssertNil(GermanMoneyParser.parseMinorUnits("9999999,99"))

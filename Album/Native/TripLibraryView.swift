@@ -142,10 +142,16 @@ struct TripCreateView: View {
     @State private var title = ""
     @State private var destination = ""
     @State private var saveError: String?
+    @State private var confirmDiscard = false
     let onSave: (String, String?, TripDay?, TripDay?) -> Bool
     @State private var includeDates = false
     @State private var startDate = Date()
     @State private var endDate = Calendar.current.date(byAdding: .day, value: 4, to: Date()) ?? Date()
+
+    private var hasChanges: Bool {
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || !destination.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || includeDates
+    }
 
     var body: some View {
         NavigationStack {
@@ -166,7 +172,7 @@ struct TripCreateView: View {
             }
             .navigationTitle("Neue Reise")
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() }.accessibilityIdentifier("trip-create-cancel") }
+                ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { if hasChanges { confirmDiscard = true } else { dismiss() } }.accessibilityIdentifier("trip-create-cancel") }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Speichern") {
                         let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -195,6 +201,7 @@ struct TripCreateView: View {
                     .accessibilityIdentifier("trip-create-save")
                 }
             }
+            .discardGuard(hasChanges: hasChanges, isPresented: $confirmDiscard) { dismiss() }
         }
     }
 

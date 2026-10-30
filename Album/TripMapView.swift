@@ -601,6 +601,8 @@ struct PlaceDetail: View {
     @Environment(\.dismiss) private var dismiss
     var placeID: String
     @State private var editing = false
+    @State private var choosingDay = false
+    @State private var galleryOpen = false
     @State private var viewing: PhotoView?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var place: Place? { store.places.first { $0.id == placeID } }
@@ -611,52 +613,45 @@ struct PlaceDetail: View {
         let photo: PlaceImageAsset
         let source: CGRect
     }
+
+    /// Ortsdetail nach Figma 10 (Kopf, Foto, Karte mit Kacheln, Fotos) und 11 (Weitere Infos: Ort und Adresse, Warum da hin, Planung, Bearbeiten).
     var body: some View {
         NavigationStack {
             if let place {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: Stitch.Space.l) {
-                        hero(place)
-
-                        if !facts(place).isEmpty || !place.note.isEmpty {
-                            VStack(alignment: .leading, spacing: Stitch.Space.xs) {
-                                if !place.note.isEmpty {
-                                    Text(place.note).font(.body).foregroundStyle(Stitch.ink)
-                                }
-                                ForEach(facts(place), id: \.self) { line in
-                                    Text(line).font(.subheadline).foregroundStyle(Stitch.inkSoft)
-                                }
-                            }
-                        }
-
-                        VStack(spacing: Stitch.Space.s) {
-                            if place.coordinate != nil {
-                                Button { openWalkingRoute(to: place) } label: { Label("Route", systemImage: "figure.walk") }
-                                    .buttonStyle(StitchButton(primary: true))
-                            }
+                VStack(spacing: 0) {
+                    PlaceSheetHeader(title: place.title, onBack: { dismiss() }, onClose: { dismiss() })
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: Stitch.Space.m) {
+                            hero(place)
+                            summaryCard(place)
                             if place.franked {
                                 VisitedTrack(visited: place.visited) { var p = place; p.visited = true; store.upsert(p) }
                             }
-                            if let url = LinkValidation.url(place.sourceURL) {
-                                Link(destination: url) { Label("Bei \(place.sourceLabel) ansehen", systemImage: "arrow.up.right") }
-                                    .buttonStyle(StitchButton())
-                            }
+                            if place.photoAssets.count > 1 { photosSection(place) }
+                            SectionTitle("Weitere Infos").padding(.top, Stitch.Space.xs)
+                            if !place.address.isEmpty || place.coordinate != nil { addressCard(place) }
+                            if !place.note.isEmpty { noteCard(place) }
+                            planningCard(place)
+                            Button("Ort bearbeiten") { editing = true }
+                                .buttonStyle(StitchButton())
+                                .accessibilityLabel("Bearbeiten")
+                            // Wikimedia verlangt die Nennung jeder Urheberin; leise ganz unten.
+                            if hasCredits(place) { credits(place) }
                         }
-
-                        // Wikimedia verlangt die Nennung jeder Urheberin; leise ganz unten.
-                        if hasCredits(place) { credits(place) }
+                        .padding(.horizontal, Stitch.Space.page)
+                        .padding(.bottom, Stitch.Space.xl)
                     }
-                    .padding(Stitch.Space.page)
+                    .scrollIndicators(.hidden)
                 }
                 .background(PaperBackground())
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Schließen", systemImage: "xmark") { dismiss() }
-                    }
-                    ToolbarItem(placement: .primaryAction) { Button("Bearbeiten") { editing = true } }
-                }
+                .toolbar(.hidden, for: .navigationBar)
                 .sheet(isPresented: $editing) { PlaceEditor(place: place) }
+                .sheet(isPresented: $choosingDay) {
+                    DayChoiceSheet(place: place, store: store) { choosingDay = false }
+                }
+                .fullScreenCover(isPresented: $galleryOpen) {
+                    PlaceGallery(place: place, root: store.root) { galleryOpen = false }
+                }
                 .fullScreenCover(item: $viewing) { PhotoViewer(place: place, root: store.root, source: $0.source, photo: $0.photo) }
             }
         }
@@ -671,9 +666,9 @@ struct PlaceDetail: View {
                     var instant = Transaction(animation: nil); instant.disablesAnimations = true
                     withTransaction(instant) { viewing = PhotoView(photo: photo, source: source) }
                 }
-                .frame(height: 340)
+                .frame(height: 300)
             } else {
-                PhotoCard(asset: place.displayImage, root: store.root, title: place.title, subtitle: place.category).frame(height: 340)
+                PhotoCard(asset: place.displayImage, root: store.root, title: place.title, subtitle: place.category).frame(height: 300)
             }
         }
         .overlay(alignment: .topLeading) {
@@ -685,15 +680,133 @@ struct PlaceDetail: View {
         .animation(reduceMotion ? Stitch.Motion.reducedFade : .spring(response: 0.34, dampingFraction: 0.55), value: place.visited)
     }
 
+    /// Karte mit Name, Kategorie und Ort, Herkunft und den vier Kacheln Route, Plan, Teilen, Website.
+    private func summaryCard(_ place: Place) -> some View {
+        VStack(alignment: .leading, spacing: Stitch.Space.s) {
+            Text(place.title).font(Stitch.Face.display(30)).foregroundStyle(Stitch.ink)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(([place.category] + facts(place).prefix(1)).joined(separator: " · "))
+                .font(Stitch.Face.subheadline).foregroundStyle(Stitch.inkSoft)
+            if let from = authorLine(place) { Text(from).font(Stitch.Face.footnote).foregroundStyle(Stitch.inkSoft) }
+            HStack(spacing: Stitch.Space.xs) {
+                Button { openWalkingRoute(to: place) } label: { TileFace(title: "Route", symbol: "location") }
+                    .buttonStyle(.plain).disabled(place.coordinate == nil).opacity(place.coordinate == nil ? 0.45 : 1)
+                    .accessibilityLabel("Route")
+                Button { choosingDay = true } label: { TileFace(title: "Plan", symbol: "plus", selected: place.plannedDate != nil) }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Plan")
+                    .accessibilityIdentifier("place-detail-plan")
+                shareTile(place)
+                websiteTile(place)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .stitchCard(.pinned, padding: Stitch.Space.m)
+    }
+
+    @ViewBuilder private func shareTile(_ place: Place) -> some View {
+        if let url = LinkValidation.url(place.sourceURL) {
+            ShareLink(item: url, subject: Text(place.title)) { TileFace(title: "Teilen", symbol: "square.and.arrow.up") }
+                .buttonStyle(.plain).accessibilityLabel("Teilen")
+        } else {
+            ShareLink(item: [place.title, place.address].filter { !$0.isEmpty }.joined(separator: ", ")) {
+                TileFace(title: "Teilen", symbol: "square.and.arrow.up")
+            }
+            .buttonStyle(.plain).accessibilityLabel("Teilen")
+        }
+    }
+
+    @ViewBuilder private func websiteTile(_ place: Place) -> some View {
+        if let url = LinkValidation.url(place.sourceURL) {
+            Link(destination: url) { TileFace(title: "Website", symbol: "globe") }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Bei \(place.sourceLabel) ansehen")
+        } else {
+            TileFace(title: "Website", symbol: "globe").opacity(0.45).accessibilityHidden(true)
+        }
+    }
+
+    private func photosSection(_ place: Place) -> some View {
+        VStack(alignment: .leading, spacing: Stitch.Space.s) {
+            SectionTitle(title: "Fotos") {
+                Button("Alle ansehen") { galleryOpen = true }
+                    .buttonStyle(TextActionButton())
+                    .accessibilityIdentifier("place-detail-gallery")
+            }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: Stitch.Space.xs) {
+                    ForEach(Array(place.photoAssets.enumerated()), id: \.offset) { _, asset in
+                        Button { galleryOpen = true } label: {
+                            AlbumPhoto(asset: asset, root: store.root, thumbnailWidth: 300)
+                                .frame(width: 116, height: 100)
+                                .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.small, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Foto von \(place.title)")
+                    }
+                }
+            }
+        }
+    }
+
+    private func addressCard(_ place: Place) -> some View {
+        VStack(alignment: .leading, spacing: Stitch.Space.s) {
+            Text("Ort & Adresse").font(Stitch.Face.section).foregroundStyle(Stitch.ink)
+            if !place.address.isEmpty {
+                Text(place.address).font(Stitch.Face.subheadline).foregroundStyle(Stitch.inkSoft)
+            }
+            if place.coordinate != nil {
+                Button("In Karten öffnen") { openInMaps(place) }.buttonStyle(StitchButton())
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .stitchCard(.pinned, padding: Stitch.Space.m)
+    }
+
+    private func noteCard(_ place: Place) -> some View {
+        VStack(alignment: .leading, spacing: Stitch.Space.xs) {
+            Text("Warum da hin?").font(Stitch.Face.section).foregroundStyle(Stitch.ink)
+            Text(place.note).font(Stitch.Face.body).foregroundStyle(Stitch.ink)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .stitchCard(.pinned, padding: Stitch.Space.m)
+    }
+
+    private func planningCard(_ place: Place) -> some View {
+        VStack(alignment: .leading, spacing: Stitch.Space.s) {
+            Text("Planung").font(Stitch.Face.section).foregroundStyle(Stitch.ink)
+            Button { choosingDay = true } label: {
+                LabeledFieldBox(label: "Tag") {
+                    Text(place.plannedDate.map { store.tripCalendar.dayTitle($0) } ?? "Noch offen")
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(place.plannedDate.map { "Tag, \(store.tripCalendar.dayTitle($0))" } ?? "Tag, noch offen")
+            .accessibilityAddTraits(.isButton)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .stitchCard(.pinned, padding: Stitch.Space.m)
+    }
+
     /// Adresse, Tag, Herkunft – nur was stimmt.
     private func facts(_ place: Place) -> [String] {
         var lines: [String] = []
         if !place.address.isEmpty { lines.append(place.address) }
-        if let day = place.plannedDate { lines.append(store.tripCalendar.dayTitle(day)) }
-        if place.author != store.me, place.author.localizedCaseInsensitiveCompare("Wir") != .orderedSame {
-            lines.append("Von \(place.author) eingeworfen")
-        }
         return lines
+    }
+
+    private func authorLine(_ place: Place) -> String? {
+        guard place.author != store.me, place.author.localizedCaseInsensitiveCompare("Wir") != .orderedSame else { return nil }
+        return "Von \(place.author) eingeworfen"
+    }
+
+    private func openInMaps(_ place: Place) {
+        guard let coordinate = place.coordinate else { return }
+        let item = MKMapItem(placemark: MKPlacemark(coordinate: coordinate))
+        item.name = place.title
+        item.openInMaps()
     }
 
     private func hasCredits(_ place: Place) -> Bool {
@@ -720,5 +833,56 @@ struct PlaceDetail: View {
             }
         }
         .font(.caption).foregroundStyle(Stitch.inkSoft).tint(Stitch.inkSoft)
+    }
+}
+
+/// Galerie (Figma 12): dunkle Seite, großes Foto mit „Name · n von m“, Bildnachweis, Vorschaustreifen.
+struct PlaceGallery: View {
+    let place: Place
+    let root: URL
+    let onClose: () -> Void
+    @State private var index = 0
+
+    private var photos: [PlaceImageAsset] { place.photoAssets.isEmpty ? (place.displayImage.map { [$0] } ?? []) : place.photoAssets }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            PlaceSheetHeader(title: "Fotos", dark: true, onBack: onClose, onClose: onClose)
+            ScrollView {
+                VStack(alignment: .leading, spacing: Stitch.Space.s) {
+                    if photos.indices.contains(index) {
+                        AlbumPhoto(asset: photos[index], root: root, thumbnailWidth: 1200)
+                            .frame(height: 490).frame(maxWidth: .infinity)
+                            .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
+                            .accessibilityLabel("Foto von \(place.title), \(index + 1) von \(photos.count)")
+                        Text("\(place.title) · \(index + 1) von \(photos.count)")
+                            .font(Stitch.Face.headline).foregroundStyle(Stitch.onAction).monospacedDigit()
+                        if let credit = photos[index].credit {
+                            Text("Foto: \(credit)").font(Stitch.Face.footnote).foregroundStyle(Stitch.onAction.opacity(0.85))
+                        }
+                    }
+                    if photos.count > 1 {
+                        HStack(spacing: Stitch.Space.xs) {
+                            ForEach(Array(photos.enumerated()), id: \.offset) { offset, asset in
+                                Button { index = offset } label: {
+                                    AlbumPhoto(asset: asset, root: root, thumbnailWidth: 300)
+                                        .frame(maxWidth: .infinity).frame(height: 100)
+                                        .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.small, style: .continuous))
+                                        .overlay(RoundedRectangle(cornerRadius: Stitch.Radius.small, style: .continuous)
+                                            .strokeBorder(Stitch.onAction, lineWidth: offset == index ? 2 : 0))
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel("Foto \(offset + 1) wählen")
+                                .accessibilityAddTraits(offset == index ? .isSelected : [])
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, Stitch.Space.page).padding(.bottom, Stitch.Space.xl)
+            }
+            .scrollIndicators(.hidden)
+        }
+        .background(Stitch.scrim.ignoresSafeArea())
+        .environment(\.colorScheme, .dark)
     }
 }

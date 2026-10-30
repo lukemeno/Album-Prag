@@ -67,6 +67,7 @@
 		6CE226A25567DD39D8B1B669 /* ReiseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D65E5CE134035E1E79693B07 /* ReiseView.swift */; };
 		71CCB29D97812AF1824E5BCC /* InstrumentSerif.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C4C6D8A6AB41421423966DE5 /* InstrumentSerif.ttf */; };
 		73F323DDE803430E6089C724 /* SyncIsland.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDF5B5A216983D29274750D0 /* SyncIsland.swift */; };
+		7492517A1485B81CB2B4EBD3 /* MoneyAndLinkParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1821DDCAD12A3FA641BDD8E /* MoneyAndLinkParsingTests.swift */; };
 		758EF5A135BFE61254A29749 /* AssistantService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 063EBAEF481875CED99A6755 /* AssistantService.swift */; };
 		82B985A9E054F2306C718B8C /* AlbumMotionUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF18804D14A00730CE4A1FE6 /* AlbumMotionUITests.swift */; };
 		861C66CA273B9FCF131CC452 /* AlbumSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = F288A095809BE84F03E8D0A2 /* AlbumSettings.swift */; };
@@ -258,6 +259,7 @@
 		DDF5B5A216983D29274750D0 /* SyncIsland.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncIsland.swift; sourceTree = "<group>"; };
 		E13D0031DC87CF8BD2024A77 /* VisitedTrack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisitedTrack.swift; sourceTree = "<group>"; };
 		E14DCE94657DB2424BD88F22 /* AlbumExperienceViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumExperienceViews.swift; sourceTree = "<group>"; };
+		E1821DDCAD12A3FA641BDD8E /* MoneyAndLinkParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoneyAndLinkParsingTests.swift; sourceTree = "<group>"; };
 		E390D0CC63F946CAD5EFCACB /* FullJourneyUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullJourneyUITests.swift; sourceTree = "<group>"; };
 		E4CB9566B5C99924A3FCEF35 /* AlbumUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = AlbumUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E637636EDC64E76700ECAE89 /* OFL-Caveat.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "OFL-Caveat.txt"; sourceTree = "<group>"; };
@@ -353,6 +355,7 @@
 				350A77A5FC958D8DF7DBAD9A /* DiscoveryTests.swift */,
 				B1FCE1CF99BCC1C1B3B75511 /* DownloadRegressionTests.swift */,
 				C14BA3EBA246DF545E054565 /* MapPinClusteringTests.swift */,
+				E1821DDCAD12A3FA641BDD8E /* MoneyAndLinkParsingTests.swift */,
 				1C2DFC9BA40C7EB6FE9650E4 /* NightBuildAcceptanceTests.swift */,
 				114AF5175381935B5F2A6821 /* PhotoResolutionCoordinatorTests.swift */,
 				542AD33E4F0601287FF4F53E /* PlaceImageServiceRegionTests.swift */,
@@ -747,6 +750,7 @@
 				A3AB306714B5A7C1F4D89B70 /* DiscoveryTests.swift in Sources */,
 				42E81C3DBA9C056C6AEA9CC4 /* DownloadRegressionTests.swift in Sources */,
 				D52BBA44794061E51946575C /* MapPinClusteringTests.swift in Sources */,
+				7492517A1485B81CB2B4EBD3 /* MoneyAndLinkParsingTests.swift in Sources */,
 				52EFF728EE08576C9E38A3E5 /* NightBuildAcceptanceTests.swift in Sources */,
 				F5188CC181D3E538B4C67B18 /* PhotoResolutionCoordinatorTests.swift in Sources */,
 				CF77B7AD8BB75092E3E09A8B /* PlaceImageServiceRegionTests.swift in Sources */,

@@ -112,13 +112,24 @@ enum GermanMoneyParser {
     static let maximumMinorUnits = 99_999_999
     static func parse(_ input: String) -> Int? { parseMinorUnits(input) }
 
-    /// Strictly parses German notation into minor units. Thousands use dots,
-    /// decimals use one comma and have one or two digits.
+    /// Parses German notation into minor units. Thousands use dots, decimals use one comma with one or two digits.
+    /// Pasted input is tolerated: currency signs/codes and spaces are dropped, and a lone dot followed by one or two
+    /// digits (no comma) is a decimal separator ("12.50"). A dot followed by exactly three digits stays a thousands dot.
     static func parseMinorUnits(_ input: String) -> Int? {
-        let value = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !value.isEmpty,
-              value.range(of: #"^(?:[0-9]+|[0-9]{1,3}(?:\.[0-9]{3})+)(?:,[0-9]{1,2})?$"#, options: .regularExpression) != nil else { return nil }
-        let pieces = value.split(separator: ",", omittingEmptySubsequences: false)
+        let value = normalized(input)
+        guard !value.isEmpty else { return nil }
+        let strict = #"^(?:[0-9]+|[0-9]{1,3}(?:\.[0-9]{3})+)(?:,[0-9]{1,2})?$"#
+        let dotDecimal = #"^[0-9]+\.[0-9]{1,2}$"#
+        let canonical: String
+        if value.contains(",") {
+            canonical = value
+        } else if value.range(of: dotDecimal, options: .regularExpression) != nil {
+            canonical = value.replacingOccurrences(of: ".", with: ",")
+        } else {
+            canonical = value
+        }
+        guard canonical.range(of: strict, options: .regularExpression) != nil else { return nil }
+        let pieces = canonical.split(separator: ",", omittingEmptySubsequences: false)
         let integer = pieces[0].replacingOccurrences(of: ".", with: "")
         guard let whole = Int(integer), whole <= (Int.max / 100) else { return nil }
         let decimal = pieces.count == 2 ? String(pieces[1]) : ""
@@ -128,6 +139,13 @@ enum GermanMoneyParser {
               whole * 100 + minor <= maximumMinorUnits else { return nil }
         let result = whole * 100 + minor
         return result > 0 ? result : nil
+    }
+
+    /// Entfernt Währungszeichen/-codes und jede Art von Leerraum (auch geschützte Leerzeichen).
+    private static func normalized(_ input: String) -> String {
+        var text = input
+        for token in ["€", "EUR", "eur", "Eur"] { text = text.replacingOccurrences(of: token, with: "") }
+        return String(text.unicodeScalars.filter { !CharacterSet.whitespacesAndNewlines.contains($0) && $0.value != 0x00A0 && $0.value != 0x202F }.map(Character.init))
     }
 
     static func parseRateHundredths(_ input: String) -> Int? {
