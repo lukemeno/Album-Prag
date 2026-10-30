@@ -511,11 +511,11 @@ struct PlaceEditor: View {
         } label: {
             HStack(spacing: Stitch.Space.s) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(item.name ?? "Ort").font(Stitch.Face.headline).foregroundStyle(Stitch.ink)
-                    Text(item.placemark.title ?? "").font(Stitch.Face.footnote).foregroundStyle(Stitch.inkSoft)
+                    Text(item.name ?? "Ort").font(Stitch.Face.headline).foregroundStyle(selected ? Stitch.Stamp.ink : Stitch.ink)
+                    Text(item.placemark.title ?? "").font(Stitch.Face.footnote).foregroundStyle(selected ? Stitch.Stamp.inkSoft : Stitch.inkSoft)
                 }
                 Spacer(minLength: 0)
-                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(Stitch.ink)
+                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(selected ? Stitch.Stamp.ink : Stitch.ink)
             }
             .padding(Stitch.Space.s)
             .frame(maxWidth: .infinity, minHeight: Stitch.Size.touch, alignment: .leading)

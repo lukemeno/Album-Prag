@@ -18,8 +18,8 @@ struct DayPlanPreview: View {
                         .font(Stitch.Face.subheadline).foregroundStyle(Stitch.inkSoft)
                         .fixedSize(horizontal: false, vertical: true)
                     Toggle("Schon geplante Orte behalten", isOn: $keepAssigned)
-                        .font(Stitch.Face.subheadline.weight(.semibold)).foregroundStyle(Stitch.ink)
-                        .tint(Stitch.ink)
+                        .font(Stitch.Face.subheadline.weight(.semibold)).foregroundStyle(Stitch.Stamp.ink)
+                        .tint(Stitch.Stamp.ink)
                         .padding(.horizontal, Stitch.Space.m).frame(minHeight: Stitch.Size.touch)
                         .background(Stitch.Stamp.sky, in: RoundedRectangle(cornerRadius: Stitch.Radius.small, style: .continuous))
                     if let proposal {

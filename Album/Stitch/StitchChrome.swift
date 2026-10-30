@@ -354,7 +354,7 @@ struct TileFace: View {
             Image(systemName: symbol).font(.title3.weight(.medium)).frame(height: 24)
             Text(title).font(Stitch.Face.caption)
         }
-        .foregroundStyle(Stitch.ink)
+        .foregroundStyle(selected ? Stitch.Stamp.ink : Stitch.ink)
         .frame(maxWidth: .infinity, minHeight: 64)
         .background(selected ? Stitch.Stamp.sky : Stitch.paper, in: RoundedRectangle(cornerRadius: Stitch.Radius.small, style: .continuous))
         .contentShape(RoundedRectangle(cornerRadius: Stitch.Radius.small, style: .continuous))
