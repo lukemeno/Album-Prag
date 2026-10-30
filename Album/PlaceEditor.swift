@@ -714,8 +714,8 @@ struct PlaceEditor: View {
                 searchError = nil
                 return
             }
-            if force, result.choices.isEmpty, PlaceImageService.isUserChosen(requested.image) {
-                // Ein eigenes oder bewusst gewähltes Bild bleibt, bis die Person den Apple-Fallback ausdrücklich auswählt.
+            if force, result.choices.isEmpty {
+                // Nach „Bild wählen“ bleibt das bisherige Bild, bis die Person den Apple-Fallback ausdrücklich auswählt.
                 imageChoices = ImageChoices(place: requested, images: [])
                 searchError = nil
                 return
@@ -744,7 +744,7 @@ struct PlaceEditor: View {
         } catch {
             guard isCurrentImageOperation(generation), PlaceImageService.matchesRequest(requested, place), requested.image == place.image,
                   store.tripRegionContext(for: requested) == context else { return }
-            if force, PlaceImageService.isUserChosen(requested.image) {
+            if force {
                 imageChoices = ImageChoices(place: requested, images: [])
                 searchError = nil
                 return
