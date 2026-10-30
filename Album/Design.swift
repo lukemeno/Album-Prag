@@ -131,9 +131,17 @@ struct PhotoCard: View {
     var display = false
     /// Kleinere Fassung laden (nur Wikimedia bietet Breiten an); nil: wie geliefert.
     var thumbnailWidth: Int? = nil
+    /// Aus, wenn der Name schon direkt unter dem Foto steht (Ortsdetail).
+    var showsCaption = true
     var body: some View {
         ZStack(alignment: .bottomLeading) {
             AlbumPhoto(asset: asset, root: root, thumbnailWidth: thumbnailWidth)
+            if showsCaption { caption }
+        }.clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
+    }
+
+    private var caption: some View {
+        ZStack(alignment: .bottomLeading) {
             LinearGradient(stops: [
                 .init(color: .clear, location: 0),
                 .init(color: .black.opacity(0.06), location: 0.48),
@@ -145,7 +153,7 @@ struct PhotoCard: View {
                 Text(subtitle).font(.subheadline.weight(.medium))
                 if !detail.isEmpty { Text(detail).font(.footnote) }
             }.foregroundStyle(.white).padding(Stitch.Space.m)
-        }.clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
+        }
     }
 }
 

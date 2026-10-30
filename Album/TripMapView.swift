@@ -662,13 +662,13 @@ struct PlaceDetail: View {
     private func hero(_ place: Place) -> some View {
         Group {
             if place.photoAssets.count > 1 {
-                PhotoStack(photos: place.photoAssets, root: store.root, title: place.title, subtitle: place.category) { photo, source in
+                PhotoStack(photos: place.photoAssets, root: store.root, title: place.title, subtitle: place.category, showsCaption: false) { photo, source in
                     var instant = Transaction(animation: nil); instant.disablesAnimations = true
                     withTransaction(instant) { viewing = PhotoView(photo: photo, source: source) }
                 }
                 .frame(height: 300)
             } else {
-                PhotoCard(asset: place.displayImage, root: store.root, title: place.title, subtitle: place.category).frame(height: 300)
+                PhotoCard(asset: place.displayImage, root: store.root, title: place.title, subtitle: place.category, showsCaption: false).frame(height: 300)
             }
         }
         .overlay(alignment: .topLeading) {

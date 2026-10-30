@@ -16,6 +16,7 @@ struct PhotoStack: View {
     let root: URL
     var title: String
     var subtitle: String
+    var showsCaption = true
     var onOpen: (PlaceImageAsset, CGRect) -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -61,7 +62,7 @@ struct PhotoStack: View {
         let slot = slot(position)
         Group {
             if position == 0 {
-                PhotoCard(asset: photos[id], root: root, title: title, subtitle: subtitle, thumbnailWidth: 960)
+                PhotoCard(asset: photos[id], root: root, title: title, subtitle: subtitle, thumbnailWidth: 960, showsCaption: showsCaption)
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel("Foto von \(title), \(subtitle), \(id + 1) von \(photos.count)")
                     .accessibilityAddTraits(.isButton)
