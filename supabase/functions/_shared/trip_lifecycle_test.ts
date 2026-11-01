@@ -83,6 +83,17 @@ Deno.test("repeating a delete after success answers gone, not an error", async (
   assertEquals(again.body.status, "gone");
 });
 
+Deno.test("delete removes files stored under either case of the trip id", async () => {
+  const { store, files } = fakeStore();
+  const upper = TRIP.toUpperCase();
+  files.set("trip-images", [`${upper}/x/1.jpg`]);
+  files.set("trip-files", [`${upper}/doc.pdf`]);
+  files.set("trip-album", [`${TRIP}/${OWNER}/2.jpg`]);
+  const result = await handleTripLifecycle("delete", upper, OWNER, store);
+  assertEquals(result.status, 200);
+  for (const bucket of TRIP_BUCKETS) assertEquals(files.get(bucket), [], bucket);
+});
+
 Deno.test("storage failure still deletes the trip and reports leftovers", async () => {
   const { store, isTripGone } = fakeStore({ failStorage: true });
   const result = await handleTripLifecycle("delete", TRIP, OWNER, store);

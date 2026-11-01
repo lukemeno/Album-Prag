@@ -29,6 +29,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export async function handleTripLifecycle(action: TripAction, tripID: string, userID: string,
                                           store: TripLifecycleStore): Promise<TripLifecycleResult> {
   if (!UUID.test(tripID)) return { status: 400, body: { error: "Ungültige Reise" } };
+  tripID = tripID.toLowerCase();
   if (!(await store.tripExists(tripID))) return { status: 200, body: { status: "gone" } };
   const role = await store.role(tripID, userID);
   if (!role) return { status: 403, body: { error: "Kein Mitglied dieser Reise" } };
@@ -54,7 +55,10 @@ async function removeTripFiles(tripID: string, store: TripLifecycleStore): Promi
   let complete = true;
   for (const bucket of TRIP_BUCKETS) {
     try {
-      const paths = await store.listFiles(bucket, `${tripID}/`);
+      // The app writes some buckets under the upper-case id and others under
+      // the lower-case one; storage paths are case-sensitive.
+      const prefixes = new Set([`${tripID.toLowerCase()}/`, `${tripID.toUpperCase()}/`]);
+      const paths = [...new Set((await Promise.all([...prefixes].map(prefix => store.listFiles(bucket, prefix)))).flat())];
       for (let start = 0; start < paths.length; start += 100) {
         await store.removeFiles(bucket, paths.slice(start, start + 100));
       }
