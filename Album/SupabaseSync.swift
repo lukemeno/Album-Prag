@@ -10,6 +10,7 @@ enum AlbumSyncError: LocalizedError {
     case membershipLost
     case protocolUpgradeRequired
     case syncConflict
+    case tripRemoved
 
     var errorDescription: String? {
         switch self {
@@ -25,6 +26,8 @@ enum AlbumSyncError: LocalizedError {
             return "Diese gemeinsame Reise wurde aktualisiert. Bitte bringe Album auf den neuesten Stand und synchronisiere erneut."
         case .syncConflict:
             return "Ein anderes Gerät hat die gemeinsame Reise gerade geändert. Deine Änderungen sind gespeichert und werden beim nächsten Abgleich übertragen."
+        case .tripRemoved:
+            return "Diese Reise wurde gelöscht oder du bist nicht mehr dabei. Was hier liegt, bleibt auf diesem iPhone, bis du die Reise in der Übersicht löschst."
         }
     }
 }
@@ -92,6 +95,8 @@ enum SupabaseConfiguration {
     func startRealtime(onChange: @escaping @MainActor @Sendable () async -> Void)
     func stopRealtime() async
     func authenticatedUserID() async throws -> String
+    func tripRole(tripID: UUID) async throws -> TripMemberRole?
+    func endMembership(tripID: UUID, deleteForEveryone: Bool) async throws
 }
 
 @MainActor extension AlbumSyncService {
@@ -101,6 +106,16 @@ enum SupabaseConfiguration {
     /// Lifecycle hook for stores that are replaced by the trip library. Older
     /// test doubles remain source compatible and simply do nothing.
     func stopRealtime() async {}
+
+    func tripRole(tripID: UUID) async throws -> TripMemberRole? { throw AlbumSyncError.missingConfiguration }
+    func endMembership(tripID: UUID, deleteForEveryone: Bool) async throws { throw AlbumSyncError.missingConfiguration }
+}
+
+enum TripMemberRole: String, Decodable { case owner, member }
+
+private struct TripLifecycleRequest: Encodable {
+    let tripID: UUID
+    enum CodingKeys: String, CodingKey { case tripID = "trip_id" }
 }
 
 private struct CreateTripResponse: Decodable {
@@ -769,11 +784,36 @@ private struct V2RevisionCache: Codable {
             .select("user_id").eq("trip_id", value: tripID).limit(1).execute().value
         guard rows.isEmpty else { return }
         guard let inviteToken, inviteToken.count >= 32 else { throw AlbumSyncError.membershipLost }
-        let response: JoinTripResponse = try await client.functions.invoke(
-            "join-trip",
-            options: FunctionInvokeOptions(body: JoinTripRequest(inviteToken: inviteToken))
-        )
+        let response: JoinTripResponse
+        do {
+            response = try await client.functions.invoke(
+                "join-trip",
+                options: FunctionInvokeOptions(body: JoinTripRequest(inviteToken: inviteToken))
+            )
+        } catch FunctionsError.httpError(404, _) {
+            // The invitation no longer resolves: the trip was deleted.
+            throw AlbumSyncError.tripRemoved
+        }
         guard response.tripID == tripID else { throw AlbumSyncError.membershipLost }
+    }
+
+    func tripRole(tripID: UUID) async throws -> TripMemberRole? {
+        struct RoleRow: Decodable { let role: TripMemberRole }
+        try await ensureSession()
+        let me = try await authenticatedUserID()
+        let rows: [RoleRow] = try await client.from("trip_members").select("role")
+            .eq("trip_id", value: tripID).eq("user_id", value: me).limit(1).execute().value
+        return rows.first?.role
+    }
+
+    /// Owners delete for everyone, members leave. The server answers "gone"
+    /// with 200 when the trip no longer exists, so a retry is harmless.
+    func endMembership(tripID: UUID, deleteForEveryone: Bool) async throws {
+        try await ensureSession()
+        try await client.functions.invoke(
+            deleteForEveryone ? "delete-trip" : "leave-trip",
+            options: FunctionInvokeOptions(body: TripLifecycleRequest(tripID: tripID))
+        )
     }
 
     /// Merkt sich die gelesenen Server-Revisionen als CAS-Basis. Lokale, noch nicht übertragene Änderungen

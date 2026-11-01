@@ -102,6 +102,81 @@ final class TripLibraryTests: XCTestCase {
         }
     }
 
+    @MainActor
+    private final class RemovalService: AlbumSyncService {
+        var role: TripMemberRole?
+        var failEnd = false
+        var calls: [(UUID, Bool)] = []
+        func createTrip(store: AlbumStore) async throws -> CollaborationState { throw AlbumSyncError.missingConfiguration }
+        func joinTrip(token: String) async throws -> CollaborationState { throw AlbumSyncError.missingConfiguration }
+        func sync(store: AlbumStore) async throws {}
+        func startRealtime(onChange: @escaping @MainActor @Sendable () async -> Void) {}
+        func tripRole(tripID: UUID) async throws -> TripMemberRole? { role }
+        func endMembership(tripID: UUID, deleteForEveryone: Bool) async throws {
+            if failEnd { throw URLError(.notConnectedToInternet) }
+            calls.append((tripID, deleteForEveryone))
+        }
+    }
+
+    /// One local trip that is linked to a server trip.
+    private func sharedTripLibrary(_ service: RemovalService, name: String = #function) throws -> (TripLibrary, UUID, UUID) {
+        let root = try temporaryRoot(name)
+        let library = TripLibrary(root: root.appendingPathComponent("AlbumLibrary"),
+                                  legacyRoot: root.appendingPathComponent("Album"),
+                                  shareInbox: ShareInbox(root: root.appendingPathComponent("share")),
+                                  syncServiceFactory: { service })
+        let id = try XCTUnwrap(library.createBlankTrip(title: "Lissabon"))
+        XCTAssertTrue(library.open(id))
+        let remote = UUID()
+        library.activeStore?.data.collaboration = CollaborationState(tripID: remote, inviteToken: nil)
+        XCTAssertTrue(library.activeStore?.persist() ?? false)
+        library.refreshActiveEntry()
+        library.showLibrary()
+        return (library, id, remote)
+    }
+
+    func testOwnerDeletesSharedTripOnServerBeforeDevice() async throws {
+        let service = RemovalService(); service.role = .owner
+        let (library, id, remote) = try sharedTripLibrary(service)
+        let kind = try await library.removal(for: id)
+        XCTAssertEqual(kind, .deleteForEveryone)
+        try await library.remove(id, as: kind)
+        XCTAssertEqual(service.calls.map(\.0), [remote])
+        XCTAssertEqual(service.calls.map(\.1), [true])
+        XCTAssertFalse(library.entries.contains { $0.id == id })
+    }
+
+    func testMemberLeavesInsteadOfDeletingForEveryone() async throws {
+        let service = RemovalService(); service.role = .member
+        let (library, id, _) = try sharedTripLibrary(service)
+        let kind = try await library.removal(for: id)
+        XCTAssertEqual(kind, .leave)
+        try await library.remove(id, as: kind)
+        XCTAssertEqual(service.calls.map(\.1), [false])
+        XCTAssertFalse(library.entries.contains { $0.id == id })
+    }
+
+    func testServerFailureKeepsTheTripOnDevice() async throws {
+        let service = RemovalService(); service.role = .owner; service.failEnd = true
+        let (library, id, _) = try sharedTripLibrary(service)
+        do {
+            try await library.remove(id, as: .deleteForEveryone)
+            XCTFail("Ohne Server darf eine geteilte Reise nicht verschwinden")
+        } catch {}
+        XCTAssertTrue(library.entries.contains { $0.id == id })
+        XCTAssertTrue(library.open(id))
+    }
+
+    func testTripAlreadyGoneOnServerIsRemovedLocallyOnly() async throws {
+        let service = RemovalService(); service.role = nil
+        let (library, id, _) = try sharedTripLibrary(service)
+        let kind = try await library.removal(for: id)
+        XCTAssertEqual(kind, .deviceOnly)
+        try await library.remove(id, as: kind)
+        XCTAssertTrue(service.calls.isEmpty)
+        XCTAssertFalse(library.entries.contains { $0.id == id })
+    }
+
     func testBlankTripIsTrulyEmptyAndIndependent() throws {
         let root = try temporaryRoot()
         let inboxRoot = root.appendingPathComponent("share")

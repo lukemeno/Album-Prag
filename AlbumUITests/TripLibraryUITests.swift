@@ -126,6 +126,44 @@ final class TripLibraryUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Nur in Paris")).firstMatch.waitForExistence(timeout: 8), app.debugDescription)
     }
 
+    func testDeleteTripAsksFirstAndOnlyRemovesThatTrip() {
+        let app = launch()
+        create("Paris", destination: "Paris", in: app)
+        tap("trip-back-library", in: app)
+        create("Berlin", destination: "Berlin", in: app)
+        tap("trip-back-library", in: app)
+
+        let card = { (name: String) in
+            app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label CONTAINS %@", "library-trip-", name)).firstMatch
+        }
+        XCTAssertTrue(card("Berlin").waitForExistence(timeout: 8), app.debugDescription)
+
+        // Abbrechen lässt alles, wie es war.
+        card("Berlin").press(forDuration: 1.2)
+        tap("library-trip-delete", in: app)
+        let alert = app.alerts.firstMatch
+        XCTAssertTrue(alert.waitForExistence(timeout: 4), app.debugDescription)
+        XCTAssertTrue(alert.label.contains("Berlin"), "Rückfrage nennt die Reise nicht: \(alert.label)")
+        capture("delete-confirm", from: app)
+        alert.buttons["Abbrechen"].tap()
+        XCTAssertTrue(card("Berlin").waitForExistence(timeout: 4), app.debugDescription)
+
+        // Löschen entfernt nur Berlin, auch nach Neustart.
+        card("Berlin").press(forDuration: 1.2)
+        tap("library-trip-delete", in: app)
+        XCTAssertTrue(alert.waitForExistence(timeout: 4), app.debugDescription)
+        alert.buttons["Löschen"].tap()
+        XCTAssertFalse(card("Berlin").waitForExistence(timeout: 3), app.debugDescription)
+        XCTAssertTrue(card("Paris").exists, app.debugDescription)
+        capture("after-delete", from: app)
+
+        app.terminate()
+        app.launch()
+        if app.buttons["trip-back-library"].waitForExistence(timeout: 6) { app.buttons["trip-back-library"].tap() }
+        XCTAssertTrue(card("Paris").waitForExistence(timeout: 8), app.debugDescription)
+        XCTAssertFalse(card("Berlin").exists, app.debugDescription)
+    }
+
     func testFreshTripPromptsForNameBeforePlanIsUsable() {
         let app = launch(withName: false)
         create("Name-Test", destination: "Wien", in: app)

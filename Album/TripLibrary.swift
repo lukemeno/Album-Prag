@@ -82,6 +82,7 @@ struct LegacyMigrationReceipt: Codable, Equatable {
     @ObservationIgnored private let copier: (URL, URL) throws -> Void
     @ObservationIgnored private let storeFactory: (URL, ShareInbox, Bool) -> AlbumStore
     @ObservationIgnored private let indexWriter: ((Data, URL) throws -> Void)?
+    @ObservationIgnored private let syncServiceFactory: () throws -> AlbumSyncService
     @ObservationIgnored private let fileManager: FileManager
     @ObservationIgnored private var readOnlyIndex = false
     @ObservationIgnored private var indexLastOpenedID: UUID?
@@ -89,6 +90,7 @@ struct LegacyMigrationReceipt: Codable, Equatable {
     private var indexURL: URL { root.appendingPathComponent("library.json") }
     private var receiptURL: URL { root.appendingPathComponent("legacy-migration.json") }
     private var tripsURL: URL { root.appendingPathComponent("Trips", isDirectory: true) }
+    private var trashURL: URL { root.appendingPathComponent("Trash", isDirectory: true) }
     private static let pristineCleanupMarker = "legacy-pristine-cleanup-v1"
 
     init(root: URL? = nil, legacyRoot: URL? = nil, shareInbox: ShareInbox = ShareInbox(),
@@ -100,8 +102,10 @@ struct LegacyMigrationReceipt: Codable, Equatable {
          }, copier: @escaping (URL, URL) throws -> Void = { source, destination in
              try FileManager.default.copyItem(at: source, to: destination)
          }, storeFactory: ((URL, ShareInbox, Bool) -> AlbumStore)? = nil,
-         indexWriter: ((Data, URL) throws -> Void)? = nil) {
+         indexWriter: ((Data, URL) throws -> Void)? = nil,
+         syncServiceFactory: (() throws -> AlbumSyncService)? = nil) {
         self.fileManager = fileManager
+        self.syncServiceFactory = syncServiceFactory ?? { try SupabaseSync.configured() }
         self.shareInbox = shareInbox
         self.availableCapacity = availableCapacity
         self.copier = copier
@@ -205,6 +209,51 @@ struct LegacyMigrationReceipt: Codable, Equatable {
     func createStarterTrip(title: String = "Neue Reise", destination: String? = nil) -> UUID? {
         createTrip(origin: .starter, title: title, destination: destination,
                    startDate: nil, endDate: nil, includeExamples: false)
+    }
+
+    enum Removal: Equatable { case deviceOnly, deleteForEveryone, leave }
+
+    /// A shared trip is deleted for everyone by its owner and left by members.
+    /// Without a server membership (never shared, already deleted, or left on
+    /// another path) only this device's copy remains to remove.
+    func removal(for id: UUID) async throws -> Removal {
+        guard let remote = entries.first(where: { $0.id == id })?.remoteTripID else { return .deviceOnly }
+        switch try await syncServiceFactory().tripRole(tripID: remote) {
+        case .owner: return .deleteForEveryone
+        case .member: return .leave
+        case nil: return .deviceOnly
+        }
+    }
+
+    /// Server first: a failed request leaves everything in place, so a shared
+    /// trip is never gone here while it lives on for the others.
+    func remove(_ id: UUID, as removal: Removal) async throws {
+        if removal != .deviceOnly, let remote = entries.first(where: { $0.id == id })?.remoteTripID {
+            try await syncServiceFactory().endMembership(tripID: remote, deleteForEveryone: removal == .deleteForEveryone)
+        }
+        guard removeTripFromDevice(id) else { throw CocoaError(.fileWriteUnknown) }
+    }
+
+    /// Removes a trip from this device. The folder moves to `Trash/` outside
+    /// `Trips/`, so the folder scan cannot bring it back and a mistake stays
+    /// recoverable on disk. Server-side deletion is the caller's job.
+    @discardableResult
+    func removeTripFromDevice(_ id: UUID) -> Bool {
+        guard let index = entries.firstIndex(where: { $0.id == id }) else { return false }
+        if activeID == id { showLibrary() }
+        if folderExists(id) {
+            do {
+                try fileManager.createDirectory(at: trashURL, withIntermediateDirectories: true)
+                let stamp = Int(Date().timeIntervalSince1970)
+                try fileManager.moveItem(at: tripURL(id), to: trashURL.appendingPathComponent("\(id.uuidString)-\(stamp)", isDirectory: true))
+            } catch {
+                self.error = "Die Reise konnte nicht gelöscht werden: \(error.localizedDescription)"
+                return false
+            }
+        }
+        entries.remove(at: index)
+        if indexLastOpenedID == id { indexLastOpenedID = nil }
+        return persistIndex()
     }
 
     /// Re-reads folder metadata without constructing AlbumStores for every

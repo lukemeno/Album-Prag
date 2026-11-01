@@ -6,6 +6,10 @@ import SwiftUI
 struct TripLibraryView: View {
     @Environment(TripLibrary.self) private var library
     @State private var showingCreate = false
+    @State private var pendingRemoval: PendingRemoval?
+    @State private var removing = false
+
+    private struct PendingRemoval { let entry: TripLibraryEntry; let kind: TripLibrary.Removal }
 
     var body: some View {
         NavigationStack {
@@ -77,6 +81,14 @@ struct TripLibraryView: View {
             }
             .environment(library)
         }
+        .alert(pendingRemoval.map(title) ?? "",
+               isPresented: Binding(get: { pendingRemoval != nil }, set: { if !$0 { pendingRemoval = nil } }),
+               presenting: pendingRemoval) { pending in
+            Button(confirmLabel(pending.kind), role: .destructive) { remove(pending) }
+            Button("Abbrechen", role: .cancel) {}
+        } message: { pending in
+            Text(message(pending.kind))
+        }
         // TripLibrary loads its index during initialization and refreshes it
         // after every create/open/background transition; avoid constructing a
         // second store merely to redraw this cache view.
@@ -124,8 +136,57 @@ struct TripLibraryView: View {
             .stitchCard(.pinned, padding: Stitch.Space.s)
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            Button("Reise löschen", systemImage: "trash", role: .destructive) { prepareRemoval(entry) }
+                .accessibilityIdentifier("library-trip-delete")
+                .disabled(removing)
+        }
         .accessibilityIdentifier("library-trip-\(entry.id.uuidString)")
         .accessibilityLabel("\(entry.destination ?? entry.title), \(period(entry)), öffnen")
+    }
+
+    private func name(of entry: TripLibraryEntry) -> String { entry.destination?.nilIfEmpty ?? entry.title }
+
+    private func prepareRemoval(_ entry: TripLibraryEntry) {
+        removing = true
+        Task {
+            defer { removing = false }
+            do { pendingRemoval = PendingRemoval(entry: entry, kind: try await library.removal(for: entry.id)) }
+            catch { library.error = "Für eine geteilte Reise braucht das Löschen eine Internetverbindung. Bitte versuch es gleich noch einmal." }
+        }
+    }
+
+    private func remove(_ pending: PendingRemoval) {
+        removing = true
+        Task {
+            defer { removing = false }
+            do { try await library.remove(pending.entry.id, as: pending.kind) }
+            catch { library.error = "„\(name(of: pending.entry))“ wurde nicht gelöscht. Prüfe deine Internetverbindung und versuch es noch einmal." }
+        }
+    }
+
+    private func title(_ pending: PendingRemoval) -> String {
+        switch pending.kind {
+        case .deviceOnly: "„\(name(of: pending.entry))“ löschen?"
+        case .deleteForEveryone: "„\(name(of: pending.entry))“ für alle löschen?"
+        case .leave: "„\(name(of: pending.entry))“ verlassen?"
+        }
+    }
+
+    private func confirmLabel(_ kind: TripLibrary.Removal) -> String {
+        switch kind {
+        case .deviceOnly: "Löschen"
+        case .deleteForEveryone: "Für alle löschen"
+        case .leave: "Verlassen"
+        }
+    }
+
+    private func message(_ kind: TripLibrary.Removal) -> String {
+        switch kind {
+        case .deviceOnly: "Pläne, Ideen, Unterlagen und Erinnerungen dieser Reise verschwinden von diesem iPhone."
+        case .deleteForEveryone: "Die Reise verschwindet für alle Mitreisenden, mit allen Fotos und Unterlagen. Das lässt sich nicht rückgängig machen."
+        case .leave: "Die Reise verschwindet von diesem iPhone. Die anderen behalten sie."
+        }
     }
 
     private func period(_ entry: TripLibraryEntry) -> String {
