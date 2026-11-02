@@ -15,8 +15,8 @@ final class CollectionUITests: XCTestCase {
     }
 
     private func openCollection(_ app: XCUIApplication) {
-        XCTAssertTrue(app.tabBars.buttons["Ideen"].waitForExistence(timeout: 10))
-        app.tabBars.buttons["Ideen"].tap()
+        XCTAssertTrue(app.buttons["native-tab-ideas"].waitForExistence(timeout: 10))
+        app.buttons["native-tab-ideas"].tap()
         XCTAssertTrue(app.buttons["Sammlung"].waitForExistence(timeout: 5))
         app.buttons["Sammlung"].tap()
         XCTAssertTrue(app.navigationBars["Sammlung"].waitForExistence(timeout: 5))

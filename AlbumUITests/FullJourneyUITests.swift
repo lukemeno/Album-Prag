@@ -26,7 +26,7 @@ final class FullJourneyUITests: XCTestCase {
             app.launchEnvironment["ALBUM_DEMO_MEMORIES"] = "1"
         }
         app.launch()
-        XCTAssertTrue(app.tabBars.buttons["Reise"].waitForExistence(timeout: wait))
+        XCTAssertTrue(app.buttons["native-tab-plan"].waitForExistence(timeout: wait))
         return app
     }
 
@@ -121,7 +121,7 @@ final class FullJourneyUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Unterlagen"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Saved'")).firstMatch.exists, "Speichern aktualisiert die Unterlagenansicht")
         app.buttons["Schließen"].tap()
-        XCTAssertTrue(app.tabBars.buttons["Reise"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["native-tab-plan"].waitForExistence(timeout: 5))
         app.terminate()
         app.launch()
         XCTAssertTrue(app.buttons["Alle Reiseunterlagen"].waitForExistence(timeout: 5))
@@ -249,7 +249,7 @@ final class FullJourneyUITests: XCTestCase {
             XCTAssertTrue(app.buttons["Fertig"].isHittable)
         }
         app.buttons["Fertig"].tap()
-        XCTAssertTrue(app.tabBars.buttons["Reise"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["native-tab-plan"].waitForExistence(timeout: 5))
     }
 
     func testMemoriesPhotoPullAndNestedReturn() throws {
@@ -322,7 +322,7 @@ final class FullJourneyUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "Reiseerinnerungen").firstMatch.exists)
 
         app.buttons["Fertig"].tap()
-        XCTAssertTrue(app.tabBars.buttons["Reise"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["native-tab-plan"].waitForExistence(timeout: 5))
     }
 
     func testLargeTypeMapAndEditorJourney() throws {

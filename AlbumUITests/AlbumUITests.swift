@@ -95,11 +95,11 @@ final class AlbumUITests: XCTestCase {
         firstDay.tap()
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS 'Altstädter Ring'" )).firstMatch.waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS 'Letná'" )).firstMatch.waitForExistence(timeout: 5))
-        app.tabBars.buttons["Ideen"].tap()
+        app.buttons["native-tab-ideas"].tap()
         XCTAssertTrue(app.staticTexts["Alles entschieden"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Idee einwerfen"].waitForExistence(timeout: 5))
         shot("14-ideen-layout")
-        app.tabBars.buttons["Karte"].tap()
+        app.buttons["native-tab-map"].tap()
         XCTAssertTrue(app.buttons["Tage planen"].waitForExistence(timeout: 5))
         shot("15-karte-layout")
     }
@@ -119,8 +119,8 @@ final class AlbumUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Erinnerungen"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Noch keine besuchten Orte"].exists)
         app.buttons["Karte öffnen"].tap()
-        XCTAssertTrue(app.tabBars.buttons["Karte"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.tabBars.buttons["Karte"].isSelected)
+        XCTAssertTrue(app.buttons["native-tab-map"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["native-tab-map"].isSelected)
     }
 
     func testPopulatedTripMemoriesBrowsePhotosAndPlaces() throws {
@@ -709,12 +709,12 @@ final class AlbumUITests: XCTestCase {
             app.buttons["Bordkarte schließen"].tap()
         }
 
-        app.tabBars.buttons["Ideen"].tap()
+        app.buttons["native-tab-ideas"].tap()
         XCTAssertTrue(app.staticTexts["Alles entschieden"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Idee einwerfen"].waitForExistence(timeout: 5))
         shot("03-ideen")
 
-        app.tabBars.buttons["Karte"].tap()
+        app.buttons["native-tab-map"].tap()
         XCTAssertTrue(app.navigationBars["Karte"].waitForExistence(timeout: 5))
         shot("04-karte")
         let expandDrawer = app.buttons["Liste ausklappen"]
@@ -759,7 +759,7 @@ final class AlbumUITests: XCTestCase {
         XCTAssertTrue(app.buttons["PlaceEditor-Cancel"].waitForExistence(timeout: 5))
         app.buttons["PlaceEditor-Cancel"].tap()
 
-        app.tabBars.buttons["Reise"].tap()
+        app.buttons["native-tab-plan"].tap()
         XCTAssertTrue(app.buttons["Alle Reiseunterlagen"].waitForExistence(timeout: 5))
         app.buttons["Alle Reiseunterlagen"].tap(); shot("10-unterlagen")
         XCTAssertTrue(app.navigationBars["Unterlagen"].waitForExistence(timeout: 5))

@@ -86,13 +86,13 @@ final class AlbumMotionUITests: XCTestCase {
         sleep(1); shot("C-5-zettel")
         XCTAssertTrue(app.buttons["Album ansehen"].isEnabled)
         app.buttons["Album ansehen"].tap()
-        XCTAssertTrue(app.tabBars.buttons["Reise"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["native-tab-plan"].waitForExistence(timeout: 5))
     }
 
     /// F · Abgleich-Insel: pulsiert während des (simulierten) Abgleichs, wächst mit Neuigkeiten auf, klappt per Tipp zu.
     func testSyncIsland() throws {
         let (app, shot) = try launch(["ALBUM_DEMO_SYNC": "1"], allowEmptyStore: true)
-        XCTAssertTrue(app.tabBars.buttons["Reise"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.buttons["native-tab-plan"].waitForExistence(timeout: 15))
         // Der Abgleich beginnt 2 s nach dem Start, die Kapsel pulsiert ab 0,5 s danach und wächst nach 2 s.
         for index in 0..<12 {
             let delay = 0.4 * Double(index)
@@ -171,7 +171,7 @@ final class AlbumMotionUITests: XCTestCase {
     /// D · Flug wird Bordkarte: Tippen lässt das angeheftete Ticket aufwachsen, Schließen kehrt um.
     func testBoardingPass() throws {
         let (app, shot) = try launch(["ALBUM_DEMO_MOTION": "1"], allowEmptyStore: true)
-        XCTAssertTrue(app.tabBars.buttons["Reise"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.buttons["native-tab-plan"].waitForExistence(timeout: 15))
         sleep(4)
         app.swipeUp(); sleep(1)
         let ticket = app.descendants(matching: .any).matching(identifier: "Flug-Ticket").firstMatch

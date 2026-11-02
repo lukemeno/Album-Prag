@@ -18,7 +18,7 @@ final class NativeShareUITests: XCTestCase {
         app.launchEnvironment["ALBUM_MY_NAME"] = "QA"
         app.launch()
 
-        XCTAssertTrue(app.tabBars.buttons["Reise"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.buttons["native-tab-plan"].waitForExistence(timeout: 15))
         let groupError = app.alerts["Album"].staticTexts
             .matching(NSPredicate(format: "label CONTAINS 'App-Group'"))
             .firstMatch
@@ -35,8 +35,8 @@ final class NativeShareUITests: XCTestCase {
         }
 
         func openCollection() {
-            XCTAssertTrue(app.tabBars.buttons["Ideen"].waitForExistence(timeout: 8))
-            app.tabBars.buttons["Ideen"].tap()
+            XCTAssertTrue(app.buttons["native-tab-ideas"].waitForExistence(timeout: 8))
+            app.buttons["native-tab-ideas"].tap()
             let collection = app.buttons["native-ideas-collection"]
             XCTAssertTrue(collection.waitForExistence(timeout: 8))
             var tries = 0
@@ -46,7 +46,7 @@ final class NativeShareUITests: XCTestCase {
         }
 
         func returnToTravel() {
-            if app.tabBars.buttons["Reise"].exists { app.tabBars.buttons["Reise"].tap() }
+            if app.buttons["native-tab-plan"].exists { app.buttons["native-tab-plan"].tap() }
         }
 
         func closeNativeShareSheetIfPresent() {

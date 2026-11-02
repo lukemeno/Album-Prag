@@ -25,7 +25,7 @@ extension AlbumUITests {
 
     func testAccessibilityAuditReiseScreen() throws {
         let app = launchAccessibilityStore(startTab: "Reise")
-        XCTAssertTrue(app.tabBars.buttons["Reise"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.buttons["native-tab-plan"].waitForExistence(timeout: 15))
         attachAccessibilityScreen(app, name: "Reise")
         try auditAccessibility(app, screen: "Reise")
     }
@@ -96,7 +96,7 @@ extension AlbumUITests {
     /// Screen-Navigation zu verwenden.
     func testAccessibilityLargeTypeTravelAndIdeasLayoutSnapshots() throws {
         let travel = launchAccessibilityStore(startTab: "Reise")
-        XCTAssertTrue(travel.tabBars.buttons["Reise"].waitForExistence(timeout: 15))
+        XCTAssertTrue(travel.buttons["native-tab-plan"].waitForExistence(timeout: 15))
         XCTAssertTrue(travel.staticTexts["Prag"].waitForExistence(timeout: 8))
         let travelSubtitle = travel.staticTexts.matching(
             NSPredicate(format: "label CONTAINS 'Oktober'")
