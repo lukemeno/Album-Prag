@@ -42,6 +42,7 @@ extension AlbumUITests {
 
     func testAccessibilityAuditIdeasScreen() throws {
         let app = launchAccessibilityStore(startTab: "Ideen", extra: ["ALBUM_DEMO_INBOX": "1"])
+        app.openIdeasArea("Entscheiden")
         XCTAssertTrue(app.otherElements["Inbox-Ticket"].waitForExistence(timeout: 15))
         attachAccessibilityScreen(app, name: "Ideen")
         try auditAccessibility(app, screen: "Ideen")
