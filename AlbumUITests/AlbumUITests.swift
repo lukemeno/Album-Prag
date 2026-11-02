@@ -204,25 +204,31 @@ final class AlbumUITests: XCTestCase {
     }
 
     func testOpenIdeasRemainUndecidedAfterRelaunch() {
+        // Fester Drei-Ideen-Stapel nur beim ersten Start: ALBUM_DEMO_INBOX setzt die Orte bei jedem Start neu.
+        let store = "ui-open-\(UUID().uuidString)"
         let app = XCUIApplication()
-        app.launchEnvironment["ALBUM_TEST_STORE"] = "ui-" + UUID().uuidString
+        app.launchEnvironment["ALBUM_TEST_STORE"] = store
         app.launchEnvironment["ALBUM_MY_NAME"] = "Luke"
+        app.launchEnvironment["ALBUM_DEMO_INBOX"] = "1"
         app.launch()
         app.openIdeasArea("Entscheiden")
-        // Der QA-Stapel bringt mehrere Beispielideen mit; alle offen lassen, bis der Stapel durch ist.
-        let done = app.staticTexts["Noch offen"]
-        for _ in 0..<12 where !done.exists {
+        for _ in 0..<3 {
             let open = app.inboxButton("Offen")
             XCTAssertTrue(open.waitForExistence(timeout: 5))
             open.tap()
         }
-        XCTAssertTrue(done.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Noch offen"].waitForExistence(timeout: 5))
         app.terminate()
-        app.launch()
-        app.openIdeasArea("Entscheiden")
-        XCTAssertTrue(app.otherElements["Inbox-Ticket"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.inboxButton("Offen").exists)
-        XCTAssertFalse(app.staticTexts["Alles entschieden"].exists)
+
+        let reopened = XCUIApplication()
+        reopened.launchEnvironment["ALBUM_TEST_STORE"] = store
+        reopened.launchEnvironment["ALBUM_MY_NAME"] = "Luke"
+        reopened.launchEnvironment["ALBUM_EMPTY_TEST_STORE"] = "1"
+        reopened.launch()
+        reopened.openIdeasArea("Entscheiden")
+        XCTAssertTrue(reopened.otherElements["Inbox-Ticket"].waitForExistence(timeout: 5))
+        XCTAssertTrue(reopened.inboxButton("Offen").exists)
+        XCTAssertFalse(reopened.staticTexts["Alles entschieden"].exists)
     }
 
     func testCreateIdeaAndPersistence() throws {
