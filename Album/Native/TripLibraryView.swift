@@ -3,8 +3,15 @@ import SwiftUI
 /// The trip switcher is deliberately independent from an opened trip store.
 /// It only renders the library index; opening a card is the point at which a
 /// store is created and injected into the native experience.
+/// Startet den Beitritt mit einem Einladungslink; `false`, wenn der Link keiner ist.
+extension EnvironmentValues {
+    @Entry var openInvitation: (URL) -> Bool = { _ in false }
+}
+
 struct TripLibraryView: View {
     @Environment(TripLibrary.self) private var library
+    @Environment(\.openInvitation) private var openInvitation
+    @State private var invitationError: String?
     @State private var showingCreate = false
     @State private var removalRequest: TripLibraryEntry?
 
@@ -16,10 +23,13 @@ struct TripLibraryView: View {
                         Text("Album").font(Stitch.Face.wordmark()).foregroundStyle(Stitch.ink)
                             .accessibilityAddTraits(.isHeader)
                         Spacer()
-                        Button { showingCreate = true } label: { Image(systemName: "plus") }
-                            .buttonStyle(HeaderIconButton())
-                            .accessibilityLabel("Neue Reise")
-                            .accessibilityIdentifier("library-create-trip")
+                        // Ohne Reise reicht der große Knopf darunter; das + kommt erst dazu, wenn es Reisen gibt.
+                        if !library.entries.isEmpty {
+                            Button { showingCreate = true } label: { Image(systemName: "plus") }
+                                .buttonStyle(HeaderIconButton())
+                                .accessibilityLabel("Neue Reise")
+                                .accessibilityIdentifier("library-create-trip")
+                        }
                     }
                     .padding(.top, Stitch.Space.xs)
 
@@ -53,6 +63,7 @@ struct TripLibraryView: View {
                             Button("Reise erstellen", systemImage: "plus") { showingCreate = true }
                                 .buttonStyle(StitchButton(primary: true))
                                 .accessibilityIdentifier("library-create-trip-empty")
+                            invitationPaste
                         }
                     } else {
                         LazyVStack(spacing: Stitch.Space.s) {
@@ -82,6 +93,31 @@ struct TripLibraryView: View {
         // TripLibrary loads its index during initialization and refreshes it
         // after every create/open/background transition; avoid constructing a
         // second store merely to redraw this cache view.
+    }
+
+    /// Einladung aus der Zwischenablage: Apples Einfügen-Knopf liest sie ohne Nachfrage, weil man selbst tippt.
+    private var invitationPaste: some View {
+        VStack(alignment: .leading, spacing: Stitch.Space.xs) {
+            Text("Einladung bekommen? Link kopieren und hier einfügen.")
+                .font(Stitch.Face.footnote).foregroundStyle(Stitch.inkSoft)
+            PasteButton(payloadType: String.self) { strings in
+                let text = strings.first?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                Task { @MainActor in
+                    if let url = URL(string: text), openInvitation(url) { invitationError = nil }
+                    else { invitationError = "Das ist kein Einladungslink. Kopiere den Link aus der Einladung und versuch es noch einmal." }
+                }
+            }
+            .labelStyle(.titleAndIcon)
+            .buttonBorderShape(.capsule)
+            .tint(Stitch.ink)
+            .accessibilityIdentifier("library-paste-invitation")
+            if let invitationError {
+                Text(invitationError).font(Stitch.Face.footnote).foregroundStyle(Stitch.action)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("library-invitation-error")
+            }
+        }
+        .padding(.top, Stitch.Space.xs)
     }
 
     private var countLine: String {
@@ -158,6 +194,8 @@ struct TripCreateView: View {
     private let initialTitle: String
     private let initialDestination: String
     private let initialIncludesDates: Bool
+    /// Beim Anlegen reicht das Ziel; ein eigener Name ist erst beim Bearbeiten nötig.
+    private let editing: Bool
 
     init(heading: String = "Neue Reise", initial: TripInfo? = nil, focusDates: Bool = false,
          onSave: @escaping (String, String?, TripDay?, TripDay?) -> Bool) {
@@ -169,42 +207,58 @@ struct TripCreateView: View {
         initialTitle = initial?.title ?? ""
         initialDestination = initial?.destination ?? ""
         initialIncludesDates = start != nil && end != nil
+        editing = initial != nil
         _title = State(initialValue: initialTitle)
         _destination = State(initialValue: initialDestination)
-        _includeDates = State(initialValue: initialIncludesDates || focusDates)
+        // Neue Reisen fragen den Zeitraum gleich ab; „Weiß ich noch nicht“ ist eine bewusste Wahl.
+        _includeDates = State(initialValue: initial == nil || initialIncludesDates || focusDates)
         if let start { _startDate = State(initialValue: start) }
         if let end { _endDate = State(initialValue: end) }
     }
 
     private var hasChanges: Bool {
-        title != initialTitle || destination != initialDestination || includeDates != initialIncludesDates
+        title != initialTitle || destination != initialDestination || (editing && includeDates != initialIncludesDates)
     }
 
     var body: some View {
         NavigationStack {
             Form {
-                Section(heading) {
-                    TextField("Name der Reise", text: $title)
-                        .accessibilityIdentifier("trip-create-title")
-                    TextField("Ziel (optional)", text: $destination)
+                Section {
+                    if editing {
+                        TextField("Name der Reise", text: $title)
+                            .accessibilityIdentifier("trip-create-title")
+                    }
+                    TextField(editing ? "Ziel" : "Wohin geht's?", text: $destination)
+                        .textContentType(.addressCity)
                         .accessibilityIdentifier("trip-create-destination")
-                    Toggle("Zeitraum festlegen", isOn: $includeDates)
-                        .accessibilityIdentifier("trip-create-dates-toggle")
+                }
+                .listRowBackground(Stitch.card)
+                Section("Zeitraum") {
+                    Picker("Zeitraum", selection: $includeDates) {
+                        Text("Mit Daten").tag(true)
+                        Text("Weiß ich noch nicht").tag(false)
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityIdentifier("trip-create-dates-toggle")
                     if includeDates {
                         DatePicker("Von", selection: $startDate, displayedComponents: .date)
                         DatePicker("Bis", selection: $endDate, in: startDate..., displayedComponents: .date)
                     }
                 }
-                if let saveError { Text(saveError).foregroundStyle(Stitch.action) }
+                .listRowBackground(Stitch.card)
+                if let saveError { Text(saveError).foregroundStyle(Stitch.action).listRowBackground(Stitch.card) }
             }
+            .scrollContentBackground(.hidden)
+            .background(PaperBackground())
             .navigationTitle(heading)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { if hasChanges { confirmDiscard = true } else { dismiss() } }.accessibilityIdentifier("trip-create-cancel") }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Speichern") {
-                        let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-                        guard !cleanTitle.isEmpty else { saveError = "Gib der Reise einen Namen."; return }
                         let cleanDestination = destination.trimmingCharacters(in: .whitespacesAndNewlines)
+                        // Beim Anlegen wird das Ziel zum Namen; umbenennen geht über „Reise bearbeiten“.
+                        let cleanTitle = editing ? title.trimmingCharacters(in: .whitespacesAndNewlines) : cleanDestination
+                        guard !cleanTitle.isEmpty else { saveError = editing ? "Gib der Reise einen Namen." : "Wohin geht's?"; return }
                         let start: TripDay?
                         let end: TripDay?
                         if includeDates {
@@ -224,7 +278,7 @@ struct TripCreateView: View {
                         }
                         dismiss()
                     }
-                    .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled((editing ? title : destination).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     .accessibilityIdentifier("trip-create-save")
                 }
             }

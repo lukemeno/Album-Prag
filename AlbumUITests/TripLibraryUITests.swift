@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 
 /// Focused UI coverage for the empty-library and multi-trip entry points.
 /// The normal product launch intentionally has no starter album; all data in
@@ -41,15 +42,16 @@ final class TripLibraryUITests: XCTestCase {
         add(attachment)
     }
 
-    private func create(_ title: String, destination: String, in app: XCUIApplication) {
-        tap("library-create-trip", in: app)
-        let titleField = app.textFields["trip-create-title"]
-        XCTAssertTrue(titleField.waitForExistence(timeout: 5))
-        titleField.tap()
-        titleField.typeText(title)
+    /// Neue Reise: nur „Wohin geht's?“; ohne `withDates` bewusst „Weiß ich noch nicht“.
+    private func create(_ title: String, destination: String, withDates: Bool = false, in app: XCUIApplication) {
+        let plus = app.buttons["library-create-trip"]
+        tap(plus.waitForExistence(timeout: 3) ? "library-create-trip" : "library-create-trip-empty", in: app)
         let destinationField = app.textFields["trip-create-destination"]
+        XCTAssertTrue(destinationField.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.textFields["trip-create-title"].exists, "Beim Anlegen gibt es nur ein Feld")
         destinationField.tap()
         destinationField.typeText(destination)
+        if !withDates { tap("Weiß ich noch nicht", in: app) }
         tap("trip-create-save", in: app)
     }
 
@@ -138,8 +140,7 @@ final class TripLibraryUITests: XCTestCase {
         tap("native-set-dates", in: app)
         XCTAssertTrue(app.navigationBars["Reise bearbeiten"].waitForExistence(timeout: 5))
         XCTAssertEqual(app.textFields["trip-create-title"].value as? String, "Lissabon", "Bearbeiten startet mit den Werten der Reise")
-        let toggle = app.switches["trip-create-dates-toggle"]
-        XCTAssertEqual(toggle.value as? String, "1", "„Zeitraum festlegen“ öffnet mit eingeschaltetem Zeitraum")
+        XCTAssertTrue(app.buttons["Mit Daten"].isSelected, "„Zeitraum festlegen“ öffnet mit gewähltem Zeitraum")
         tap("trip-create-save", in: app)
 
         XCTAssertTrue(app.buttons["native-open-dayplan"].waitForExistence(timeout: 5), "Mit Zeitraum gibt es den Reiseplan")
@@ -179,6 +180,30 @@ final class TripLibraryUITests: XCTestCase {
         XCTAssertTrue(card("Paris").waitForExistence(timeout: 8), "Nach dem Löschen steht man in „Deine Reisen“")
         XCTAssertFalse(card("Berlin").exists)
         capture("deleted-from-trip", from: app)
+    }
+
+    /// Paket 5: Eine neue Reise braucht nur das Ziel; der Zeitraum ist gleich gewählt und steht in der Übersicht.
+    func testCreateTripWithOneFieldAndDates() {
+        let app = launch()
+        XCTAssertFalse(app.buttons["library-create-trip"].exists, "Ohne Reise gibt es nur den großen Knopf")
+        create("Rom", destination: "Rom", withDates: true, in: app)
+        XCTAssertTrue(app.buttons["native-open-dayplan"].waitForExistence(timeout: 8), "Mit Zeitraum gibt es gleich den Reiseplan")
+        tap("trip-back-library", in: app)
+        let card = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label CONTAINS %@", "library-trip-", "Rom")).firstMatch
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        XCTAssertFalse(card.label.contains("Zeitraum offen"), card.label)
+        XCTAssertTrue(app.buttons["library-create-trip"].exists, "Mit einer Reise kommt das + dazu")
+    }
+
+    /// Paket 5: „Einladung öffnen“ mit einem Text, der kein Einladungslink ist, erklärt, was fehlt.
+    func testPastingSomethingElseExplainsItIsNoInvitation() {
+        let app = launch()
+        UIPasteboard.general.string = "Treffen wir uns am Bahnhof?"
+        let paste = app.buttons["library-paste-invitation"]
+        XCTAssertTrue(paste.waitForExistence(timeout: 8), app.debugDescription)
+        paste.tap()
+        XCTAssertTrue(app.staticTexts["library-invitation-error"].waitForExistence(timeout: 5))
+        capture("paste-no-invitation", from: app)
     }
 
     func testDeleteTripAsksFirstAndOnlyRemovesThatTrip() {

@@ -67,16 +67,14 @@ import UIKit
                             }
                         } catch { library.error = error.localizedDescription }
                     } else if InvitationLink.token(from: url) != nil {
-                        let request = InvitationRequest(sender: nil) {
-                            do {
-                                _ = try await library.joinInvitation(url)
-                                return nil
-                            } catch {
-                                return "Das hat nicht geklappt. \(error.localizedDescription)"
-                            }
-                        }
-                        invitation = request
+                        startInvitation(url)
                     }
+                }
+                // „Einladung öffnen“ in der Übersicht nimmt denselben Weg wie ein angetippter Link.
+                .environment(\.openInvitation) { url in
+                    guard InvitationLink.token(from: url) != nil else { return false }
+                    startInvitation(url)
+                    return true
                 }
                 .fullScreenCover(item: $invitation) { request in
                     InvitationMoment(request: request,
@@ -102,6 +100,17 @@ import UIKit
                 .alert("Album", isPresented: Binding(get: { presentedError != nil }, set: { if !$0 { clearPresentedError() } })) {
                     Button("OK") { clearPresentedError() }
                 } message: { Text(presentedError ?? "") }
+        }
+    }
+
+    private func startInvitation(_ url: URL) {
+        invitation = InvitationRequest(sender: nil) {
+            do {
+                _ = try await library.joinInvitation(url)
+                return nil
+            } catch {
+                return "Das hat nicht geklappt. \(error.localizedDescription)"
+            }
         }
     }
 
