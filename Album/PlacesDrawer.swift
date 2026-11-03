@@ -364,7 +364,7 @@ struct PlacesDrawer: View {
     }
 
     private var subtitle: String {
-        if planned.isEmpty { return "Hier erscheinen Orte, denen ihr zustimmt." }
+        if planned.isEmpty { return "Orte mit Reisetag stehen hier. Ideen siehst du als Punkte auf der Karte." }
         if let today = store.tripCalendar.todayInTrip {
             let count = store.plan(for: today).count
             return count == 0 ? "Heute ist noch nichts geplant" : "Heute \(count == 1 ? "1 Ort" : "\(count) Orte")"

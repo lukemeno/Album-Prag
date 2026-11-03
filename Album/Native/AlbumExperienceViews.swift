@@ -141,7 +141,7 @@ struct NativeTripExperience: View {
         let title = tab == .plan && store.tripCalendar.phase == .during ? store.tripName : tab.rawValue
         return TabHeader(title: title,
                   onBack: onHome,
-                  onAdd: tab == .plan ? nil : { sheet = collecting ? .collectionComposer : .add(Place(title: "", author: store.me)) },
+                  onAdd: tab != .ideas ? nil : { sheet = collecting ? .collectionComposer : .add(Place(title: "", author: store.me)) },
                   addLabel: collecting ? "Sammeln" : "Neue Idee") {
             if tab == .ideas {
                 Menu {

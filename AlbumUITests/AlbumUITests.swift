@@ -311,6 +311,38 @@ final class AlbumUITests: XCTestCase {
         XCTAssertTrue(nextDay.staticTexts["Noch offen"].firstMatch.exists, "Leere Tage im Streifen heißen „Noch offen“")
     }
 
+    /// Paket 6: Offene Ideen liegen als Punkte auf der Karte; ein Ja dort zählt wie im Stapel.
+    func testOpenIdeasAppearOnTheMapAndCanBeDecidedThere() {
+        let app = XCUIApplication()
+        app.launchEnvironment["ALBUM_TEST_STORE"] = "ui-map-ideas-\(UUID().uuidString)"
+        app.launchEnvironment["ALBUM_MY_NAME"] = "Luke"
+        app.launchEnvironment["ALBUM_DEMO_INBOX"] = "1"
+        app.launch()
+        let mapTab = app.buttons["native-tab-map"]
+        XCTAssertTrue(mapTab.waitForExistence(timeout: 15)); mapTab.tap()
+        XCTAssertTrue(app.mapScreen.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["native-new-place"].exists, "Im Karten-Tab gibt es kein + mehr")
+
+        let bridge = app.buttons["map-idea-motion-inbox-bridge"]
+        XCTAssertTrue(bridge.waitForExistence(timeout: 10), "Offene Idee als Punkt auf der Karte")
+        XCTAssertEqual(bridge.label, "Offene Idee: Karlsbrücke")
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "Offene Ideen auf der Karte"
+        shot.lifetime = .keepAlways
+        add(shot)
+        bridge.tap()
+        let yes = app.buttons["map-decide-yes"]
+        XCTAssertTrue(yes.waitForExistence(timeout: 5))
+        yes.tap()
+        XCTAssertTrue(app.buttons["map-idea-motion-inbox-bridge"].waitForExistence(timeout: 5))
+        let decided = NSPredicate(format: "label == %@", "Zugestimmt: Karlsbrücke")
+        expectation(for: decided, evaluatedWith: app.buttons["map-idea-motion-inbox-bridge"])
+        waitForExpectations(timeout: 5)
+
+        app.buttons["native-tab-ideas"].tap()
+        XCTAssertTrue(app.staticTexts["Noch 2 Ideen · entscheiden"].waitForExistence(timeout: 5), "Das Ja auf der Karte nimmt die Idee aus dem Stapel")
+    }
+
     func testOpenIdeasRemainUndecidedAfterRelaunch() {
         // Fester Drei-Ideen-Stapel nur beim ersten Start: ALBUM_DEMO_INBOX setzt die Orte bei jedem Start neu.
         let store = "ui-open-\(UUID().uuidString)"

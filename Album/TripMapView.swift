@@ -20,10 +20,21 @@ struct TripMapView: View {
     @State private var hasAutoFittedCamera = false
     @State private var projectedPins: [MapPinProjection] = []
     @State private var projectedFingerprint: [String] = []
+    /// Offene oder zugestimmte Idee, die gerade auf der Karte entschieden wird.
+    @State private var ideaToDecide: Place?
+    /// Ohne Orte kennt die Reise nur den Zielnamen; die Ortssuche macht daraus einen Kartenausschnitt.
+    @State private var destinationRegion: MKCoordinateRegion?
     /// Orte, die schon einmal auf der Karte gelandet sind. Nur neue fallen als Stecknadel.
     @AppStorage("album.landedPins") private var landedRaw = ""
 
     var visible: [Place] { store.franked.filter { $0.coordinate != nil && filter.matches($0.category) && matchesQuery($0) } }
+
+    /// Ideen ohne Reisetag, die noch keiner aussortiert hat: offen (Ring) oder schon zugestimmt (Punkt mit Haken).
+    var ideas: [Place] {
+        let sortedOut = Set(store.deferred.map(\.id))
+        return store.places.filter { !$0.franked && !$0.deleted && $0.coordinate != nil && !sortedOut.contains($0.id)
+            && filter.matches($0.category) && matchesQuery($0) }
+    }
 
     private func matchesQuery(_ place: Place) -> Bool {
         let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -95,6 +106,11 @@ struct TripMapView: View {
         .navigationTitle("Karte")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $detail) { PlaceDetail(placeID: $0.id) }
+        .sheet(item: $ideaToDecide) { idea in
+            MapIdeaDecision(placeID: idea.id) { detail = $0 }
+                .presentationDetents([.height(260)])
+        }
+        .task(id: store.tripRegionContext.name) { await locateDestinationIfNeeded() }
         .sheet(item: $clusterSelection) { group in
             ClusterMemberPicker(places: group.places) { place in
                 guard let current = visible.first(where: { $0.id == place.id }) else {
@@ -189,6 +205,18 @@ struct TripMapView: View {
                         }
                     }
                     .annotationTitles(.hidden)
+                }
+                ForEach(ideas) { idea in
+                    if let coordinate = idea.coordinate {
+                        Annotation(idea.title, coordinate: coordinate, anchor: .center) {
+                            Button { ideaToDecide = idea } label: { IdeaDot(place: idea, approved: idea.approvals.contains(store.me)) }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel(idea.approvals.contains(store.me) ? "Zugestimmt: \(idea.title)" : "Offene Idee: \(idea.title)")
+                                .accessibilityHint("Entscheiden oder den Ort ansehen")
+                                .accessibilityIdentifier("map-idea-\(idea.id)")
+                        }
+                        .annotationTitles(.hidden)
+                    }
                 }
             }
             .mapStyle(.standard(elevation: .flat, emphasis: .muted, pointsOfInterest: .excludingAll))
@@ -329,14 +357,33 @@ struct TripMapView: View {
 
     private func fitInitialCameraIfNeeded() {
         guard !hasAutoFittedCamera else { return }
-        if let rect = Self.initialCameraRect(for: visible.compactMap(\.coordinate)) {
+        // Auch offene Ideen zählen für den ersten Ausschnitt: man soll sehen, wo sie liegen, bevor man entscheidet.
+        if let rect = Self.initialCameraRect(for: (visible + ideas).compactMap(\.coordinate)) {
             hasAutoFittedCamera = true
             camera = .rect(rect)
         } else if let region = store.tripRegionContext.region {
             hasAutoFittedCamera = true
             visibleRegion = region
             camera = .region(region)
+        } else if let destinationRegion {
+            hasAutoFittedCamera = true
+            visibleRegion = destinationRegion
+            camera = .region(destinationRegion)
         }
+    }
+
+    /// Kennt die Reise nur „Prag“, sucht Apples Ortssuche das Ziel einmal; offline bleibt es beim alten Verhalten.
+    private func locateDestinationIfNeeded() async {
+        guard store.tripRegionContext.region == nil, let name = store.tripRegionContext.name else { return }
+        let request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = name
+        request.resultTypes = .address
+        guard let item = try? await MKLocalSearch(request: request).start().mapItems.first else { return }
+        let center: CLLocationCoordinate2D
+        if #available(iOS 26.0, *) { center = item.location.coordinate } else { center = item.placemark.coordinate }
+        destinationRegion = MKCoordinateRegion(center: center,
+                                               span: MKCoordinateSpan(latitudeDelta: 0.12, longitudeDelta: 0.12))
+        fitInitialCameraIfNeeded()
     }
 
     private func resetCameraForTripChange() {
@@ -345,6 +392,7 @@ struct TripMapView: View {
         selectedID = nil
         clusterSelection = nil
         lastTappedClusterID = nil
+        destinationRegion = nil
         if visible.isEmpty && store.tripRegionContext.region == nil {
             camera = .automatic
         }
@@ -884,5 +932,73 @@ struct PlaceGallery: View {
         }
         .background(Stitch.scrim.ignoresSafeArea())
         .environment(\.colorScheme, .dark)
+    }
+}
+
+/// Idee auf der Karte: blasser Ring, solange offen; ausgefüllt mit Haken, sobald du zugestimmt hast.
+/// Erst mit einem Reisetag wird daraus eine Briefmarke.
+private struct IdeaDot: View {
+    let place: Place
+    let approved: Bool
+    var body: some View {
+        ZStack {
+            Circle().fill(approved ? Stitch.ink : Stitch.card)
+            Circle().strokeBorder(approved ? Stitch.ink : Stitch.inkSoft, lineWidth: 2)
+            Image(systemName: approved ? "checkmark" : place.symbol)
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(approved ? Stitch.card : Stitch.inkSoft)
+        }
+        .frame(width: 22, height: 22)
+        .opacity(approved ? 1 : 0.85)
+        .frame(width: 44, height: 44)
+        .contentShape(Circle())
+    }
+}
+
+/// Kleines Blatt zum Entscheiden direkt auf der Karte – dieselbe Stimme wie im Ideen-Stapel.
+private struct MapIdeaDecision: View {
+    @Environment(AlbumStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    let placeID: String
+    let onDetails: (Place) -> Void
+
+    var body: some View {
+        if let place = store.places.first(where: { $0.id == placeID }) {
+            VStack(alignment: .leading, spacing: Stitch.Space.m) {
+                HStack(spacing: Stitch.Space.s) {
+                    AlbumPhoto(asset: place.displayImage, root: store.root, thumbnailWidth: 200)
+                        .frame(width: 64, height: 64)
+                        .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
+                        .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(place.title).font(Stitch.Face.headline).foregroundStyle(Stitch.ink).lineLimit(2)
+                        Text(place.category).font(Stitch.Face.footnote).foregroundStyle(Stitch.inkSoft)
+                    }
+                    Spacer(minLength: 0)
+                    Button("Ort ansehen") { dismiss(); onDetails(place) }
+                        .buttonStyle(TextActionButton())
+                }
+                HStack(spacing: Stitch.Space.s) {
+                    choice("Nein", primary: false, id: "map-decide-no") { _ = store.upsert(store.decided(place, approve: false)) }
+                    choice("Offen", primary: false, id: "map-decide-open") {}
+                    choice("Ja", primary: true, id: "map-decide-yes") { _ = store.upsert(store.decided(place, approve: true)) }
+                }
+            }
+            .padding(Stitch.Space.page)
+            .frame(maxHeight: .infinity, alignment: .top)
+            .background(Stitch.paper.ignoresSafeArea())
+        }
+    }
+
+    private func choice(_ title: String, primary: Bool, id: String, action: @escaping () -> Void) -> some View {
+        Button { action(); dismiss() } label: {
+            Text(title).font(Stitch.Face.headline)
+                .foregroundStyle(primary ? Stitch.card : Stitch.ink)
+                .frame(maxWidth: .infinity, minHeight: Stitch.Size.button)
+                .background(primary ? Stitch.ink : Stitch.card, in: Capsule())
+                .overlay(Capsule().strokeBorder(Stitch.line, lineWidth: primary ? 0 : 1))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(id)
     }
 }
