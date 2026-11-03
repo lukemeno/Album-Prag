@@ -205,19 +205,40 @@ struct TripCreateView: View {
     @State private var saveError: String?
     @State private var confirmDiscard = false
     let onSave: (String, String?, TripDay?, TripDay?) -> Bool
+    /// „Neue Reise“ oder „Reise bearbeiten“; beim Bearbeiten startet das Formular mit den Werten der Reise.
+    var heading = "Neue Reise"
     @State private var includeDates = false
     @State private var startDate = Date()
     @State private var endDate = Calendar.current.date(byAdding: .day, value: 4, to: Date()) ?? Date()
+    private let initialTitle: String
+    private let initialDestination: String
+    private let initialIncludesDates: Bool
+
+    init(heading: String = "Neue Reise", initial: TripInfo? = nil, focusDates: Bool = false,
+         onSave: @escaping (String, String?, TripDay?, TripDay?) -> Bool) {
+        self.heading = heading
+        self.onSave = onSave
+        let calendar = initial.map { TripCalendar(trip: $0) }
+        let start = initial?.startDate.flatMap { calendar?.date(for: $0) }
+        let end = initial?.endDate.flatMap { calendar?.date(for: $0) }
+        initialTitle = initial?.title ?? ""
+        initialDestination = initial?.destination ?? ""
+        initialIncludesDates = start != nil && end != nil
+        _title = State(initialValue: initialTitle)
+        _destination = State(initialValue: initialDestination)
+        _includeDates = State(initialValue: initialIncludesDates || focusDates)
+        if let start { _startDate = State(initialValue: start) }
+        if let end { _endDate = State(initialValue: end) }
+    }
 
     private var hasChanges: Bool {
-        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            || !destination.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || includeDates
+        title != initialTitle || destination != initialDestination || includeDates != initialIncludesDates
     }
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("Neue Reise") {
+                Section(heading) {
                     TextField("Name der Reise", text: $title)
                         .accessibilityIdentifier("trip-create-title")
                     TextField("Ziel (optional)", text: $destination)
@@ -231,7 +252,7 @@ struct TripCreateView: View {
                 }
                 if let saveError { Text(saveError).foregroundStyle(Stitch.action) }
             }
-            .navigationTitle("Neue Reise")
+            .navigationTitle(heading)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { if hasChanges { confirmDiscard = true } else { dismiss() } }.accessibilityIdentifier("trip-create-cancel") }
                 ToolbarItem(placement: .confirmationAction) {

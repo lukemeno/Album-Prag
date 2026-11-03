@@ -126,6 +126,40 @@ final class TripLibraryUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Nur in Paris")).firstMatch.waitForExistence(timeout: 8), app.debugDescription)
     }
 
+    /// Paket 3: Eine Reise ohne Zeitraum fragt „Wann fahrt ihr?“; der Zeitraum lässt sich nachträglich
+    /// festlegen, danach gibt es den Reiseplan, und die Übersicht zeigt den Zeitraum – auch nach Neustart.
+    func testTripDatesCanBeSetAfterCreation() {
+        let app = launch()
+        create("Lissabon", destination: "Lissabon", in: app)
+        XCTAssertTrue(app.staticTexts["Wann fahrt ihr?"].waitForExistence(timeout: 8), app.debugDescription)
+        XCTAssertFalse(app.buttons["native-open-dayplan"].exists, "Ohne Zeitraum kein leerer Reiseplan")
+        XCTAssertFalse(app.buttons["native-new-place"].exists, "Im Reise-Tab gibt es kein + mehr")
+
+        tap("native-set-dates", in: app)
+        XCTAssertTrue(app.navigationBars["Reise bearbeiten"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.textFields["trip-create-title"].value as? String, "Lissabon", "Bearbeiten startet mit den Werten der Reise")
+        let toggle = app.switches["trip-create-dates-toggle"]
+        XCTAssertEqual(toggle.value as? String, "1", "„Zeitraum festlegen“ öffnet mit eingeschaltetem Zeitraum")
+        tap("trip-create-save", in: app)
+
+        XCTAssertTrue(app.buttons["native-open-dayplan"].waitForExistence(timeout: 5), "Mit Zeitraum gibt es den Reiseplan")
+        XCTAssertFalse(app.staticTexts["Wann fahrt ihr?"].exists)
+        capture("dates-set", from: app)
+
+        tap("trip-back-library", in: app)
+        let card = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label CONTAINS %@", "library-trip-", "Lissabon")).firstMatch
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        XCTAssertFalse(card.label.contains("Zeitraum offen"), "Die Übersicht übernimmt den Zeitraum: \(card.label)")
+
+        app.terminate()
+        let relaunched = launch()
+        // Nach dem Neustart öffnet die App die zuletzt benutzte Reise; zurück zur Übersicht.
+        tap("trip-back-library", in: relaunched)
+        let again = relaunched.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label CONTAINS %@", "library-trip-", "Lissabon")).firstMatch
+        XCTAssertTrue(again.waitForExistence(timeout: 8))
+        XCTAssertFalse(again.label.contains("Zeitraum offen"))
+    }
+
     func testDeleteTripAsksFirstAndOnlyRemovesThatTrip() {
         let app = launch()
         create("Paris", destination: "Paris", in: app)
