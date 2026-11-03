@@ -294,20 +294,17 @@ struct NativeTripView: View {
 
     // MARK: Kopf der Reise
 
-    /// Nach Reiseende: Einstieg in den Rückblick nach Reisetagen (TripMemoriesView).
+    /// Nach Reiseende: Einstieg ins Album (TripMemoriesView), mit denselben Zahlen wie das Album selbst.
     private var memoriesEntry: some View {
-        let visited = store.franked.filter(\.visited)
-        let ownPhotos = visited.filter { place in
-            if case .uploaded = place.image { return true }
-            return false
-        }.count
-        let summary = memorySummary(places: visited.count, photos: ownPhotos)
+        let recap = AlbumRecap(places: store.franked, photos: store.data.tripMemories, calendar: calendar)
+        let summary = memorySummary(places: recap.days.reduce(0) { $0 + $1.places.count },
+                                    photos: recap.days.reduce(recap.otherPhotos.count) { $0 + $1.photos.count })
         return Button { sheet = .recap } label: {
             HStack(spacing: Stitch.Space.s) {
                 Image(systemName: "photo.stack").font(.body.weight(.semibold)).foregroundStyle(Stitch.Stamp.ink)
                     .frame(width: 40, height: 40).background(Stitch.Stamp.rose, in: Circle())
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Erinnerungen ansehen").font(Stitch.Face.headline).foregroundStyle(Stitch.ink)
+                    Text("Album ansehen").font(Stitch.Face.headline).foregroundStyle(Stitch.ink)
                     Text(summary).font(Stitch.Face.footnote).foregroundStyle(Stitch.inkSoft)
                 }
                 Spacer(minLength: 0)
@@ -320,13 +317,13 @@ struct NativeTripView: View {
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
         .accessibilityAddTraits(.isButton)
-        .accessibilityLabel("Erinnerungen ansehen")
+        .accessibilityLabel("Album ansehen")
         .accessibilityValue(summary)
         .accessibilityHint("Blättert durch besuchte Orte und Fotos")
     }
 
     private func memorySummary(places: Int, photos: Int) -> String {
-        if places == 0 { return "Eure besuchten Orte und Fotos" }
+        if places == 0 && photos == 0 { return "Eure besuchten Orte und Fotos" }
         let placeCount = places == 1 ? "1 Ort erlebt" : "\(places) Orte erlebt"
         let photoCount = photos == 1 ? "1 eigenes Foto" : "\(photos) eigene Fotos"
         return "\(placeCount) · \(photoCount)"
@@ -354,7 +351,7 @@ struct NativeTripView: View {
                 Button("Teilen & Personen", systemImage: "person.2") { sheet = .sharing }
                 Button("Unterlagen", systemImage: "doc.text") { sheet = .documents }
                 Button("Ausgaben", systemImage: "eurosign.circle") { sheet = .expenses }
-                Button("Erinnerungen", systemImage: "photo.stack") { sheet = .memories }
+                Button("Fotos", systemImage: "photo.stack") { sheet = .memories }
                 Button("Sammlung", systemImage: "tray.full") { sheet = .collection }
 #if DEBUG && targetEnvironment(simulator)
                 if ProcessInfo.processInfo.environment["ALBUM_QA_NATIVE_SHARE"] == "1" {
@@ -495,7 +492,7 @@ struct NativeTripView: View {
             ActionRow(title: "Ausgaben", subtitle: "Gemeinsame Reisekosten", symbol: "eurosign.circle", mat: Stitch.Stamp.butter) { sheet = .expenses }
                 .accessibilityIdentifier("native-group-expenses")
             rule
-            ActionRow(title: "Erinnerungen", subtitle: "Besuchte Orte und Fotos", symbol: "photo.stack", mat: Stitch.Stamp.rose) { sheet = .memories }
+            ActionRow(title: "Fotos", subtitle: "Kamera und Mediathek", symbol: "photo.stack", mat: Stitch.Stamp.rose) { sheet = .memories }
                 .accessibilityIdentifier("native-group-memories")
             rule
             ActionRow(title: "Sammlung", subtitle: "Links und Nachrichten der Gruppe", symbol: "tray.full", mat: Stitch.Stamp.mint) { sheet = .collection }
@@ -1422,7 +1419,7 @@ struct NativeArcFAB: View {
         switch index {
         case 0: return ("sparkles", "Reise fragen", "native-fan-ai", true)
         case 1: return ("camera", "Kamera", "native-fan-camera", false)
-        case 2: return ("photo.stack", "Erinnerungen", "native-fan-mem", false)
+        case 2: return ("photo.stack", "Fotos", "native-fan-mem", false)
         case 3: return ("eurosign.circle", "Ausgaben", "native-fan-exp", false)
         default: return ("doc.text", "Unterlagen", "native-fan-doc", false)
         }

@@ -111,13 +111,13 @@ final class AlbumUITests: XCTestCase {
         app.launchEnvironment["ALBUM_TODAY"] = "2026-10-10"
         app.launch()
 
-        let memories = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Erinnerungen ansehen'")).firstMatch
+        let memories = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Album ansehen'")).firstMatch
         XCTAssertTrue(memories.waitForExistence(timeout: 15))
         let lastDay = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Freitag, 9.'")).firstMatch
         XCTAssertTrue(lastDay.isSelected, "Nach der Reise ist der letzte Reisetag vorausgewählt")
         memories.tap()
-        XCTAssertTrue(app.navigationBars["Erinnerungen"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Noch keine besuchten Orte"].exists)
+        XCTAssertTrue(app.navigationBars["Album"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Noch nichts im Album"].exists)
         app.buttons["Karte öffnen"].tap()
         XCTAssertTrue(app.buttons["native-tab-map"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["native-tab-map"].isSelected)
@@ -131,12 +131,12 @@ final class AlbumUITests: XCTestCase {
         app.launchEnvironment["ALBUM_DEMO_MEMORIES"] = "1"
         app.launch()
 
-        let memories = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Erinnerungen ansehen'")).firstMatch
+        let memories = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Album ansehen'")).firstMatch
         XCTAssertTrue(memories.waitForExistence(timeout: 15))
         memories.tap()
         XCTAssertTrue(app.staticTexts["Sonntag, 4. Oktober"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Montag, 5. Oktober"].exists)
-        try auditAccessibility(app, screen: "Erinnerungen")
+        try auditAccessibility(app, screen: "Album")
         for orientation in [UIDeviceOrientation.landscapeLeft, .landscapeRight] {
             XCUIDevice.shared.orientation = orientation
             let landscapeCounter = app.buttons["Foto-Zähler"].firstMatch
@@ -201,6 +201,46 @@ final class AlbumUITests: XCTestCase {
         noPhotoPlace.tap()
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "Besucht-Spur").firstMatch.waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Schließen"].exists)
+    }
+
+    /// Paket 1: Eigene Fotos stehen am Tag ihrer Aufnahme im Album; Letná erscheint ohne Haken,
+    /// weil ein Foto in der Nähe am selben Tag entstand; ein Foto nach der Reise steht unter „Weitere Fotos“.
+    func testAlbumShowsOwnPhotosOnTheirDayAndOutsideTheTrip() {
+        let app = XCUIApplication()
+        app.launchEnvironment["ALBUM_TEST_STORE"] = "ui-" + UUID().uuidString
+        app.launchEnvironment["ALBUM_MY_NAME"] = "Luke"
+        app.launchEnvironment["ALBUM_TODAY"] = "2026-10-10"
+        app.launchEnvironment["ALBUM_DEMO_MEMORIES"] = "1"
+        app.launch()
+
+        let entry = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Album ansehen'")).firstMatch
+        XCTAssertTrue(entry.waitForExistence(timeout: 15))
+        XCTAssertTrue(entry.value as? String == "3 Orte erlebt · 3 eigene Fotos", "Karte zählt wie das Album: \(String(describing: entry.value))")
+        entry.tap()
+        XCTAssertTrue(app.navigationBars["Album"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Foto von Letná'")).firstMatch.waitForExistence(timeout: 5),
+                      "Letná ist nicht abgehakt und erscheint trotzdem")
+
+        // Am rechten Rand scrollen: in der Mitte fängt der Foto-Stapel die Wischgeste ab.
+        func reveal(_ element: XCUIElement) -> Bool {
+            for _ in 0..<8 where !(element.exists && element.isHittable) {
+                app.coordinate(withNormalizedOffset: CGVector(dx: 0.985, dy: 0.8))
+                    .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.985, dy: 0.35)))
+            }
+            return element.exists && element.isHittable
+        }
+        XCTAssertTrue(reveal(app.buttons["album-photo-memory-photo-letna"]), "Foto vom 4.10. im Album")
+        XCTAssertTrue(reveal(app.buttons["album-photo-memory-photo-day2"]), "Foto vom 5.10. im Album")
+        XCTAssertTrue(reveal(app.staticTexts["Weitere Fotos"]))
+        let home = app.buttons["album-photo-memory-photo-home"]
+        XCTAssertTrue(reveal(home), "Foto nach der Reise unter „Weitere Fotos“")
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "Album mit eigenen Fotos"
+        shot.lifetime = .keepAlways
+        add(shot)
+
+        home.tap()
+        XCTAssertTrue(app.buttons["Schließen"].waitForExistence(timeout: 5), "Eigenes Foto öffnet groß")
     }
 
     func testOpenIdeasRemainUndecidedAfterRelaunch() {
@@ -1217,7 +1257,7 @@ extension XCUIApplication {
     /// Der Karten-Tab hat keine Navigationsleiste mehr; sein Suchfeld zeigt an, dass die Karte offen ist.
     var mapScreen: XCUIElement { descendants(matching: .any)["map-search"] }
 
-    /// Zeile im Reise-Tab (Unterlagen, Erinnerungen, Assistent …): Tab wählen, hinscrollen, tippen.
+    /// Zeile im Reise-Tab (Unterlagen, Fotos, Assistent …): Tab wählen, hinscrollen, tippen.
     func openTripRow(_ id: String, file: StaticString = #filePath, line: UInt = #line) {
         let tab = buttons["native-tab-plan"]
         XCTAssertTrue(tab.waitForExistence(timeout: 15), "Fehlt: Reise-Tab", file: file, line: line)

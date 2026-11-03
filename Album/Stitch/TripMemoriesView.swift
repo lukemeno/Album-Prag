@@ -1,6 +1,59 @@
 import SwiftUI
+import CoreLocation
 
-/// Chronologischer Rückblick auf Orte, die tatsächlich als besucht markiert wurden.
+/// Ordnet besuchte Orte und eigene Fotos den Reisetagen zu. „Besucht“ wird hier abgeleitet, nicht
+/// gespeichert: abgehakt, ein Foto direkt am Ort oder ein Foto am geplanten Tag in dessen Nähe.
+struct AlbumRecap {
+    struct Day: Identifiable {
+        let day: TripDay?
+        let places: [Place]
+        let photos: [TripMemoryPhoto]
+        var id: String { day?.rawValue ?? "ohne-reisetag" }
+    }
+
+    static let nearbyMeters: CLLocationDistance = 300
+
+    let days: [Day]
+    /// Fotos, deren Tag außerhalb der Reisedaten liegt.
+    let otherPhotos: [TripMemoryPhoto]
+
+    init(places: [Place], photos: [TripMemoryPhoto], calendar: TripCalendar) {
+        let photos = photos.filter { !$0.deleted }.sorted { ($0.takenAt ?? $0.createdAt) < ($1.takenAt ?? $1.createdAt) }
+        let photoDay = Dictionary(uniqueKeysWithValues: photos.map { ($0.id, calendar.day(from: $0.takenAt ?? $0.createdAt)) })
+        let tripHasDates = !calendar.days.isEmpty
+
+        func isVisited(_ place: Place) -> Bool {
+            if place.visited { return true }
+            return photos.contains { photo in
+                if photo.placeID == place.id { return true }
+                guard let day = place.plannedDate, photoDay[photo.id] == day,
+                      let a = place.coordinate, let b = photo.coordinate else { return false }
+                return CLLocation(latitude: a.latitude, longitude: a.longitude)
+                    .distance(from: CLLocation(latitude: b.latitude, longitude: b.longitude)) <= Self.nearbyMeters
+            }
+        }
+
+        let visited = places.filter(isVisited)
+        var placesByDay = Dictionary(grouping: visited, by: \.plannedDate)
+        var photosByDay: [TripDay: [TripMemoryPhoto]] = [:]
+        var other: [TripMemoryPhoto] = []
+        for photo in photos {
+            guard let day = photoDay[photo.id] else { continue }
+            if !tripHasDates || calendar.contains(day) { photosByDay[day, default: []].append(photo) } else { other.append(photo) }
+        }
+        let undated = placesByDay.removeValue(forKey: nil) ?? []
+        let dated = Set(placesByDay.keys.compactMap { $0 }).union(photosByDay.keys).sorted()
+        var days = dated.map { day in
+            Day(day: day, places: (placesByDay[day] ?? []).sorted { ($0.dayOrder ?? .max, $0.title) < ($1.dayOrder ?? .max, $1.title) },
+                photos: photosByDay[day] ?? [])
+        }
+        if !undated.isEmpty { days.append(Day(day: nil, places: undated.sorted { $0.title < $1.title }, photos: [])) }
+        self.days = days
+        otherPhotos = other
+    }
+}
+
+/// Das Album nach der Reise: pro Tag die besuchten Orte und die eigenen Fotos (siehe `AlbumRecap`).
 /// Foto-Stapel und Vollbild-Viewer verwenden dieselben Gesten wie das Ortsdetail.
 struct TripMemoriesView: View {
     @Environment(AlbumStore.self) private var store
@@ -8,32 +61,31 @@ struct TripMemoriesView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var selectedPlace: Place?
     @State private var viewing: MemoryPhoto?
+    @State private var viewingOwn: TripMemoryPhoto?
 
     var openMap: () -> Void
 
-    private var visitedPlaces: [Place] {
-        store.franked.filter(\.visited).sorted {
-            ($0.plannedDate?.rawValue ?? "9999-99-99", $0.dayOrder ?? .max, $0.title)
-                < ($1.plannedDate?.rawValue ?? "9999-99-99", $1.dayOrder ?? .max, $1.title)
-        }
-    }
-
-    private var groups: [(day: TripDay?, places: [Place])] {
-        let grouped = Dictionary(grouping: visitedPlaces, by: \.plannedDate)
-        return grouped.keys.sorted { ($0?.rawValue ?? "9999-99-99") < ($1?.rawValue ?? "9999-99-99") }
-            .compactMap { day in grouped[day].map { (day, $0) } }
+    private var recap: AlbumRecap {
+        AlbumRecap(places: store.franked, photos: store.data.tripMemories, calendar: store.tripCalendar)
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: Stitch.Space.xl) {
-                    introduction
-                    if visitedPlaces.isEmpty {
+                    let recap = recap
+                    introduction(recap)
+                    if recap.days.isEmpty && recap.otherPhotos.isEmpty {
                         emptyState
                     } else {
-                        ForEach(Array(groups.enumerated()), id: \.offset) { element in
-                            daySection(element.element.day, places: element.element.places)
+                        ForEach(recap.days) { daySection($0) }
+                        if !recap.otherPhotos.isEmpty {
+                            VStack(alignment: .leading, spacing: Stitch.Space.s) {
+                                SectionTitle(title: "Weitere Fotos") {
+                                    Text(photoCount(recap.otherPhotos.count)).font(.footnote).foregroundStyle(Stitch.inkSoft)
+                                }
+                                photoGrid(recap.otherPhotos)
+                            }
                         }
                     }
                 }
@@ -45,7 +97,7 @@ struct TripMemoriesView: View {
             }
             .scrollIndicators(.hidden)
             .background(PaperBackground())
-            .navigationTitle(dynamicTypeSize.isAccessibilitySize ? "" : "Erinnerungen")
+            .navigationTitle(dynamicTypeSize.isAccessibilitySize ? "" : "Album")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if !dynamicTypeSize.isAccessibilitySize {
@@ -71,39 +123,40 @@ struct TripMemoriesView: View {
             .fullScreenCover(item: $viewing) {
                 PhotoViewer(place: $0.place, root: store.root, source: $0.source, photo: $0.asset)
             }
+            .fullScreenCover(item: $viewingOwn) { NativeTripMemoryZoom(photo: $0, imageURL: store.tripMemoryURL(for: $0)) }
         }
         .presentationDragIndicator(.visible)
         .accessibilityIdentifier("Reiseerinnerungen")
     }
 
-    private var introduction: some View {
+    private func introduction(_ recap: AlbumRecap) -> some View {
         VStack(alignment: .leading, spacing: Stitch.Space.xs) {
             Text("\(store.tripName), wie es war")
                 .font(Stitch.Face.display(36, relativeTo: .largeTitle)).foregroundStyle(Stitch.ink)
                 .accessibilityAddTraits(.isHeader)
-            Text(summary)
+            Text(summary(recap))
                 .font(.subheadline).foregroundStyle(Stitch.inkSoft)
         }
         .padding(.top, Stitch.Space.xs)
     }
 
-    private var summary: String {
-        let placeCount = visitedPlaces.count
-        let photoCount = visitedPlaces.reduce(0) { $0 + $1.photoAssets.count }
-        if photoCount == 0 {
-            return placeCount == 1 ? "Ein besuchter Ort" : "\(placeCount) besuchte Orte"
-        }
-        return "\(placeCount) \(placeCount == 1 ? "Ort" : "Orte") · \(photoCount) \(photoCount == 1 ? "Foto" : "Fotos") zum Durchblättern"
+    private func summary(_ recap: AlbumRecap) -> String {
+        let placeCount = recap.days.reduce(0) { $0 + $1.places.count }
+        let photos = recap.days.reduce(recap.otherPhotos.count) { $0 + $1.photos.count }
+        let places = placeCount == 1 ? "1 Ort" : "\(placeCount) Orte"
+        return photos == 0 ? places : "\(places) · \(photoCount(photos))"
     }
+
+    private func photoCount(_ count: Int) -> String { count == 1 ? "1 eigenes Foto" : "\(count) eigene Fotos" }
 
     private var emptyState: some View {
         VStack(alignment: .leading, spacing: Stitch.Space.s) {
             Image(systemName: "mappin.and.ellipse")
                 .font(.title2).foregroundStyle(Stitch.action)
                 .accessibilityHidden(true)
-            Text("Noch keine besuchten Orte")
+            Text("Noch nichts im Album")
                 .font(.headline).foregroundStyle(Stitch.ink)
-            Text("Markiert einen Ort als besucht. Dann taucht er hier mit seinen Fotos auf.")
+            Text("Fotos, die ihr unterwegs macht, und besuchte Orte erscheinen hier, sortiert nach Reisetag.")
                 .font(.subheadline).foregroundStyle(Stitch.inkSoft)
                 .fixedSize(horizontal: false, vertical: true)
             Button("Karte öffnen", action: openMap).buttonStyle(TextActionButton())
@@ -113,14 +166,40 @@ struct TripMemoriesView: View {
         .stitchCard(.pinned)
     }
 
-    private func daySection(_ day: TripDay?, places: [Place]) -> some View {
+    private func daySection(_ entry: AlbumRecap.Day) -> some View {
         VStack(alignment: .leading, spacing: Stitch.Space.s) {
-            SectionTitle(title: day.map(store.tripCalendar.dayTitle)
-                         ?? (places.contains(where: { $0.day != nil }) ? "Alter Reisetag prüfen" : "Ohne Reisetag")) {
-                Text(places.count == 1 ? "1 Ort" : "\(places.count) Orte")
+            SectionTitle(title: entry.day.map(store.tripCalendar.dayTitle)
+                         ?? (entry.places.contains(where: { $0.day != nil }) ? "Alter Reisetag prüfen" : "Ohne Reisetag")) {
+                Text([entry.places.isEmpty ? nil : (entry.places.count == 1 ? "1 Ort" : "\(entry.places.count) Orte"),
+                      entry.photos.isEmpty ? nil : (entry.photos.count == 1 ? "1 Foto" : "\(entry.photos.count) Fotos")]
+                        .compactMap { $0 }.joined(separator: " · "))
                     .font(.footnote).foregroundStyle(Stitch.inkSoft)
             }
-            ForEach(places) { place in placeMemory(place, day: day) }
+            ForEach(entry.places) { place in placeMemory(place, day: entry.day) }
+            if !entry.photos.isEmpty { photoGrid(entry.photos) }
+        }
+    }
+
+    /// Eigene Fotos eines Tages als Raster; Tippen öffnet das Foto groß.
+    private func photoGrid(_ photos: [TripMemoryPhoto]) -> some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: Stitch.Space.xs)], spacing: Stitch.Space.xs) {
+            ForEach(photos) { photo in
+                Button { viewingOwn = photo } label: {
+                    Color.clear.aspectRatio(1, contentMode: .fit)
+                        .overlay {
+                            if let image = UIImage(contentsOfFile: store.tripMemoryURL(for: photo, thumbnail: true).path) {
+                                Image(uiImage: image).resizable().scaledToFill()
+                            } else {
+                                Stitch.paper.overlay { Image(systemName: "photo").foregroundStyle(Stitch.inkSoft) }
+                            }
+                        }
+                        .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(photo.caption.isEmpty ? "Eigenes Foto, vergrößern" : "Eigenes Foto: \(photo.caption), vergrößern")
+                .accessibilityIdentifier("album-photo-\(photo.id)")
+            }
         }
     }
 

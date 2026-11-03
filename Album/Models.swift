@@ -135,6 +135,10 @@ struct TripMemoryPhoto: Codable, Equatable, Identifiable {
     var authorID: String
     var authorName: String
     var createdAt: Date
+    /// Aufnahmezeitpunkt und -ort aus den Bilddaten; fehlen bei Kamerafotos ohne GPS und bei älteren Fotos.
+    var takenAt: Date?
+    var latitude: Double?
+    var longitude: Double?
     var width: Int
     var height: Int
     let filename: String
@@ -146,16 +150,22 @@ struct TripMemoryPhoto: Codable, Equatable, Identifiable {
 
     var photoFilename: String { "\(id).jpg" }
     var thumbnailPhotoFilename: String { "\(id)-thumb.jpg" }
+    var coordinate: CLLocationCoordinate2D? {
+        guard let latitude, let longitude, latitude.isFinite, longitude.isFinite,
+              (-90...90).contains(latitude), (-180...180).contains(longitude) else { return nil }
+        return .init(latitude: latitude, longitude: longitude)
+    }
 
     enum CodingKeys: String, CodingKey {
         case id, placeID, caption, authorID, authorName, width, height, filename, thumbnailFilename
         case sha256, thumbnailSHA256, storagePath, deleted
-        case createdAt
+        case createdAt, takenAt, latitude, longitude
     }
 
-    init(id: String = UUID().uuidString.lowercased(), placeID: String? = nil, caption: String = "", authorID: String = "", authorName: String, createdAt: Date = Date(), width: Int, height: Int, sha256: String, thumbnailSHA256: String, storagePath: String? = nil, deleted: Bool = false) {
+    init(id: String = UUID().uuidString.lowercased(), placeID: String? = nil, caption: String = "", authorID: String = "", authorName: String, createdAt: Date = Date(), takenAt: Date? = nil, latitude: Double? = nil, longitude: Double? = nil, width: Int, height: Int, sha256: String, thumbnailSHA256: String, storagePath: String? = nil, deleted: Bool = false) {
         self.id = id; self.placeID = placeID; self.caption = caption; self.authorID = authorID
         self.authorName = authorName; self.createdAt = createdAt; self.width = width; self.height = height
+        self.takenAt = takenAt; self.latitude = latitude; self.longitude = longitude
         filename = "\(id).jpg"; thumbnailFilename = "\(id)-thumb.jpg"
         self.sha256 = sha256; self.thumbnailSHA256 = thumbnailSHA256; self.storagePath = storagePath; self.deleted = deleted
     }
@@ -168,6 +178,9 @@ struct TripMemoryPhoto: Codable, Equatable, Identifiable {
         authorID = try values.decode(String.self, forKey: .authorID)
         authorName = try values.decode(String.self, forKey: .authorName)
         createdAt = Date(timeIntervalSince1970: try values.decode(Double.self, forKey: .createdAt))
+        takenAt = try values.decodeIfPresent(Double.self, forKey: .takenAt).map(Date.init(timeIntervalSince1970:))
+        latitude = try values.decodeIfPresent(Double.self, forKey: .latitude)
+        longitude = try values.decodeIfPresent(Double.self, forKey: .longitude)
         width = try values.decode(Int.self, forKey: .width); height = try values.decode(Int.self, forKey: .height)
         filename = try values.decode(String.self, forKey: .filename)
         thumbnailFilename = try values.decode(String.self, forKey: .thumbnailFilename)
@@ -181,6 +194,8 @@ struct TripMemoryPhoto: Codable, Equatable, Identifiable {
         try values.encode(id, forKey: .id); try values.encode(placeID, forKey: .placeID)
         try values.encode(caption, forKey: .caption); try values.encode(authorID, forKey: .authorID)
         try values.encode(authorName, forKey: .authorName); try values.encode(createdAt.timeIntervalSince1970, forKey: .createdAt)
+        try values.encodeIfPresent(takenAt?.timeIntervalSince1970, forKey: .takenAt)
+        try values.encodeIfPresent(latitude, forKey: .latitude); try values.encodeIfPresent(longitude, forKey: .longitude)
         try values.encode(width, forKey: .width); try values.encode(height, forKey: .height)
         try values.encode(filename, forKey: .filename); try values.encode(thumbnailFilename, forKey: .thumbnailFilename)
         try values.encode(sha256, forKey: .sha256); try values.encode(thumbnailSHA256, forKey: .thumbnailSHA256)

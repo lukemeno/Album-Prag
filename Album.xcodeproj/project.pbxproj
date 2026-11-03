@@ -51,6 +51,7 @@
 		527D0C50637F1E52D6801506 /* DayPlanCommitRegressionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AC3DAB81822814EDA7F060A /* DayPlanCommitRegressionTests.swift */; };
 		528ECD8EC6FC599F27129871 /* ShareInbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EB90CB6210D527945129D1D /* ShareInbox.swift */; };
 		52EFF728EE08576C9E38A3E5 /* NightBuildAcceptanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C2DFC9BA40C7EB6FE9650E4 /* NightBuildAcceptanceTests.swift */; };
+		563494B902C0151301E7A0EA /* AlbumRecapTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D6EE57386C77BA6D7029668 /* AlbumRecapTests.swift */; };
 		572152A8BEE5A5A04F0565F8 /* Caveat-Variable.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 159BB955772B1A7FDB80AC2A /* Caveat-Variable.ttf */; };
 		57B94B56EAC2FAADF9EF02AF /* RiveRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = 77A3C6799FE2DBC8EEBC200A /* RiveRuntime */; };
 		57D279CE5910D3A8BE2D78E2 /* CollectionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9F0250651C760754975721D /* CollectionViews.swift */; };
@@ -205,6 +206,7 @@
 		5838C009BCC373634968D3AB /* AlbumExperienceRoot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumExperienceRoot.swift; sourceTree = "<group>"; };
 		59B8A29D9DFA3799069A7E19 /* TripMigrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripMigrationTests.swift; sourceTree = "<group>"; };
 		5AEC4D2DA5E025826995EB60 /* AlbumStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumStore.swift; sourceTree = "<group>"; };
+		5D6EE57386C77BA6D7029668 /* AlbumRecapTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumRecapTests.swift; sourceTree = "<group>"; };
 		5EF535FF4FC3F653771EBE05 /* OFL-Inter.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "OFL-Inter.txt"; sourceTree = "<group>"; };
 		6105B613C01C9C66E4E4A9BD /* CollectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionTests.swift; sourceTree = "<group>"; };
 		615ED079C1A91AA1900B3238 /* OFL-Fraunces.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "OFL-Fraunces.txt"; sourceTree = "<group>"; };
@@ -347,6 +349,7 @@
 		5718A66E16360DFADD5F5CB8 /* AlbumTests */ = {
 			isa = PBXGroup;
 			children = (
+				5D6EE57386C77BA6D7029668 /* AlbumRecapTests.swift */,
 				22E362E480309CBF88A1A449 /* AlbumTests.swift */,
 				63209D556B007A951F69750C /* AssistantActionsTests.swift */,
 				6105B613C01C9C66E4E4A9BD /* CollectionTests.swift */,
@@ -742,6 +745,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				563494B902C0151301E7A0EA /* AlbumRecapTests.swift in Sources */,
 				472068944BC73AA524D004F3 /* AlbumTests.swift in Sources */,
 				5259EC58C5E9DC9D0A1211C1 /* AssistantActionsTests.swift in Sources */,
 				371E115521F45ABA135E36F0 /* CollectionTests.swift in Sources */,

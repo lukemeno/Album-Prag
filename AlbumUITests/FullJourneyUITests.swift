@@ -240,7 +240,7 @@ final class FullJourneyUITests: XCTestCase {
     func testMemoriesJourneyRotatesAndDismisses() throws {
         defer { restorePortrait() }
         let app = try launchFixture(today: "2026-10-10", demoMemories: true)
-        let memories = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Erinnerungen ansehen'" )).firstMatch
+        let memories = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Album ansehen'" )).firstMatch
         XCTAssertTrue(memories.waitForExistence(timeout: wait))
         memories.tap()
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "Reiseerinnerungen").firstMatch.waitForExistence(timeout: 5))
@@ -255,7 +255,7 @@ final class FullJourneyUITests: XCTestCase {
     func testMemoriesPhotoPullAndNestedReturn() throws {
         defer { restorePortrait() }
         let app = try launchFixture(today: "2026-10-10", demoMemories: true)
-        let memories = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Erinnerungen ansehen'" )).firstMatch
+        let memories = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Album ansehen'" )).firstMatch
         XCTAssertTrue(memories.waitForExistence(timeout: wait))
         memories.tap()
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "Reiseerinnerungen").firstMatch.waitForExistence(timeout: 5))

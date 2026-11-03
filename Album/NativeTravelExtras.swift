@@ -419,12 +419,12 @@ public struct NativeMemoriesView: View {
                 if photoPlaces.isEmpty && tripPhotos.isEmpty { emptyState } else { photoGrid }
             }
             .background(PaperBackground())
-            .navigationTitle("Erinnerungen")
+            .navigationTitle("Fotos")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button { dismiss() } label: { Image(systemName: "xmark").frame(minWidth: 44, minHeight: 44) }
-                        .accessibilityLabel("Erinnerungen schließen")
+                        .accessibilityLabel("Fotos schließen")
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button { photoPickerPresented = true } label: { Label("Foto aus Mediathek", systemImage: "photo.on.rectangle") }
@@ -636,7 +636,7 @@ public struct NativeMemoriesView: View {
     }
 }
 
-private struct NativeTripMemoryZoom: View {
+struct NativeTripMemoryZoom: View {
     let photo: TripMemoryPhoto
     let imageURL: URL?
     @Environment(\.dismiss) private var dismiss

@@ -210,8 +210,10 @@ private struct PlaceResolutionSnapshot: Equatable {
         }
         #if DEBUG
         if ProcessInfo.processInfo.environment["ALBUM_DEMO_MEMORIES"] == "1" {
+            // Letná ist nicht abgehakt: Das eigene Foto in der Nähe am selben Tag macht sie zum besuchten Ort.
             var letna = Place(id: "memory-letna", title: "Letná", category: "Aussicht", author: "Luke",
-                              image: .bundled(name: "imgPhotoLetna"), franked: true, visited: true, plannedDate: TripInfo.legacyPragueStart, dayOrder: 0)
+                              image: .bundled(name: "imgPhotoLetna"), lat: 50.0966, lng: 14.4165, franked: true, visited: false,
+                              plannedDate: TripInfo.legacyPragueStart, dayOrder: 0)
             letna.gallery = [ExternalPlaceImage(
                 imageURL: "https://example.invalid/memory.jpg", sourceURL: "https://example.invalid/memory",
                 credit: "Demo", provider: .sourcePreview
@@ -223,6 +225,20 @@ private struct PlaceResolutionSnapshot: Equatable {
             data.places = [letna, oldTown, noPhoto]
             data.trip.startDate = TripInfo.legacyPragueStart
             data.trip.endDate = TripInfo.legacyPragueEnd
+            // Eigene Fotos: nahe Letná am 4.10., am 5.10. ohne Ort, und eines nach der Reise.
+            let fixturePhotos: [(id: String, takenAt: String, lat: Double?, lng: Double?, asset: String)] = [
+                ("memory-photo-letna", "2026-10-04T10:00:00Z", 50.0968, 14.4166, "imgPhotoLetna"),
+                ("memory-photo-day2", "2026-10-05T15:00:00Z", nil, nil, "imgThumbCafe"),
+                ("memory-photo-home", "2026-10-20T09:00:00Z", nil, nil, "imgPhotoOldTown")
+            ]
+            data.tripMemories = fixturePhotos.compactMap { fixture in
+                guard let jpeg = UIImage(named: fixture.asset)?.jpegData(compressionQuality: 0.8),
+                      var photo = try? TripMemoryStorage.save(jpeg, root: self.root, id: fixture.id, authorName: "Luke") else { return nil }
+                photo.takenAt = ISO8601DateFormatter().date(from: fixture.takenAt)
+                photo.latitude = fixture.lat
+                photo.longitude = fixture.lng
+                return photo
+            }
         }
         if ProcessInfo.processInfo.environment["ALBUM_DEMO_MOTION"] == "1" {
             var savoy = Place(id: "motion-savoy", title: "Café Savoy", category: "Essen & Trinken", author: "Luke",
