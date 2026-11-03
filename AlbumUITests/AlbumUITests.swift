@@ -243,6 +243,34 @@ final class AlbumUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Schließen"].waitForExistence(timeout: 5), "Eigenes Foto öffnet groß")
     }
 
+    /// Paket 2: Eine mit Nein aussortierte Idee steht in der Liste unter „Aussortiert“ und kommt zurück in den Stapel.
+    func testSortedOutIdeaCanBeBroughtBack() {
+        let app = XCUIApplication()
+        app.launchEnvironment["ALBUM_TEST_STORE"] = "ui-sorted-out-\(UUID().uuidString)"
+        app.launchEnvironment["ALBUM_MY_NAME"] = "Luke"
+        app.launchEnvironment["ALBUM_DEMO_INBOX"] = "1"
+        app.launch()
+        app.openIdeasArea("Entscheiden")
+        XCTAssertTrue(app.stackCard.waitForExistence(timeout: 15))
+        XCTAssertTrue(app.stackCard.label.hasPrefix("Karlsbrücke"))
+        app.inboxButton("Nein").tap()
+        XCTAssertTrue(app.staticTexts["Noch 2 Ideen · gemeinsam entscheiden"].waitForExistence(timeout: 5))
+
+        app.buttons["native-ideas-list"].tap()
+        // Die Filter-Chips scrollen waagerecht; „Aussortiert“ steht am Ende.
+        app.swipeDown()
+        let sortedOut = app.buttons["Aussortiert"]
+        for _ in 0..<4 where !sortedOut.isHittable { app.buttons["Essen & Trinken"].swipeLeft() }
+        sortedOut.tap()
+        let restore = app.buttons["restore-dismissed-motion-inbox-bridge"]
+        XCTAssertTrue(restore.waitForExistence(timeout: 5), "Karlsbrücke steht unter „Aussortiert“")
+        restore.tap()
+        XCTAssertTrue(app.staticTexts["Nichts aussortiert"].waitForExistence(timeout: 5))
+
+        app.buttons["native-ideas-stack"].tap()
+        XCTAssertTrue(app.staticTexts["Noch 3 Ideen · gemeinsam entscheiden"].waitForExistence(timeout: 5), "Zurückgeholt liegt sie wieder im Stapel")
+    }
+
     func testOpenIdeasRemainUndecidedAfterRelaunch() {
         // Fester Drei-Ideen-Stapel nur beim ersten Start: ALBUM_DEMO_INBOX setzt die Orte bei jedem Start neu.
         let store = "ui-open-\(UUID().uuidString)"
@@ -266,7 +294,7 @@ final class AlbumUITests: XCTestCase {
         reopened.launchEnvironment["ALBUM_EMPTY_TEST_STORE"] = "1"
         reopened.launch()
         reopened.openIdeasArea("Entscheiden")
-        XCTAssertTrue(reopened.otherElements["Inbox-Ticket"].waitForExistence(timeout: 5))
+        XCTAssertTrue(reopened.stackCard.waitForExistence(timeout: 5))
         XCTAssertTrue(reopened.inboxButton("Offen").exists)
         XCTAssertFalse(reopened.staticTexts["Alles entschieden"].exists)
     }
@@ -289,7 +317,7 @@ final class AlbumUITests: XCTestCase {
         app.openIdeasArea("Entscheiden")
         try auditAccessibilityWhenEnabled(app, screen: "Ideen")
         XCTAssertTrue(app.inboxButton("Nein").waitForExistence(timeout: 5))
-        let ticket = app.otherElements["Inbox-Ticket"]
+        let ticket = app.stackCard
         XCTAssertTrue(ticket.waitForExistence(timeout: 5))
         XCTAssertTrue(app.inboxButton("Offen").exists)
         app.inboxButton("Offen").tap()
@@ -298,15 +326,12 @@ final class AlbumUITests: XCTestCase {
         ticket.swipeLeft()
         XCTAssertTrue(app.buttons["Letzte Entscheidung rückgängig"].waitForExistence(timeout: 5))
         for _ in 0..<2 { app.inboxButton("Nein").tap() }
-        XCTAssertTrue(app.buttons["Idee bearbeiten"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Mehr für")).firstMatch.waitForExistence(timeout: 5))
         app.terminate(); app.launch(); app.openIdeasArea("Entscheiden")
-        XCTAssertTrue(app.buttons["Idee bearbeiten"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Mehr für")).firstMatch.waitForExistence(timeout: 5))
         app.inboxButton("Nein").tap()
         XCTAssertTrue(app.buttons["Letzte Entscheidung rückgängig"].exists)
         app.buttons["Letzte Entscheidung rückgängig"].tap()
-        // Das Entscheiden-Blatt hat keinen Schließen-Knopf; es schließt nur per Wischen nach unten.
-        let top = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.12))
-        top.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95)))
         XCTAssertTrue(app.buttons["native-tab-map"].waitForExistence(timeout: 5))
         app.buttons["native-tab-map"].tap()
         XCTAssertTrue(app.mapScreen.waitForExistence(timeout: 5))
@@ -372,11 +397,12 @@ final class AlbumUITests: XCTestCase {
         reopened.launchEnvironment["ALBUM_EMPTY_TEST_STORE"] = "1"
         reopened.launch()
         reopened.buttons["native-tab-ideas"].tap()
+        // Im Stapel liegt immer nur eine Karte oben; „Offen“ zeigt die nächste.
         for title in ["Café Slavia", "Petřín"] {
-            let restoredIdea = reopened.descendants(matching: .any).matching(
-                NSPredicate(format: "label CONTAINS %@", title)
-            ).firstMatch
-            XCTAssertTrue(restoredIdea.waitForExistence(timeout: 5), "\(title) bleibt nach dem Neustart gespeichert")
+            let restoredIdea = reopened.stackCard
+            XCTAssertTrue(restoredIdea.waitForExistence(timeout: 5))
+            if !restoredIdea.label.contains(title) { reopened.inboxButton("Offen").tap() }
+            XCTAssertTrue(reopened.stackCard.label.contains(title), "\(title) bleibt nach dem Neustart gespeichert")
         }
     }
 
@@ -390,7 +416,7 @@ final class AlbumUITests: XCTestCase {
         app.launch()
         app.openIdeasArea("Entscheiden")
 
-        let card = app.otherElements["Inbox-Ticket"]
+        let card = app.stackCard
         XCTAssertTrue(card.waitForExistence(timeout: 15))
         let title = app.descendants(matching: .any).matching(
             NSPredicate(format: "label BEGINSWITH 'Karlsbrücke'")
@@ -417,7 +443,7 @@ final class AlbumUITests: XCTestCase {
             NSPredicate(format: "label BEGINSWITH 'Karlsbrücke'")
         ).firstMatch
         XCTAssertFalse(removedTitle.waitForExistence(timeout: 3), "Positive Entscheidung darf nach Relaunch nicht wieder offen erscheinen")
-        XCTAssertTrue(reopened.otherElements["Inbox-Ticket"].waitForExistence(timeout: 5), "Der Reststapel muss erhalten bleiben")
+        XCTAssertTrue(reopened.stackCard.waitForExistence(timeout: 5), "Der Reststapel muss erhalten bleiben")
     }
 
     func testInboxSubthresholdOpposingReleasesKeepSameCardUndecided() {
@@ -429,7 +455,7 @@ final class AlbumUITests: XCTestCase {
         app.launch()
         app.openIdeasArea("Entscheiden")
 
-        let card = app.otherElements["Inbox-Ticket"]
+        let card = app.stackCard
         XCTAssertTrue(card.waitForExistence(timeout: 15))
         let title = app.descendants(matching: .any).matching(
             NSPredicate(format: "label BEGINSWITH 'Karlsbrücke'")
@@ -466,21 +492,15 @@ final class AlbumUITests: XCTestCase {
         func shot(_ name: String) { if let shots { try? XCUIScreen.main.screenshot().pngRepresentation.write(to: shots.appendingPathComponent(name + ".png")) } }
         func later(_ seconds: Double, _ name: String) { DispatchQueue.global().asyncAfter(deadline: .now() + seconds) { shot(name) } }
 
-        let ticket = app.otherElements["Inbox-Ticket"]
+        let ticket = app.stackCard
         XCTAssertTrue(ticket.waitForExistence(timeout: 15))
         sleep(2); shot("B-1-stapel")
 
-        // Foto groß: Tippen öffnet, halb nach unten ziehen federt zurück, der Knopf schließt.
-        let photoButton = app.buttons["Foto vergrößern"]
-        XCTAssertTrue(photoButton.waitForExistence(timeout: 5))
-        photoButton.tap()
-        XCTAssertTrue(app.buttons["Foto schließen"].waitForExistence(timeout: 5))
-        sleep(1); shot("B-4-vollbild")
-        let middle = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.46))
-        later(1.0, "B-5-halb-zu")
-        middle.press(forDuration: 0.05, thenDragTo: middle.withOffset(CGVector(dx: 0, dy: 80)), withVelocity: .slow, thenHoldForDuration: 1.5)
-        XCTAssertTrue(app.buttons["Foto schließen"].exists)
-        app.buttons["Foto schließen"].tap()
+        // Tippen auf die Karte öffnet den Ort; der Vollbild-Viewer wird im Album-Test geprüft.
+        ticket.tap()
+        XCTAssertTrue(app.buttons["Schließen"].waitForExistence(timeout: 5))
+        sleep(1); shot("B-4-ortsdetail")
+        app.buttons["Schließen"].tap()
         XCTAssertTrue(ticket.waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["Foto schließen"].waitForExistence(timeout: 1))
         sleep(1)
@@ -1241,18 +1261,18 @@ extension AlbumUITests {
 }
 
 extension XCUIApplication {
-    /// „Entscheiden“ und „Sammlung“ liegen im Menü „Ideenbereiche“ im Kopf des Ideen-Tabs und öffnen ein Blatt.
+    /// Entscheiden passiert im Stapel des Ideen-Tabs: Tab wählen, Reiter „Stapel“.
     func openIdeasArea(_ area: String, file: StaticString = #filePath, line: UInt = #line) {
         let tab = buttons["native-tab-ideas"]
         XCTAssertTrue(tab.waitForExistence(timeout: 15), "Fehlt: Ideen-Tab", file: file, line: line)
         if !tab.isSelected { tab.tap() }
-        let menu = buttons["Ideenbereiche"]
-        XCTAssertTrue(menu.waitForExistence(timeout: 5), "Fehlt: Menü Ideenbereiche", file: file, line: line)
-        menu.tap()
-        let item = buttons[area]
-        XCTAssertTrue(item.waitForExistence(timeout: 5), "Fehlt im Menü: \(area)", file: file, line: line)
-        item.tap()
+        let segment = buttons[area == "Sammlung" ? "native-ideas-collection" : "native-ideas-stack"]
+        XCTAssertTrue(segment.waitForExistence(timeout: 5), "Fehlt: \(area)", file: file, line: line)
+        if !segment.isSelected { segment.tap() }
     }
+
+    /// Oberste Karte im Ideen-Stapel.
+    var stackCard: XCUIElement { buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'native-idea-'")).firstMatch }
 
     /// Der Karten-Tab hat keine Navigationsleiste mehr; sein Suchfeld zeigt an, dass die Karte offen ist.
     var mapScreen: XCUIElement { descendants(matching: .any)["map-search"] }
@@ -1269,8 +1289,8 @@ extension XCUIApplication {
         row.tap()
     }
 
-    /// Entscheidungsknopf im Entscheiden-Blatt. Der Ideen-Tab dahinter hat gleich beschriftete Knöpfe (native-decide-*).
+    /// Entscheidungsknopf unter der Stapelkarte.
     func inboxButton(_ label: String) -> XCUIElement {
-        buttons.matching(NSPredicate(format: "label == %@ AND NOT (identifier BEGINSWITH 'native-decide-')", label)).firstMatch
+        buttons[["Ja": "native-decide-yes", "Nein": "native-decide-no", "Offen": "native-decide-open"][label] ?? label]
     }
 }

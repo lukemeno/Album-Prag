@@ -143,7 +143,6 @@ struct NativeTripExperience: View {
                   addLabel: collecting ? "Sammeln" : "Neue Idee") {
             if tab == .ideas {
                 Menu {
-                    Button("Entscheiden", systemImage: "hand.tap") { sheet = .inbox }
                     Button("Bilder ergänzen", systemImage: "arrow.clockwise") {
                         Task { await store.refreshPlaceImages(force: false) }
                     }
@@ -771,9 +770,18 @@ struct NativeIdeasView<Header: View>: View {
     @Binding var mode: IdeasMode
     @State private var category = "Alle"
     @State private var skipped = Set<String>()
+    /// Letzte Entscheidung im Stapel: der Ort vor der Änderung, oder nur „Offen“ für diese Runde.
+    @State private var lastDecision: (previous: Place, wasOpen: Bool)?
+    @State private var dragX: CGFloat = 0
+    @State private var swipeArmed = false
+    /// Wischen und Tippen liegen auf derselben Karte; nach einem Wischen öffnet der Tipp nicht die Details.
+    @State private var swipedRecently = false
+    private let swipeThreshold: CGFloat = 110
     @State private var discoveryPresented = false
     @Environment(NewIdeaTracker.self) private var newIdeas: NewIdeaTracker?
     private let categories = ["Alle", "Essen & Trinken", "Sehenswert", "Aussicht", "Shopping", "Idee"]
+    /// Filter für Ideen, die jemand mit Nein oder Ausblenden aussortiert hat.
+    private let sortedOut = "Aussortiert"
 
     private var ideas: [Place] {
         // Ungelöste alte Tageszahlen bleiben hier sichtbar, bis jemand ein Datum wählt.
@@ -874,19 +882,42 @@ struct NativeIdeasView<Header: View>: View {
 
     @ViewBuilder private var stackContent: some View {
         if let top = stack.first {
-            NativeIdeaStackCard(place: top, root: store.root, store: store, sheet: $sheet)
+            NativeIdeaStackCard(place: top, root: store.root, store: store, sheet: $sheet) {
+                if swipedRecently { swipedRecently = false } else { sheet = .detail(top.id) }
+            }
                 .id(top.id)
+                .overlay(alignment: dragX > 0 ? .topLeading : .topTrailing) { swipeLabel }
+                .offset(x: dragX)
+                .rotationEffect(.degrees(Double(dragX) / 24), anchor: .bottom)
+                .simultaneousGesture(swipe(top), isEnabled: !reduceMotion)
+                .sensoryFeedback(.selection, trigger: swipeArmed)
                 .transition(reduceMotion ? .opacity : .asymmetric(insertion: .scale(scale: 0.96).combined(with: .opacity), removal: .opacity))
             HStack(spacing: Stitch.Space.s) {
                 decision("Nein", primary: false, id: "native-decide-no") { decide(top, approve: false) }
-                decision("Offen", primary: false, id: "native-decide-open") { withAnimation(reduceMotion ? nil : Stitch.Motion.panel) { _ = skipped.insert(top.id) } }
+                decision("Offen", primary: false, id: "native-decide-open") {
+                    lastDecision = (top, true)
+                    withAnimation(reduceMotion ? nil : Stitch.Motion.panel) { _ = skipped.insert(top.id) }
+                }
                 decision("Ja", primary: true, id: "native-decide-yes") { decide(top, approve: true) }
             }
-            Text("Tippe auf das Foto, um den Ort anzusehen.")
-                .font(Stitch.Face.footnote).foregroundStyle(Stitch.inkSoft)
-        } else {
+            HStack {
+                Text(reduceMotion ? "Tippe auf das Foto, um den Ort anzusehen."
+                                  : "Wische nach rechts für Ja, nach links für Nein.")
+                    .font(Stitch.Face.footnote).foregroundStyle(Stitch.inkSoft)
+                Spacer(minLength: Stitch.Space.xs)
+                undoButton
+            }
+        } else if skipped.isEmpty {
             EmptyStateCard(symbol: "checkmark.circle", title: "Alles entschieden",
                            message: "Neue Ideen erscheinen hier. In der Liste siehst du alle Orte.")
+            undoButton
+        } else {
+            // Nur „Offen“ gelegt: nichts ist entschieden, die Ideen bleiben für später.
+            EmptyStateCard(symbol: "clock", title: "Noch offen",
+                           message: "Diese Ideen bleiben offen. Ihr könnt jederzeit neu entscheiden.")
+            Button("Weitersehen") { withAnimation(reduceMotion ? nil : Stitch.Motion.panel) { skipped.removeAll(); lastDecision = nil } }
+                .buttonStyle(StitchButton(primary: true))
+            undoButton
         }
     }
 
@@ -903,8 +934,59 @@ struct NativeIdeasView<Header: View>: View {
     }
 
     private func decide(_ place: Place, approve: Bool) {
+        lastDecision = (place, false)
         withAnimation(reduceMotion ? nil : Stitch.Motion.panel) {
+            dragX = 0
             _ = store.upsert(store.decided(place, approve: approve))
+        }
+    }
+
+    @ViewBuilder private var undoButton: some View {
+        if let last = lastDecision {
+            Button {
+                withAnimation(reduceMotion ? nil : Stitch.Motion.panel) {
+                    if last.wasOpen { skipped.remove(last.previous.id) } else { _ = store.upsert(last.previous) }
+                }
+                lastDecision = nil
+            } label: { Label("Rückgängig", systemImage: "arrow.uturn.backward") }
+                .buttonStyle(TextActionButton())
+                .accessibilityLabel("Letzte Entscheidung rückgängig")
+                .accessibilityIdentifier("native-decide-undo")
+        }
+    }
+
+    /// Waagerechtes Wischen entscheidet; erst deutlich waagerechte Bewegungen zählen, damit Scrollen frei bleibt.
+    private func swipe(_ place: Place) -> some Gesture {
+        DragGesture(minimumDistance: 24)
+            .onChanged { value in
+                guard abs(value.translation.width) > abs(value.translation.height) * 1.6 || dragX != 0 else { return }
+                dragX = value.translation.width
+                swipedRecently = true
+                let armed = abs(dragX) >= swipeThreshold
+                if armed != swipeArmed { swipeArmed = armed }
+            }
+            .onEnded { _ in
+                defer {
+                    swipeArmed = false
+                    // Der Tipp der Karte kommt kurz nach dem Loslassen; danach wieder normal öffnen.
+                    Task { @MainActor in try? await Task.sleep(for: .milliseconds(350)); swipedRecently = false }
+                }
+                if dragX >= swipeThreshold { decide(place, approve: true) }
+                else if dragX <= -swipeThreshold { decide(place, approve: false) }
+                else { withAnimation(Stitch.Motion.panel) { dragX = 0 } }
+            }
+    }
+
+    @ViewBuilder private var swipeLabel: some View {
+        if dragX != 0 {
+            Text(dragX > 0 ? "Ja" : "Nein")
+                .font(Stitch.Face.headline)
+                .foregroundStyle(dragX > 0 ? Stitch.card : Stitch.ink)
+                .padding(.horizontal, Stitch.Space.m).padding(.vertical, Stitch.Space.xs)
+                .background(dragX > 0 ? Stitch.ink : Stitch.card, in: Capsule())
+                .opacity(min(abs(dragX) / swipeThreshold, 1))
+                .padding(Stitch.Space.m)
+                .accessibilityHidden(true)
         }
     }
 
@@ -913,17 +995,48 @@ struct NativeIdeasView<Header: View>: View {
     @ViewBuilder private var listContent: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: Stitch.Space.xs) {
-                ForEach(categories, id: \.self) { item in
+                ForEach(categories + [sortedOut], id: \.self) { item in
                     FilterChip(title: item, selected: category == item) { category = item }
                 }
             }
         }
-        if ideas.isEmpty {
+        if category == sortedOut {
+            sortedOutContent
+        } else if ideas.isEmpty {
             EmptyStateCard(symbol: "lightbulb", title: "Noch keine Ideen in dieser Kategorie",
                            message: "Wähle eine andere Kategorie oder wirf eine neue Idee ein.")
         } else {
             LazyVStack(spacing: Stitch.Space.s) {
                 ForEach(listIdeas) { place in NativeIdeaRow(place: place, root: store.root, store: store, sheet: $sheet) }
+            }
+        }
+    }
+
+    @ViewBuilder private var sortedOutContent: some View {
+        let places = store.deferred.sorted { $0.updatedAt > $1.updatedAt }
+        if places.isEmpty {
+            EmptyStateCard(symbol: "tray", title: "Nichts aussortiert",
+                           message: "Ideen, zu denen du Nein sagst, findest du hier wieder.")
+        } else {
+            LazyVStack(spacing: Stitch.Space.s) {
+                ForEach(places) { place in
+                    HStack(spacing: Stitch.Space.s) {
+                        AlbumPhoto(asset: place.displayImage, root: store.root, thumbnailWidth: 160)
+                            .frame(width: 56, height: 56)
+                            .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.thumb, style: .continuous))
+                            .accessibilityHidden(true)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(place.title).font(Stitch.Face.headline).foregroundStyle(Stitch.ink).lineLimit(2)
+                            Text(place.category).font(Stitch.Face.footnote).foregroundStyle(Stitch.inkSoft)
+                        }
+                        Spacer(minLength: 0)
+                        Button("Zurückholen") { withAnimation(reduceMotion ? nil : Stitch.Motion.panel) { store.restoreDeferred(place) } }
+                            .buttonStyle(TextActionButton())
+                            .accessibilityLabel("\(place.title) zurückholen")
+                            .accessibilityIdentifier("restore-dismissed-\(place.id)")
+                    }
+                    .stitchCard(.pinned, padding: Stitch.Space.s)
+                }
             }
         }
     }
@@ -946,6 +1059,7 @@ private struct NativeIdeaStackCard: View {
     let root: URL
     let store: AlbumStore
     @Binding var sheet: NativeSheet?
+    let onOpen: () -> Void
     @State private var addingDay = false
     @State private var confirmDelete = false
 
@@ -955,7 +1069,7 @@ private struct NativeIdeaStackCard: View {
     }
 
     var body: some View {
-        Button { sheet = .detail(place.id) } label: {
+        Button(action: onOpen) {
             ZStack(alignment: .bottomLeading) {
                 AlbumPhoto(asset: place.displayImage, root: root, thumbnailWidth: 900)
                     .background(place.mat)

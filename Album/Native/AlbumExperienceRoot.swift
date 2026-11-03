@@ -101,10 +101,6 @@ struct AlbumExperienceRoot: View {
                     case .detail(let id): PlaceDetail(placeID: id)
                     case .dayPlan: NativeDayPlanView()
                     case .documents: TripDocumentsView()
-                    case .inbox:
-                        NavigationStack { InboxView(add: { sheet = .add(Place(title: "", author: store.me)) }) }
-                    case .collection:
-                        NavigationStack { CollectionHomeView(add: { sheet = .add(Place(title: "", author: store.me)) }) }
                     case .sharing: AlbumSettings()
                     case .name: NamePrompt()
                     case .extraction(let extraction): ExtractedTripSheet(extracted: extraction)
@@ -261,15 +257,13 @@ enum NativeTripSection: String, CaseIterable, Identifiable {
 }
 
 enum NativeSheet: Identifiable {
-    case add(Place), detail(String), dayPlan, documents, inbox, collection, sharing, name, extraction(ExtractedTrip), assistant, expenses, memories, cameraMemories, recap, collectionComposer
+    case add(Place), detail(String), dayPlan, documents, sharing, name, extraction(ExtractedTrip), assistant, expenses, memories, cameraMemories, recap, collectionComposer
     var id: String {
         switch self {
         case .add(let place): "add-\(place.id)"
         case .detail(let id): "detail-\(id)"
         case .dayPlan: "day-plan"
         case .documents: "documents"
-        case .inbox: "inbox"
-        case .collection: "collection"
         case .sharing: "sharing"
         case .name: "name"
         case .extraction: "extraction"

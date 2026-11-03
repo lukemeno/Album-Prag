@@ -43,7 +43,7 @@ extension AlbumUITests {
     func testAccessibilityAuditIdeasScreen() throws {
         let app = launchAccessibilityStore(startTab: "Ideen", extra: ["ALBUM_DEMO_INBOX": "1"])
         app.openIdeasArea("Entscheiden")
-        XCTAssertTrue(app.otherElements["Inbox-Ticket"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.stackCard.waitForExistence(timeout: 15))
         attachAccessibilityScreen(app, name: "Ideen")
         try auditAccessibility(app, screen: "Ideen")
     }
@@ -106,7 +106,7 @@ extension AlbumUITests {
         attachAccessibilityScreen(travel, name: "Reise Large Type")
 
         let ideas = launchAccessibilityStore(startTab: "Ideen", extra: ["ALBUM_DEMO_INBOX": "1"])
-        XCTAssertTrue(ideas.otherElements["Inbox-Ticket"].waitForExistence(timeout: 15))
+        XCTAssertTrue(ideas.stackCard.waitForExistence(timeout: 15))
         let addIdea = ideas.navigationBars["Ideen"].buttons["Idee einwerfen"]
         XCTAssertTrue(addIdea.waitForExistence(timeout: 8))
         XCTAssertTrue(addIdea.isHittable, "Die primäre Idee-Aktion muss erreichbar bleiben")
