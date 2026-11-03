@@ -40,6 +40,37 @@ struct CollectionHomeView: View {
     }
 }
 
+/// Sammlung als Reiter im Ideen-Tab: dieselben Einträge wie `CollectionHomeView`, aber ohne eigene
+/// Scrollfläche und Navigationsleiste, weil der Ideen-Tab schon scrollt.
+struct CollectionFeed: View {
+    @Environment(AlbumStore.self) private var store
+    let compose: () -> Void
+    @State private var selected: CollectionEntry?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Stitch.Space.s) {
+            if store.collectionPosts.isEmpty {
+                EmptyStateCard(symbol: "tray.full", title: "Noch nichts gesammelt",
+                               message: "Links und Nachrichten der Gruppe bleiben hier, auch wenn du gerade offline bist.")
+                Button(action: compose) { Label("In Sammlung", systemImage: "plus") }
+                    .buttonStyle(StitchButton(primary: true))
+            } else {
+                LazyVStack(spacing: Stitch.Space.xs) {
+                    ForEach(store.collectionPosts) { post in
+                        Button { selected = post } label: { CollectionRow(post: post) }
+                            .buttonStyle(.plain)
+                            .padding(.horizontal, Stitch.Space.s)
+                            .background(Stitch.card, in: RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
+                    }
+                }
+            }
+            FailedShareQueueView()
+        }
+        .sheet(item: $selected) { CollectionDetailView(post: $0) }
+        .task { await store.refreshCollectionMetadataIfNeeded(limit: 12) }
+    }
+}
+
 private struct CollectionRow: View {
     @Environment(AlbumStore.self) private var store
     let post: CollectionEntry

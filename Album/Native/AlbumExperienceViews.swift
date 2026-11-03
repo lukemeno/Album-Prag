@@ -125,6 +125,7 @@ struct NativeTripExperience: View {
     let onNativeShare: () -> Void
     let onFanOpenChanged: (Bool) -> Void
     @State private var fanOpen = false
+    @State private var ideasMode = IdeasMode.stack
 
     /// Kontext des KI-Untermenüs: Reise, heutiger Reisetag und Anzahl der geplanten Orte.
     private var fanContext: String {
@@ -135,13 +136,14 @@ struct NativeTripExperience: View {
     }
 
     private func tabHeader(_ tab: NativeTripSection) -> some View {
-        TabHeader(title: tab == .plan ? "Album" : tab.rawValue,
+        let collecting = tab == .ideas && ideasMode == .collection
+        return TabHeader(title: tab == .plan ? "Album" : tab.rawValue,
                   onBack: onHome,
-                  onAdd: { sheet = .add(Place(title: "", author: store.me)) }) {
+                  onAdd: { sheet = collecting ? .collectionComposer : .add(Place(title: "", author: store.me)) },
+                  addLabel: collecting ? "Sammeln" : "Neue Idee") {
             if tab == .ideas {
                 Menu {
                     Button("Entscheiden", systemImage: "hand.tap") { sheet = .inbox }
-                    Button("Sammlung", systemImage: "tray.full") { sheet = .collection }
                     Button("Bilder ergänzen", systemImage: "arrow.clockwise") {
                         Task { await store.refreshPlaceImages(force: false) }
                     }
@@ -161,7 +163,7 @@ struct NativeTripExperience: View {
             NativeTripView(sheet: $sheet, onAssistant: onAssistant, onNativeShare: onNativeShare)
                 .safeAreaInset(edge: .top, spacing: 0) { tabHeader(.plan) }
                 .tag(NativeTripSection.plan)
-            NativeIdeasView(sheet: $sheet, header: { tabHeader(.ideas) })
+            NativeIdeasView(sheet: $sheet, mode: $ideasMode, header: { tabHeader(.ideas) })
                 .tag(NativeTripSection.ideas)
             TripMapView().ignoresSafeArea(edges: .bottom)
                 .safeAreaInset(edge: .top, spacing: 0) { tabHeader(.map) }
@@ -356,7 +358,6 @@ struct NativeTripView: View {
                 Button("Unterlagen", systemImage: "doc.text") { sheet = .documents }
                 Button("Ausgaben", systemImage: "eurosign.circle") { sheet = .expenses }
                 Button("Fotos", systemImage: "photo.stack") { sheet = .memories }
-                Button("Sammlung", systemImage: "tray.full") { sheet = .collection }
 #if DEBUG && targetEnvironment(simulator)
                 if ProcessInfo.processInfo.environment["ALBUM_QA_NATIVE_SHARE"] == "1" {
                     Button("QA Share", systemImage: "square.and.arrow.up", action: onNativeShare)
@@ -498,9 +499,6 @@ struct NativeTripView: View {
             rule
             ActionRow(title: "Fotos", subtitle: "Kamera und Mediathek", symbol: "photo.stack", mat: Stitch.Stamp.rose) { sheet = .memories }
                 .accessibilityIdentifier("native-group-memories")
-            rule
-            ActionRow(title: "Sammlung", subtitle: "Links und Nachrichten der Gruppe", symbol: "tray.full", mat: Stitch.Stamp.mint) { sheet = .collection }
-                .accessibilityIdentifier("native-group-collection")
             rule
             ActionRow(title: "Reise-Assistent", subtitle: "Fragen und echte Vorschläge", symbol: "sparkles", mat: Stitch.Stamp.lilac) { onAssistant(nil) }
                 .accessibilityIdentifier("assistant-launch")
@@ -762,7 +760,7 @@ struct NativeTimelineRow: View {
 
 // MARK: Ideen
 
-private enum IdeasMode: Int { case stack, list }
+enum IdeasMode: Int { case stack, list, collection }
 
 struct NativeIdeasView<Header: View>: View {
     /// Tab-Kopf; er und der Umschalter sind die feste Einrückung über der Liste.
@@ -770,7 +768,7 @@ struct NativeIdeasView<Header: View>: View {
     @Environment(AlbumStore.self) private var store
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var sheet: NativeSheet?
-    @State private var mode = IdeasMode.stack
+    @Binding var mode: IdeasMode
     @State private var category = "Alle"
     @State private var skipped = Set<String>()
     @State private var discoveryPresented = false
@@ -801,18 +799,24 @@ struct NativeIdeasView<Header: View>: View {
     private var stack: [Place] { store.inbox.filter { !skipped.contains($0.id) } }
 
     private var subtitle: String {
+        if mode != .collection && hasNoIdeas { return "Noch keine Ideen" }
         switch mode {
         case .stack:
             return stack.count == 1 ? "Noch 1 Idee · gemeinsam entscheiden" : "Noch \(stack.count) Ideen · gemeinsam entscheiden"
         case .list:
             return "\(ideas.count == 1 ? "1 Idee" : "\(ideas.count) Ideen") · \(category == "Alle" ? "alle Kategorien" : category)"
+        case .collection:
+            let count = store.collectionPosts.count
+            return count == 1 ? "1 Link oder Nachricht der Gruppe" : "\(count) Links und Nachrichten der Gruppe"
         }
     }
 
-    private var showsSwitcher: Bool { !(ideas.isEmpty && store.inbox.isEmpty && category == "Alle") }
+    /// Noch gar keine Ideen: Stapel und Liste zeigen den Leerzustand; der Umschalter bleibt, damit die Sammlung erreichbar ist.
+    private var hasNoIdeas: Bool { ideas.isEmpty && store.inbox.isEmpty && category == "Alle" }
 
-    init(sheet: Binding<NativeSheet?>, @ViewBuilder header: () -> Header) {
+    init(sheet: Binding<NativeSheet?>, mode: Binding<IdeasMode>, @ViewBuilder header: () -> Header) {
         _sheet = sheet
+        _mode = mode
         self.header = header()
     }
 
@@ -822,22 +826,22 @@ struct NativeIdeasView<Header: View>: View {
             // ohne Scrollen, und die Liste behält ihre Position (Beta-Test 4).
             LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
                 header
-                if showsSwitcher {
-                    Section {
+                Section {
                         VStack(alignment: .leading, spacing: Stitch.Space.m) {
                             switch mode {
-                            case .stack: stackContent
-                            case .list: listContent
+                            case .collection: CollectionFeed { sheet = .collectionComposer }
+                            case _ where hasNoIdeas: emptyState
+                            case .stack: stackContent; actionRows
+                            case .list: listContent; actionRows
                             }
-                            actionRows
                         }
                         .padding(.horizontal, Stitch.Space.page)
                         .padding(.bottom, 128)
                     } header: {
                         VStack(alignment: .leading, spacing: Stitch.Space.m) {
                             Text(subtitle).font(Stitch.Face.subheadline).foregroundStyle(Stitch.inkSoft).monospacedDigit()
-                            SegmentPair(titles: ["Stapel", "Liste"],
-                                        identifiers: ["native-ideas-stack", "native-ideas-list"],
+                            SegmentPair(titles: ["Stapel", "Liste", "Sammlung"],
+                                        identifiers: ["native-ideas-stack", "native-ideas-list", "native-ideas-collection"],
                                         selection: Binding(get: { mode.rawValue }, set: { mode = IdeasMode(rawValue: $0) ?? .stack }))
                         }
                         .padding(.horizontal, Stitch.Space.page)
@@ -846,15 +850,10 @@ struct NativeIdeasView<Header: View>: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(Stitch.paper)
                     }
-                } else {
-                    emptyState
-                        .padding(.horizontal, Stitch.Space.page)
-                        .padding(.top, Stitch.Space.xs)
-                        .padding(.bottom, 128)
-                }
             }
         }
         .scrollIndicators(.hidden)
+        .refreshable { if mode == .collection { await store.refreshCollectionMetadataIfNeeded(limit: 12, force: true) } }
         .background(Stitch.paper.ignoresSafeArea())
         .sheet(isPresented: $discoveryPresented) { NativeDiscoveryView() }
     }
@@ -933,9 +932,6 @@ struct NativeIdeasView<Header: View>: View {
 
     private var actionRows: some View {
         VStack(spacing: Stitch.Space.s) {
-            Button { sheet = .collection } label: { Label("Sammlung öffnen", systemImage: "tray.full") }
-                .buttonStyle(StitchButton())
-                .accessibilityIdentifier("native-ideas-collection")
             Button { discoveryPresented = true } label: { Label("Orte vorschlagen", systemImage: "sparkle.magnifyingglass") }
                 .buttonStyle(StitchButton())
                 .accessibilityIdentifier("native-discover")

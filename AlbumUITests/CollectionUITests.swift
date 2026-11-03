@@ -15,8 +15,12 @@ final class CollectionUITests: XCTestCase {
     }
 
     private func openCollection(_ app: XCUIApplication) {
-        app.openIdeasArea("Sammlung")
-        XCTAssertTrue(app.navigationBars["Sammlung"].waitForExistence(timeout: 5))
+        // Die Sammlung ist der dritte Reiter im Ideen-Tab.
+        let tab = app.buttons["native-tab-ideas"]
+        XCTAssertTrue(tab.waitForExistence(timeout: 15)); tab.tap()
+        let segment = app.buttons["native-ideas-collection"]
+        XCTAssertTrue(segment.waitForExistence(timeout: 5)); segment.tap()
+        XCTAssertTrue(app.buttons["Sammeln"].waitForExistence(timeout: 5))
     }
 
     func testLinkPreviewRefreshPreservesSharedNoteAndPersists() {
@@ -86,7 +90,7 @@ final class CollectionUITests: XCTestCase {
             app.textFields["Collection-URL"].tap(); app.textFields["Collection-URL"].typeText(url)
             app.textFields["Collection-Message"].tap(); app.textFields["Collection-Message"].typeText(note)
             app.buttons["Collection-Save"].tap()
-            XCTAssertTrue(app.navigationBars["Sammlung"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.buttons["native-ideas-collection"].waitForExistence(timeout: 5))
         }
         let posts = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'Collection-Post-'"))
         XCTAssertEqual(posts.count, 1, "Dieselbe kanonische URL darf nur einen Beitrag erzeugen")
@@ -107,7 +111,7 @@ final class CollectionUITests: XCTestCase {
         app.buttons["Beitrag löschen"].tap()
         XCTAssertTrue(app.buttons["Löschen"].waitForExistence(timeout: 5))
         app.buttons["Löschen"].tap()
-        XCTAssertTrue(app.navigationBars["Sammlung"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["native-ideas-collection"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.staticTexts["Löschbarer Beitrag"].waitForExistence(timeout: 2))
     }
 

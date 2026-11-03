@@ -20,6 +20,7 @@ struct TabHeader<Trailing: View>: View {
     let title: String
     let onBack: () -> Void
     let onAdd: () -> Void
+    var addLabel = "Neue Idee"
     @ViewBuilder var trailing: Trailing
 
     var body: some View {
@@ -36,7 +37,7 @@ struct TabHeader<Trailing: View>: View {
             trailing
             Button(action: onAdd) { Image(systemName: "plus") }
                 .buttonStyle(HeaderIconButton())
-                .accessibilityLabel("Neue Idee")
+                .accessibilityLabel(addLabel)
                 .accessibilityIdentifier("native-new-place")
         }
         .padding(.horizontal, Stitch.Space.page)
