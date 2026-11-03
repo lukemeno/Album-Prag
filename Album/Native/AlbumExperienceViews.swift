@@ -137,7 +137,9 @@ struct NativeTripExperience: View {
 
     private func tabHeader(_ tab: NativeTripSection) -> some View {
         let collecting = tab == .ideas && ideasMode == .collection
-        return TabHeader(title: tab.rawValue,
+        // Unterwegs trägt der Kopf den Reisenamen; darunter steht nur noch, welcher Reisetag es ist.
+        let title = tab == .plan && store.tripCalendar.phase == .during ? store.tripName : tab.rawValue
+        return TabHeader(title: title,
                   onBack: onHome,
                   onAdd: tab == .plan ? nil : { sheet = collecting ? .collectionComposer : .add(Place(title: "", author: store.me)) },
                   addLabel: collecting ? "Sammeln" : "Neue Idee") {
@@ -333,13 +335,10 @@ struct NativeTripView: View {
             .accessibilityIdentifier("trip-more-menu")
     }
 
-    /// Unterwegs statt des großen Titelfotos: Reisename, welcher Reisetag es ist, und das „…“ der Reise.
+    /// Unterwegs statt des großen Titelfotos: welcher Reisetag es ist und das „…“ der Reise (der Name steht im Kopf).
     private var compactHeader: some View {
         HStack(alignment: .center, spacing: Stitch.Space.s) {
             VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
-                Text(store.tripName).font(Stitch.Face.title()).foregroundStyle(Stitch.ink)
-                    .lineLimit(1).minimumScaleFactor(0.7)
-                    .accessibilityAddTraits(.isHeader)
                 if let index = today.flatMap({ calendar.days.firstIndex(of: $0) }) {
                     Text("Tag \(index + 1) von \(calendar.days.count)")
                         .font(Stitch.Face.subheadline).foregroundStyle(Stitch.inkSoft).monospacedDigit()
@@ -493,8 +492,8 @@ struct NativeTripView: View {
                 // Alle Orte des Tages direkt, wie im Tagesplan; der nächste offene ist hervorgehoben.
                 let next = stops.first { !$0.place.visited }
                 ForEach(Array(stops.enumerated()), id: \.element.id) { index, stop in
-                    let anchor = store.tripAnchorCoordinate
-                    let previous = index == 0 ? anchor : (stops[index - 1].place.coordinate ?? anchor)
+                    // Gehzeit nur zwischen zwei Orten: der Mittelpunkt der Reise ist kein echter Startpunkt.
+                    let previous = index == 0 ? nil : stops[index - 1].place.coordinate
                     let minutes = previous.flatMap { origin in
                         stop.place.coordinate.map { DayPlanGenerator.walkingMinutes(DayPlanGenerator.distance(origin, $0)) }
                     }
@@ -631,14 +630,16 @@ struct NativeDayTiles: View {
                 Text(shortLabel(value))
                     .font(Stitch.Face.caption).foregroundStyle(Stitch.inkSoft).monospacedDigit()
                     .lineLimit(1)
-                AlbumPhoto(asset: cover?.displayImage, root: store.root, thumbnailWidth: 240)
-                    .frame(width: 80, height: 72)
-                    .background(Stitch.Stamp.sky.opacity(0.5))
-                    .overlay {
-                        if cover == nil {
-                            Image(systemName: places.first?.symbol ?? "plus").foregroundStyle(Stitch.inkSoft)
-                        }
+                Group {
+                    if let cover {
+                        AlbumPhoto(asset: cover.displayImage, root: store.root, thumbnailWidth: 240)
+                    } else {
+                        // Ohne Foto kein Bild-Platzhalter: ein leerer Tag lädt mit + zum Planen ein, ein Ort zeigt sein Symbol.
+                        Stitch.Stamp.sky.opacity(0.5)
+                            .overlay { Image(systemName: places.first?.symbol ?? "plus").foregroundStyle(Stitch.inkSoft) }
                     }
+                }
+                    .frame(width: 80, height: 72)
                     .clipShape(RoundedRectangle(cornerRadius: Stitch.Space.s, style: .continuous))
                 // Leere Tage sind „noch offen“, nicht „frei“; volle zeigen den ersten Ort und wie viele dazukommen.
                 HStack(spacing: Stitch.Space.xxs) {
@@ -707,8 +708,8 @@ struct NativeDayPlanView: View {
                         let next = stops.first(where: { !$0.place.visited })
                         VStack(spacing: Stitch.Space.s) {
                             ForEach(Array(stops.enumerated()), id: \.element.id) { index, stop in
-                                let tripAnchor = store.tripAnchorCoordinate
-                                let previous = index == 0 ? tripAnchor : (stops[index - 1].place.coordinate ?? tripAnchor)
+                                // Gehzeit nur zwischen zwei Orten: der Mittelpunkt der Reise ist kein echter Startpunkt.
+                                let previous = index == 0 ? nil : stops[index - 1].place.coordinate
                                 let walkingMinutes = previous.flatMap { origin in
                                     stop.place.coordinate.map { DayPlanGenerator.walkingMinutes(DayPlanGenerator.distance(origin, $0)) }
                                 }
