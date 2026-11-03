@@ -136,28 +136,30 @@ final class NativePrototypeUITests: XCTestCase {
         capture("documents")
     }
 
-    func testFanOpensDocumentsAndCanReturn() {
+    /// Der Fächer hält nur Aktionen fürs Unterwegs-Festhalten: „Ausgabe erfassen“ öffnet gleich die Eingabe.
+    func testFanOpensExpenseEntryAndCanReturn() {
         let app = launch(reduced: true)
         tap("native-trip-prag", in: app)
         tap("native-fab", in: app)
         capture("fan")
-        tap("native-fan-doc", in: app)
-        XCTAssertTrue(app.buttons["Schließen"].waitForExistence(timeout: 5), app.debugDescription)
-        app.buttons["Schließen"].tap()
+        XCTAssertFalse(app.buttons["native-fan-doc"].exists, "Unterlagen sind ein Weg, keine Fächer-Aktion")
+        tap("native-fan-exp", in: app)
+        XCTAssertTrue(app.textFields["expense-title"].waitForExistence(timeout: 5), app.debugDescription)
+        app.buttons["Abbrechen"].tap()
+        tap("Ausgaben schließen", in: app)
         XCTAssertTrue(app.buttons["native-fab"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.buttons["native-fan-doc"].exists)
+        XCTAssertFalse(app.buttons["native-fan-exp"].exists)
     }
 
-    func testHoldAndDragFromFabToDocuments() {
+    func testHoldAndDragFromFabToExpenseEntry() {
         let app = launch()
         tap("native-trip-prag", in: app)
         let fab = app.buttons["native-fab"]
         XCTAssertTrue(fab.waitForExistence(timeout: 5))
         let center = fab.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
         center.press(forDuration: 0.45, thenDragTo: center.withOffset(CGVector(dx: -170, dy: 0)))
-        XCTAssertTrue(app.buttons["Schließen"].waitForExistence(timeout: 8))
-        XCTAssertTrue(app.navigationBars["Unterlagen"].exists || app.staticTexts["Unterlagen"].exists)
-        capture("fan-drag-documents")
+        XCTAssertTrue(app.textFields["expense-title"].waitForExistence(timeout: 8))
+        capture("fan-drag-expense")
     }
 
     func testFanSuggestionUsesRealAssistantSessionWithFixture() {

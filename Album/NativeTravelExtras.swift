@@ -12,7 +12,10 @@ public struct NativeExpensesView: View {
     @State private var expenseToDelete: TravelExpense?
     @State private var showingDeleteConfirmation = false
 
-    public init() {}
+    /// Aus dem ✦-Fächer: gleich die Eingabe öffnen statt der Liste.
+    private let startAdding: Bool
+    @State private var didStartAdding = false
+    public init(startAdding: Bool = false) { self.startAdding = startAdding }
 
     private var expenses: [TravelExpense] { TravelLedger.visibleExpenses(store.data.trip.expenses ?? []) }
     private var settlements: [TravelSettlement] { store.data.trip.settlements ?? [] }
@@ -49,6 +52,11 @@ public struct NativeExpensesView: View {
             .background(PaperBackground())
             .navigationTitle("Ausgaben")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                guard startAdding, !didStartAdding else { return }
+                didStartAdding = true
+                editorRoute = .add
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button { dismiss() } label: {

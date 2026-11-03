@@ -19,7 +19,8 @@ struct HeaderIconLabel: View {
 struct TabHeader<Trailing: View>: View {
     let title: String
     let onBack: () -> Void
-    let onAdd: () -> Void
+    /// Ohne Aktion entfällt das „+“ (Reise-Tab: Ideen legt man dort über „Idee einwerfen“ an).
+    let onAdd: (() -> Void)?
     var addLabel = "Neue Idee"
     @ViewBuilder var trailing: Trailing
 
@@ -27,7 +28,7 @@ struct TabHeader<Trailing: View>: View {
         HStack(spacing: Stitch.Space.s) {
             Button(action: onBack) { Image(systemName: "chevron.left") }
                 .buttonStyle(HeaderIconButton())
-                .accessibilityLabel("Album-Übersicht")
+                .accessibilityLabel("Deine Reisen")
                 .accessibilityIdentifier("trip-back-library")
             Text(title)
                 .font(Stitch.Face.title()).foregroundStyle(Stitch.ink)
@@ -35,10 +36,12 @@ struct TabHeader<Trailing: View>: View {
                 .accessibilityAddTraits(.isHeader)
             Spacer(minLength: Stitch.Space.xs)
             trailing
-            Button(action: onAdd) { Image(systemName: "plus") }
-                .buttonStyle(HeaderIconButton())
-                .accessibilityLabel(addLabel)
-                .accessibilityIdentifier("native-new-place")
+            if let onAdd {
+                Button(action: onAdd) { Image(systemName: "plus") }
+                    .buttonStyle(HeaderIconButton())
+                    .accessibilityLabel(addLabel)
+                    .accessibilityIdentifier("native-new-place")
+            }
         }
         .padding(.horizontal, Stitch.Space.page)
         .padding(.vertical, Stitch.Space.xs)

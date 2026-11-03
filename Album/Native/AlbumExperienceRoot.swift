@@ -125,6 +125,18 @@ struct AlbumExperienceRoot: View {
                     case .cameraMemories: NativeMemoriesView(startWithCamera: true)
                     case .recap: TripMemoriesView(openMap: { sheet = nil; section = .map })
                     case .collectionComposer: CollectionComposer()
+                    case .addExpense: NativeExpensesView(startAdding: true)
+                    case .editTrip(let focusDates):
+                        TripCreateView(heading: "Reise bearbeiten", initial: store.data.trip, focusDates: focusDates) { title, destination, start, end in
+                            var trip = store.data.trip
+                            trip.title = title
+                            trip.destination = destination
+                            trip.startDate = start
+                            trip.endDate = end
+                            guard store.updateTrip(trip) else { return false }
+                            library.refreshActiveEntry()
+                            return true
+                        }
                     }
                 }
                 .environment(store)
@@ -257,7 +269,7 @@ enum NativeTripSection: String, CaseIterable, Identifiable {
 }
 
 enum NativeSheet: Identifiable {
-    case add(Place), detail(String), dayPlan, documents, sharing, name, extraction(ExtractedTrip), assistant, expenses, memories, cameraMemories, recap, collectionComposer
+    case add(Place), detail(String), dayPlan, documents, sharing, name, extraction(ExtractedTrip), assistant, expenses, memories, cameraMemories, recap, collectionComposer, addExpense, editTrip(focusDates: Bool)
     var id: String {
         switch self {
         case .add(let place): "add-\(place.id)"
@@ -273,6 +285,8 @@ enum NativeSheet: Identifiable {
         case .cameraMemories: "camera-memories"
         case .recap: "recap"
         case .collectionComposer: "collection-composer"
+        case .addExpense: "add-expense"
+        case .editTrip: "edit-trip"
         }
     }
 }

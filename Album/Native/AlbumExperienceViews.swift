@@ -137,9 +137,9 @@ struct NativeTripExperience: View {
 
     private func tabHeader(_ tab: NativeTripSection) -> some View {
         let collecting = tab == .ideas && ideasMode == .collection
-        return TabHeader(title: tab == .plan ? "Album" : tab.rawValue,
+        return TabHeader(title: tab.rawValue,
                   onBack: onHome,
-                  onAdd: { sheet = collecting ? .collectionComposer : .add(Place(title: "", author: store.me)) },
+                  onAdd: tab == .plan ? nil : { sheet = collecting ? .collectionComposer : .add(Place(title: "", author: store.me)) },
                   addLabel: collecting ? "Sammeln" : "Neue Idee") {
             if tab == .ideas {
                 Menu {
@@ -189,7 +189,7 @@ struct NativeTripExperience: View {
                 switch action {
                 case .memories: sheet = .memories
                 case .camera: sheet = .cameraMemories
-                case .expenses: sheet = .expenses
+                case .expenses: sheet = .addExpense
                 case .documents: sheet = .documents
                 case .assistant(let prompt): onAssistant(prompt)
                 }
@@ -282,9 +282,9 @@ struct NativeTripView: View {
                     hero
                     if calendar.phase == .after { memoriesEntry }
                     crewRow
-                    planCard
+                    if calendar.days.isEmpty { whenCard } else { planCard }
                 }
-                todaySection
+                if !calendar.days.isEmpty { todaySection }
                 documentsSection
                 moreCard
                 syncLine
@@ -351,12 +351,9 @@ struct NativeTripView: View {
         .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
         .overlay(alignment: .topTrailing) {
             Menu {
-                Button("Neue Idee", systemImage: "plus") { sheet = .add(Place(title: "", author: store.me)) }
-                Button("Assistent", systemImage: "sparkles") { onAssistant(nil) }
-                Button("Teilen & Personen", systemImage: "person.2") { sheet = .sharing }
-                Button("Unterlagen", systemImage: "doc.text") { sheet = .documents }
-                Button("Ausgaben", systemImage: "eurosign.circle") { sheet = .expenses }
-                Button("Fotos", systemImage: "photo.stack") { sheet = .memories }
+                // Nur Einstellungen der Reise; Wege zu Unterlagen, Ausgaben, Fotos und Assistent sind die Zeilen unten.
+                Button("Reise bearbeiten", systemImage: "pencil") { sheet = .editTrip(focusDates: false) }
+                    .accessibilityIdentifier("trip-edit")
 #if DEBUG && targetEnvironment(simulator)
                 if ProcessInfo.processInfo.environment["ALBUM_QA_NATIVE_SHARE"] == "1" {
                     Button("QA Share", systemImage: "square.and.arrow.up", action: onNativeShare)
@@ -420,6 +417,19 @@ struct NativeTripView: View {
             }
         }
         .stitchCard()
+    }
+
+    /// Ohne Zeitraum gibt es weder Reiseplan noch „Heute“; eine Karte fragt danach statt zwei leerer.
+    private var whenCard: some View {
+        VStack(alignment: .leading, spacing: Stitch.Space.m) {
+            EmptyStateCard(symbol: "calendar.badge.plus", title: "Wann fahrt ihr?",
+                           message: "Mit dem Zeitraum entsteht euer Reiseplan, Tag für Tag.")
+            Button("Zeitraum festlegen", systemImage: "calendar") { sheet = .editTrip(focusDates: true) }
+                .buttonStyle(StitchButton(primary: true))
+                .accessibilityIdentifier("native-set-dates")
+            Button("Idee einwerfen", systemImage: "plus") { sheet = .add(Place(title: "", author: store.me)) }
+                .buttonStyle(StitchButton())
+        }
     }
 
     // MARK: Heute
@@ -1385,7 +1395,8 @@ struct NativeArcFAB: View {
     private let dwell: TimeInterval = 0.48
 
     private enum FanMode: Equatable { case closed, main, sub }
-    private let mainPositions: [(CGFloat, CGFloat)] = [(-34, -216), (-86, -162), (-128, -108), (-158, -54), (-170, 0)]
+    /// Drei Aktionen zum schnellen Festhalten unterwegs, gleichmäßig auf dem Bogen verteilt.
+    private let mainPositions: [(CGFloat, CGFloat)] = [(-34, -216), (-128, -108), (-170, 0)]
     private let submenuPositions: [(CGFloat, CGFloat)] = [(-41, -165), (-130, -110), (-161, -55), (-170, 0)]
     private var positions: [(CGFloat, CGFloat)] { mode == .sub ? submenuPositions : mainPositions }
 
@@ -1404,7 +1415,7 @@ struct NativeArcFAB: View {
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
             if mode != .closed {
-                ForEach(0..<(mode == .sub ? 4 : 5), id: \.self) { index in
+                ForEach(0..<positions.count, id: \.self) { index in
                     fanNode(index: index)
                         .id("native-fan-node-\(index)")
                 }
@@ -1524,10 +1535,8 @@ struct NativeArcFAB: View {
         }
         switch index {
         case 0: return ("sparkles", "Reise fragen", "native-fan-ai", true)
-        case 1: return ("camera", "Kamera", "native-fan-camera", false)
-        case 2: return ("photo.stack", "Fotos", "native-fan-mem", false)
-        case 3: return ("eurosign.circle", "Ausgaben", "native-fan-exp", false)
-        default: return ("doc.text", "Unterlagen", "native-fan-doc", false)
+        case 1: return ("camera", "Foto machen", "native-fan-camera", false)
+        default: return ("eurosign.circle", "Ausgabe erfassen", "native-fan-exp", false)
         }
     }
 
@@ -1537,9 +1546,7 @@ struct NativeArcFAB: View {
             switch index {
             case 0: switchToSub()
             case 1: commit(.camera)
-            case 2: commit(.memories)
-            case 3: commit(.expenses)
-            case 4: commit(.documents)
+            case 2: commit(.expenses)
             default: break
             }
         case .sub:
@@ -1664,7 +1671,7 @@ struct NativeArcFAB: View {
     private func commitCandidate(_ index: Int) {
         switch mode {
         case .main:
-            switch index { case 0: switchToSub(); case 1: commit(.camera); case 2: commit(.memories); case 3: commit(.expenses); case 4: commit(.documents); default: break }
+            switch index { case 0: switchToSub(); case 1: commit(.camera); case 2: commit(.expenses); default: break }
         case .sub:
             switch index {
             case 0: commit(.assistant(nil))
