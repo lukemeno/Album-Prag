@@ -221,6 +221,8 @@ private struct PlaceResolutionSnapshot: Equatable {
             let noPhoto = Place(id: "memory-cafe", title: "Café Savoy", category: "Essen & Trinken", author: "Luke",
                                 franked: true, visited: true, plannedDate: TripDay(rawValue: "2026-10-05"), dayOrder: 0)
             data.places = [letna, oldTown, noPhoto]
+            data.trip.startDate = TripInfo.legacyPragueStart
+            data.trip.endDate = TripInfo.legacyPragueEnd
         }
         if ProcessInfo.processInfo.environment["ALBUM_DEMO_MOTION"] == "1" {
             var savoy = Place(id: "motion-savoy", title: "Café Savoy", category: "Essen & Trinken", author: "Luke",

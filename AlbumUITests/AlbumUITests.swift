@@ -131,7 +131,9 @@ final class AlbumUITests: XCTestCase {
         app.launchEnvironment["ALBUM_DEMO_MEMORIES"] = "1"
         app.launch()
 
-        app.openTripRow("native-group-memories")
+        let memories = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Erinnerungen ansehen'")).firstMatch
+        XCTAssertTrue(memories.waitForExistence(timeout: 15))
+        memories.tap()
         XCTAssertTrue(app.staticTexts["Sonntag, 4. Oktober"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Montag, 5. Oktober"].exists)
         try auditAccessibility(app, screen: "Erinnerungen")

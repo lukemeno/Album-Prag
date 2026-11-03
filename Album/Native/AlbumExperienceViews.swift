@@ -241,7 +241,8 @@ struct NativeTripView: View {
     private var today: TripDay? { calendar.todayInTrip }
     private var day: TripDay? {
         if let chosenDay, calendar.contains(chosenDay) { return chosenDay }
-        return today ?? calendar.days.first
+        // Nach der Reise steht der letzte Reisetag vorn, wie im Rückblick.
+        return calendar.phase == .after ? calendar.days.last : (today ?? calendar.days.first)
     }
     private var stops: [PlanStop] {
         guard let day else { return [] }
@@ -274,6 +275,7 @@ struct NativeTripView: View {
             VStack(alignment: .leading, spacing: Stitch.Space.xl) {
                 VStack(alignment: .leading, spacing: Stitch.Space.m) {
                     hero
+                    if calendar.phase == .after { memoriesEntry }
                     crewRow
                     planCard
                 }
@@ -291,6 +293,44 @@ struct NativeTripView: View {
     }
 
     // MARK: Kopf der Reise
+
+    /// Nach Reiseende: Einstieg in den Rückblick nach Reisetagen (TripMemoriesView).
+    private var memoriesEntry: some View {
+        let visited = store.franked.filter(\.visited)
+        let ownPhotos = visited.filter { place in
+            if case .uploaded = place.image { return true }
+            return false
+        }.count
+        let summary = memorySummary(places: visited.count, photos: ownPhotos)
+        return Button { sheet = .recap } label: {
+            HStack(spacing: Stitch.Space.s) {
+                Image(systemName: "photo.stack").font(.body.weight(.semibold)).foregroundStyle(Stitch.Stamp.ink)
+                    .frame(width: 40, height: 40).background(Stitch.Stamp.rose, in: Circle())
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Erinnerungen ansehen").font(Stitch.Face.headline).foregroundStyle(Stitch.ink)
+                    Text(summary).font(Stitch.Face.footnote).foregroundStyle(Stitch.inkSoft)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(Stitch.inkSoft)
+            }
+            .frame(maxWidth: .infinity, minHeight: Stitch.Size.touch, alignment: .leading)
+            .contentShape(Rectangle())
+            .stitchCard()
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityLabel("Erinnerungen ansehen")
+        .accessibilityValue(summary)
+        .accessibilityHint("Blättert durch besuchte Orte und Fotos")
+    }
+
+    private func memorySummary(places: Int, photos: Int) -> String {
+        if places == 0 { return "Eure besuchten Orte und Fotos" }
+        let placeCount = places == 1 ? "1 Ort erlebt" : "\(places) Orte erlebt"
+        let photoCount = photos == 1 ? "1 eigenes Foto" : "\(photos) eigene Fotos"
+        return "\(placeCount) · \(photoCount)"
+    }
 
     private var hero: some View {
         ZStack(alignment: .bottomLeading) {
