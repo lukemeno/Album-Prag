@@ -142,6 +142,10 @@ struct NativeTripExperience: View {
                 Menu {
                     Button("Entscheiden", systemImage: "hand.tap") { sheet = .inbox }
                     Button("Sammlung", systemImage: "tray.full") { sheet = .collection }
+                    Button("Bilder ergänzen", systemImage: "arrow.clockwise") {
+                        Task { await store.refreshPlaceImages(force: false) }
+                    }
+                    .accessibilityIdentifier("native-refresh-images")
                 } label: { HeaderIconLabel(symbol: "ellipsis") }
                     .accessibilityLabel("Ideenbereiche")
             }
@@ -769,7 +773,6 @@ struct NativeIdeasView<Header: View>: View {
     @State private var mode = IdeasMode.stack
     @State private var category = "Alle"
     @State private var skipped = Set<String>()
-    @State private var imageRefreshTask: Task<Void, Never>?
     @State private var discoveryPresented = false
     @Environment(NewIdeaTracker.self) private var newIdeas: NewIdeaTracker?
     private let categories = ["Alle", "Essen & Trinken", "Sehenswert", "Aussicht", "Shopping", "Idee"]
@@ -853,7 +856,6 @@ struct NativeIdeasView<Header: View>: View {
         }
         .scrollIndicators(.hidden)
         .background(Stitch.paper.ignoresSafeArea())
-        .onDisappear { imageRefreshTask?.cancel() }
         .sheet(isPresented: $discoveryPresented) { NativeDiscoveryView() }
     }
 
@@ -934,15 +936,9 @@ struct NativeIdeasView<Header: View>: View {
             Button { sheet = .collection } label: { Label("Sammlung öffnen", systemImage: "tray.full") }
                 .buttonStyle(StitchButton())
                 .accessibilityIdentifier("native-ideas-collection")
-            Button { discoveryPresented = true } label: { Label("Entdecken", systemImage: "sparkle.magnifyingglass") }
+            Button { discoveryPresented = true } label: { Label("Orte vorschlagen", systemImage: "sparkle.magnifyingglass") }
                 .buttonStyle(StitchButton())
                 .accessibilityIdentifier("native-discover")
-            Button {
-                imageRefreshTask?.cancel()
-                imageRefreshTask = Task { await store.refreshPlaceImages(force: false) }
-            } label: { Label("Bilder ergänzen", systemImage: "arrow.clockwise") }
-                .buttonStyle(StitchButton())
-                .accessibilityIdentifier("native-refresh-images")
         }
         .padding(.top, Stitch.Space.xs)
     }

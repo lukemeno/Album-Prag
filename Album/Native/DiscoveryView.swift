@@ -24,11 +24,11 @@ struct NativeDiscoveryView: View {
                             cityPicker(discovery)
                             phaseContent(discovery)
                         }
-                    } else { ProgressView("Entdecken wird vorbereitet …") }
+                    } else { ProgressView("Vorschläge werden vorbereitet …") }
                 }.padding(Stitch.Space.page)
             }
             .background(Stitch.paper.ignoresSafeArea())
-            .navigationTitle("Entdecken")
+            .navigationTitle("Orte vorschlagen")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Fertig") { dismiss() }.accessibilityIdentifier("discovery-close") } }
             .onAppear {
@@ -44,7 +44,7 @@ struct NativeDiscoveryView: View {
                 }
             }
             .onDisappear { task?.cancel(); task = nil }
-            .alert("Entdecken", isPresented: Binding(get: { message != nil }, set: { if !$0 { message = nil } })) {
+            .alert("Orte vorschlagen", isPresented: Binding(get: { message != nil }, set: { if !$0 { message = nil } })) {
                 Button("OK") { message = nil }
             } message: { Text(message ?? "") }
         }

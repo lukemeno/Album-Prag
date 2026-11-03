@@ -263,6 +263,7 @@ final class NativePrototypeUITests: XCTestCase {
         tap("native-trip-prag", in: app)
         tap("native-tab-ideas", in: app)
         showIdeaList(in: app)
+        tap("Ideenbereiche", in: app) // „Bilder ergänzen“ liegt im Menü des Ideen-Tabs
         tap("native-refresh-images", in: app)
         XCTAssertTrue(app.buttons["native-resolve-global-cafe"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.staticTexts["native-image-status-global-ramen"].exists)
