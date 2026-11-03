@@ -13,10 +13,9 @@ struct AlbumSettings: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Stitch.Space.xl) {
                     VStack(alignment: .leading, spacing: Stitch.Space.s) {
-                        Postmark(top: "ALBUM", bottom: "FÜR ZWEI", size: 84)
-                        Text(store.isShared ? "Ihr teilt dieses Album" : "Zu zweit planen")
+                        Text(store.isShared ? "Ihr plant gemeinsam" : "Gemeinsam planen")
                             .font(Stitch.Face.display(32, relativeTo: .largeTitle)).foregroundStyle(Stitch.ink)
-                        Text("Ideen, Orte und Unterlagen landen auf beiden iPhones. Der Link gilt nur für diese Reise.")
+                        Text("Ideen, Orte und Unterlagen landen bei allen, die du einlädst. Der Link gilt nur für diese Reise.")
                             .font(.body).foregroundStyle(Stitch.inkSoft)
                     }
 

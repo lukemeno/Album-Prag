@@ -254,7 +254,7 @@ final class AlbumUITests: XCTestCase {
         XCTAssertTrue(app.stackCard.waitForExistence(timeout: 15))
         XCTAssertTrue(app.stackCard.label.hasPrefix("Karlsbrücke"))
         app.inboxButton("Nein").tap()
-        XCTAssertTrue(app.staticTexts["Noch 2 Ideen · gemeinsam entscheiden"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Noch 2 Ideen · entscheiden"].waitForExistence(timeout: 5))
 
         app.buttons["native-ideas-list"].tap()
         // Die Filter-Chips scrollen waagerecht; „Aussortiert“ steht am Ende.
@@ -268,7 +268,7 @@ final class AlbumUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Nichts aussortiert"].waitForExistence(timeout: 5))
 
         app.buttons["native-ideas-stack"].tap()
-        XCTAssertTrue(app.staticTexts["Noch 3 Ideen · gemeinsam entscheiden"].waitForExistence(timeout: 5), "Zurückgeholt liegt sie wieder im Stapel")
+        XCTAssertTrue(app.staticTexts["Noch 3 Ideen · entscheiden"].waitForExistence(timeout: 5), "Zurückgeholt liegt sie wieder im Stapel")
     }
 
     func testOpenIdeasRemainUndecidedAfterRelaunch() {

@@ -160,6 +160,27 @@ final class TripLibraryUITests: XCTestCase {
         XCTAssertFalse(again.label.contains("Zeitraum offen"))
     }
 
+    /// Paket 3: Aus der geöffneten Reise heraus löschen – derselbe Ablauf wie in der Übersicht, danach „Deine Reisen“.
+    func testDeleteTripFromInsideTheTrip() {
+        let app = launch()
+        create("Paris", destination: "Paris", in: app)
+        tap("trip-back-library", in: app)
+        create("Berlin", destination: "Berlin", in: app)
+        tap("trip-more-menu", in: app)
+        tap("trip-delete", in: app)
+        let alert = app.alerts.firstMatch
+        XCTAssertTrue(alert.waitForExistence(timeout: 5))
+        XCTAssertTrue(alert.label.contains("Berlin"), alert.label)
+        alert.buttons["Löschen"].tap()
+
+        let card = { (name: String) in
+            app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label CONTAINS %@", "library-trip-", name)).firstMatch
+        }
+        XCTAssertTrue(card("Paris").waitForExistence(timeout: 8), "Nach dem Löschen steht man in „Deine Reisen“")
+        XCTAssertFalse(card("Berlin").exists)
+        capture("deleted-from-trip", from: app)
+    }
+
     func testDeleteTripAsksFirstAndOnlyRemovesThatTrip() {
         let app = launch()
         create("Paris", destination: "Paris", in: app)

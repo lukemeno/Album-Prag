@@ -237,6 +237,8 @@ struct NativeTripPillBar: View {
 /// Heute, Unterlagen und die früheren Gruppen-Bereiche als Aktionszeilen.
 struct NativeTripView: View {
     @Environment(AlbumStore.self) private var store
+    @Environment(TripLibrary.self) private var library
+    @State private var removalRequest: TripLibraryEntry?
     @Binding var sheet: NativeSheet?
     let onAssistant: (String?) -> Void
     let onNativeShare: () -> Void
@@ -295,6 +297,7 @@ struct NativeTripView: View {
         }
         .scrollIndicators(.hidden)
         .background(Stitch.paper.ignoresSafeArea())
+        .tripRemoval(request: $removalRequest)
     }
 
     // MARK: Kopf der Reise
@@ -354,6 +357,10 @@ struct NativeTripView: View {
                 // Nur Einstellungen der Reise; Wege zu Unterlagen, Ausgaben, Fotos und Assistent sind die Zeilen unten.
                 Button("Reise bearbeiten", systemImage: "pencil") { sheet = .editTrip(focusDates: false) }
                     .accessibilityIdentifier("trip-edit")
+                Button(store.isShared ? "Reise löschen oder verlassen" : "Reise löschen", systemImage: "trash", role: .destructive) {
+                    removalRequest = library.entries.first { $0.id == library.activeID }
+                }
+                .accessibilityIdentifier("trip-delete")
 #if DEBUG && targetEnvironment(simulator)
                 if ProcessInfo.processInfo.environment["ALBUM_QA_NATIVE_SHARE"] == "1" {
                     Button("QA Share", systemImage: "square.and.arrow.up", action: onNativeShare)
@@ -368,29 +375,33 @@ struct NativeTripView: View {
         .accessibilityElement(children: .contain)
     }
 
+    /// Der eine Eingang für Personen: wer dabei ist, und „+ Einladen“ zum Teilen der Reise.
     private var crewRow: some View {
-        HStack(spacing: Stitch.Space.s) {
-            HStack(spacing: -Stitch.Space.xs) {
-                ForEach(Array(travelers.prefix(3)), id: \.self) { name in
-                    Text(String(name.prefix(2)).uppercased())
-                        .font(Stitch.Face.footnote.weight(.semibold)).foregroundStyle(Stitch.Stamp.ink)
-                        .frame(width: Stitch.Size.button - Stitch.Space.xs, height: Stitch.Size.button - Stitch.Space.xs)
-                        .background(Stitch.Stamp.sky, in: Circle())
-                        .overlay(Circle().strokeBorder(Stitch.paper, lineWidth: 2))
-                        .accessibilityLabel(name == store.me ? "\(name), du" : name)
+        Button { sheet = .sharing } label: {
+            HStack(spacing: Stitch.Space.s) {
+                HStack(spacing: -Stitch.Space.xs) {
+                    ForEach(Array(travelers.prefix(4)), id: \.self) { name in
+                        Text(String(name.prefix(2)).uppercased())
+                            .font(Stitch.Face.footnote.weight(.semibold)).foregroundStyle(Stitch.Stamp.ink)
+                            .frame(width: Stitch.Size.button - Stitch.Space.xs, height: Stitch.Size.button - Stitch.Space.xs)
+                            .background(Stitch.Stamp.sky, in: Circle())
+                            .overlay(Circle().strokeBorder(Stitch.paper, lineWidth: 2))
+                    }
                 }
-            }
-            Button { sheet = .sharing } label: {
-                Text(store.isShared ? "Einladung teilen" : "Einladen")
+                Label("Einladen", systemImage: "plus")
                     .font(Stitch.Face.headline).foregroundStyle(Stitch.ink)
                     .frame(maxWidth: .infinity, minHeight: Stitch.Size.button)
                     .background(Stitch.card, in: Capsule())
                     .overlay(Capsule().strokeBorder(Stitch.line))
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel(store.isShared ? "Einladung teilen" : "Einladung erstellen")
-            .accessibilityIdentifier("native-group-sharing")
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityLabel("Personen: \(travelers.map { $0 == store.me ? "\($0), du" : $0 }.joined(separator: ", "))")
+        .accessibilityHint("Mitreisende ansehen und einladen")
+        .accessibilityIdentifier("native-group-sharing")
     }
 
     // MARK: Reiseplan
@@ -820,7 +831,9 @@ struct NativeIdeasView<Header: View>: View {
         if mode != .collection && hasNoIdeas { return "Noch keine Ideen" }
         switch mode {
         case .stack:
-            return stack.count == 1 ? "Noch 1 Idee · gemeinsam entscheiden" : "Noch \(stack.count) Ideen · gemeinsam entscheiden"
+            // Allein gibt es nichts „gemeinsam“ zu entscheiden; erst mit Mitreisenden.
+            let together = store.isShared ? " · gemeinsam entscheiden" : " · entscheiden"
+            return (stack.count == 1 ? "Noch 1 Idee" : "Noch \(stack.count) Ideen") + together
         case .list:
             return "\(ideas.count == 1 ? "1 Idee" : "\(ideas.count) Ideen") · \(category == "Alle" ? "alle Kategorien" : category)"
         case .collection:
