@@ -142,7 +142,7 @@ final class FullJourneyUITests: XCTestCase {
         add(journeyRevision)
         print("Journey revision: inner-switch-20261002-v1")
         let app = try launchFixture(startTab: "Karte")
-        XCTAssertTrue(app.navigationBars["Karte"].waitForExistence(timeout: wait))
+        XCTAssertTrue(app.mapScreen.waitForExistence(timeout: wait))
 
         let qaPlaceRow = app.buttons["place-row-qa-oldtown"]
         let placesList = app.descendants(matching: .any).matching(identifier: "map-places-list").firstMatch
@@ -189,10 +189,10 @@ final class FullJourneyUITests: XCTestCase {
 
         // Persisted visited state must survive a relaunch before undo is attempted.
         app.buttons["Schließen"].tap()
-        XCTAssertTrue(app.navigationBars["Karte"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.mapScreen.waitForExistence(timeout: 5))
         app.terminate()
         app.launch()
-        XCTAssertTrue(app.navigationBars["Karte"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.mapScreen.waitForExistence(timeout: 8))
         let relaunchedQAPlaceRow = app.buttons["place-row-qa-oldtown"]
         let relaunchedPlacesList = app.descendants(matching: .any).matching(identifier: "map-places-list").firstMatch
         XCTAssertTrue(relaunchedPlacesList.waitForExistence(timeout: 5), "Die benannte Ortsliste muss nach Relaunch erreichbar sein")
@@ -234,7 +234,7 @@ final class FullJourneyUITests: XCTestCase {
             XCTAssertTrue(app.buttons["Schließen"].isHittable)
         }
         app.buttons["Schließen"].tap()
-        XCTAssertTrue(app.navigationBars["Karte"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.mapScreen.waitForExistence(timeout: 5))
     }
 
     func testMemoriesJourneyRotatesAndDismisses() throws {
@@ -328,7 +328,7 @@ final class FullJourneyUITests: XCTestCase {
     func testLargeTypeMapAndEditorJourney() throws {
         defer { restorePortrait() }
         let app = try launchFixture(startTab: "Karte")
-        XCTAssertTrue(app.navigationBars["Karte"].waitForExistence(timeout: wait))
+        XCTAssertTrue(app.mapScreen.waitForExistence(timeout: wait))
 
         let listToggle = app.buttons["Liste ausklappen"]
         XCTAssertTrue(listToggle.waitForExistence(timeout: 5))

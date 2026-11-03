@@ -50,7 +50,7 @@ extension AlbumUITests {
 
     func testAccessibilityAuditMapScreen() throws {
         let app = launchAccessibilityStore(startTab: "Karte", extra: ["ALBUM_DEMO_MOTION": "1"])
-        XCTAssertTrue(app.navigationBars["Karte"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.mapScreen.waitForExistence(timeout: 15))
         attachAccessibilityScreen(app, name: "Karte")
         try auditAccessibility(app, screen: "Karte")
     }
@@ -65,7 +65,7 @@ extension AlbumUITests {
         app.launchEnvironment["ALBUM_MY_NAME"] = "Luke"
         app.launchEnvironment["ALBUM_START_TAB"] = "Karte"
         app.launch()
-        XCTAssertTrue(app.navigationBars["Karte"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.mapScreen.waitForExistence(timeout: 15))
         let clusterQuery = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'map-cluster-'"))
         XCTAssertTrue(clusterQuery.firstMatch.waitForExistence(timeout: 10))
         let firstCluster = clusterQuery.firstMatch

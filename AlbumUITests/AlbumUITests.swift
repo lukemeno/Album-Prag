@@ -131,9 +131,7 @@ final class AlbumUITests: XCTestCase {
         app.launchEnvironment["ALBUM_DEMO_MEMORIES"] = "1"
         app.launch()
 
-        let memories = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Erinnerungen ansehen'")).firstMatch
-        XCTAssertTrue(memories.waitForExistence(timeout: 15))
-        memories.tap()
+        app.openTripRow("native-group-memories")
         XCTAssertTrue(app.staticTexts["Sonntag, 4. Oktober"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Montag, 5. Oktober"].exists)
         try auditAccessibility(app, screen: "Erinnerungen")
@@ -264,8 +262,12 @@ final class AlbumUITests: XCTestCase {
         app.inboxButton("Nein").tap()
         XCTAssertTrue(app.buttons["Letzte Entscheidung rückgängig"].exists)
         app.buttons["Letzte Entscheidung rückgängig"].tap()
-        app.buttons["Karte"].tap()
-        XCTAssertTrue(app.navigationBars["Karte"].waitForExistence(timeout: 5))
+        // Das Entscheiden-Blatt hat keinen Schließen-Knopf; es schließt nur per Wischen nach unten.
+        let top = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.12))
+        top.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95)))
+        XCTAssertTrue(app.buttons["native-tab-map"].waitForExistence(timeout: 5))
+        app.buttons["native-tab-map"].tap()
+        XCTAssertTrue(app.mapScreen.waitForExistence(timeout: 5))
         try auditAccessibilityWhenEnabled(app, screen: "Karte")
     }
 
@@ -518,7 +520,7 @@ final class AlbumUITests: XCTestCase {
         proposalList.swipeUp(); shot("plan-3")
         apply.tap()
         // Der Tagesplan lebt jetzt in der Liste auf der Karte.
-        XCTAssertTrue(app.navigationBars["Karte"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.mapScreen.waitForExistence(timeout: 5))
         let fullList = app.buttons["Liste einklappen"]
         if !fullList.waitForExistence(timeout: 5) {
             let expand = app.buttons["Liste ausklappen"]
@@ -547,7 +549,7 @@ final class AlbumUITests: XCTestCase {
         XCTAssertEqual(app.buttons.matching(NSPredicate(format: "label == 'Tag festlegen'" )).count, 0, "Die unzugewiesene Autoplan-Fixture darf nach Übernehmen keine ungeplanten Orte behalten")
         app.buttons["Fertig"].tap()
         app.terminate(); app.launch()
-        XCTAssertTrue(app.navigationBars["Karte"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.mapScreen.waitForExistence(timeout: 10))
         let reloadExpand = app.buttons["Liste ausklappen"]
         if reloadExpand.waitForExistence(timeout: 5) { reloadExpand.tap() }
         XCTAssertTrue(app.buttons["Liste einklappen"].waitForExistence(timeout: 5))
@@ -617,7 +619,7 @@ final class AlbumUITests: XCTestCase {
         ] {
             XCUIDevice.shared.orientation = orientation
             sleep(3)
-            XCTAssertTrue(app.navigationBars["Karte"].exists, "Karte bleibt in \(name) sichtbar")
+            XCTAssertTrue(app.mapScreen.exists, "Karte bleibt in \(name) sichtbar")
             let expectsLandscape = orientation == .landscapeLeft || orientation == .landscapeRight
             let frame = app.windows.firstMatch.frame
             XCTAssertEqual(frame.width > frame.height, expectsLandscape, "Fenstergeometrie passt nicht zu \(name): \(frame)")
@@ -626,7 +628,7 @@ final class AlbumUITests: XCTestCase {
         }
         XCUIDevice.shared.orientation = .portrait
         sleep(3)
-        XCTAssertTrue(app.navigationBars["Karte"].exists, "Karte kehrt ins Hochformat zurück")
+        XCTAssertTrue(app.mapScreen.exists, "Karte kehrt ins Hochformat zurück")
         let portraitFrame = app.windows.firstMatch.frame
         XCTAssertLessThan(portraitFrame.width, portraitFrame.height, "Fenstergeometrie bleibt nach der Rotation im Querformat")
         XCTAssertEqual(XCUIDevice.shared.orientation, .portrait)
@@ -726,7 +728,7 @@ final class AlbumUITests: XCTestCase {
         shot("03-ideen")
 
         app.buttons["native-tab-map"].tap()
-        XCTAssertTrue(app.navigationBars["Karte"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.mapScreen.waitForExistence(timeout: 5))
         shot("04-karte")
         let expandDrawer = app.buttons["Liste ausklappen"]
         XCTAssertTrue(expandDrawer.waitForExistence(timeout: 5))
@@ -864,7 +866,7 @@ extension AlbumUITests {
         app.launchEnvironment.removeValue(forKey: "ALBUM_IMAGE_RESPONSE_BASE64")
         app.launchEnvironment.removeValue(forKey: "ALBUM_IMAGE_RESPONSE_DELAY_MS")
         app.launch()
-        XCTAssertTrue(app.navigationBars["Karte"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.mapScreen.waitForExistence(timeout: 10))
         let relaunchedList = app.buttons["Liste ausklappen"]
         XCTAssertTrue(relaunchedList.waitForExistence(timeout: 10), "Der persistierte Baseline-Store muss die Kartenliste erneut öffnen")
         relaunchedList.tap()
@@ -952,7 +954,7 @@ extension AlbumUITests {
         app.launch()
 
         func openEditor() {
-            XCTAssertTrue(app.navigationBars["Karte"].waitForExistence(timeout: 15))
+            XCTAssertTrue(app.mapScreen.waitForExistence(timeout: 15))
             let list = app.buttons["Liste ausklappen"]
             XCTAssertTrue(list.waitForExistence(timeout: 10))
             list.tap()
@@ -1053,7 +1055,7 @@ extension AlbumUITests {
         app.launch()
 
         func openEditor() {
-            XCTAssertTrue(app.navigationBars["Karte"].waitForExistence(timeout: 15))
+            XCTAssertTrue(app.mapScreen.waitForExistence(timeout: 15))
             let list = app.buttons["Liste ausklappen"]
             XCTAssertTrue(list.waitForExistence(timeout: 10))
             list.tap()
@@ -1144,7 +1146,7 @@ extension AlbumUITests {
         app.launchEnvironment["ALBUM_MY_NAME"] = "Luke"
         app.launchEnvironment["ALBUM_START_TAB"] = "Karte"
         app.launch()
-        XCTAssertTrue(app.navigationBars["Karte"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.mapScreen.waitForExistence(timeout: 15))
         let startupAX = XCTAttachment(string: app.debugDescription)
         startupAX.name = "Native PhotosPicker startup AX"
         startupAX.lifetime = .keepAlways
@@ -1208,6 +1210,21 @@ extension XCUIApplication {
         let item = buttons[area]
         XCTAssertTrue(item.waitForExistence(timeout: 5), "Fehlt im Menü: \(area)", file: file, line: line)
         item.tap()
+    }
+
+    /// Der Karten-Tab hat keine Navigationsleiste mehr; sein Suchfeld zeigt an, dass die Karte offen ist.
+    var mapScreen: XCUIElement { descendants(matching: .any)["map-search"] }
+
+    /// Zeile im Reise-Tab (Unterlagen, Erinnerungen, Assistent …): Tab wählen, hinscrollen, tippen.
+    func openTripRow(_ id: String, file: StaticString = #filePath, line: UInt = #line) {
+        let tab = buttons["native-tab-plan"]
+        XCTAssertTrue(tab.waitForExistence(timeout: 15), "Fehlt: Reise-Tab", file: file, line: line)
+        if !tab.isSelected { tab.tap() }
+        let row = buttons[id]
+        XCTAssertTrue(row.waitForExistence(timeout: 10), "Fehlt: \(id)", file: file, line: line)
+        var tries = 0
+        while !row.isHittable && tries < 6 { swipeUp(); tries += 1 }
+        row.tap()
     }
 
     /// Entscheidungsknopf im Entscheiden-Blatt. Der Ideen-Tab dahinter hat gleich beschriftete Knöpfe (native-decide-*).

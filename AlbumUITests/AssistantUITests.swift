@@ -16,9 +16,7 @@ final class AssistantUITests: XCTestCase {
         openTripIfNeeded(app)
 
         if app.buttons["Los geht’s"].waitForExistence(timeout: 3) { app.buttons["Los geht’s"].tap() }
-        let assistantButton = app.buttons["Reise-Assistent"]
-        XCTAssertTrue(assistantButton.waitForExistence(timeout: 5))
-        assistantButton.tap()
+        app.openTripRow("assistant-launch")
         let input = app.textFields["assistant-input"]
         XCTAssertTrue(input.waitForExistence(timeout: 5))
         input.tap(); input.typeText("Was passt jetzt?")
@@ -34,8 +32,7 @@ final class AssistantUITests: XCTestCase {
         app.launch()
         openTripIfNeeded(app)
         XCTAssertFalse(app.buttons["Los geht’s"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.buttons["Reise-Assistent"].waitForExistence(timeout: 5))
-        app.buttons["Reise-Assistent"].tap()
+        app.openTripRow("assistant-launch")
         let input = app.textFields["assistant-input"]
         XCTAssertTrue(input.waitForExistence(timeout: 5))
         input.tap(); input.typeText("Hallo")
@@ -45,8 +42,7 @@ final class AssistantUITests: XCTestCase {
         app.buttons["Schließen"].tap()
         app.terminate(); app.launch()
         openTripIfNeeded(app)
-        XCTAssertTrue(app.buttons["Reise-Assistent"].waitForExistence(timeout: 5))
-        app.buttons["Reise-Assistent"].tap()
+        app.openTripRow("assistant-launch")
         XCTAssertTrue(app.staticTexts["Antwort aus dem Test"].waitForExistence(timeout: 5))
     }
 }
