@@ -280,14 +280,24 @@ struct NativeTripView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Stitch.Space.xl) {
-                VStack(alignment: .leading, spacing: Stitch.Space.m) {
-                    hero
-                    if calendar.phase == .after { memoriesEntry }
+                if calendar.phase == .during {
+                    // Unterwegs zählt „wohin jetzt?“: kleiner Kopf, dann Heute, das große Titelfoto erst danach wieder.
+                    VStack(alignment: .leading, spacing: Stitch.Space.m) {
+                        compactHeader
+                        todaySection
+                    }
+                    planCard
                     crewRow
-                    if calendar.days.isEmpty { whenCard } else { planCard }
+                } else {
+                    VStack(alignment: .leading, spacing: Stitch.Space.m) {
+                        hero
+                        if calendar.phase == .after { memoriesEntry }
+                        crewRow
+                        if calendar.days.isEmpty { whenCard } else { planCard }
+                    }
+                    if !calendar.days.isEmpty { todaySection }
+                    documentsSection
                 }
-                if !calendar.days.isEmpty { todaySection }
-                documentsSection
                 moreCard
                 syncLine
             }
@@ -301,6 +311,45 @@ struct NativeTripView: View {
     }
 
     // MARK: Kopf der Reise
+
+    /// „…“ der Reise: nur Einstellungen; die Wege zu Unterlagen, Ausgaben, Fotos und Assistent sind die Zeilen.
+    private var tripMenu: some View {
+        Menu {
+            // Nur Einstellungen der Reise; Wege zu Unterlagen, Ausgaben, Fotos und Assistent sind die Zeilen unten.
+            Button("Reise bearbeiten", systemImage: "pencil") { sheet = .editTrip(focusDates: false) }
+                .accessibilityIdentifier("trip-edit")
+            Button(store.isShared ? "Reise löschen oder verlassen" : "Reise löschen", systemImage: "trash", role: .destructive) {
+                removalRequest = library.entries.first { $0.id == library.activeID }
+            }
+            .accessibilityIdentifier("trip-delete")
+#if DEBUG && targetEnvironment(simulator)
+            if ProcessInfo.processInfo.environment["ALBUM_QA_NATIVE_SHARE"] == "1" {
+                Button("QA Share", systemImage: "square.and.arrow.up", action: onNativeShare)
+                    .accessibilityIdentifier("qa-native-share")
+            }
+#endif
+        } label: { HeaderIconLabel(symbol: "ellipsis") }
+            .accessibilityLabel("Mehr")
+            .accessibilityIdentifier("trip-more-menu")
+    }
+
+    /// Unterwegs statt des großen Titelfotos: Reisename, welcher Reisetag es ist, und das „…“ der Reise.
+    private var compactHeader: some View {
+        HStack(alignment: .center, spacing: Stitch.Space.s) {
+            VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
+                Text(store.tripName).font(Stitch.Face.title()).foregroundStyle(Stitch.ink)
+                    .lineLimit(1).minimumScaleFactor(0.7)
+                    .accessibilityAddTraits(.isHeader)
+                if let index = today.flatMap({ calendar.days.firstIndex(of: $0) }) {
+                    Text("Tag \(index + 1) von \(calendar.days.count)")
+                        .font(Stitch.Face.subheadline).foregroundStyle(Stitch.inkSoft).monospacedDigit()
+                        .accessibilityIdentifier("trip-day-of")
+                }
+            }
+            Spacer(minLength: Stitch.Space.xs)
+            tripMenu
+        }
+    }
 
     /// Nach Reiseende: Einstieg ins Album (TripMemoriesView), mit denselben Zahlen wie das Album selbst.
     private var memoriesEntry: some View {
@@ -352,26 +401,7 @@ struct NativeTripView: View {
         .frame(height: 284)
         .background(Stitch.Stamp.sky)
         .clipShape(RoundedRectangle(cornerRadius: Stitch.Radius.card, style: .continuous))
-        .overlay(alignment: .topTrailing) {
-            Menu {
-                // Nur Einstellungen der Reise; Wege zu Unterlagen, Ausgaben, Fotos und Assistent sind die Zeilen unten.
-                Button("Reise bearbeiten", systemImage: "pencil") { sheet = .editTrip(focusDates: false) }
-                    .accessibilityIdentifier("trip-edit")
-                Button(store.isShared ? "Reise löschen oder verlassen" : "Reise löschen", systemImage: "trash", role: .destructive) {
-                    removalRequest = library.entries.first { $0.id == library.activeID }
-                }
-                .accessibilityIdentifier("trip-delete")
-#if DEBUG && targetEnvironment(simulator)
-                if ProcessInfo.processInfo.environment["ALBUM_QA_NATIVE_SHARE"] == "1" {
-                    Button("QA Share", systemImage: "square.and.arrow.up", action: onNativeShare)
-                        .accessibilityIdentifier("qa-native-share")
-                }
-#endif
-            } label: { HeaderIconLabel(symbol: "ellipsis") }
-                .padding(Stitch.Space.s)
-                .accessibilityLabel("Mehr")
-                .accessibilityIdentifier("trip-more-menu")
-        }
+        .overlay(alignment: .topTrailing) { tripMenu.padding(Stitch.Space.s) }
         .accessibilityElement(children: .contain)
     }
 
@@ -453,28 +483,62 @@ struct NativeTripView: View {
                         .monospacedDigit()
                 }
             }
+            if let day { dayDocuments(day) }
             if stops.isEmpty {
                 EmptyStateCard(symbol: "calendar.badge.plus", title: "Noch nichts geplant",
                                message: "Stimmt eine Idee ab oder fügt einen Ort hinzu.")
                 Button("Idee einwerfen", systemImage: "plus") { sheet = .add(Place(title: "", author: store.me)) }
                     .buttonStyle(StitchButton(primary: true))
             } else {
-                if let next = stops.first(where: { !$0.place.visited }) {
-                    NativeNextStopCard(stop: next, root: store.root,
-                                       onOpen: { sheet = .detail(next.place.id) },
-                                       onVisited: { var copy = next.place; copy.visited = true; _ = store.upsert(copy) },
-                                       onRoute: { openWalkingRoute(to: next.place) })
-                    if !next.place.note.isEmpty {
-                        NoteSlip(text: next.place.note).padding(.leading, Stitch.Space.l)
+                // Alle Orte des Tages direkt, wie im Tagesplan; der nächste offene ist hervorgehoben.
+                let next = stops.first { !$0.place.visited }
+                ForEach(Array(stops.enumerated()), id: \.element.id) { index, stop in
+                    let anchor = store.tripAnchorCoordinate
+                    let previous = index == 0 ? anchor : (stops[index - 1].place.coordinate ?? anchor)
+                    let minutes = previous.flatMap { origin in
+                        stop.place.coordinate.map { DayPlanGenerator.walkingMinutes(DayPlanGenerator.distance(origin, $0)) }
                     }
+                    NativeTimelineRow(number: index + 1, stop: stop, root: store.root, walkingMinutes: minutes,
+                                      isNext: stop.id == next?.id,
+                                      onOpen: { sheet = .detail(stop.place.id) },
+                                      onVisited: { var copy = stop.place; copy.visited = true; _ = store.upsert(copy) },
+                                      onRoute: { openWalkingRoute(to: stop.place) })
+                }
+                if let next, !next.place.note.isEmpty {
+                    NoteSlip(text: next.place.note).padding(.leading, Stitch.Space.l)
                 }
                 Button { sheet = .dayPlan } label: {
-                    Label("Tagesplan öffnen", systemImage: "list.bullet")
+                    Label("Reihenfolge ändern", systemImage: "arrow.up.arrow.down")
                 }
                 .buttonStyle(StitchButton())
                 .accessibilityIdentifier("native-open-dayplan-list")
             }
         }
+    }
+
+    /// Die Unterlage, die an diesem Tag zählt: Flug am Flugtag, Hotel am Anreisetag.
+    @ViewBuilder private func dayDocuments(_ day: TripDay) -> some View {
+        let legs = flights.filter { Self.flightDay($0.date) == day }
+        ForEach(legs) { FlightTicket(leg: $0, legs: flights) { sheet = .documents } }
+        let hotel = store.data.trip.hotel.trimmingCharacters(in: .whitespacesAndNewlines)
+        if day == store.data.trip.startDate, !hotel.isEmpty {
+            Button { sheet = .documents } label: {
+                let details = store.data.trip.hotelDetails
+                TicketRow(symbol: "bed.double", title: details?.name ?? hotel,
+                          detail: details?.checkIn.map { "Heute einchecken ab \($0)" } ?? "Heute einchecken",
+                          stub: store.data.trip.bookingNumber, mat: Stitch.Stamp.lilac)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("today-hotel")
+        }
+    }
+
+    /// Flugdaten sind Text („04.10.2026“); nur eindeutig lesbare Daten zählen, sonst erscheint das Ticket nicht in „Heute“.
+    static func flightDay(_ text: String) -> TripDay? {
+        let parts = text.trimmingCharacters(in: .whitespaces).split(separator: ".")
+        guard parts.count == 3, let day = Int(parts[0]), let month = Int(parts[1]), let year = Int(parts[2]),
+              parts[2].count == 4 else { return nil }
+        return TripDay(year: year, month: month, day: day)
     }
 
     private var heading: String {
@@ -572,13 +636,19 @@ struct NativeDayTiles: View {
                     .background(Stitch.Stamp.sky.opacity(0.5))
                     .overlay {
                         if cover == nil {
-                            Image(systemName: places.first?.symbol ?? "calendar").foregroundStyle(Stitch.inkSoft)
+                            Image(systemName: places.first?.symbol ?? "plus").foregroundStyle(Stitch.inkSoft)
                         }
                     }
                     .clipShape(RoundedRectangle(cornerRadius: Stitch.Space.s, style: .continuous))
-                Text(places.first?.title ?? "Frei")
-                    .font(Stitch.Face.subheadline).foregroundStyle(Stitch.ink)
-                    .lineLimit(1)
+                // Leere Tage sind „noch offen“, nicht „frei“; volle zeigen den ersten Ort und wie viele dazukommen.
+                HStack(spacing: Stitch.Space.xxs) {
+                    Text(places.first?.title ?? "Noch offen")
+                        .font(Stitch.Face.subheadline).foregroundStyle(places.isEmpty ? Stitch.inkSoft : Stitch.ink)
+                        .lineLimit(1)
+                    if places.count > 1 {
+                        Text("+\(places.count - 1)").font(Stitch.Face.caption).foregroundStyle(Stitch.inkSoft).monospacedDigit()
+                    }
+                }
             }
             .padding(Stitch.Space.xs)
             .frame(width: 96, alignment: .leading)

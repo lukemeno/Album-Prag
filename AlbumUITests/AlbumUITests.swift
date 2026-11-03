@@ -271,6 +271,46 @@ final class AlbumUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Noch 3 Ideen · entscheiden"].waitForExistence(timeout: 5), "Zurückgeholt liegt sie wieder im Stapel")
     }
 
+    /// Paket 4: Unterwegs steht „Heute“ oben – mit den Orten des Tages, dem Flug am Flugtag und dem Hotel
+    /// am Anreisetag. Am nächsten Tag ohne Flug und ohne Orte gibt es kein Ticket, der Tag heißt „Noch offen“.
+    func testTodayDuringTheTripShowsPlacesAndTheDaysDocuments() {
+        let store = "ui-today-\(UUID().uuidString)"
+        func launch(today: String) -> XCUIApplication {
+            let app = XCUIApplication()
+            app.launchEnvironment["ALBUM_TEST_STORE"] = store
+            app.launchEnvironment["ALBUM_MY_NAME"] = "Luke"
+            app.launchEnvironment["ALBUM_DEMO_TRAVEL"] = "1"
+            app.launchEnvironment["ALBUM_TODAY"] = today
+            app.launch()
+            return app
+        }
+        func text(_ app: XCUIApplication, containing value: String) -> XCUIElement {
+            app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", value)).firstMatch
+        }
+
+        let arrival = launch(today: "2026-10-04")
+        XCTAssertTrue(arrival.staticTexts["trip-day-of"].waitForExistence(timeout: 15), "Kompakter Kopf statt großem Titelfoto")
+        XCTAssertEqual(arrival.staticTexts["trip-day-of"].label, "Tag 1 von 6")
+        XCTAssertTrue(text(arrival, containing: "EW4241").waitForExistence(timeout: 5), "Hinflug am Flugtag in „Heute“")
+        XCTAssertFalse(text(arrival, containing: "EW4242").exists, "Rückflug erst am Rückflugtag")
+        XCTAssertTrue(arrival.buttons["today-hotel"].exists, "Hotel am Anreisetag")
+        XCTAssertTrue(text(arrival, containing: "Café Savoy").exists, "Der Ort des Tages steht direkt da")
+        XCTAssertTrue(arrival.buttons["native-open-dayplan-list"].exists)
+        let shot = XCTAttachment(screenshot: arrival.screenshot())
+        shot.name = "Heute am Anreisetag"
+        shot.lifetime = .keepAlways
+        add(shot)
+        arrival.terminate()
+
+        let nextDay = launch(today: "2026-10-05")
+        XCTAssertTrue(nextDay.staticTexts["trip-day-of"].waitForExistence(timeout: 15))
+        XCTAssertEqual(nextDay.staticTexts["trip-day-of"].label, "Tag 2 von 6")
+        XCTAssertTrue(nextDay.staticTexts["Noch nichts geplant"].waitForExistence(timeout: 5))
+        XCTAssertFalse(text(nextDay, containing: "EW4241").exists, "Kein Ticket an Tagen ohne Flug")
+        XCTAssertFalse(nextDay.buttons["today-hotel"].exists)
+        XCTAssertTrue(nextDay.staticTexts["Noch offen"].firstMatch.exists, "Leere Tage im Streifen heißen „Noch offen“")
+    }
+
     func testOpenIdeasRemainUndecidedAfterRelaunch() {
         // Fester Drei-Ideen-Stapel nur beim ersten Start: ALBUM_DEMO_INBOX setzt die Orte bei jedem Start neu.
         let store = "ui-open-\(UUID().uuidString)"

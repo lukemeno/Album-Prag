@@ -257,6 +257,23 @@ private struct PlaceResolutionSnapshot: Equatable {
                           date: "09.10.2026", departure: "18:05", arrival: "19:15", arriveBy: "16:20", bookingCode: "MOTION")
             ]
         }
+        // Unterwegs-Fixture: Prag 4.–9.10. mit Hin- und Rückflug, Hotel und einem geplanten Ort am Anreisetag.
+        if ProcessInfo.processInfo.environment["ALBUM_DEMO_TRAVEL"] == "1" {
+            data.trip.startDate = TripInfo.legacyPragueStart
+            data.trip.endDate = TripInfo.legacyPragueEnd
+            data.trip.hotel = "Hotel Urban Crème"
+            data.trip.flights = [
+                FlightLeg(direction: .outbound, number: "EW4241", airline: "Eurowings", from: "Berlin", to: "Prag",
+                          date: "04.10.2026", departure: "08:10", arrival: "09:20", arriveBy: "06:30", bookingCode: "TRAVEL"),
+                FlightLeg(direction: .inbound, number: "EW4242", airline: "Eurowings", from: "Prag", to: "Berlin",
+                          date: "09.10.2026", departure: "18:05", arrival: "19:15", arriveBy: "16:20", bookingCode: "TRAVEL")
+            ]
+            data.places = [
+                Place(id: "travel-savoy", title: "Café Savoy", category: "Essen & Trinken", author: "Luke",
+                      image: .bundled(name: "imgThumbCafe"), lat: 50.0808, lng: 14.4094, franked: true,
+                      plannedDate: TripInfo.legacyPragueStart, dayOrder: 0, approvals: ["Luke"])
+            ]
+        }
         if ProcessInfo.processInfo.environment["ALBUM_DEMO_INBOX"] == "1" {
             data.places = [
                 Place(id: "motion-inbox-bridge", title: "Karlsbrücke", category: "Sehenswert", author: "Mia",
