@@ -84,8 +84,8 @@ final class AlbumMotionUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Album wird geöffnet …"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["Album geöffnet"].waitForExistence(timeout: 8))
         sleep(1); shot("C-5-zettel")
-        XCTAssertTrue(app.buttons["Album ansehen"].isEnabled)
-        app.buttons["Album ansehen"].tap()
+        XCTAssertTrue(app.buttons["Reise öffnen"].isEnabled)
+        app.buttons["Reise öffnen"].tap()
         XCTAssertTrue(app.buttons["native-tab-plan"].waitForExistence(timeout: 5))
     }
 

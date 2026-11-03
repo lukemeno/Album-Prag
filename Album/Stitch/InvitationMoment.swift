@@ -32,7 +32,7 @@ struct InvitationMoment: View {
     var body: some View {
         SlotScene(labels: SlotLabels(flap: "Album", cardLabel: ticketLabel, cardHint: "Nach oben ziehen zum Einlösen",
                                      action: "Einlösen", cardID: "Einladungs-Karte", buttonID: "Einladungs-Knopf",
-                                     idle: "Einladung einlösen", working: "Album wird geöffnet …", done: "Album ansehen",
+                                     idle: "Einladung einlösen", working: "Album wird geöffnet …", done: "Reise öffnen",
                                      announcement: "Einladung eingelöst. Album geöffnet. \(summaryProvider())"),
                   commit: {
                       busy = true
