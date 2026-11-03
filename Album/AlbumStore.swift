@@ -566,7 +566,8 @@ private struct PlaceResolutionSnapshot: Equatable {
         guard !loadFailed else { return nil }
         let previous = data
         do {
-            let photo = try TripMemoryStorage.save(source, root: root, placeID: placeID, caption: caption, authorName: me)
+            let photo = TripMemoryStorage.tripScoped(
+                try TripMemoryStorage.save(source, root: root, placeID: placeID, caption: caption, authorName: me), calendar: tripCalendar)
             data.tripMemories.append(photo)
             data.tripMemorySync[photo.id] = TripMemorySyncMetadata(serverVersion: nil, mutationToken: UUID().uuidString)
             data.dirty.insert("photo-" + photo.id)

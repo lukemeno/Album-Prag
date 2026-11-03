@@ -76,6 +76,20 @@ enum TripMemoryStorage {
 
     static func digest(_ data: Data) -> String { SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() }
 
+    /// Der Aufnahmeort wird mit allen Mitreisenden synchronisiert. Darum bleibt er nur bei Fotos aus der
+    /// Reisezeit und nur auf etwa 100 m gerundet – genug für die 300-m-Zuordnung, zu grob für eine Adresse.
+    static func tripScoped(_ photo: TripMemoryPhoto, calendar: TripCalendar) -> TripMemoryPhoto {
+        var photo = photo
+        let day = calendar.day(from: photo.takenAt ?? photo.createdAt)
+        guard calendar.contains(day), let latitude = photo.latitude, let longitude = photo.longitude else {
+            photo.latitude = nil; photo.longitude = nil
+            return photo
+        }
+        photo.latitude = (latitude * 1_000).rounded() / 1_000
+        photo.longitude = (longitude * 1_000).rounded() / 1_000
+        return photo
+    }
+
     /// Aufnahmezeit (EXIF, mit Zeitversatz falls vorhanden, sonst Gerätezeitzone) und GPS-Position.
     static func captureMetadata(_ source: Data) -> (date: Date?, latitude: Double?, longitude: Double?) {
         guard let image = CGImageSourceCreateWithData(source as CFData, nil),

@@ -106,6 +106,32 @@ final class AlbumRecapTests: XCTestCase {
         XCTAssertTrue(recap.otherPhotos.isEmpty)
     }
 
+    // Datenschutz: der Aufnahmeort wird mit allen Mitreisenden geteilt, also nur grob und nur aus der Reisezeit.
+    func testLocationInsideTheTripIsRoundedToAboutHundredMetres() {
+        let scoped = TripMemoryStorage.tripScoped(photo("p", takenAt: "2026-10-04T10:00:00Z", at: (50.096_649, 14.416_512)), calendar: calendar())
+        XCTAssertEqual(scoped.latitude, 50.097)
+        XCTAssertEqual(scoped.longitude, 14.417)
+        XCTAssertEqual(scoped.takenAt, date("2026-10-04T10:00:00Z"))
+    }
+
+    func testLocationOutsideTheTripIsDropped() {
+        let scoped = TripMemoryStorage.tripScoped(photo("home", takenAt: "2026-10-20T10:00:00Z", at: letna), calendar: calendar())
+        XCTAssertNil(scoped.latitude)
+        XCTAssertNil(scoped.longitude)
+        XCTAssertNotNil(scoped.takenAt, "Das Datum verrät keinen Ort und bleibt")
+    }
+
+    func testLocationWithoutTripDatesIsDropped() {
+        let scoped = TripMemoryStorage.tripScoped(photo("p", takenAt: "2026-10-04T10:00:00Z", at: letna), calendar: calendar(start: nil, end: nil))
+        XCTAssertNil(scoped.latitude)
+    }
+
+    func testRoundedLocationStillMatchesThePlace() {
+        let scoped = TripMemoryStorage.tripScoped(photo("p", takenAt: "2026-10-04T10:00:00Z", at: (50.0980, 14.4165)), calendar: calendar())
+        let recap = AlbumRecap(places: [place("Letna", day: "2026-10-04", at: letna)], photos: [scoped], calendar: calendar())
+        XCTAssertEqual(recap.days.first?.places.map(\.id), ["Letna"])
+    }
+
     func testOldPhotoPayloadWithoutNewFieldsStillDecodes() throws {
         let json = #"{"id":"x","caption":"","authorID":"","authorName":"Luke","createdAt":1790000000,"width":1,"height":1,"filename":"x.jpg","thumbnailFilename":"x-thumb.jpg","sha256":"a","thumbnailSHA256":"b","deleted":false}"#
         let decoded = try JSONDecoder().decode(TripMemoryPhoto.self, from: Data(json.utf8))
