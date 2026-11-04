@@ -35,11 +35,11 @@ export function choosePlace(candidates: PlaceCandidate[], title: string, latitud
 }
 
 export function hasAmbiguousExactPlaces(candidates: PlaceCandidate[], title: string, latitude: number, longitude: number, address = "") {
-  const query = normalize(title);
+  const query = matchName(title);
   const matchingCandidates = candidatesForQuery(candidates, title, latitude, longitude);
   const exact = matchingCandidates
     .filter(candidate => candidate.id && validCoordinate(candidate.latitude, candidate.longitude)
-      && normalize(candidate.name) === query
+      && matchName(candidate.name) === query
       && distanceMeters(candidate.latitude, candidate.longitude, latitude, longitude) <= 350);
   const wantedNumbers = houseNumbers(address);
   if (wantedNumbers.length) {
@@ -61,9 +61,9 @@ export function hasAmbiguousExactPlaces(candidates: PlaceCandidate[], title: str
 }
 
 function candidatesForQuery(candidates: PlaceCandidate[], title: string, latitude: number, longitude: number) {
-  const query = normalize(title);
+  const query = matchName(title);
   const canonicalExactIDs = new Set(candidates
-    .filter(candidate => candidate.id && candidate.nameKind !== "alias" && normalize(candidate.name) === query
+    .filter(candidate => candidate.id && candidate.nameKind !== "alias" && matchName(candidate.name) === query
       && validCoordinate(candidate.latitude, candidate.longitude)
       && distanceMeters(candidate.latitude, candidate.longitude, latitude, longitude) <= 350)
     .map(candidate => candidate.id));
@@ -77,8 +77,8 @@ export function rankCandidate(candidate: PlaceCandidate, title: string, latitude
   const wanted = houseNumbers(address);
   const found = houseNumbers(candidate.address ?? "");
   if (wanted.length && found.length && !wanted.some(number => found.includes(number))) return null;
-  const query = normalize(title);
-  const name = normalize(candidate.name);
+  const query = matchName(title);
+  const name = matchName(candidate.name);
   const meters = distanceMeters(candidate.latitude, candidate.longitude, latitude, longitude);
   const exact = name === query;
   const similarity = tokenSimilarity(name, query);
@@ -93,6 +93,15 @@ function houseNumbers(address: string): string[] {
   ) ?? "";
   const number = street.match(/\b(\d{1,4}[a-z]?)(?:\s*\/\s*(\d{1,4}[a-z]?))?\s*$/i);
   return number?.slice(1).filter(Boolean).map(value => value.toLowerCase()) ?? [];
+}
+
+const leadingArticles = new Set(["le", "la", "les", "l", "the", "der", "die", "das", "el", "los", "las", "il", "lo"]);
+
+// Apple Karten nennt einen Ort oft „Le Louvre“, Wikidata „Louvre“. Der Artikel sagt nichts über den Ort.
+function matchName(value: string) {
+  const name = normalize(value);
+  const [first, ...rest] = name.split(" ");
+  return rest.length && leadingArticles.has(first) ? rest.join(" ") : name;
 }
 
 export function normalize(value: string) {

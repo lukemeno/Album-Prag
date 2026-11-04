@@ -539,7 +539,10 @@ private struct PlaceResolutionSnapshot: Equatable {
         for place in places where !place.deleted && !place.automaticPhotoSuppressed
                 && !PlaceImageService.isUserChosen(place.image)
                 && shouldBootstrapAutomaticPhoto(for: place) {
-            photoResolutionCoordinator?.enqueue(place: place, context: tripRegionContext(for: place))
+            // Ideen ohne Bild warten nicht eine Woche auf den nächsten Versuch: Der Rückfall auf Straßenansicht
+            // oder Karte liefert jetzt auch ohne Wikimedia-Treffer ein Bild.
+            let stuckWithoutImage = place.image == nil && photoResolutionCoordinator?.job(for: place.id)?.state == .noMatch
+            photoResolutionCoordinator?.enqueue(place: place, context: tripRegionContext(for: place), force: stuckWithoutImage)
         }
         photoResolutionCoordinator?.resume()
     }
@@ -1221,7 +1224,7 @@ private struct PlaceResolutionSnapshot: Equatable {
                 updated.image = nil
                 updated.gallery = []
                 resolvedImage = true
-            } else if !automatic, !resolvedImage, needsImage, !isAutomatedTestStore,
+            } else if !resolvedImage, needsImage, !isAutomatedTestStore,
                       !PlaceImageService.canRetain(updated.image, for: updated),
                       let coordinate = updated.coordinate {
                 let local = await PlaceImageResolver.localSnapshot(at: coordinate)

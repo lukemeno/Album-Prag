@@ -176,3 +176,17 @@ Deno.test('Prague district number does not replace the street house number', () 
   assertEquals(choosePlace([place], 'Café Louvre', 50.08199, 14.41944, 'Národní 22, Praha'), place);
   assertEquals(choosePlace([place], 'Café Louvre', 50.08199, 14.41944, 'Národní 24, Praha'), undefined);
 });
+
+const louvre = { id: "Q19675", name: "Louvre", latitude: 48.8606, longitude: 2.3376 };
+
+Deno.test("a leading article does not stop a nearby place from matching", () => {
+  assertEquals(choosePlace([louvre], "Le Louvre", 48.8610142, 2.3376)?.id, "Q19675");
+  assertEquals(choosePlace([{ ...louvre, name: "Le Louvre" }], "Louvre", 48.8610142, 2.3376)?.id, "Q19675");
+  assertEquals(choosePlace([{ ...louvre, name: "Arc de Triomphe" }], "L'Arc de Triomphe", 48.8606, 2.3376)?.id, "Q19675");
+});
+
+Deno.test("dropping the article never matches a far place or an empty name", () => {
+  assertEquals(choosePlace([louvre], "Le Louvre", 43.2965, 5.3698), undefined);
+  assertEquals(choosePlace([{ ...louvre, name: "Le" }], "Louvre", 48.8606, 2.3376), undefined);
+  assertEquals(choosePlace([{ ...louvre, name: "Louvre" }], "Le", 48.8606, 2.3376), undefined);
+});

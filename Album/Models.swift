@@ -316,12 +316,14 @@ struct Place: Codable, Identifiable, Equatable {
         return host.replacingOccurrences(of: "www.", with: "")
     }
 
-    /// Vorhandene Orts- oder Nutzerfotos haben Vorrang; Kartenansichten sind keine Ortsfotos.
+    /// Vorhandene Orts- oder Nutzerfotos haben Vorrang, dann die Vorschau des Links.
+    /// Der Kartenausschnitt ist der letzte Rückfall, damit jede Idee mit Ort ein Bild hat.
     var displayImage: PlaceImageAsset? {
+        var mapSnapshot: PlaceImageAsset?
         if let image {
             switch image {
             case .uploaded(let uploaded) where uploaded.generatedSource == .mapSnapshot:
-                break
+                mapSnapshot = image
             case .linkPreview(let pageURL, _, _) where URL(string: pageURL).map(PlaceLinkMetadata.isMapProviderURL) == true:
                 break
             default:
@@ -331,7 +333,7 @@ struct Place: Codable, Identifiable, Equatable {
         guard let url = URL(string: sourceURL),
               ["http", "https"].contains(url.scheme?.lowercased() ?? ""),
               url.host != nil,
-              !PlaceLinkMetadata.isMapProviderURL(url) else { return nil }
+              !PlaceLinkMetadata.isMapProviderURL(url) else { return mapSnapshot }
         return .linkPreview(pageURL: url.absoluteString, thumbnailURL: nil, credit: sourceLabel)
     }
 

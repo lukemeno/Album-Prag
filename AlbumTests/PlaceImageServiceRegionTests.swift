@@ -35,7 +35,7 @@ final class PlaceImageServiceRegionTests: XCTestCase {
         ]))
     }
 
-    func testDisplayImageSuppressesMapArtifactsButPreservesGenuineWebPreview() {
+    func testDisplayImageShowsMapSnapshotLastAndPreservesGenuineWebPreview() {
         let mapURL = "https://www.google.com/maps/search/?api=1&query=Hotel+Urban+Creme"
         let mapPlace = Place(title: "Hotel Urban Crème", sourceURL: mapURL, image: .linkPreview(pageURL: mapURL, thumbnailURL: nil, credit: "Google Maps"), lat: 50.08, lng: 14.42)
         XCTAssertNil(mapPlace.displayImage)
@@ -43,7 +43,11 @@ final class PlaceImageServiceRegionTests: XCTestCase {
         var snapshot = UploadedPlaceImage(id: "generated-map", storagePath: nil, pixelWidth: 1200, pixelHeight: 900, resolvedFor: nil)
         snapshot.generatedSource = .mapSnapshot
         let snapshotPlace = Place(title: "Hotel Urban Crème", image: .uploaded(snapshot), lat: 50.08, lng: 14.42)
-        XCTAssertNil(snapshotPlace.displayImage)
+        XCTAssertEqual(snapshotPlace.displayImage, .uploaded(snapshot), "Der Kartenausschnitt ist der letzte Rückfall")
+
+        let snapshotWithWebsite = Place(title: "Hotel Urban Crème", sourceURL: "https://hotel.example/", image: .uploaded(snapshot), lat: 50.08, lng: 14.42)
+        XCTAssertEqual(snapshotWithWebsite.displayImage, .linkPreview(pageURL: "https://hotel.example/", thumbnailURL: nil, credit: snapshotWithWebsite.sourceLabel),
+                       "Eine echte Webseite geht vor dem Kartenausschnitt")
 
         let web = PlaceImageAsset.linkPreview(pageURL: "https://hotel.example/", thumbnailURL: "https://hotel.example/hero.jpg", credit: "hotel.example")
         let webPlace = Place(title: "Hotel Urban Crème", sourceURL: "https://hotel.example/", image: web, lat: 50.08, lng: 14.42)
