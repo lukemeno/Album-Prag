@@ -32,10 +32,10 @@ extension AlbumUITests {
 
     func testAccessibilityAuditPlaceEditorScreen() throws {
         let app = launchAccessibilityStore(startTab: "Ideen")
-        let addIdea = app.navigationBars["Ideen"].buttons["Idee einwerfen"]
+        let addIdea = app.buttons["Neue Idee"]
         XCTAssertTrue(addIdea.waitForExistence(timeout: 15))
         addIdea.tap()
-        XCTAssertTrue(app.textFields["Name der Idee"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.textFields["PlaceEditor-Title"].waitForExistence(timeout: 5))
         attachAccessibilityScreen(app, name: "Idee bearbeiten")
         try auditAccessibility(app, screen: "Idee bearbeiten")
     }
@@ -98,19 +98,16 @@ extension AlbumUITests {
     func testAccessibilityLargeTypeTravelAndIdeasLayoutSnapshots() throws {
         let travel = launchAccessibilityStore(startTab: "Reise")
         XCTAssertTrue(travel.buttons["native-tab-plan"].waitForExistence(timeout: 15))
-        XCTAssertTrue(travel.staticTexts["Prag"].waitForExistence(timeout: 8))
-        let travelSubtitle = travel.staticTexts.matching(
-            NSPredicate(format: "label CONTAINS 'Oktober'")
-        ).firstMatch
-        XCTAssertTrue(travelSubtitle.waitForExistence(timeout: 8), "Der Reisezeitraum muss bei großer Schrift sichtbar bleiben")
+        XCTAssertTrue(travel.staticTexts["QA-Reise"].waitForExistence(timeout: 8))
+        XCTAssertTrue(travel.staticTexts["Reisedaten noch offen"].waitForExistence(timeout: 8), "Der Reisezeitraum muss bei großer Schrift sichtbar bleiben")
         attachAccessibilityScreen(travel, name: "Reise Large Type")
 
         let ideas = launchAccessibilityStore(startTab: "Ideen", extra: ["ALBUM_DEMO_INBOX": "1"])
         XCTAssertTrue(ideas.stackCard.waitForExistence(timeout: 15))
-        let addIdea = ideas.navigationBars["Ideen"].buttons["Idee einwerfen"]
+        let addIdea = ideas.buttons["Neue Idee"]
         XCTAssertTrue(addIdea.waitForExistence(timeout: 8))
         XCTAssertTrue(addIdea.isHittable, "Die primäre Idee-Aktion muss erreichbar bleiben")
-        XCTAssertTrue(ideas.staticTexts["Sehenswert"].waitForExistence(timeout: 8), "Die Kartenkategorie muss sichtbar bleiben")
+        XCTAssertTrue(ideas.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Sehenswert'")).firstMatch.waitForExistence(timeout: 8), "Die Kartenkategorie muss sichtbar bleiben")
         attachAccessibilityScreen(ideas, name: "Ideen Large Type")
 
         // Prüfe die tatsächliche 44-Punkt-Touchfläche an allen vier Randpunkten.
@@ -120,7 +117,7 @@ extension AlbumUITests {
             CGVector(dx: 0, dy: -21), CGVector(dx: 0, dy: 21)
         ]
         for (index, offset) in edgeOffsets.enumerated() {
-            let freshButton = ideas.navigationBars["Ideen"].buttons["Idee einwerfen"]
+            let freshButton = ideas.buttons["Neue Idee"]
             XCTAssertTrue(freshButton.waitForExistence(timeout: 8), "Idee-Aktion muss vor Touchprobe \(index + 1) sichtbar sein")
             XCTAssertTrue(freshButton.isHittable, "Idee-Aktion muss vor Touchprobe \(index + 1) hittable sein")
             let edgePoint = freshButton.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
@@ -135,8 +132,8 @@ extension AlbumUITests {
             cancel.tap()
         }
 
-        let reject = ideas.buttons["Nein"]
-        let approve = ideas.buttons["Ja"]
+        let reject = ideas.inboxButton("Nein")
+        let approve = ideas.inboxButton("Ja")
         let scroll = ideas.scrollViews.firstMatch
         if scroll.exists {
             for _ in 0..<3 {

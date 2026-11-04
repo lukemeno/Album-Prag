@@ -28,6 +28,10 @@ final class NativeShareUITests: XCTestCase {
         }
 
         func shareButton() -> XCUIElement {
+            // „QA Share“ liegt im Menü „Mehr“ der Reise.
+            let more = app.buttons["trip-more-menu"]
+            XCTAssertTrue(more.waitForExistence(timeout: 10))
+            more.tap()
             let button = app.buttons["qa-native-share"]
             XCTAssertTrue(button.waitForExistence(timeout: 10), "Der Native-Share-QA-Button muss nur im expliziten Simulator-QA-Modus erscheinen")
             XCTAssertTrue(button.isHittable)

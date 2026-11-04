@@ -1051,6 +1051,9 @@ extension AlbumUITests {
                 .matching(NSPredicate(format: "label == %@", label)).firstMatch.exists
         }
         func edit() {
+            // Eingeklappt verdeckt der Fächerknopf den Pfeil der Zeile; ausgeklappt liegt er frei.
+            let expand = app.buttons["Liste ausklappen"]
+            if expand.waitForExistence(timeout: 15) { expand.tap() }
             let details = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Details zu'")).firstMatch
             XCTAssertTrue(details.waitForExistence(timeout: 15))
             details.tap()

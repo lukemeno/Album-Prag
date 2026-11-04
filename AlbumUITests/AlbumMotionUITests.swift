@@ -91,6 +91,7 @@ final class AlbumMotionUITests: XCTestCase {
 
     /// F · Abgleich-Insel: pulsiert während des (simulierten) Abgleichs, wächst mit Neuigkeiten auf, klappt per Tipp zu.
     func testSyncIsland() throws {
+        throw XCTSkip("Die Abgleich-Insel hängt nur noch am alten ReiseView und erscheint in der App nicht. Entscheidung mit Paket 7 (Gruppen).")
         let (app, shot) = try launch(["ALBUM_DEMO_SYNC": "1"], allowEmptyStore: true)
         XCTAssertTrue(app.buttons["native-tab-plan"].waitForExistence(timeout: 15))
         // Der Abgleich beginnt 2 s nach dem Start, die Kapsel pulsiert ab 0,5 s danach und wächst nach 2 s.

@@ -273,7 +273,8 @@ final class NativePrototypeUITests: XCTestCase {
         tap("native-resolve-global-cafe", in: app)
         tap("native-resolution-candidate-qa-tokyo", in: app)
         XCTAssertTrue(app.buttons["native-retry-image-global-retry"].waitForExistence(timeout: 5))
-        app.swipeUp()
+        // Der Knopf darf nicht unter der schwebenden Tab-Leiste liegen, sonst trifft der Tipp die Leiste.
+        app.swipeUp(); app.swipeUp()
         tap("native-retry-image-global-retry", in: app)
         let retry = app.buttons["native-retry-image-global-retry"]
         let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: retry)
