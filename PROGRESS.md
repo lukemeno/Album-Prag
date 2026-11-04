@@ -536,5 +536,6 @@ Mac entsperrt. Root hat Stadtsuche Prag/Q1085, 13 reale Katalogorte, sichtbar ge
 - Volltestsuite am Stück, 39 Minuten: 357 grün, 20 übersprungen, 6 rot.
 - Rot, Ursache offen: `testCancelDelayedPlaceImageSearch`, `testChoosePlaceImageAndPersistence`, `testGlobalImageResolutionReviewAndRetry`, `testNativeShareCancelSaveAndReactivationAreExactlyOnce`, `testPopulatedTripMemoriesBrowsePhotosAndPlaces` (Kontrast ohne Element).
 - Wackelig: `test1_PasteAmountsAndLinkAreAccepted`, im Gesamtlauf rot, einzeln grün.
-- Offene Fehler: Fächerknopf verdeckt bei eingeklappter Kartenliste den Pfeil der Ortszeile. Abgleich-Insel hängt nur am alten `ReiseView` und erscheint nicht.
+- Fächerknopf ist auf der Karte ausgeblendet, er verdeckte dort die Pfeile der Ortsliste. Das behebt `testChoosePlaceImageAndPersistence` nicht.
+- Offener Fehler: Abgleich-Insel hängt nur am alten `ReiseView` und erscheint nicht.
 - `design-gates` prüft Webseiten im Browser und passt nicht auf die SwiftUI-App; Ersatz ist der XCUITest-Audit.

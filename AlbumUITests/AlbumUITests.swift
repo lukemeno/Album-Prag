@@ -334,9 +334,12 @@ final class AlbumUITests: XCTestCase {
         app.launchEnvironment["ALBUM_DEMO_INBOX"] = "1"
         app.launch()
         let mapTab = app.buttons["native-tab-map"]
-        XCTAssertTrue(mapTab.waitForExistence(timeout: 15)); mapTab.tap()
+        XCTAssertTrue(mapTab.waitForExistence(timeout: 15))
+        XCTAssertTrue(app.buttons["native-fab"].waitForExistence(timeout: 5), "Außerhalb der Karte bleibt der Fächerknopf")
+        mapTab.tap()
         XCTAssertTrue(app.mapScreen.waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["native-new-place"].exists, "Im Karten-Tab gibt es kein + mehr")
+        XCTAssertFalse(app.buttons["native-fab"].exists, "Auf der Karte würde der Knopf die Pfeile der Ortsliste verdecken")
 
         let bridge = app.buttons["map-idea-motion-inbox-bridge"]
         XCTAssertTrue(bridge.waitForExistence(timeout: 10), "Offene Idee als Punkt auf der Karte")
@@ -1051,9 +1054,6 @@ extension AlbumUITests {
                 .matching(NSPredicate(format: "label == %@", label)).firstMatch.exists
         }
         func edit() {
-            // Eingeklappt verdeckt der Fächerknopf den Pfeil der Zeile; ausgeklappt liegt er frei.
-            let expand = app.buttons["Liste ausklappen"]
-            if expand.waitForExistence(timeout: 15) { expand.tap() }
             let details = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Details zu'")).firstMatch
             XCTAssertTrue(details.waitForExistence(timeout: 15))
             details.tap()

@@ -189,17 +189,20 @@ struct NativeTripExperience: View {
             .animation(reduceMotion ? nil : Stitch.Motion.press, value: fanOpen)
         }
         .overlay(alignment: .bottomTrailing) {
-            NativeArcFAB(isOpen: $fanOpen, contextLabel: fanContext, onAction: { action in
-                switch action {
-                case .memories: sheet = .memories
-                case .camera: sheet = .cameraMemories
-                case .expenses: sheet = .addExpense
-                case .documents: sheet = .documents
-                case .assistant(let prompt): onAssistant(prompt)
-                }
-            }, onOpenStateChanged: onFanOpenChanged)
-            .padding(.trailing, Stitch.Space.m)
-            .padding(.bottom, 92)
+            // Auf der Karte würde der Knopf die Pfeile der Ortsliste verdecken.
+            if section != .map {
+                NativeArcFAB(isOpen: $fanOpen, contextLabel: fanContext, onAction: { action in
+                    switch action {
+                    case .memories: sheet = .memories
+                    case .camera: sheet = .cameraMemories
+                    case .expenses: sheet = .addExpense
+                    case .documents: sheet = .documents
+                    case .assistant(let prompt): onAssistant(prompt)
+                    }
+                }, onOpenStateChanged: onFanOpenChanged)
+                .padding(.trailing, Stitch.Space.m)
+                .padding(.bottom, 92)
+            }
         }
         .onChange(of: fanOpen) { _, isOpen in onFanOpenChanged(isOpen) }
     }
