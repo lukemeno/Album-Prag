@@ -529,3 +529,12 @@ Mac entsperrt. Root hat Stadtsuche Prag/Q1085, 13 reale Katalogorte, sichtbar ge
 - Xcode-MCP-Build hing bei Paketauflösung und lief in300s Timeout; Workspace geschlossen und CLI mit vorhandenen aufgelösten Paketen/-disableAutomaticPackageResolution/-skipPackageUpdates verwendet. Geräte-Build erfolgreich, codesign --verify --deep --strict erfolgreich; Geräte-UDID im Provisioning-Profil enthalten.
 - Installation erfolgreich. Erster Start zunächst von iOS wegen fehlender expliziter Entwicklerfreigabe blockiert; Nutzer hat Vertrauen erteilt und bestätigte, dass App öffnet. Erneuter devicectl-Start ebenfalls erfolgreich. Kein umfassender physischer Funktionstest daraus abgeleitet.
 - Aktuelles kostenloses Provisioning-Profil läuft am30.10.2026 ab; bei Bedarf erneut mit Xcode signieren/installieren. Build-/Transferlogs /tmp/album-iphone15-{install,transfer}-20261027.log. Keine Backendänderungen.
+
+## Checkpoint 04.11.2026: Paket 8 Bedienhilfe und Aufräumen
+
+- Erledigt: mitwachsende Titel (`a452393`), Audit-Funde auf Reise, Ideen, Karte (`784a7d7`), veraltete UI-Tests (`6684afa`), `PRODUCT.md` (`0bdaa0a`).
+- Volltestsuite am Stück, 39 Minuten: 357 grün, 20 übersprungen, 6 rot.
+- Rot, Ursache offen: `testCancelDelayedPlaceImageSearch`, `testChoosePlaceImageAndPersistence`, `testGlobalImageResolutionReviewAndRetry`, `testNativeShareCancelSaveAndReactivationAreExactlyOnce`, `testPopulatedTripMemoriesBrowsePhotosAndPlaces` (Kontrast ohne Element).
+- Wackelig: `test1_PasteAmountsAndLinkAreAccepted`, im Gesamtlauf rot, einzeln grün.
+- Offene Fehler: Fächerknopf verdeckt bei eingeklappter Kartenliste den Pfeil der Ortszeile. Abgleich-Insel hängt nur am alten `ReiseView` und erscheint nicht.
+- `design-gates` prüft Webseiten im Browser und passt nicht auf die SwiftUI-App; Ersatz ist der XCUITest-Audit.
