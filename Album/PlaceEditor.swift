@@ -317,7 +317,7 @@ struct PlaceEditor: View {
     @MainActor
     private func loadIdeaSuggestions(_ term: String, context: TripRegionContext, everywhere: Bool, generation: Int) async {
         guard !term.isEmpty, !editorFinished, ideaSuggestionGeneration == generation else { return }
-        if ProcessInfo.processInfo.environment["ALBUM_TEST_STORE"] != nil {
+        if ProcessInfo.processInfo.environment["ALBUM_TEST_STORE"] != nil, ProcessInfo.processInfo.environment["ALBUM_LIVE_SEARCH_QA"] != "1" {
             suggestingIdeas = false
             return
         }
@@ -551,7 +551,7 @@ struct PlaceEditor: View {
         searching = true; searchError = nil
         searchTask = Task { @MainActor in
             defer { if !editorFinished, searchGeneration == generation { searching = false } }
-            if ProcessInfo.processInfo.environment["ALBUM_TEST_STORE"] != nil {
+            if ProcessInfo.processInfo.environment["ALBUM_TEST_STORE"] != nil, ProcessInfo.processInfo.environment["ALBUM_LIVE_SEARCH_QA"] != "1" {
                 guard !Task.isCancelled, !editorFinished, searchGeneration == generation,
                       self.query == currentQuery, place.sourceURL == currentSourceURL,
                       store.tripRegionContext(for: place) == context else { return }

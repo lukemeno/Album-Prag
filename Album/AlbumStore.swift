@@ -130,6 +130,8 @@ private struct PlaceResolutionSnapshot: Equatable {
     private var isAutomatedTestStore: Bool {
         #if DEBUG
         let environment = ProcessInfo.processInfo.environment
+        // Zum Ausprobieren von Hand: getrennter Speicher, aber echte Orts- und Bildsuche.
+        if environment["ALBUM_LIVE_SEARCH_QA"] == "1" { return false }
         return environment["XCTestConfigurationFilePath"] != nil || environment["ALBUM_TEST_STORE"] != nil
         #else
         return false

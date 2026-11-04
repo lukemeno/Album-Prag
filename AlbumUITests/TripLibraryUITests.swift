@@ -195,6 +195,39 @@ final class TripLibraryUITests: XCTestCase {
         XCTAssertTrue(app.buttons["library-create-trip"].exists, "Mit einer Reise kommt das + dazu")
     }
 
+    /// Eigene Reise behält ihre Daten über einen Neustart, und die echte Ortssuche findet den Ort.
+    /// Braucht Netz, deshalb nur mit `ALBUM_LIVE_SEARCH_QA`, das diese Prüfung selbst setzt.
+    func testNewTripKeepsItsDatesAndLiveSearchFindsThePlace() {
+        func start() -> XCUIApplication {
+            let app = XCUIApplication()
+            app.launchEnvironment["ALBUM_TEST_STORE"] = slot
+            app.launchEnvironment["ALBUM_LIBRARY_QA"] = "1"
+            app.launchEnvironment["ALBUM_MY_NAME"] = "QA"
+            app.launchEnvironment["ALBUM_LIVE_SEARCH_QA"] = "1"
+            app.launch()
+            return app
+        }
+        var app = start()
+        create("Paris", destination: "Paris", withDates: true, in: app)
+        XCTAssertTrue(app.buttons["native-open-dayplan"].waitForExistence(timeout: 8))
+        app.terminate()
+        app = start()
+        let november = app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] 'Nov'")).firstMatch
+        XCTAssertTrue(november.waitForExistence(timeout: 15), "Der gewählte Zeitraum muss nach dem Neustart noch da sein")
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] 'Okt'")).firstMatch.exists)
+        capture("paris-dates", from: app)
+
+        tap("native-tab-ideas", in: app)
+        tap("Neue Idee", in: app)
+        let title = app.textFields["PlaceEditor-Title"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        title.tap()
+        title.typeText("Eiffeltower")
+        let found = app.staticTexts["Meinst du diesen Ort?"]
+        XCTAssertTrue(found.waitForExistence(timeout: 20), "Die Suche im Reiseziel muss einen Treffer liefern")
+        capture("paris-eiffel", from: app)
+    }
+
     /// Paket 5: „Einladung öffnen“ mit einem Text, der kein Einladungslink ist, erklärt, was fehlt.
     func testPastingSomethingElseExplainsItIsNoInvitation() {
         let app = launch()
