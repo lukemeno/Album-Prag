@@ -52,7 +52,7 @@ struct NativeHomeView: View {
                         Button(action: openTrip) {
                             ZStack(alignment: .bottomLeading) {
                                 AlbumPhoto(asset: heroAsset, root: store.root)
-                                LinearGradient(colors: [.clear, Stitch.ink.opacity(0.78)], startPoint: .center, endPoint: .bottom)
+                                PhotoTextScrim()
                                 VStack(alignment: .leading, spacing: Stitch.Space.xs) {
                                     HStack(alignment: .top) {
                                         VStack(alignment: .leading, spacing: 2) {
@@ -158,19 +158,21 @@ struct NativeTripExperience: View {
     var body: some View {
         // TabView hält jeden Tab nach dem ersten Besuch am Leben (Scrollstand, Filter, Kartenausschnitt) und nimmt
         // die versteckten Tabs aus der Bedienhilfe-Hierarchie. Die eigene Leiste (NativeTripPillBar) ersetzt die System-Leiste.
-        // Der Kopf hängt an jedem Tab selbst, weil TabView die Kopf-Einrückung nicht an die Tabs weitergibt.
         // Der Kopf hängt an jedem Tab selbst: TabView gibt die Kopf-Einrückung nicht an seine Tabs weiter.
+        // Auch das Ausblenden der System-Leiste wirkt nur am Inhalt der Tabs, nicht am TabView.
         TabView(selection: $section) {
             NativeTripView(sheet: $sheet, onAssistant: onAssistant, onNativeShare: onNativeShare)
                 .safeAreaInset(edge: .top, spacing: 0) { tabHeader(.plan) }
+                .toolbar(.hidden, for: .tabBar)
                 .tag(NativeTripSection.plan)
             NativeIdeasView(sheet: $sheet, mode: $ideasMode, header: { tabHeader(.ideas) })
+                .toolbar(.hidden, for: .tabBar)
                 .tag(NativeTripSection.ideas)
             TripMapView().ignoresSafeArea(edges: .bottom)
                 .safeAreaInset(edge: .top, spacing: 0) { tabHeader(.map) }
+                .toolbar(.hidden, for: .tabBar)
                 .tag(NativeTripSection.map)
         }
-        .toolbar(.hidden, for: .tabBar)
         .accessibilityHidden(fanOpen)
         .background(Stitch.paper.ignoresSafeArea())
         .overlay {
@@ -388,7 +390,7 @@ struct NativeTripView: View {
     private var hero: some View {
         ZStack(alignment: .bottomLeading) {
             AlbumPhoto(asset: heroAsset, root: store.root, thumbnailWidth: 900)
-            LinearGradient(colors: [.clear, Stitch.scrim.opacity(0.62)], startPoint: .center, endPoint: .bottom)
+            PhotoTextScrim()
             VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
                 Text(store.tripName).font(Stitch.Face.display()).foregroundStyle(Stitch.onAction)
                     .lineLimit(2).minimumScaleFactor(0.7)
@@ -1170,7 +1172,7 @@ private struct NativeIdeaStackCard: View {
                     .overlay {
                         if place.displayImage == nil { Image(systemName: place.symbol).font(.largeTitle).foregroundStyle(Stitch.ink) }
                     }
-                LinearGradient(colors: [.clear, Stitch.scrim.opacity(0.62)], startPoint: .center, endPoint: .bottom)
+                PhotoTextScrim()
                 VStack(alignment: .leading, spacing: Stitch.Space.xxs) {
                     Text(place.title).font(Stitch.Face.display()).foregroundStyle(Stitch.onAction)
                         .lineLimit(2).minimumScaleFactor(0.7).multilineTextAlignment(.leading)

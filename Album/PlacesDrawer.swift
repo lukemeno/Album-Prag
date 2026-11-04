@@ -451,7 +451,7 @@ struct PlacesDrawer: View {
         }
         let outside = visiblePlaces.filter { $0.plannedDate.map { !calendar.contains($0) } == true && $0.category != "Unterkunft" }
         if !outside.isEmpty {
-            result.append(Section(id: "section-outside", title: "Außerhalb des Reisezeitraums", stops: outside.map { PlanStop(place: $0, slot: "", note: nil) }))
+            result.append(Section(id: "section-outside", title: "Außerhalb der Reise", stops: outside.map { PlanStop(place: $0, slot: "", note: nil) }))
         }
         let unresolved = visiblePlaces.filter { $0.plannedDate == nil && $0.day != nil && $0.category != "Unterkunft" }
         if !unresolved.isEmpty {
@@ -633,7 +633,7 @@ struct PlacesDrawer: View {
             }
             let outside = planned.filter { $0.plannedDate.map { !store.tripCalendar.contains($0) } == true }
             if !outside.isEmpty {
-                SwiftUI.Section("Außerhalb des Reisezeitraums") { ForEach(outside) { editRow($0) } }
+                SwiftUI.Section("Außerhalb der Reise") { ForEach(outside) { editRow($0) } }
                     .listRowBackground(Stitch.card)
             }
             let open = planned.filter { $0.plannedDate == nil }

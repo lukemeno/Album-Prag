@@ -140,7 +140,7 @@ struct TripMapView: View {
         HStack(spacing: Stitch.Space.xs) {
             Image(systemName: "magnifyingglass").font(.body.weight(.semibold)).foregroundStyle(Stitch.ink)
                 .accessibilityHidden(true)
-            TextField("\(store.tripName) durchsuchen", text: $query)
+            TextField("Orte durchsuchen", text: $query)
                 .font(Stitch.Face.body).foregroundStyle(Stitch.ink)
                 .submitLabel(.search)
                 .accessibilityIdentifier("map-search")

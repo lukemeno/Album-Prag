@@ -98,6 +98,20 @@ struct FilterChip: View {
 }
 
 /// Leerzustand nach Muster: ein Symbol, ein Satz, ein Knopf (der Knopf kommt vom Aufrufer).
+/// Dunkelt das untere Drittel eines Fotos ab, damit weiße Schrift auch auf hellen Bildern lesbar bleibt (mindestens 4,5:1).
+/// In beiden Modi dunkel, deshalb `scrim` und nicht `ink`. Bei Bedienhilfe-Größen füllt die Schrift das Foto, dann deckt der Verlauf alles ab.
+struct PhotoTextScrim: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    var body: some View {
+        LinearGradient(stops: [
+            .init(color: dynamicTypeSize.isAccessibilitySize ? Stitch.scrim.opacity(0.55) : .clear, location: dynamicTypeSize.isAccessibilitySize ? 0 : 0.3),
+            .init(color: Stitch.scrim.opacity(0.55), location: 0.62),
+            .init(color: Stitch.scrim.opacity(0.8), location: 1)
+        ], startPoint: .top, endPoint: .bottom)
+        .accessibilityHidden(true)
+    }
+}
+
 struct EmptyStateCard: View {
     let symbol: String
     let title: String

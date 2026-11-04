@@ -182,7 +182,9 @@ extension View {
     }
 
     func stitchElevation(_ elevation: Stitch.Elevation) -> some View {
-        shadow(color: Stitch.shadow.opacity(elevation.opacity), radius: elevation.radius, y: elevation.y)
+        // Ohne Gruppe wirft jedes Kind einen eigenen Schatten, auch die Schrift auf der Karte.
+        compositingGroup()
+            .shadow(color: Stitch.shadow.opacity(elevation.opacity), radius: elevation.radius, y: elevation.y)
     }
 }
 
