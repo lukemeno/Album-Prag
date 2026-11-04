@@ -485,7 +485,7 @@ enum PlaceImageService {
         let path = url.path.lowercased()
         guard !path.hasSuffix(".svg") else { return false }
         let value = "\(path)\(url.query.map { "?\($0)" } ?? "")".lowercased()
-        let blockedTerms = ["logo", "icon", "favicon", "apple-touch", "staticmap", "static-map", "maptile", "menu", "sprite", "avatar"]
+        let blockedTerms = ["logo", "icon", "favicon", "apple-touch", "staticmap", "static-map", "maptile", "menu", "sprite", "avatar", "placeholder"]
         return !blockedTerms.contains(where: value.contains)
     }
 
@@ -493,7 +493,25 @@ enum PlaceImageService {
         guard data.count <= 2_000_000, let image = UIImage(data: data) else { return false }
         let width = image.cgImage.map { $0.width } ?? Int(image.size.width * image.scale)
         let height = image.cgImage.map { $0.height } ?? Int(image.size.height * image.scale)
-        return width >= 300 && height >= 180 && width > 0 && height > 0 && width <= 10_000 && height <= 10_000 && width * height <= 40_000_000
+        guard width >= 300, height >= 180, width <= 10_000, height <= 10_000, width * height <= 40_000_000 else { return false }
+        // Erst jetzt dekodieren: Die Größe stammt aus dem Dateikopf einer fremden Webseite.
+        return !isBlankImage(image)
+    }
+
+    /// Einfarbige oder durchsichtige Platzhalter haben die Maße eines Fotos, zeigen aber nichts.
+    private static func isBlankImage(_ image: UIImage) -> Bool {
+        guard let cgImage = image.cgImage else { return false }
+        let side = 16
+        var pixels = [UInt8](repeating: 0, count: side * side)
+        let drawn = pixels.withUnsafeMutableBytes { buffer -> Bool in
+            guard let context = CGContext(data: buffer.baseAddress, width: side, height: side, bitsPerComponent: 8,
+                                          bytesPerRow: side, space: CGColorSpaceCreateDeviceGray(),
+                                          bitmapInfo: CGImageAlphaInfo.none.rawValue) else { return false }
+            context.draw(cgImage, in: CGRect(x: 0, y: 0, width: side, height: side))
+            return true
+        }
+        guard drawn, let lowest = pixels.min(), let highest = pixels.max() else { return false }
+        return highest - lowest < 6
     }
 
     /// Returns at most three venue-specific HTML image candidates. Generic first images

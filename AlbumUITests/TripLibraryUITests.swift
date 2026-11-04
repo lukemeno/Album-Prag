@@ -226,6 +226,32 @@ final class TripLibraryUITests: XCTestCase {
         let found = app.staticTexts["Meinst du diesen Ort?"]
         XCTAssertTrue(found.waitForExistence(timeout: 20), "Die Suche im Reiseziel muss einen Treffer liefern")
         capture("paris-eiffel", from: app)
+        func saveFirstSuggestion(_ name: String) {
+            let suggestion = app.buttons.matching(identifier: "PlaceEditor-IdeaSuggestion").firstMatch
+            XCTAssertTrue(suggestion.waitForExistence(timeout: 20), "Vorschlag für \(name) fehlt")
+            suggestion.tap()
+            tap("PlaceEditor-Save", in: app)
+            let drop = app.buttons["Nach oben einwerfen"]
+            XCTAssertTrue(drop.waitForExistence(timeout: 8))
+            drop.tap()
+            let closed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: drop)
+            XCTAssertEqual(XCTWaiter.wait(for: [closed], timeout: 10), .completed)
+        }
+        saveFirstSuggestion("Eiffeltower")
+
+        // Ohne Menü: Eine neue Idee bekommt von selbst ein Bild, auch wenn Wikimedia nichts sicher zuordnet.
+        for name in ["Louvre", "Cafe de Flore"] {
+            tap("native-new-place", in: app)
+            let field = app.textFields["PlaceEditor-Title"]
+            XCTAssertTrue(field.waitForExistence(timeout: 5))
+            field.tap()
+            field.typeText(name)
+            saveFirstSuggestion(name)
+        }
+        sleep(40)
+        tap("native-ideas-list", in: app)
+        sleep(2)
+        capture("paris-auto-list", from: app)
     }
 
     /// Paket 5: „Einladung öffnen“ mit einem Text, der kein Einladungslink ist, erklärt, was fehlt.

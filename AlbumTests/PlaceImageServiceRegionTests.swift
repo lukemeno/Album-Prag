@@ -35,6 +35,31 @@ final class PlaceImageServiceRegionTests: XCTestCase {
         ]))
     }
 
+    /// Fehlerfälle der Website-Vorschau: einfarbiger Platzhalter in voller Größe, Platzhalter-Name in der Adresse.
+    func testWebsitePreviewRejectsBlankPlaceholdersButKeepsRealPhotos() {
+        let size = CGSize(width: 1000, height: 560)
+        let format = UIGraphicsImageRendererFormat(); format.scale = 1
+        let renderer = UIGraphicsImageRenderer(size: size, format: format)
+        let blank = renderer.pngData { context in
+            UIColor.white.setFill(); context.fill(CGRect(origin: .zero, size: size))
+        }
+        XCTAssertFalse(PlaceImageService.isUsableSourcePreviewImage(blank), "Ein einfarbiges Bild ist kein Foto")
+
+        var generator = SystemRandomNumberGenerator()
+        let photo = renderer.jpegData(withCompressionQuality: 0.8) { context in
+            for x in stride(from: 0, to: 1000, by: 8) {
+                for y in stride(from: 0, to: 560, by: 8) {
+                    UIColor(white: CGFloat.random(in: 0...1, using: &generator), alpha: 1).setFill()
+                    context.fill(CGRect(x: x, y: y, width: 8, height: 8))
+                }
+            }
+        }
+        XCTAssertTrue(PlaceImageService.isUsableSourcePreviewImage(photo))
+
+        let placeholder = URL(string: "https://cafedeflore.fr/wp-content/plugins/instagram-feed/img/placeholder.png")!
+        XCTAssertFalse(PlaceImageService.isUsableSourcePreviewThumbnailURL(placeholder))
+    }
+
     func testDisplayImageShowsMapSnapshotLastAndPreservesGenuineWebPreview() {
         let mapURL = "https://www.google.com/maps/search/?api=1&query=Hotel+Urban+Creme"
         let mapPlace = Place(title: "Hotel Urban Crème", sourceURL: mapURL, image: .linkPreview(pageURL: mapURL, thumbnailURL: nil, credit: "Google Maps"), lat: 50.08, lng: 14.42)
@@ -285,8 +310,11 @@ final class PlaceImageServiceRegionTests: XCTestCase {
         format.scale = 1
         format.opaque = true
         let image = UIGraphicsImageRenderer(size: CGSize(width: width, height: height), format: format).image { context in
-            UIColor.systemBlue.setFill()
+            // Zwei Flächen, damit die Fixture nicht als leerer Platzhalter gilt.
+            UIColor.white.setFill()
             context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+            UIColor.black.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: width / 2, height: height))
         }
         return image.jpegData(compressionQuality: 0.85)!
     }

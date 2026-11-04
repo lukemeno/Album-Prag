@@ -276,7 +276,7 @@ final class PlaceResolutionTests: XCTestCase {
         XCTAssertEqual(store.placeImageStatus(for: place.id), .ready)
     }
 
-    func testHiddenGeneratedMapRemainsStoredButReportsNotFound() async {
+    func testGeneratedMapStaysAsLastFallbackAndReportsReady() async {
         let base = Place(id: "hidden-map", title: "Café Savoy", category: "Essen & Trinken", lat: 50.0755, lng: 14.4072)
         var place = base
         place.image = mapSnapshotAsset(for: base)
@@ -289,7 +289,7 @@ final class PlaceResolutionTests: XCTestCase {
         await store.refreshPlaceImage(id: place.id)
 
         XCTAssertEqual(store.places.first?.image, place.image)
-        XCTAssertEqual(store.placeImageStatus(for: place.id), .notFound)
+        XCTAssertEqual(store.placeImageStatus(for: place.id), .ready)
     }
 
     func testVerifiedCommonsWinsWithoutCallingSourcePreview() async {
