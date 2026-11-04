@@ -8,27 +8,27 @@ ios
 
 ## Users
 
-Zwei Menschen, ein Paar, beide mit iPhone. Sie planen gemeinsam Reisen, die erste ist Prag vom 4. bis 9. Oktober 2026 (Hotel Urban Crème). Beide sammeln unabhängig voneinander Ideen aus TikTok, Instagram und dem Netz und wollen daraus eine gemeinsame Reise machen.
+Von einer Person bis zur kleinen Gruppe, alle mit iPhone. Sie planen Reisen, die erste ist die Prag-Reise eines Paars vom 4. bis 9. Oktober 2026 (Hotel Urban Crème). Alle sammeln unabhängig voneinander Ideen aus TikTok, Instagram und dem Netz und wollen daraus eine gemeinsame Reise machen.
 
 Drei Nutzungssituationen, alle gleich wichtig:
-- **Vorher planen:** zu Hause, mit Ruhe. Ideen einwerfen, über die Ideen des anderen abstimmen, Orte auf der Karte sehen, Reisedaten und PDF-Unterlagen ablegen.
+- **Vorher planen:** zu Hause, mit Ruhe. Ideen einwerfen, über die Ideen der anderen abstimmen, Orte auf der Karte sehen, Reisedaten und PDF-Unterlagen ablegen.
 - **Unterwegs in Prag:** auf der Straße, oft einhändig, mit wechselndem Netz. Wo ist der Ort, was steht heute an, wie komme ich an Ticket oder Buchung.
 - **Danach erinnern:** nach der Reise. Was haben wir wirklich gemacht, eigene Fotos, etwas zum Durchblättern.
 
 ## Product Purpose
 
-Eine private Reise-App nur für zwei. Sie macht aus verstreuten Links und Screenshots einen gemeinsamen Plan und am Ende eine Erinnerung. Erfolg: Beide werfen ihre Funde gern hinein, entscheiden gemeinsam, was sie machen, finden unterwegs alles sofort und haben danach ein Album, das sie sich gern anschauen.
+Eine private Reise-App für eine Person bis zu einer kleinen Gruppe. Sie macht aus verstreuten Links und Screenshots einen gemeinsamen Plan und am Ende eine Erinnerung. Erfolg: Alle werfen ihre Funde gern hinein, entscheiden gemeinsam, was sie machen (in Gruppen gilt die Mehrheit, Umsetzung mit Paket 7), finden unterwegs alles sofort und haben danach ein Album, das sie sich gern anschauen.
 
 ## Positioning
 
-Keine Planungs-Software und kein Reiseportal, sondern ein schöner, einfacher Ort für eine gemeinsame Reise: Links sammeln, gemeinsam entscheiden, was ihr davon macht, und alles Wichtige wiederfinden. Laut Nutzer zählen **schön aussehen** und **leichte Bedienung** am meisten. Dass zwei Menschen beteiligt sind, darf in der App spürbar sein, steht aber ausdrücklich **nicht im Vordergrund**.
+Keine Planungs-Software und kein Reiseportal, sondern ein schöner, einfacher Ort für eine gemeinsame Reise: Links sammeln, gemeinsam entscheiden, was ihr davon macht, und alles Wichtige wiederfinden. Laut Nutzer zählen **schön aussehen** und **leichte Bedienung** am meisten. Dass mehrere Menschen beteiligt sind, darf in der App spürbar sein, steht aber ausdrücklich **nicht im Vordergrund**.
 
 ## Operating Context
 
 - Ideen kommen als Links (TikTok, Instagram, Webseiten) oder als Orte aus der Kartensuche.
 - Abstimmen per Wischen: rechts = „Ja“, links = „Nein“, nach oben = „Offen“ für den aktuellen Durchgang (ohne Stimme); jede Entscheidung lässt sich rückgängig machen.
 - Reisedaten (Anreise, Flug, Hotel) und PDF-Unterlagen, bisher eine Datei „Prag Urlaub.pdf“ in iCloud.
-- Synchronisierung zwischen zwei Geräten über einen privaten Einladungslink.
+- Synchronisierung zwischen den Geräten über einen privaten Einladungslink. Mehrere Einladungen kommen mit Paket 7.
 
 ## Capabilities and Constraints
 
@@ -38,7 +38,7 @@ Keine Planungs-Software und kein Reiseportal, sondern ein schöner, einfacher Or
 - Ortsbilder: Linkvorschau → Wikimedia → optional Tripadvisor (aus) → eigenes Foto → gestalteter Platzhalter.
 - Instagram wird nicht ausgelesen; TikTok nur per oEmbed.
 - Installation über ein kostenloses Apple Personal Team; keine iCloud-, App-Group- oder Share-Extension-Entitlements.
-- Datenmodell ist heute auf **eine** Reise ausgelegt (`TripInfo`). Entschieden: jetzt für Prag gestalten, aber so, dass später weitere Reisen Platz haben.
+- Mehrere Reisen liegen nebeneinander in der Reise-Bibliothek (`TripLibrary`), jede mit eigenem Datenbestand.
 - Tools für die Gestaltung: Figma (Datei `BvFJ4PzwQXAxhPlrEw73rB`), Rive CLI 1.0.1.
 
 ## Brand Commitments
@@ -56,7 +56,7 @@ Keine Planungs-Software und kein Reiseportal, sondern ein schöner, einfacher Or
 ## Product Principles
 
 1. **Schön und leicht vor allem anderen.** Jede Gestaltungsidee muss die Bedienung einfacher oder angenehmer machen, nie schwerer.
-2. **Gemeinsam entscheiden, ohne Aufhebens.** Man sieht, was beide wollen, aber die Zweisamkeit ist Beiwerk, nicht Thema.
+2. **Gemeinsam entscheiden, ohne Aufhebens.** Man sieht, was die anderen wollen, aber das Miteinander ist Beiwerk, nicht Thema. Allein funktioniert die App genauso.
 3. **Eine Reise ist ein Objekt, keine Liste.** Planen, Erleben und Erinnern sind dieselbe Sache in drei Zuständen.
 4. **Unterwegs schlägt schön.** Was man in Prag auf der Straße braucht, ist mit einer Hand und schlechtem Netz sofort erreichbar.
 5. **Einwerfen muss mühelos sein.** Ein Link genügt; die App ergänzt Ort, Bild und Kategorie.
