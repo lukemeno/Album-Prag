@@ -61,8 +61,14 @@ enum Stitch {
 
     /// Nur SF (System), alles wächst mit Dynamic Type. `size` ist die Grundgröße, `style` die Skalierungsbasis.
     enum Face {
-        private static func scaled(_ size: CGFloat, _ weight: UIFont.Weight, _ style: Font.TextStyle) -> Font {
-            Font(UIFontMetrics(forTextStyle: style.uiStyle).scaledFont(for: .systemFont(ofSize: size, weight: weight)))
+        /// Ein festes `Font(UIFont)` friert die Größe beim Aufruf ein und gilt für die Bedienhilfe als nicht skalierbar.
+        /// Passt die Grundgröße zum Textstil, nimmt SwiftUI den Stil selbst; sonst skaliert `custom(_:size:relativeTo:)`.
+        /// Ein unbekannter Schriftname fällt dabei auf die Systemschrift (SF) zurück.
+        private static func scaled(_ size: CGFloat, _ weight: Font.Weight, _ style: Font.TextStyle) -> Font {
+            if size == UIFont.preferredFont(forTextStyle: style.uiStyle, compatibleWith: UITraitCollection(preferredContentSizeCategory: .large)).pointSize {
+                return .system(style, weight: weight)
+            }
+            return .custom("AlbumSystem", size: size, relativeTo: style).weight(weight)
         }
 
         /// Hero-Titel, 34 bold.
