@@ -539,3 +539,13 @@ Mac entsperrt. Root hat Stadtsuche Prag/Q1085, 13 reale Katalogorte, sichtbar ge
 - Fächerknopf ist auf der Karte ausgeblendet, er verdeckte dort die Pfeile der Ortsliste. Das behebt `testChoosePlaceImageAndPersistence` nicht.
 - Offener Fehler: Abgleich-Insel hängt nur am alten `ReiseView` und erscheint nicht.
 - `design-gates` prüft Webseiten im Browser und passt nicht auf die SwiftUI-App; Ersatz ist der XCUITest-Audit.
+
+## 05.11.2026: Ganze UI-Suite auf main (`7806c7a`)
+- Lauf: 69 Tests, 12 übersprungen, 12 rot, Rest grün. Wiederholung der 12: 6 grün (BoardingPass, Audit Ideen, Audit Karte, PhotoPicker, Fächer-Ziehen, neue Idee mit Foto), also instabil unter paralleler Last; Ursache je Test nicht einzeln belegt.
+- Echter App-Fehler: „Erneut versuchen“ in der Ideenliste hat eine winzige Tippfläche. Tipp auf die Textmitte (y 628) öffnet die Ortsdetails, Tipp knapp darunter (y 634) startet die Suche und liefert das Bild. Ungescrollt verdeckt der Fächerknopf den Text teils. Den roten `testGlobalImageResolutionReviewAndRetry` erklärte das nur teilweise, siehe unten.
+- Testfehler: `testChoosePlaceImageAndPersistence`, `testCancelDelayedPlaceImageSearch` tippen auf „Bild wählen“, das unter „Änderungen speichern“ liegt; `isHittable` merkt das nicht, der Editor speichert und schließt.
+- Echte Kontrastfunde: „Fertig“ im Album-Blatt, „Ort oder Adresse“ im Editor.
+- Ungeklärt: `testNativeShareCancelSaveAndReactivationAreExactlyOnce`: Tipp auf Ideen wechselt den Tab nicht, Reise bleibt aktiv.
+- Behoben, uncommittet: Status-Knöpfe mit 44 pt Tippfläche im Label (Zeile unter der Karte dadurch etwas höher); Test scrollt „Bild wählen“ über die Speichern-Leiste; veraltete Erwartung „Quelle ansehen“ → „Quelle“; Testdaten `ALBUM_GLOBAL_IMAGE_QA` nur noch einmal setzen, weil `configureQA` mehrfach läuft und den Retry-Zähler zurücksetzte.
+- Nachweis: `testChoosePlaceImageAndPersistence`, `testCancelDelayedPlaceImageSearch`, `testGlobalImageResolutionReviewAndRetry`, Editor-Audit grün. Noch rot: Share-Test (ungeklärt), `testPopulatedTripMemoriesBrowsePhotosAndPlaces` (Kontrast „Fertig“, bewusst fürs neue Design offen). Der Kontrastfund im Editor trat im letzten Lauf nicht auf, also instabil. Ganze Suite nicht wiederholt.
+- Nebenbefund, nicht behoben: In der Ideenliste scheint beim Scrollen die Kategorie-Leiste über dem angepinnten Kopf durch die Statusleiste.

@@ -983,9 +983,8 @@ extension AlbumUITests {
         app.buttons["Bearbeiten"].tap()
 
         let choose = app.buttons["Bild wählen"]
-        for _ in 0..<6 where !choose.isHittable { app.swipeUp() }
         XCTAssertTrue(choose.waitForExistence(timeout: 5))
-        XCTAssertTrue(choose.isHittable, "Bild wählen muss vor dem verzögerten Resolver-Tap hittable sein")
+        revealAboveSaveBar(choose, in: app)
         choose.tap()
         XCTAssertTrue(app.buttons["Bilder werden gesucht …"].waitForExistence(timeout: 5), "Der isolierte Bildresolver muss vor Cancel sichtbar beschäftigt sein")
         let cancel = app.buttons["PlaceEditor-Cancel"].exists ? app.buttons["PlaceEditor-Cancel"] : app.buttons["Abbrechen"]
@@ -1033,6 +1032,16 @@ extension AlbumUITests {
         relaunchedCancel.tap()
     }
 
+    /// `isHittable` bemerkt die schwebende Speichern-Leiste des Editors nicht: Der Tipp landet sonst auf Speichern.
+    private func revealAboveSaveBar(_ element: XCUIElement, in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        let save = app.buttons["PlaceEditor-Save"]
+        func isClear() -> Bool { element.isHittable && element.frame.maxY < save.frame.minY }
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.65))
+        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.45))
+        for _ in 0..<8 where !isClear() { start.press(forDuration: 0.05, thenDragTo: end) }
+        XCTAssertTrue(isClear(), "\(element) muss frei über der Speichern-Leiste liegen", file: file, line: line)
+    }
+
     func testChoosePlaceImageAndPersistence() throws {
         let store = "slot-image-\(UUID().uuidString)"
         let credit = "Café Louvre Testarchiv"
@@ -1065,11 +1074,12 @@ extension AlbumUITests {
         }
         edit()
         let choose = app.buttons["Bild wählen"]
-        reveal(choose)
+        XCTAssertTrue(choose.waitForExistence(timeout: 5))
+        revealAboveSaveBar(choose, in: app)
         choose.tap()
         XCTAssertTrue(app.navigationBars["Bild wählen"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["Ortszuordnung bitte prüfen"].exists)
-        XCTAssertTrue(hasElement(label: "Quelle ansehen"))
+        XCTAssertTrue(hasElement(label: "Quelle"))
         XCTAssertTrue(hasElement(label: "Lizenz · CC BY-SA 4.0"))
         let alternative = app.buttons["place-image-choice-1"]
         reveal(alternative)

@@ -1330,9 +1330,7 @@ private struct NativeIdeaRow: View {
                 HStack {
                     imageStatus("Ort bitte auswählen")
                     Spacer()
-                    Button("Ort auswählen") { resolutionCandidates = candidates }
-                        .font(.caption.weight(.semibold))
-                        .accessibilityIdentifier("native-resolve-\(place.id)")
+                    statusAction("Ort auswählen", id: "native-resolve-\(place.id)") { resolutionCandidates = candidates }
                 }
             }
         case .failed(let retryable):
@@ -1340,9 +1338,7 @@ private struct NativeIdeaRow: View {
                 HStack {
                     imageStatus("Suche fehlgeschlagen")
                     Spacer()
-                    Button("Erneut versuchen") { retryImage() }
-                        .font(.caption.weight(.semibold))
-                        .accessibilityIdentifier("native-retry-image-\(place.id)")
+                    statusAction("Erneut versuchen", id: "native-retry-image-\(place.id)") { retryImage() }
                 }
             } else {
                 HStack {
@@ -1362,9 +1358,18 @@ private struct NativeIdeaRow: View {
     }
 
     private var editPlaceButton: some View {
-        Button("Ort bearbeiten") { sheet = .add(place) }
-            .font(.caption.weight(.semibold))
-            .accessibilityIdentifier("native-resolve-\(place.id)")
+        statusAction("Ort bearbeiten", id: "native-resolve-\(place.id)") { sheet = .add(place) }
+    }
+
+    /// Kleine Textaktion unter der Karte. Die volle Tippfläche liegt im Label, sonst fängt die Karte darüber den Tipp ab.
+    private func statusAction(_ title: String, id: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .frame(minHeight: Stitch.Size.touch)
+                .contentShape(Rectangle())
+        }
+        .font(.caption.weight(.semibold))
+        .accessibilityIdentifier(id)
     }
 
     private var resolutionSheet: some View {

@@ -200,7 +200,8 @@ import UIKit
                 Place(id: "global-retry", title: "Tokyo Skytree", category: "Sehenswert")
             ]; _ = store.persist()
         }
-        if environment["ALBUM_GLOBAL_IMAGE_QA"] == "1" {
+        // configureQA läuft mehrfach. Nur einmal einsetzen, sonst fängt der Zähler jedes Mal wieder bei null an.
+        if environment["ALBUM_GLOBAL_IMAGE_QA"] == "1", store.placeResolutionResolver == nil {
             var retryCount = 0
             store.placeResolutionResolver = { place, _ in
                 let tokyo = PlaceResolutionCandidate(id: "qa-tokyo", title: place.title, address: "Tokyo, Japan", latitude: 35.6586, longitude: 139.7454, category: place.category)
